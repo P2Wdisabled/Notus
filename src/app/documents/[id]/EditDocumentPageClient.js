@@ -1,10 +1,11 @@
 "use client";
 
 import { useActionState } from "react";
-import { updateDocumentAction, getDocumentByIdAction } from "@/lib/actions";
-import { useState, useEffect } from "react";
+import { updateDocumentAction } from "@/lib/actions";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useLocalSession } from "@/hooks/useLocalSession";
 
 export default function EditDocumentPageClient({ session, params }) {
   const router = useRouter();
@@ -18,41 +19,103 @@ export default function EditDocumentPageClient({ session, params }) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
 
+  // Utiliser notre hook personnalisé pour gérer la session
+  const {
+    session: localSession,
+    loading: sessionLoading,
+    isLoggedIn,
+    userId,
+  } = useLocalSession(session);
+
   useEffect(() => {
-    if (session && params.id) {
+    console.log("🔍 [DEBUG] useEffect déclenché avec:", {
+      isLoggedIn,
+      paramsId: params.id,
+      userId,
+      shouldLoad: isLoggedIn && params.id && userId,
+    });
+
+    if (isLoggedIn && params.id && userId) {
       loadDocument();
     }
-  }, [session, params.id]);
+  }, [isLoggedIn, params.id, userId]);
 
-  const loadDocument = async () => {
+  const loadDocument = useCallback(async () => {
     try {
       setLoading(true);
-      const result = await getDocumentByIdAction(params.id);
+      console.log("🔍 [CLIENT] Début du chargement du document ID:", params.id);
+
+      // Utiliser l'API openDoc pour récupérer le titre et le contenu
+      const apiUrl = `/api/openDoc?id=${params.id}`;
+      console.log("🔍 [CLIENT] Appel API:", apiUrl);
+
+      const response = await fetch(apiUrl);
+      console.log(
+        "🔍 [CLIENT] Réponse reçue:",
+        response.status,
+        response.statusText
+      );
+
+      const result = await response.json();
+      console.log("🔍 [CLIENT] Données reçues:", result);
 
       if (result.success) {
-        setDocument(result.document);
-        setTitle(result.document.title);
-        setContent(result.document.content);
+        // Créer un objet document avec les données reçues
+        const documentData = {
+          id: params.id,
+          title: result.title,
+          content: result.content,
+          user_id: parseInt(userId), // Utiliser l'ID utilisateur de la session
+        };
+
+        console.log("🔍 [CLIENT] Document créé:", documentData);
+        setDocument(documentData);
+        setTitle(result.title);
+        setContent(result.content);
+        console.log("🔍 [CLIENT] État mis à jour avec succès");
       } else {
+        console.error("❌ [CLIENT] Erreur API:", result.error);
         setError(result.error || "Erreur lors du chargement du document");
       }
     } catch (err) {
       setError("Erreur lors du chargement du document");
-      console.error("Erreur:", err);
+      console.error("❌ [CLIENT] Erreur:", err);
     } finally {
       setLoading(false);
+      console.log("🔍 [CLIENT] Chargement terminé");
     }
-  };
+  }, [params.id, userId]);
 
   const handleSubmit = (formData) => {
+    if (!userId) {
+      console.error(
+        "❌ Erreur: ID utilisateur non défini dans la session localStorage"
+      );
+      alert("Erreur: Session utilisateur invalide. Veuillez vous reconnecter.");
+      return;
+    }
+
     formData.append("documentId", params.id);
-    formData.append("userId", session.user.id);
+    formData.append("userId", userId);
     formData.append("title", title);
     formData.append("content", content);
     formAction(formData);
   };
 
-  if (!session) {
+  if (sessionLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-300">
+            Chargement de la session...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isLoggedIn) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
@@ -125,7 +188,7 @@ export default function EditDocumentPageClient({ session, params }) {
   }
 
   // Vérifier si l'utilisateur est le propriétaire du document
-  if (document.user_id !== session.user.id) {
+  if (document.user_id !== parseInt(userId)) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 max-w-md w-full text-center">

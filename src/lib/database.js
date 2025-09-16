@@ -309,6 +309,109 @@ const createDocument = async (userId, title = "Sans titre", content = "") => {
   }
 };
 
+// Fonction pour créer ou mettre à jour une note (évite les doublons)
+const createOrUpdateNote = async (userId, content) => {
+  try {
+    // Vérifier s'il existe déjà une note pour cet utilisateur aujourd'hui
+    const today = new Date().toISOString().split("T")[0]; // Format YYYY-MM-DD
+    const existingNote = await query(
+      `SELECT id, content FROM documents 
+       WHERE user_id = $1 AND title LIKE $2 AND DATE(created_at) = $3
+       ORDER BY created_at DESC LIMIT 1`,
+      [userId, `Note du %`, today]
+    );
+
+    if (existingNote.rows.length > 0) {
+      // Mettre à jour la note existante
+      const result = await query(
+        `UPDATE documents 
+         SET content = $1, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $2 AND user_id = $3
+         RETURNING id, title, content, created_at, updated_at`,
+        [content, existingNote.rows[0].id, userId]
+      );
+
+      return {
+        success: true,
+        document: result.rows[0],
+        isUpdate: true,
+      };
+    } else {
+      // Créer une nouvelle note
+      const title = `Note du ${new Date().toLocaleDateString("fr-FR")}`;
+      const result = await query(
+        `INSERT INTO documents (user_id, title, content)
+         VALUES ($1, $2, $3)
+         RETURNING id, title, content, created_at, updated_at`,
+        [userId, title, content]
+      );
+
+      return {
+        success: true,
+        document: result.rows[0],
+        isUpdate: false,
+      };
+    }
+  } catch (error) {
+    console.error("❌ Erreur création/mise à jour note:", error);
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+};
+
+// Fonction pour créer ou mettre à jour un document (évite les doublons)
+const createOrUpdateDocument = async (userId, title, content) => {
+  try {
+    // Vérifier s'il existe déjà un document "en cours" pour cet utilisateur
+    // Un document est considéré "en cours" s'il a été créé dans les dernières 24h
+    const existingDocument = await query(
+      `SELECT id, title, content FROM documents 
+       WHERE user_id = $1 AND created_at > NOW() - INTERVAL '24 hours'
+       ORDER BY created_at DESC LIMIT 1`,
+      [userId]
+    );
+
+    if (existingDocument.rows.length > 0) {
+      // Mettre à jour le document existant
+      const result = await query(
+        `UPDATE documents 
+         SET title = $1, content = $2, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $3 AND user_id = $4
+         RETURNING id, title, content, created_at, updated_at`,
+        [title, content, existingDocument.rows[0].id, userId]
+      );
+
+      return {
+        success: true,
+        document: result.rows[0],
+        isUpdate: true,
+      };
+    } else {
+      // Créer un nouveau document
+      const result = await query(
+        `INSERT INTO documents (user_id, title, content)
+         VALUES ($1, $2, $3)
+         RETURNING id, title, content, created_at, updated_at`,
+        [userId, title, content]
+      );
+
+      return {
+        success: true,
+        document: result.rows[0],
+        isUpdate: false,
+      };
+    }
+  } catch (error) {
+    console.error("❌ Erreur création/mise à jour document:", error);
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+};
+
 // Fonction pour récupérer les documents d'un utilisateur
 const getUserDocuments = async (userId, limit = 20, offset = 0) => {
   try {
@@ -422,6 +525,61 @@ const updateDocument = async (documentId, userId, title, content) => {
   }
 };
 
+// Fonction pour créer ou mettre à jour un document avec ID spécifique (pour l'édition)
+const createOrUpdateDocumentById = async (
+  documentId,
+  userId,
+  title,
+  content
+) => {
+  try {
+    if (documentId) {
+      // Mettre à jour le document existant
+      const result = await query(
+        `UPDATE documents 
+         SET title = $1, content = $2, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $3 AND user_id = $4
+         RETURNING id, title, content, created_at, updated_at`,
+        [title, content, documentId, userId]
+      );
+
+      if (result.rows.length === 0) {
+        return {
+          success: false,
+          error:
+            "Document non trouvé ou vous n'êtes pas autorisé à le modifier",
+        };
+      }
+
+      return {
+        success: true,
+        document: result.rows[0],
+        isUpdate: true,
+      };
+    } else {
+      // Créer un nouveau document
+      const result = await query(
+        `INSERT INTO documents (user_id, title, content)
+         VALUES ($1, $2, $3)
+         RETURNING id, title, content, created_at, updated_at`,
+        [userId, title, content]
+      );
+
+      return {
+        success: true,
+        document: result.rows[0],
+        isUpdate: false,
+      };
+    }
+  } catch (error) {
+    console.error("❌ Erreur création/mise à jour document par ID:", error);
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+};
+
 // Fonction pour supprimer un document (seulement par son créateur)
 const deleteDocument = async (documentId, userId) => {
   try {
@@ -460,6 +618,9 @@ module.exports = {
   createUser,
   verifyUserEmail,
   createDocument,
+  createOrUpdateNote,
+  createOrUpdateDocument,
+  createOrUpdateDocumentById,
   getUserDocuments,
   getAllDocuments,
   getDocumentById,

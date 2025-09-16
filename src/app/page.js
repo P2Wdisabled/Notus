@@ -2,6 +2,7 @@ import { auth } from "../../auth";
 import Link from "next/link";
 import { getAllDocumentsAction } from "@/lib/actions";
 import DocumentCard from "@/components/DocumentCard";
+import Navigation from "@/components/Navigation";
 
 export default async function Home() {
   const session = await auth();
@@ -18,13 +19,11 @@ export default async function Home() {
           <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
             Partagez ce qui vous passe par la tête
           </p>
-          {session?.user && (
-            <div className="mt-6 p-4 bg-green-100 dark:bg-green-900/20 rounded-lg max-w-md mx-auto">
-              <p className="text-green-800 dark:text-green-200">
-                Connecté en tant que <strong>{session.user.name}</strong>
-              </p>
-            </div>
-          )}
+
+          {/* Navigation */}
+          <div className="mt-6 flex justify-center">
+            <Navigation serverSession={session} />
+          </div>
         </header>
 
         {/* Fil d'actualité */}
@@ -78,43 +77,6 @@ export default async function Home() {
               </p>
             </div>
           )}
-        </div>
-
-        {/* Navigation */}
-        <div className="text-center mt-8">
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            {session?.user ? (
-              <>
-                <Link
-                  href="/profile"
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors text-center"
-                >
-                  Mon profil
-                </Link>
-                <Link
-                  href="/logout"
-                  className="bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors text-center"
-                >
-                  Se déconnecter
-                </Link>
-              </>
-            ) : (
-              <>
-                <Link
-                  href="/register"
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors text-center"
-                >
-                  S'inscrire
-                </Link>
-                <Link
-                  href="/login"
-                  className="border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-semibold py-3 px-6 rounded-lg transition-colors text-center"
-                >
-                  Se connecter
-                </Link>
-              </>
-            )}
-          </div>
         </div>
       </div>
     </div>

@@ -62,6 +62,9 @@ async function createOrUpdateOAuthUser(profile: any) {
         id: (user as any).id.toString(),
         email: (user as any).email,
         name: `${(user as any).first_name} ${(user as any).last_name}`,
+        firstName: (user as any).first_name,
+        lastName: (user as any).last_name,
+        username: (user as any).username,
       };
     } else {
       // Créer un nouvel utilisateur OAuth
@@ -91,6 +94,9 @@ async function createOrUpdateOAuthUser(profile: any) {
         id: (user as any).id.toString(),
         email: (user as any).email,
         name: `${(user as any).first_name} ${(user as any).last_name}`,
+        firstName: (user as any).first_name,
+        lastName: (user as any).last_name,
+        username: (user as any).username,
       };
     }
   } catch (error) {
@@ -133,6 +139,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               id: (user as any).id.toString(),
               email: (user as any).email,
               name: `${(user as any).first_name} ${(user as any).last_name}`,
+              firstName: (user as any).first_name,
+              lastName: (user as any).last_name,
+              username: (user as any).username,
             };
           }
         }
@@ -166,9 +175,22 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           token.id = oauthUser.id;
           token.email = oauthUser.email;
           token.name = oauthUser.name;
+          token.firstName = oauthUser.firstName;
+          token.lastName = oauthUser.lastName;
+          token.username = oauthUser.username;
         } catch (error) {
           console.error('Erreur lors de la récupération de l\'utilisateur OAuth:', error);
         }
+      }
+      
+      // Si c'est une connexion par credentials et que l'utilisateur a un ID
+      if (account?.provider === 'credentials' && user?.id) {
+        token.id = user.id;
+        token.email = user.email;
+        token.name = user.name;
+        token.firstName = user.firstName;
+        token.lastName = user.lastName;
+        token.username = user.username;
       }
       
       return token;
@@ -176,6 +198,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async session({ session, token }) {
       if (token.id) {
         session.user.id = token.id as string;
+        session.user.firstName = token.firstName as string;
+        session.user.lastName = token.lastName as string;
+        session.user.username = token.username as string;
       }
       return session;
     },

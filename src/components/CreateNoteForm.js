@@ -53,14 +53,18 @@ export default function CreateNoteForm({ userId }) {
         {message && (
           <div
             className={`rounded-lg p-4 ${
-              message.includes("succès") || message.includes("publiée")
+              message.includes("succès") ||
+              message.includes("publiée") ||
+              message.includes("mise à jour")
                 ? "bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800"
                 : "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"
             }`}
           >
             <p
               className={`text-sm ${
-                message.includes("succès") || message.includes("publiée")
+                message.includes("succès") ||
+                message.includes("publiée") ||
+                message.includes("mise à jour")
                   ? "text-green-600 dark:text-green-400"
                   : "text-red-600 dark:text-red-400"
               }`}

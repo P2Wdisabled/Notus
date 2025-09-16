@@ -7,7 +7,7 @@ import { validateRegistrationData } from './validation';
 import { initializeTables } from './database';
 import { generateVerificationToken, sendVerificationEmail, sendPasswordResetEmail } from './email';
 import bcrypt from 'bcryptjs';
-import { query, createDocument, getUserDocuments, getAllDocuments, getDocumentById, updateDocument, deleteDocument } from './database';
+import { query, createDocument, createOrUpdateNote, createOrUpdateDocument, createOrUpdateDocumentById, getUserDocuments, getAllDocuments, getDocumentById, updateDocument, deleteDocument } from './database';
 
 export async function authenticate(
   prevState: string | undefined,
@@ -268,11 +268,29 @@ export async function createDocumentAction(
       return 'Utilisateur requis.';
     }
 
-    // Vérifier que l'ID utilisateur est un nombre valide
-    const userIdNumber = parseInt(userId);
-    if (isNaN(userIdNumber) || userIdNumber <= 0) {
-      console.error('❌ ID utilisateur invalide:', userId);
-      return 'ID utilisateur invalide. Veuillez vous reconnecter.';
+    // Debug: Afficher l'ID utilisateur reçu
+    console.log('🔍 Debug createDocumentAction - ID utilisateur reçu:', userId, 'Type:', typeof userId);
+    
+    // Gérer les différents types d'IDs utilisateur
+    let userIdNumber: number;
+    
+    // Si l'ID utilisateur est undefined ou null
+    if (!userId || userId === 'undefined' || userId === 'null' || userId === 'unknown') {
+      console.error('❌ ID utilisateur non défini dans la session');
+      return 'Session utilisateur invalide. Veuillez vous reconnecter.';
+    }
+    
+    // Si c'est un ID de simulation OAuth
+    if (userId === 'oauth-simulated-user') {
+      userIdNumber = 1; // ID de simulation
+      console.log('🔍 Mode simulation OAuth détecté, utilisation de l\'ID:', userIdNumber);
+    } else {
+      // Vérifier que l'ID utilisateur est un nombre valide
+      userIdNumber = parseInt(userId);
+      if (isNaN(userIdNumber) || userIdNumber <= 0) {
+        console.error('❌ ID utilisateur invalide:', userId, 'Parsed as:', userIdNumber);
+        return 'ID utilisateur invalide. Veuillez vous reconnecter.';
+      }
     }
 
     if (!title || title.trim().length === 0) {
@@ -293,17 +311,21 @@ export async function createDocumentAction(
     // Initialiser les tables si elles n'existent pas
     await initializeTables();
 
-    // Créer le document
-    const result = await createDocument(userIdNumber, title.trim(), content || '');
+    // Créer ou mettre à jour le document (évite les doublons)
+    const result = await createOrUpdateDocument(userIdNumber, title.trim(), content || '');
 
     if (!result.success) {
-      console.error('❌ Erreur création document:', result.error);
+      console.error('❌ Erreur création/mise à jour document:', result.error);
       return 'Erreur lors de la création du document. Veuillez réessayer.';
     }
 
-    console.log(`📄 Document créé: ${result.document.id} par utilisateur ${userIdNumber}`);
-
-    return 'Document créé avec succès !';
+    if (result.isUpdate) {
+      console.log(`📄 Document mis à jour: ${result.document.id} par utilisateur ${userIdNumber}`);
+      return 'Document mis à jour avec succès !';
+    } else {
+      console.log(`📄 Document créé: ${result.document.id} par utilisateur ${userIdNumber}`);
+      return 'Document créé avec succès !';
+    }
   } catch (error: any) {
     console.error('❌ Erreur lors de la création du document:', error);
     
@@ -436,8 +458,24 @@ export async function deleteNoteAction(
     // Initialiser les tables si elles n'existent pas
     await initializeTables();
 
+    // Gérer les différents types d'IDs utilisateur
+    let userIdNumber: number;
+    
+    // Si c'est un ID de simulation OAuth
+    if (userId === 'oauth-simulated-user') {
+      userIdNumber = 1; // ID de simulation
+      console.log('🔍 Mode simulation OAuth détecté, utilisation de l\'ID:', userIdNumber);
+    } else {
+      // Vérifier que l'ID utilisateur est un nombre valide
+      userIdNumber = parseInt(userId);
+      if (isNaN(userIdNumber) || userIdNumber <= 0) {
+        console.error('❌ ID utilisateur invalide:', userId, 'Parsed as:', userIdNumber);
+        return 'ID utilisateur invalide. Veuillez vous reconnecter.';
+      }
+    }
+
     // Supprimer la note
-    const result = await deleteNote(parseInt(noteId), parseInt(userId));
+    const result = await deleteNote(parseInt(noteId), userIdNumber);
 
     if (!result.success) {
       console.error('❌ Erreur suppression note:', result.error);
@@ -521,18 +559,37 @@ export async function updateDocumentAction(
       return 'ID de document, utilisateur et titre requis.';
     }
 
-    // Vérifier que les IDs sont des nombres valides
+    // Debug: Afficher les IDs reçus
+    console.log('🔍 Debug updateDocumentAction - ID utilisateur reçu:', userId, 'Type:', typeof userId);
+    console.log('🔍 Debug updateDocumentAction - ID document reçu:', documentId, 'Type:', typeof documentId);
+
+    // Vérifier que l'ID document est un nombre valide
     const documentIdNumber = parseInt(documentId);
-    const userIdNumber = parseInt(userId);
-    
     if (isNaN(documentIdNumber) || documentIdNumber <= 0) {
-      console.error('❌ ID document invalide:', documentId);
+      console.error('❌ ID document invalide:', documentId, 'Parsed as:', documentIdNumber);
       return 'ID document invalide.';
     }
     
-    if (isNaN(userIdNumber) || userIdNumber <= 0) {
-      console.error('❌ ID utilisateur invalide:', userId);
-      return 'ID utilisateur invalide. Veuillez vous reconnecter.';
+    // Gérer les différents types d'IDs utilisateur
+    let userIdNumber: number;
+    
+    // Si l'ID utilisateur est undefined ou null
+    if (!userId || userId === 'undefined' || userId === 'null' || userId === 'unknown') {
+      console.error('❌ ID utilisateur non défini dans la session');
+      return 'Session utilisateur invalide. Veuillez vous reconnecter.';
+    }
+    
+    // Si c'est un ID de simulation OAuth
+    if (userId === 'oauth-simulated-user') {
+      userIdNumber = 1; // ID de simulation
+      console.log('🔍 Mode simulation OAuth détecté, utilisation de l\'ID:', userIdNumber);
+    } else {
+      // Vérifier que l'ID utilisateur est un nombre valide
+      userIdNumber = parseInt(userId);
+      if (isNaN(userIdNumber) || userIdNumber <= 0) {
+        console.error('❌ ID utilisateur invalide:', userId, 'Parsed as:', userIdNumber);
+        return 'ID utilisateur invalide. Veuillez vous reconnecter.';
+      }
     }
 
     if (title.trim().length === 0) {
@@ -553,17 +610,21 @@ export async function updateDocumentAction(
     // Initialiser les tables si elles n'existent pas
     await initializeTables();
 
-    // Mettre à jour le document
-    const result = await updateDocument(documentIdNumber, userIdNumber, title.trim(), content || '');
+    // Créer ou mettre à jour le document avec ID spécifique
+    const result = await createOrUpdateDocumentById(documentIdNumber, userIdNumber, title.trim(), content || '');
 
     if (!result.success) {
-      console.error('❌ Erreur mise à jour document:', result.error);
+      console.error('❌ Erreur création/mise à jour document:', result.error);
       return result.error;
     }
 
-    console.log(`📄 Document mis à jour: ${documentIdNumber} par utilisateur ${userIdNumber}`);
-
-    return 'Document sauvegardé avec succès !';
+    if (result.isUpdate) {
+      console.log(`📄 Document mis à jour: ${documentIdNumber} par utilisateur ${userIdNumber}`);
+      return 'Document sauvegardé avec succès !';
+    } else {
+      console.log(`📄 Document créé: ${result.document.id} par utilisateur ${userIdNumber}`);
+      return 'Document créé avec succès !';
+    }
   } catch (error: any) {
     console.error('❌ Erreur lors de la mise à jour du document:', error);
     
@@ -631,5 +692,128 @@ export async function deleteDocumentAction(
     }
     
     return 'Erreur lors de la suppression du document. Veuillez réessayer.';
+  }
+}
+
+// Action pour récupérer l'ID utilisateur depuis la base de données
+export async function getUserIdByEmailAction(email: string) {
+  try {
+    // Vérifier si la base de données est configurée
+    if (!process.env.DATABASE_URL) {
+      console.log('⚠️ Base de données non configurée - Mode simulation');
+      return {
+        success: true,
+        userId: "1" // ID de simulation
+      };
+    }
+
+    // Initialiser les tables si elles n'existent pas
+    await initializeTables();
+
+    // Récupérer l'ID utilisateur par email
+    const result = await query(
+      'SELECT id FROM users WHERE email = $1',
+      [email]
+    );
+
+    if (result.rows.length > 0) {
+      return {
+        success: true,
+        userId: result.rows[0].id.toString()
+      };
+    }
+
+    return {
+      success: false,
+      error: 'Utilisateur non trouvé'
+    };
+  } catch (error: any) {
+    console.error('❌ Erreur lors de la récupération de l\'ID utilisateur:', error);
+    return {
+      success: false,
+      error: 'Erreur lors de la récupération de l\'ID utilisateur'
+    };
+  }
+}
+
+// Action pour créer une note (alias pour createDocumentAction)
+export async function createNoteAction(
+  prevState: string | undefined,
+  formData: FormData,
+) {
+  try {
+    const content = formData.get('content') as string;
+    const userId = formData.get('userId') as string;
+
+    if (!userId) {
+      return 'Utilisateur requis.';
+    }
+
+    // Debug: Afficher l'ID utilisateur reçu
+    console.log('🔍 Debug createNoteAction - ID utilisateur reçu:', userId, 'Type:', typeof userId);
+    
+    // Gérer les différents types d'IDs utilisateur
+    let userIdNumber: number;
+    
+    // Si l'ID utilisateur est undefined ou null
+    if (!userId || userId === 'undefined' || userId === 'null' || userId === 'unknown') {
+      console.error('❌ ID utilisateur non défini dans la session');
+      return 'Session utilisateur invalide. Veuillez vous reconnecter.';
+    }
+    
+    // Si c'est un ID de simulation OAuth
+    if (userId === 'oauth-simulated-user') {
+      userIdNumber = 1; // ID de simulation
+      console.log('🔍 Mode simulation OAuth détecté, utilisation de l\'ID:', userIdNumber);
+    } else {
+      // Vérifier que l'ID utilisateur est un nombre valide
+      userIdNumber = parseInt(userId);
+      if (isNaN(userIdNumber) || userIdNumber <= 0) {
+        console.error('❌ ID utilisateur invalide:', userId, 'Parsed as:', userIdNumber);
+        return 'ID utilisateur invalide. Veuillez vous reconnecter.';
+      }
+    }
+
+    if (!content || content.trim().length === 0) {
+      return 'Le contenu de la note ne peut pas être vide.';
+    }
+
+    if (content.length > 1000) {
+      return 'Le contenu ne peut pas dépasser 1000 caractères.';
+    }
+
+    // Vérifier si la base de données est configurée
+    if (!process.env.DATABASE_URL) {
+      console.log('⚠️ Base de données non configurée - Mode simulation');
+      console.log(`📝 Note simulée pour utilisateur ${userIdNumber}: ${content.substring(0, 50)}...`);
+      return 'Note publiée avec succès (mode simulation). Configurez DATABASE_URL pour la persistance.';
+    }
+
+    // Initialiser les tables si elles n'existent pas
+    await initializeTables();
+
+    // Créer ou mettre à jour la note (évite les doublons)
+    const result = await createOrUpdateNote(userIdNumber, content.trim());
+
+    if (!result.success) {
+      console.error('❌ Erreur création/mise à jour note:', result.error);
+      return 'Erreur lors de la publication de la note. Veuillez réessayer.';
+    }
+
+    if (result.isUpdate) {
+      console.log(`📝 Note mise à jour: ${result.document.id} par utilisateur ${userIdNumber}`);
+      return 'Note mise à jour avec succès !';
+    } else {
+      console.log(`📝 Note créée: ${result.document.id} par utilisateur ${userIdNumber}`);
+      return 'Note publiée avec succès !';
+    }
+  } catch (error: any) {
+    console.error('❌ Erreur lors de la création de la note:', error);
+    
+    if (error.code === 'ECONNRESET' || error.code === 'ECONNREFUSED') {
+      return 'Base de données non accessible. Vérifiez la configuration PostgreSQL.';
+    }
+    
+    return 'Erreur lors de la publication de la note. Veuillez réessayer.';
   }
 }

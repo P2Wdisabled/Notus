@@ -1,10 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useLocalSession } from "@/hooks/useLocalSession";
 
-export default function FloatingCreateButton({ session }) {
+export default function FloatingCreateButton({ serverSession }) {
+  const { isLoggedIn, loading } = useLocalSession(serverSession);
+
   // Ne pas afficher le bouton si l'utilisateur n'est pas connecté
-  if (!session?.user) {
+  if (loading || !isLoggedIn) {
     return null;
   }
 

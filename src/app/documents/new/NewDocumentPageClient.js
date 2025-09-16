@@ -5,6 +5,7 @@ import { createDocumentAction } from "@/lib/actions";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useLocalSession } from "@/hooks/useLocalSession";
 
 export default function NewDocumentPageClient({ session }) {
   const router = useRouter();
@@ -15,7 +16,33 @@ export default function NewDocumentPageClient({ session }) {
   const [title, setTitle] = useState("Sans titre");
   const [content, setContent] = useState("");
 
-  if (!session) {
+  // Utiliser notre hook personnalisé pour gérer la session
+  const {
+    session: localSession,
+    loading,
+    isLoggedIn,
+    userId,
+  } = useLocalSession(session);
+
+  // Debug: Afficher le contenu de la session
+  console.log("🔍 Debug NewDocumentPageClient - Session serveur:", session);
+  console.log(
+    "🔍 Debug NewDocumentPageClient - Session localStorage:",
+    localSession
+  );
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-300">Chargement...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isLoggedIn) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
@@ -37,7 +64,17 @@ export default function NewDocumentPageClient({ session }) {
   }
 
   const handleSubmit = (formData) => {
-    formData.append("userId", session.user.id);
+    // Vérifier que l'ID utilisateur est défini dans la session localStorage
+    if (!userId) {
+      console.error(
+        "❌ Erreur: ID utilisateur non défini dans la session localStorage"
+      );
+      alert("Erreur: Session utilisateur invalide. Veuillez vous reconnecter.");
+      return;
+    }
+
+    console.log("🔍 Debug handleSubmit - User ID (localStorage):", userId);
+    formData.append("userId", userId);
     formData.append("title", title);
     formData.append("content", content);
     formAction(formData);
@@ -111,14 +148,18 @@ export default function NewDocumentPageClient({ session }) {
             {message && (
               <div
                 className={`rounded-lg p-4 ${
-                  message.includes("succès") || message.includes("créé")
+                  message.includes("succès") ||
+                  message.includes("créé") ||
+                  message.includes("mis à jour")
                     ? "bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800"
                     : "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"
                 }`}
               >
                 <p
                   className={`text-sm ${
-                    message.includes("succès") || message.includes("créé")
+                    message.includes("succès") ||
+                    message.includes("créé") ||
+                    message.includes("mis à jour")
                       ? "text-green-600 dark:text-green-400"
                       : "text-red-600 dark:text-red-400"
                   }`}
