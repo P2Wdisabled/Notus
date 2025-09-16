@@ -1,0 +1,38 @@
+{
+  "name": "notus",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build --turbopack",
+    "start": "next start",
+    "lint": "eslint",
+    "init-db": "node scripts/init-db.js",
+    "reset-db": "node scripts/reset-db.js",
+    "test-email": "node scripts/test-email.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.16.1",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/pg": "^8.15.5",
+    "bcryptjs": "^3.0.2",
+    "dotenv": "^17.2.2",
+    "jsonwebtoken": "^9.0.2",
+    "next": "15.5.3",
+    "next-auth": "^5.0.0-beta.29",
+    "pg": "^8.16.3",
+    "prisma": "^6.16.1",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "resend": "^6.0.3",
+    "zod": "^4.1.8"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
+    "eslint": "^9",
+    "eslint-config-next": "15.5.3",
+    "tailwindcss": "^4"
+  }
+}

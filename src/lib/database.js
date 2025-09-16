@@ -1,0 +1,473 @@
+const { Pool } = require("pg");
+
+// Configuration de la connexion à la base de données
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
+});
+
+// Test de connexion
+pool.on("connect", () => {
+  console.log("✅ Connexion à PostgreSQL établie");
+});
+
+pool.on("error", (err) => {
+  console.error("❌ Erreur de connexion PostgreSQL:", err);
+  process.exit(-1);
+});
+
+// Fonction pour exécuter des requêtes
+const query = async (text, params) => {
+  const start = Date.now();
+  try {
+    const res = await pool.query(text, params);
+    const duration = Date.now() - start;
+    console.log("📊 Requête exécutée:", { text, duration, rows: res.rowCount });
+    return res;
+  } catch (error) {
+    console.error("❌ Erreur de requête:", error);
+    throw error;
+  }
+};
+
+// Fonction pour initialiser les tables
+const initializeTables = async () => {
+  try {
+    console.log("🚀 Initialisation des tables...");
+
+    // Vérifier si on doit réinitialiser la base de données
+    const shouldReset = process.env.RESET_DATABASE === "true";
+
+    if (shouldReset) {
+      console.log(
+        "🔄 Mode réinitialisation activé - Suppression des données existantes"
+      );
+      const { resetDatabase } = require("./reset-database");
+      await resetDatabase();
+      // Continuer pour ajouter les colonnes OAuth
+    }
+
+    // Table des utilisateurs
+    await query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        username VARCHAR(50) UNIQUE NOT NULL,
+        password_hash VARCHAR(255),
+        first_name VARCHAR(100) NOT NULL,
+        last_name VARCHAR(100) NOT NULL,
+        email_verified BOOLEAN DEFAULT FALSE,
+        email_verification_token VARCHAR(255),
+        provider VARCHAR(50),
+        provider_id VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Ajouter les colonnes OAuth si elles n'existent pas (pour les bases existantes)
+    try {
+      await query(`
+        ALTER TABLE users 
+        ADD COLUMN IF NOT EXISTS provider VARCHAR(50)
+      `);
+    } catch (error) {
+      // Ignorer l'erreur si la colonne existe déjà
+    }
+
+    try {
+      await query(`
+        ALTER TABLE users 
+        ADD COLUMN IF NOT EXISTS provider_id VARCHAR(255)
+      `);
+    } catch (error) {
+      // Ignorer l'erreur si la colonne existe déjà
+    }
+
+    // Rendre password_hash nullable pour les utilisateurs OAuth
+    try {
+      await query(`
+        ALTER TABLE users 
+        ALTER COLUMN password_hash DROP NOT NULL
+      `);
+    } catch (error) {
+      // Ignorer l'erreur si la colonne est déjà nullable
+    }
+
+    // Ajouter les colonnes pour la réinitialisation de mot de passe
+    try {
+      await query(`
+        ALTER TABLE users 
+        ADD COLUMN IF NOT EXISTS reset_token VARCHAR(255)
+      `);
+    } catch (error) {
+      // Ignorer l'erreur si la colonne existe déjà
+    }
+
+    try {
+      await query(`
+        ALTER TABLE users 
+        ADD COLUMN IF NOT EXISTS reset_token_expiry TIMESTAMP
+      `);
+    } catch (error) {
+      // Ignorer l'erreur si la colonne existe déjà
+    }
+
+    // Table des sessions (pour JWT)
+    await query(`
+      CREATE TABLE IF NOT EXISTS user_sessions (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        token_hash VARCHAR(255) NOT NULL,
+        expires_at TIMESTAMP NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Table des documents (anciennement notes)
+    await query(`
+      CREATE TABLE IF NOT EXISTS documents (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        title VARCHAR(255) NOT NULL DEFAULT 'Sans titre',
+        content TEXT NOT NULL DEFAULT '',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Index pour améliorer les performances
+    await query(`
+      CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)
+    `);
+
+    await query(`
+      CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)
+    `);
+
+    await query(`
+      CREATE INDEX IF NOT EXISTS idx_users_provider ON users(provider, provider_id)
+    `);
+
+    await query(`
+      CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON user_sessions(user_id)
+    `);
+
+    await query(`
+      CREATE INDEX IF NOT EXISTS idx_documents_user_id ON documents(user_id)
+    `);
+
+    await query(`
+      CREATE INDEX IF NOT EXISTS idx_documents_created_at ON documents(created_at DESC)
+    `);
+
+    // Trigger pour mettre à jour updated_at automatiquement
+    await query(`
+      CREATE OR REPLACE FUNCTION update_updated_at_column()
+      RETURNS TRIGGER AS $$
+      BEGIN
+        NEW.updated_at = CURRENT_TIMESTAMP;
+        RETURN NEW;
+      END;
+      $$ language 'plpgsql'
+    `);
+
+    await query(`
+      DROP TRIGGER IF EXISTS update_users_updated_at ON users;
+      CREATE TRIGGER update_users_updated_at
+        BEFORE UPDATE ON users
+        FOR EACH ROW
+        EXECUTE FUNCTION update_updated_at_column()
+    `);
+
+    await query(`
+      DROP TRIGGER IF EXISTS update_documents_updated_at ON documents;
+      CREATE TRIGGER update_documents_updated_at
+        BEFORE UPDATE ON documents
+        FOR EACH ROW
+        EXECUTE FUNCTION update_updated_at_column()
+    `);
+
+    console.log("✅ Tables initialisées avec succès");
+  } catch (error) {
+    console.error("❌ Erreur lors de l'initialisation des tables:", error);
+    throw error;
+  }
+};
+
+// Fonction pour vérifier la connexion
+const testConnection = async () => {
+  try {
+    const result = await query("SELECT NOW()");
+    console.log("✅ Test de connexion réussi:", result.rows[0]);
+    return true;
+  } catch (error) {
+    console.error("❌ Test de connexion échoué:", error);
+    return false;
+  }
+};
+
+// Fonction pour créer un utilisateur avec token de vérification
+const createUser = async (userData) => {
+  const { email, username, password, firstName, lastName, verificationToken } =
+    userData;
+
+  // Vérifier si l'email existe déjà
+  const existingEmail = await query("SELECT id FROM users WHERE email = $1", [
+    email,
+  ]);
+
+  if (existingEmail.rows.length > 0) {
+    throw new Error("Cet email est déjà utilisé");
+  }
+
+  // Vérifier si le nom d'utilisateur existe déjà
+  const existingUsername = await query(
+    "SELECT id FROM users WHERE username = $1",
+    [username]
+  );
+
+  if (existingUsername.rows.length > 0) {
+    throw new Error("Ce nom d'utilisateur est déjà utilisé");
+  }
+
+  // Hacher le mot de passe
+  const bcrypt = require("bcryptjs");
+  const passwordHash = await bcrypt.hash(password, 12);
+
+  // Insérer l'utilisateur
+  const result = await query(
+    `INSERT INTO users (email, username, password_hash, first_name, last_name, email_verified, email_verification_token)
+     VALUES ($1, $2, $3, $4, $5, FALSE, $6)
+     RETURNING id, email, username, first_name, last_name, email_verified, email_verification_token, created_at`,
+    [email, username, passwordHash, firstName, lastName, verificationToken]
+  );
+
+  return result.rows[0];
+};
+
+// Fonction pour vérifier l'email d'un utilisateur
+const verifyUserEmail = async (token) => {
+  try {
+    // Trouver l'utilisateur avec ce token
+    const user = await query(
+      "SELECT id, email, first_name, email_verified FROM users WHERE email_verification_token = $1",
+      [token]
+    );
+
+    if (user.rows.length === 0) {
+      throw new Error("Token de vérification invalide");
+    }
+
+    if (user.rows[0].email_verified) {
+      throw new Error("Email déjà vérifié");
+    }
+
+    // Marquer l'email comme vérifié et supprimer le token
+    await query(
+      "UPDATE users SET email_verified = TRUE, email_verification_token = NULL WHERE id = $1",
+      [user.rows[0].id]
+    );
+
+    return {
+      success: true,
+      user: {
+        id: user.rows[0].id,
+        email: user.rows[0].email,
+        first_name: user.rows[0].first_name,
+      },
+    };
+  } catch (error) {
+    console.error("❌ Erreur vérification email:", error);
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+};
+
+// Fonction pour créer un document
+const createDocument = async (userId, title = "Sans titre", content = "") => {
+  try {
+    const result = await query(
+      `INSERT INTO documents (user_id, title, content)
+       VALUES ($1, $2, $3)
+       RETURNING id, title, content, created_at, updated_at`,
+      [userId, title, content]
+    );
+
+    return {
+      success: true,
+      document: result.rows[0],
+    };
+  } catch (error) {
+    console.error("❌ Erreur création document:", error);
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+};
+
+// Fonction pour récupérer les documents d'un utilisateur
+const getUserDocuments = async (userId, limit = 20, offset = 0) => {
+  try {
+    const result = await query(
+      `SELECT d.id, d.title, d.content, d.created_at, d.updated_at, u.username, u.first_name, u.last_name
+       FROM documents d
+       JOIN users u ON d.user_id = u.id
+       WHERE d.user_id = $1
+       ORDER BY d.updated_at DESC
+       LIMIT $2 OFFSET $3`,
+      [userId, limit, offset]
+    );
+
+    return {
+      success: true,
+      documents: result.rows,
+    };
+  } catch (error) {
+    console.error("❌ Erreur récupération documents:", error);
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+};
+
+// Fonction pour récupérer tous les documents (fil d'actualité)
+const getAllDocuments = async (limit = 20, offset = 0) => {
+  try {
+    const result = await query(
+      `SELECT d.id, d.title, d.content, d.created_at, d.updated_at, u.username, u.first_name, u.last_name
+       FROM documents d
+       JOIN users u ON d.user_id = u.id
+       ORDER BY d.updated_at DESC
+       LIMIT $1 OFFSET $2`,
+      [limit, offset]
+    );
+
+    return {
+      success: true,
+      documents: result.rows,
+    };
+  } catch (error) {
+    console.error("❌ Erreur récupération tous les documents:", error);
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+};
+
+// Fonction pour récupérer un document par ID
+const getDocumentById = async (documentId) => {
+  try {
+    const result = await query(
+      `SELECT d.id, d.title, d.content, d.created_at, d.updated_at, u.username, u.first_name, u.last_name, d.user_id
+       FROM documents d
+       JOIN users u ON d.user_id = u.id
+       WHERE d.id = $1`,
+      [documentId]
+    );
+
+    if (result.rows.length === 0) {
+      return {
+        success: false,
+        error: "Document non trouvé",
+      };
+    }
+
+    return {
+      success: true,
+      document: result.rows[0],
+    };
+  } catch (error) {
+    console.error("❌ Erreur récupération document:", error);
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+};
+
+// Fonction pour mettre à jour un document
+const updateDocument = async (documentId, userId, title, content) => {
+  try {
+    const result = await query(
+      `UPDATE documents 
+       SET title = $1, content = $2, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $3 AND user_id = $4
+       RETURNING id, title, content, updated_at`,
+      [title, content, documentId, userId]
+    );
+
+    if (result.rows.length === 0) {
+      return {
+        success: false,
+        error: "Document non trouvé ou vous n'êtes pas autorisé à le modifier",
+      };
+    }
+
+    return {
+      success: true,
+      document: result.rows[0],
+    };
+  } catch (error) {
+    console.error("❌ Erreur mise à jour document:", error);
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+};
+
+// Fonction pour supprimer un document (seulement par son créateur)
+const deleteDocument = async (documentId, userId) => {
+  try {
+    const result = await query(
+      `DELETE FROM documents 
+       WHERE id = $1 AND user_id = $2
+       RETURNING id`,
+      [documentId, userId]
+    );
+
+    if (result.rows.length === 0) {
+      return {
+        success: false,
+        error: "Document non trouvé ou vous n'êtes pas autorisé à le supprimer",
+      };
+    }
+
+    return {
+      success: true,
+      message: "Document supprimé avec succès",
+    };
+  } catch (error) {
+    console.error("❌ Erreur suppression document:", error);
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+};
+
+module.exports = {
+  pool,
+  query,
+  initializeTables,
+  testConnection,
+  createUser,
+  verifyUserEmail,
+  createDocument,
+  getUserDocuments,
+  getAllDocuments,
+  getDocumentById,
+  updateDocument,
+  deleteDocument,
+  // Anciennes fonctions pour compatibilité
+  createNote: createDocument,
+  getUserNotes: getUserDocuments,
+  getAllNotes: getAllDocuments,
+  deleteNote: deleteDocument,
+};
