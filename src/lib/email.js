@@ -18,13 +18,6 @@ async function sendVerificationEmail(email, token, firstName) {
 
   // Si pas de clé API Resend, simuler l'envoi
   if (!process.env.RESEND_API_KEY || !resend) {
-    console.log("📧 === EMAIL DE VÉRIFICATION (SIMULATION) ===");
-    console.log(`De: ${from}`);
-    console.log(`À: ${email}`);
-    console.log(`Sujet: Vérification de votre compte Notus`);
-    console.log(`Contenu: Bonjour ${firstName} !`);
-    console.log(`Lien de vérification: ${verificationUrl}`);
-    console.log("=============================================");
     return { success: true, messageId: `sim-${Date.now()}` };
   }
 
@@ -79,7 +72,6 @@ async function sendVerificationEmail(email, token, firstName) {
       return { success: false, error: error.message };
     }
 
-    console.log("📧 Email de vérification envoyé via Resend:", data.id);
     return { success: true, messageId: data.id };
   } catch (error) {
     console.error("❌ Erreur envoi email:", error);
@@ -93,15 +85,6 @@ async function sendWelcomeEmail(email, firstName) {
 
   // Si pas de clé API Resend, simuler l'envoi
   if (!process.env.RESEND_API_KEY || !resend) {
-    console.log("📧 === EMAIL DE BIENVENUE (SIMULATION) ===");
-    console.log(`De: ${from}`);
-    console.log(`À: ${email}`);
-    console.log(`Sujet: Bienvenue sur Notus - Votre compte est activé !`);
-    console.log(
-      `Contenu: Félicitations ${firstName} ! Votre compte a été activé.`
-    );
-    console.log(`Lien de connexion: ${process.env.NEXTAUTH_URL}/login`);
-    console.log("==========================================");
     return { success: true, messageId: `sim-welcome-${Date.now()}` };
   }
 
@@ -146,7 +129,6 @@ async function sendWelcomeEmail(email, firstName) {
       return { success: false, error: error.message };
     }
 
-    console.log("📧 Email de bienvenue envoyé via Resend:", data.id);
     return { success: true, messageId: data.id };
   } catch (error) {
     console.error("❌ Erreur envoi email de bienvenue:", error);
@@ -160,14 +142,6 @@ async function sendBanNotificationEmail(email, firstName, reason = null) {
 
   // Si pas de clé API Resend, simuler l'envoi
   if (!process.env.RESEND_API_KEY || !resend) {
-    console.log("📧 === EMAIL DE BANNISSEMENT (SIMULATION) ===");
-    console.log(`De: ${from}`);
-    console.log(`À: ${email}`);
-    console.log(`Sujet: Votre compte Notus a été suspendu`);
-    console.log(`Contenu: Bonjour ${firstName} !`);
-    console.log(`Votre compte a été suspendu.`);
-    if (reason) console.log(`Raison: ${reason}`);
-    console.log("===========================================");
     return { success: true, messageId: `sim-ban-${Date.now()}` };
   }
 
@@ -236,7 +210,6 @@ async function sendBanNotificationEmail(email, firstName, reason = null) {
       return { success: false, error: error.message };
     }
 
-    console.log("📧 Email de bannissement envoyé via Resend:", data.id);
     return { success: true, messageId: data.id };
   } catch (error) {
     console.error("❌ Erreur envoi email de bannissement:", error);
@@ -250,13 +223,6 @@ async function sendUnbanNotificationEmail(email, firstName) {
 
   // Si pas de clé API Resend, simuler l'envoi
   if (!process.env.RESEND_API_KEY || !resend) {
-    console.log("📧 === EMAIL DE DÉBANNISSEMENT (SIMULATION) ===");
-    console.log(`De: ${from}`);
-    console.log(`À: ${email}`);
-    console.log(`Sujet: Votre compte Notus a été réactivé`);
-    console.log(`Contenu: Bonjour ${firstName} !`);
-    console.log(`Votre compte a été réactivé.`);
-    console.log("=============================================");
     return { success: true, messageId: `sim-unban-${Date.now()}` };
   }
 
@@ -323,7 +289,6 @@ async function sendUnbanNotificationEmail(email, firstName) {
       return { success: false, error: error.message };
     }
 
-    console.log("📧 Email de débannissement envoyé via Resend:", data.id);
     return { success: true, messageId: data.id };
   } catch (error) {
     console.error("❌ Erreur envoi email de débannissement:", error);
@@ -338,13 +303,6 @@ async function sendPasswordResetEmail(email, token, firstName) {
 
   // Si pas de clé API Resend, simuler l'envoi
   if (!process.env.RESEND_API_KEY || !resend) {
-    console.log("📧 === EMAIL DE RÉINITIALISATION (SIMULATION) ===");
-    console.log(`De: ${from}`);
-    console.log(`À: ${email}`);
-    console.log(`Sujet: Réinitialisation de votre mot de passe Notus`);
-    console.log(`Contenu: Bonjour ${firstName} !`);
-    console.log(`Lien de réinitialisation: ${resetUrl}`);
-    console.log("===============================================");
     return { success: true, messageId: `sim-reset-${Date.now()}` };
   }
 
@@ -399,7 +357,6 @@ async function sendPasswordResetEmail(email, token, firstName) {
       return { success: false, error: error.message };
     }
 
-    console.log("📧 Email de réinitialisation envoyé via Resend:", data.id);
     return { success: true, messageId: data.id };
   } catch (error) {
     console.error("❌ Erreur envoi email de réinitialisation:", error);

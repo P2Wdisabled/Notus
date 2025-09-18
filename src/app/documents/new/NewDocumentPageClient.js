@@ -24,13 +24,6 @@ export default function NewDocumentPageClient({ session }) {
     userId,
   } = useLocalSession(session);
 
-  // Debug: Afficher le contenu de la session
-  console.log("🔍 Debug NewDocumentPageClient - Session serveur:", session);
-  console.log(
-    "🔍 Debug NewDocumentPageClient - Session localStorage:",
-    localSession
-  );
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
@@ -73,7 +66,6 @@ export default function NewDocumentPageClient({ session }) {
       return;
     }
 
-    console.log("🔍 Debug handleSubmit - User ID (localStorage):", userId);
     formData.append("userId", userId);
     formData.append("title", title);
     formData.append("content", content);

@@ -16,11 +16,9 @@ export function useLocalSession(serverSession = null) {
         let userSession = getUserSession();
 
         if (userSession) {
-          console.log("✅ Session trouvée dans localStorage:", userSession);
           setLocalSession(userSession);
         } else if (serverSession?.user) {
           // Si pas de session localStorage mais session serveur disponible
-          console.log("🔄 Sauvegarde de la session serveur dans localStorage");
           const userId = serverSession.user.id;
 
           const sessionData = {

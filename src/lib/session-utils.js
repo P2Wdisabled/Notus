@@ -14,10 +14,6 @@ export function saveUserSession(userData) {
       timestamp: Date.now(),
     };
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(sessionData));
-    console.log(
-      "✅ Session utilisateur sauvegardée dans sessionStorage:",
-      sessionData
-    );
     return true;
   } catch (error) {
     console.error("❌ Erreur lors de la sauvegarde de la session:", error);
@@ -48,7 +44,6 @@ export function clearUserSession() {
   try {
     // Vider complètement le sessionStorage
     sessionStorage.clear();
-    console.log("✅ SessionStorage complètement vidé");
     return true;
   } catch (error) {
     console.error("❌ Erreur lors de la suppression de la session:", error);

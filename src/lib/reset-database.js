@@ -3,17 +3,12 @@ const { query } = require("./database");
 // Fonction pour vider et réinitialiser la base de données
 async function resetDatabase() {
   try {
-    console.log("🗑️  Suppression des tables existantes...");
-
     // Supprimer les tables dans l'ordre inverse de création (pour éviter les contraintes de clés étrangères)
     await query("DROP TABLE IF EXISTS user_sessions CASCADE");
     await query("DROP TABLE IF EXISTS users CASCADE");
 
     // Supprimer la fonction si elle existe
     await query("DROP FUNCTION IF EXISTS update_updated_at_column() CASCADE");
-
-    console.log("✅ Tables supprimées avec succès");
-    console.log("🚀 Réinitialisation des tables...");
 
     // Recréer les tables
     await query(`
@@ -70,7 +65,6 @@ async function resetDatabase() {
         EXECUTE FUNCTION update_updated_at_column()
     `);
 
-    console.log("✅ Base de données réinitialisée avec succès");
     return true;
   } catch (error) {
     console.error("❌ Erreur lors de la réinitialisation:", error);

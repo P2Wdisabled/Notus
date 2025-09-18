@@ -10,7 +10,6 @@ async function getUser(emailOrUsername: string) {
   try {
     // Vérifier si la base de données est configurée
     if (!process.env.DATABASE_URL) {
-      console.log('⚠️ Base de données non configurée - Mode simulation');
       return null;
     }
 
@@ -24,7 +23,6 @@ async function getUser(emailOrUsername: string) {
     
     // Vérifier si l'utilisateur est banni
     if (user && user.is_banned) {
-      console.log('🚫 Tentative de connexion d\'un utilisateur banni:', emailOrUsername);
       // Retourner un objet spécial pour indiquer le bannissement
       return { ...user, _banned: true };
     }
@@ -34,7 +32,6 @@ async function getUser(emailOrUsername: string) {
     console.error('Failed to fetch user:', error);
     // En cas d'erreur de connexion, retourner null au lieu de throw
     if (error.code === 'ECONNRESET' || error.code === 'ECONNREFUSED') {
-      console.log('⚠️ Base de données non accessible - Mode simulation');
       return null;
     }
     throw new Error('Failed to fetch user.');
@@ -45,8 +42,6 @@ async function createOrUpdateOAuthUser(profile: any) {
   try {
     // Vérifier si la base de données est configurée
     if (!process.env.DATABASE_URL) {
-      console.log('⚠️ Base de données non configurée - Mode simulation');
-      console.log(`👤 Utilisateur OAuth simulé: ${profile.name} (${profile.email})`);
       return {
         id: 'oauth-simulated-user',
         email: profile.email,
@@ -66,7 +61,6 @@ async function createOrUpdateOAuthUser(profile: any) {
       
       // Vérifier si l'utilisateur est banni
       if (user.is_banned) {
-        console.log('🚫 Tentative de connexion OAuth d\'un utilisateur banni:', profile.email);
         throw new Error('Compte banni');
       }
       
@@ -105,7 +99,6 @@ async function createOrUpdateOAuthUser(profile: any) {
       );
 
       const user = result.rows[0];
-      console.log(`👤 Utilisateur OAuth créé: ${(user as any).first_name} ${(user as any).last_name} (${(user as any).email})`);
       
       return {
         id: (user as any).id.toString(),
@@ -145,13 +138,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           
           // Vérifier si l'utilisateur est banni
           if ((user as any)._banned) {
-            console.log('Tentative de connexion d\'un utilisateur banni:', email);
             return null; // Retourner null au lieu de lancer une erreur
           }
           
           // Vérifier que l'email est vérifié
           if (!(user as any).email_verified) {
-            console.log('Email non vérifié pour:', email);
             return null;
           }
           
@@ -169,7 +160,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           }
         }
 
-        console.log('Invalid credentials');
         return null;
       },
     }),
@@ -187,7 +177,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             );
             
             if (result.rows.length > 0 && result.rows[0].is_banned) {
-              console.log('🚫 Tentative de connexion OAuth d\'un utilisateur banni:', profile.email);
               return false; // Empêcher la connexion
             }
           }

@@ -24,7 +24,7 @@ export async function authenticate(
           [email]
         );
         
-        if (result.rows.length > 0 && result.rows[0].is_banned) {
+        if (result.rows.length > 0 && (result.rows[0] as any).is_banned) {
           return 'Ce compte a été banni. Contactez un administrateur pour plus d\'informations.';
         }
       } catch (dbError) {
@@ -75,9 +75,6 @@ export async function registerUser(
 
     // Vérifier si la base de données est configurée
     if (!process.env.DATABASE_URL) {
-      console.log('⚠️ Base de données non configurée - Mode simulation');
-      console.log(`📧 Email de vérification à envoyer à: ${userData.email}`);
-      console.log(`👤 Utilisateur simulé: ${userData.firstName} ${userData.lastName}`);
       
       return 'Inscription réussie (mode simulation). Configurez DATABASE_URL pour la persistance.';
     }
@@ -106,8 +103,6 @@ export async function registerUser(
       return 'Inscription réussie, mais erreur lors de l\'envoi de l\'email de vérification. Veuillez contacter le support.';
     }
 
-    console.log(`👤 Utilisateur créé: ${(user as any).first_name} ${(user as any).last_name} (${(user as any).email})`);
-    console.log(`📧 Email de vérification envoyé à: ${userData.email}`);
 
     return 'Inscription réussie ! Un email de vérification a été envoyé. Vérifiez votre boîte de réception.';
   } catch (error: any) {
@@ -144,8 +139,6 @@ export async function sendPasswordResetEmailAction(
 
     // Vérifier si la base de données est configurée
     if (!process.env.DATABASE_URL) {
-      console.log('⚠️ Base de données non configurée - Mode simulation');
-      console.log(`📧 Email de réinitialisation à envoyer à: ${email}`);
       return 'Email de réinitialisation envoyé (mode simulation). Configurez DATABASE_URL pour la persistance.';
     }
 
@@ -161,7 +154,6 @@ export async function sendPasswordResetEmailAction(
     // Pour des raisons de sécurité, on ne révèle pas si l'email existe ou non
     // On envoie toujours le même message de succès
     if (result.rows.length === 0) {
-      console.log(`📧 Tentative de réinitialisation pour un email inexistant: ${email}`);
       return 'Si un compte existe avec cette adresse email, un lien de réinitialisation a été envoyé.';
     }
 
@@ -174,7 +166,6 @@ export async function sendPasswordResetEmailAction(
     );
 
     if (recentReset.rows.length > 0) {
-      console.log(`📧 Demande de réinitialisation trop fréquente pour: ${email}`);
       return 'Si un compte existe avec cette adresse email, un lien de réinitialisation a été envoyé.';
     }
 
@@ -200,7 +191,6 @@ export async function sendPasswordResetEmailAction(
       return 'Erreur lors de l\'envoi de l\'email. Veuillez réessayer.';
     }
 
-    console.log(`📧 Email de réinitialisation envoyé à: ${email}`);
 
     return 'Un email de réinitialisation a été envoyé. Vérifiez votre boîte de réception.';
   } catch (error: any) {
@@ -237,8 +227,6 @@ export async function resetPasswordAction(
 
     // Vérifier si la base de données est configurée
     if (!process.env.DATABASE_URL) {
-      console.log('⚠️ Base de données non configurée - Mode simulation');
-      console.log(`🔑 Mot de passe simulé pour token: ${token}`);
       return 'Mot de passe modifié avec succès (mode simulation). Configurez DATABASE_URL pour la persistance.';
     }
 
@@ -266,7 +254,6 @@ export async function resetPasswordAction(
       [hashedPassword, (user as any).id]
     );
 
-    console.log(`🔑 Mot de passe modifié pour: ${(user as any).email}`);
 
     return 'Mot de passe modifié avec succès. Vous pouvez maintenant vous connecter.';
   } catch (error: any) {
@@ -295,7 +282,6 @@ export async function createDocumentAction(
     }
 
     // Debug: Afficher l'ID utilisateur reçu
-    console.log('🔍 Debug createDocumentAction - ID utilisateur reçu:', userId, 'Type:', typeof userId);
     
     // Gérer les différents types d'IDs utilisateur
     let userIdNumber: number;
@@ -309,7 +295,6 @@ export async function createDocumentAction(
     // Si c'est un ID de simulation OAuth
     if (userId === 'oauth-simulated-user') {
       userIdNumber = 1; // ID de simulation
-      console.log('🔍 Mode simulation OAuth détecté, utilisation de l\'ID:', userIdNumber);
     } else {
       // Vérifier que l'ID utilisateur est un nombre valide
       userIdNumber = parseInt(userId);
@@ -329,8 +314,6 @@ export async function createDocumentAction(
 
     // Vérifier si la base de données est configurée
     if (!process.env.DATABASE_URL) {
-      console.log('⚠️ Base de données non configurée - Mode simulation');
-      console.log(`📄 Document simulé pour utilisateur ${userIdNumber}: ${title}`);
       return 'Document créé avec succès (mode simulation). Configurez DATABASE_URL pour la persistance.';
     }
 
@@ -346,10 +329,8 @@ export async function createDocumentAction(
     }
 
     if (result.isUpdate) {
-      console.log(`📄 Document mis à jour: ${result.document.id} par utilisateur ${userIdNumber}`);
       return 'Document mis à jour avec succès !';
     } else {
-      console.log(`📄 Document créé: ${result.document.id} par utilisateur ${userIdNumber}`);
       return 'Document créé avec succès !';
     }
   } catch (error: any) {
@@ -368,7 +349,6 @@ export async function getUserDocumentsAction(userId: number, limit = 20, offset 
   try {
     // Vérifier si la base de données est configurée
     if (!process.env.DATABASE_URL) {
-      console.log('⚠️ Base de données non configurée - Mode simulation');
       return {
         success: true,
         documents: [
@@ -417,7 +397,6 @@ export async function getAllDocumentsAction(limit = 20, offset = 0) {
   try {
     // Vérifier si la base de données est configurée
     if (!process.env.DATABASE_URL) {
-      console.log('⚠️ Base de données non configurée - Mode simulation');
       return {
         success: true,
         documents: [
@@ -476,8 +455,6 @@ export async function deleteNoteAction(
 
     // Vérifier si la base de données est configurée
     if (!process.env.DATABASE_URL) {
-      console.log('⚠️ Base de données non configurée - Mode simulation');
-      console.log(`🗑️ Note simulée supprimée: ${noteId} par utilisateur ${userId}`);
       return 'Note supprimée avec succès (mode simulation). Configurez DATABASE_URL pour la persistance.';
     }
 
@@ -490,7 +467,6 @@ export async function deleteNoteAction(
     // Si c'est un ID de simulation OAuth
     if (userId === 'oauth-simulated-user') {
       userIdNumber = 1; // ID de simulation
-      console.log('🔍 Mode simulation OAuth détecté, utilisation de l\'ID:', userIdNumber);
     } else {
       // Vérifier que l'ID utilisateur est un nombre valide
       userIdNumber = parseInt(userId);
@@ -508,7 +484,6 @@ export async function deleteNoteAction(
       return result.error;
     }
 
-    console.log(`🗑️ Note supprimée: ${noteId} par utilisateur ${userId}`);
 
     return result.message;
   } catch (error: any) {
@@ -527,7 +502,6 @@ export async function getDocumentByIdAction(documentId: string) {
   try {
     // Vérifier si la base de données est configurée
     if (!process.env.DATABASE_URL) {
-      console.log('⚠️ Base de données non configurée - Mode simulation');
       return {
         success: true,
         document: {
@@ -586,8 +560,6 @@ export async function updateDocumentAction(
     }
 
     // Debug: Afficher les IDs reçus
-    console.log('🔍 Debug updateDocumentAction - ID utilisateur reçu:', userId, 'Type:', typeof userId);
-    console.log('🔍 Debug updateDocumentAction - ID document reçu:', documentId, 'Type:', typeof documentId);
 
     // Vérifier que l'ID document est un nombre valide
     const documentIdNumber = parseInt(documentId);
@@ -608,7 +580,6 @@ export async function updateDocumentAction(
     // Si c'est un ID de simulation OAuth
     if (userId === 'oauth-simulated-user') {
       userIdNumber = 1; // ID de simulation
-      console.log('🔍 Mode simulation OAuth détecté, utilisation de l\'ID:', userIdNumber);
     } else {
       // Vérifier que l'ID utilisateur est un nombre valide
       userIdNumber = parseInt(userId);
@@ -628,8 +599,6 @@ export async function updateDocumentAction(
 
     // Vérifier si la base de données est configurée
     if (!process.env.DATABASE_URL) {
-      console.log('⚠️ Base de données non configurée - Mode simulation');
-      console.log(`📄 Document simulé mis à jour: ${documentIdNumber} par utilisateur ${userIdNumber}`);
       return 'Document sauvegardé avec succès (mode simulation). Configurez DATABASE_URL pour la persistance.';
     }
 
@@ -645,10 +614,8 @@ export async function updateDocumentAction(
     }
 
     if (result.isUpdate) {
-      console.log(`📄 Document mis à jour: ${documentIdNumber} par utilisateur ${userIdNumber}`);
       return 'Document sauvegardé avec succès !';
     } else {
-      console.log(`📄 Document créé: ${result.document.id} par utilisateur ${userIdNumber}`);
       return 'Document créé avec succès !';
     }
   } catch (error: any) {
@@ -691,8 +658,6 @@ export async function deleteDocumentAction(
 
     // Vérifier si la base de données est configurée
     if (!process.env.DATABASE_URL) {
-      console.log('⚠️ Base de données non configurée - Mode simulation');
-      console.log(`🗑️ Document simulé supprimé: ${documentIdNumber} par utilisateur ${userIdNumber}`);
       return 'Document supprimé avec succès (mode simulation). Configurez DATABASE_URL pour la persistance.';
     }
 
@@ -707,7 +672,6 @@ export async function deleteDocumentAction(
       return result.error;
     }
 
-    console.log(`🗑️ Document supprimé: ${documentIdNumber} par utilisateur ${userIdNumber}`);
 
     return result.message;
   } catch (error: any) {
@@ -726,7 +690,6 @@ export async function getUserIdByEmailAction(email: string) {
   try {
     // Vérifier si la base de données est configurée
     if (!process.env.DATABASE_URL) {
-      console.log('⚠️ Base de données non configurée - Mode simulation');
       return {
         success: true,
         userId: "1" // ID de simulation
@@ -745,7 +708,7 @@ export async function getUserIdByEmailAction(email: string) {
     if (result.rows.length > 0) {
       return {
         success: true,
-        userId: result.rows[0].id.toString()
+        userId: (result.rows[0] as any).id.toString()
       };
     }
 
@@ -776,7 +739,6 @@ export async function createNoteAction(
     }
 
     // Debug: Afficher l'ID utilisateur reçu
-    console.log('🔍 Debug createNoteAction - ID utilisateur reçu:', userId, 'Type:', typeof userId);
     
     // Gérer les différents types d'IDs utilisateur
     let userIdNumber: number;
@@ -790,7 +752,6 @@ export async function createNoteAction(
     // Si c'est un ID de simulation OAuth
     if (userId === 'oauth-simulated-user') {
       userIdNumber = 1; // ID de simulation
-      console.log('🔍 Mode simulation OAuth détecté, utilisation de l\'ID:', userIdNumber);
     } else {
       // Vérifier que l'ID utilisateur est un nombre valide
       userIdNumber = parseInt(userId);
@@ -810,8 +771,6 @@ export async function createNoteAction(
 
     // Vérifier si la base de données est configurée
     if (!process.env.DATABASE_URL) {
-      console.log('⚠️ Base de données non configurée - Mode simulation');
-      console.log(`📝 Note simulée pour utilisateur ${userIdNumber}: ${content.substring(0, 50)}...`);
       return 'Note publiée avec succès (mode simulation). Configurez DATABASE_URL pour la persistance.';
     }
 
@@ -827,10 +786,8 @@ export async function createNoteAction(
     }
 
     if (result.isUpdate) {
-      console.log(`📝 Note mise à jour: ${result.document.id} par utilisateur ${userIdNumber}`);
       return 'Note mise à jour avec succès !';
     } else {
-      console.log(`📝 Note créée: ${result.document.id} par utilisateur ${userIdNumber}`);
       return 'Note publiée avec succès !';
     }
   } catch (error: any) {

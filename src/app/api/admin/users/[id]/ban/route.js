@@ -68,12 +68,7 @@ export async function PATCH(request, { params }) {
             reason || null
           );
 
-          if (emailResult.success) {
-            console.log(
-              `📧 Email de bannissement envoyé à ${user.email}:`,
-              emailResult.messageId
-            );
-          } else {
+          if (!emailResult.success) {
             console.error(
               `❌ Erreur envoi email de bannissement à ${user.email}:`,
               emailResult.error
@@ -86,12 +81,7 @@ export async function PATCH(request, { params }) {
             user.first_name || "Utilisateur"
           );
 
-          if (emailResult.success) {
-            console.log(
-              `📧 Email de débannissement envoyé à ${user.email}:`,
-              emailResult.messageId
-            );
-          } else {
+          if (!emailResult.success) {
             console.error(
               `❌ Erreur envoi email de débannissement à ${user.email}:`,
               emailResult.error

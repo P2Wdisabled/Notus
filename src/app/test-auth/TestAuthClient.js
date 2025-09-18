@@ -26,7 +26,6 @@ export default function TestAuthClient({ serverSession }) {
       password: testPassword,
       redirect: false,
     });
-    console.log("Résultat de la connexion:", result);
   };
 
   const handleTestLogout = async () => {

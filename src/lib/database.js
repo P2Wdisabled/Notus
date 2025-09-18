@@ -7,9 +7,7 @@ const pool = new Pool({
 });
 
 // Test de connexion
-pool.on("connect", () => {
-  console.log("✅ Connexion à PostgreSQL établie");
-});
+pool.on("connect", () => {});
 
 pool.on("error", (err) => {
   console.error("❌ Erreur de connexion PostgreSQL:", err);
@@ -22,7 +20,6 @@ const query = async (text, params) => {
   try {
     const res = await pool.query(text, params);
     const duration = Date.now() - start;
-    console.log("📊 Requête exécutée:", { text, duration, rows: res.rowCount });
     return res;
   } catch (error) {
     console.error("❌ Erreur de requête:", error);
@@ -33,15 +30,10 @@ const query = async (text, params) => {
 // Fonction pour initialiser les tables
 const initializeTables = async () => {
   try {
-    console.log("🚀 Initialisation des tables...");
-
     // Vérifier si on doit réinitialiser la base de données
     const shouldReset = process.env.RESET_DATABASE === "true";
 
     if (shouldReset) {
-      console.log(
-        "🔄 Mode réinitialisation activé - Suppression des données existantes"
-      );
       const { resetDatabase } = require("./reset-database");
       await resetDatabase();
       // Continuer pour ajouter les colonnes OAuth
@@ -216,8 +208,6 @@ const initializeTables = async () => {
         FOR EACH ROW
         EXECUTE FUNCTION update_updated_at_column()
     `);
-
-    console.log("✅ Tables initialisées avec succès");
   } catch (error) {
     console.error("❌ Erreur lors de l'initialisation des tables:", error);
     throw error;
@@ -228,7 +218,6 @@ const initializeTables = async () => {
 const testConnection = async () => {
   try {
     const result = await query("SELECT NOW()");
-    console.log("✅ Test de connexion réussi:", result.rows[0]);
     return true;
   } catch (error) {
     console.error("❌ Test de connexion échoué:", error);

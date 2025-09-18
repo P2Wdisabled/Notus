@@ -28,13 +28,6 @@ export default function EditDocumentPageClient({ session, params }) {
   } = useLocalSession(session);
 
   useEffect(() => {
-    console.log("🔍 [DEBUG] useEffect déclenché avec:", {
-      isLoggedIn,
-      paramsId: params.id,
-      userId,
-      shouldLoad: isLoggedIn && params.id && userId,
-    });
-
     if (isLoggedIn && params.id && userId) {
       loadDocument();
     }
@@ -43,21 +36,12 @@ export default function EditDocumentPageClient({ session, params }) {
   const loadDocument = useCallback(async () => {
     try {
       setLoading(true);
-      console.log("🔍 [CLIENT] Début du chargement du document ID:", params.id);
 
       // Utiliser l'API openDoc pour récupérer le titre et le contenu
       const apiUrl = `/api/openDoc?id=${params.id}`;
-      console.log("🔍 [CLIENT] Appel API:", apiUrl);
 
       const response = await fetch(apiUrl);
-      console.log(
-        "🔍 [CLIENT] Réponse reçue:",
-        response.status,
-        response.statusText
-      );
-
       const result = await response.json();
-      console.log("🔍 [CLIENT] Données reçues:", result);
 
       if (result.success) {
         // Créer un objet document avec les données reçues
@@ -68,11 +52,9 @@ export default function EditDocumentPageClient({ session, params }) {
           user_id: parseInt(userId), // Utiliser l'ID utilisateur de la session
         };
 
-        console.log("🔍 [CLIENT] Document créé:", documentData);
         setDocument(documentData);
         setTitle(result.title);
         setContent(result.content);
-        console.log("🔍 [CLIENT] État mis à jour avec succès");
       } else {
         console.error("❌ [CLIENT] Erreur API:", result.error);
         setError(result.error || "Erreur lors du chargement du document");
@@ -82,7 +64,6 @@ export default function EditDocumentPageClient({ session, params }) {
       console.error("❌ [CLIENT] Erreur:", err);
     } finally {
       setLoading(false);
-      console.log("🔍 [CLIENT] Chargement terminé");
     }
   }, [params.id, userId]);
 
