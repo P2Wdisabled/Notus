@@ -4,12 +4,43 @@ import { useActionState } from "react";
 import { authenticate } from "@/lib/actions";
 import Link from "next/link";
 import GoogleSignInButton from "@/components/GoogleSignInButton";
+import { useLocalSession } from "@/hooks/useLocalSession";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
-export default function LoginPage() {
+function LoginPageClient({ serverSession }) {
+  const { isLoggedIn, loading } = useLocalSession(serverSession);
+  const router = useRouter();
   const [errorMessage, formAction, isPending] = useActionState(
     authenticate,
     undefined
   );
+
+  // Redirection si déjà connecté
+  useEffect(() => {
+    if (!loading && isLoggedIn) {
+      router.push("/");
+    }
+  }, [isLoggedIn, loading, router]);
+
+  // Affichage du loading pendant la vérification
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="text-gray-600 dark:text-gray-300 mt-4">
+            Vérification...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Ne pas afficher le formulaire si déjà connecté
+  if (isLoggedIn) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
@@ -119,4 +150,8 @@ export default function LoginPage() {
       </div>
     </div>
   );
+}
+
+export default function LoginPage() {
+  return <LoginPageClient serverSession={null} />;
 }

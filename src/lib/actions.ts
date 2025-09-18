@@ -14,6 +14,25 @@ export async function authenticate(
   formData: FormData,
 ) {
   try {
+    const email = formData.get('email') as string;
+    
+    // Vérifier si l'utilisateur est banni avant la tentative de connexion
+    if (email && process.env.DATABASE_URL) {
+      try {
+        const result = await query(
+          'SELECT is_banned FROM users WHERE email = $1 OR username = $1',
+          [email]
+        );
+        
+        if (result.rows.length > 0 && result.rows[0].is_banned) {
+          return 'Ce compte a été banni. Contactez un administrateur pour plus d\'informations.';
+        }
+      } catch (dbError) {
+        console.error('Erreur lors de la vérification du statut banni:', dbError);
+        // Continuer avec la connexion normale si erreur de base de données
+      }
+    }
+    
     await signIn('credentials', formData);
   } catch (error) {
     if (error instanceof AuthError) {
@@ -24,6 +43,7 @@ export async function authenticate(
           return 'Une erreur est survenue.';
       }
     }
+    
     throw error;
   }
 }
@@ -40,6 +60,12 @@ export async function registerUser(
       firstName: formData.get('firstName') as string,
       lastName: formData.get('lastName') as string,
     };
+
+    // Vérifier l'acceptation des conditions d'utilisation
+    const acceptTerms = formData.get('acceptTerms');
+    if (!acceptTerms) {
+      return 'Vous devez accepter les conditions d\'utilisation et les mentions légales pour vous inscrire.';
+    }
 
     // Validation côté serveur
     const validation = validateRegistrationData(userData);

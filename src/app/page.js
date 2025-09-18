@@ -1,12 +1,16 @@
 import { auth } from "../../auth";
 import Link from "next/link";
-import { getAllDocumentsAction } from "@/lib/actions";
+import { getUserDocumentsAction } from "@/lib/actions";
 import DocumentCard from "@/components/DocumentCard";
 import Navigation from "@/components/Navigation";
 
 export default async function Home() {
   const session = await auth();
-  const documentsResult = await getAllDocumentsAction();
+
+  // Récupérer les documents seulement si l'utilisateur est connecté
+  const documentsResult = session?.user?.id
+    ? await getUserDocumentsAction(session.user.id)
+    : { success: true, documents: [] };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
@@ -29,10 +33,52 @@ export default async function Home() {
         {/* Fil d'actualité */}
         <div className="space-y-4">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Documents récents
+            {session?.user ? "Mes documents" : "Documents"}
           </h2>
 
-          {documentsResult.success &&
+          {!session?.user && (
+            <div className="text-center py-12">
+              <div className="text-gray-400 dark:text-gray-500 mb-4">
+                <svg
+                  className="w-16 h-16 mx-auto"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1}
+                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                  />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                Connectez-vous pour voir vos documents
+              </h3>
+              <p className="text-gray-600 dark:text-gray-300 mb-4">
+                Vous devez être connecté pour accéder à vos documents
+                personnels.
+              </p>
+              <div className="flex justify-center space-x-4">
+                <Link
+                  href="/login"
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+                >
+                  Se connecter
+                </Link>
+                <Link
+                  href="/register"
+                  className="border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-semibold py-2 px-4 rounded-lg transition-colors"
+                >
+                  S'inscrire
+                </Link>
+              </div>
+            </div>
+          )}
+
+          {session?.user &&
+            documentsResult.success &&
             documentsResult.documents.length === 0 && (
               <div className="text-center py-12">
                 <div className="text-gray-400 dark:text-gray-500 mb-4">
@@ -54,23 +100,22 @@ export default async function Home() {
                   Aucun document pour le moment
                 </h3>
                 <p className="text-gray-600 dark:text-gray-300">
-                  {session?.user
-                    ? "Créez votre premier document !"
-                    : "Connectez-vous pour voir les documents"}
+                  Créez votre premier document !
                 </p>
               </div>
             )}
 
-          {documentsResult.success &&
+          {session?.user &&
+            documentsResult.success &&
             documentsResult.documents.map((document) => (
               <DocumentCard
                 key={document.id}
                 document={document}
-                currentUserId={session?.user?.id || null}
+                currentUserId={session.user.id}
               />
             ))}
 
-          {!documentsResult.success && (
+          {session?.user && !documentsResult.success && (
             <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
               <p className="text-red-600 dark:text-red-400">
                 Erreur lors du chargement des documents: {documentsResult.error}

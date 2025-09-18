@@ -113,6 +113,35 @@ const initializeTables = async () => {
       // Ignorer l'erreur si la colonne existe déjà
     }
 
+    // Ajouter les colonnes pour l'administration
+    try {
+      await query(`
+        ALTER TABLE users 
+        ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE
+      `);
+    } catch (error) {
+      // Ignorer l'erreur si la colonne existe déjà
+    }
+
+    try {
+      await query(`
+        ALTER TABLE users 
+        ADD COLUMN IF NOT EXISTS is_banned BOOLEAN DEFAULT FALSE
+      `);
+    } catch (error) {
+      // Ignorer l'erreur si la colonne existe déjà
+    }
+
+    // Ajouter la colonne pour l'acceptation des conditions d'utilisation
+    try {
+      await query(`
+        ALTER TABLE users 
+        ADD COLUMN IF NOT EXISTS terms_accepted_at TIMESTAMP
+      `);
+    } catch (error) {
+      // Ignorer l'erreur si la colonne existe déjà
+    }
+
     // Table des sessions (pour JWT)
     await query(`
       CREATE TABLE IF NOT EXISTS user_sessions (
@@ -235,11 +264,11 @@ const createUser = async (userData) => {
   const bcrypt = require("bcryptjs");
   const passwordHash = await bcrypt.hash(password, 12);
 
-  // Insérer l'utilisateur
+  // Insérer l'utilisateur avec la date d'acceptation des conditions
   const result = await query(
-    `INSERT INTO users (email, username, password_hash, first_name, last_name, email_verified, email_verification_token)
-     VALUES ($1, $2, $3, $4, $5, FALSE, $6)
-     RETURNING id, email, username, first_name, last_name, email_verified, email_verification_token, created_at`,
+    `INSERT INTO users (email, username, password_hash, first_name, last_name, email_verified, email_verification_token, terms_accepted_at)
+     VALUES ($1, $2, $3, $4, $5, FALSE, $6, CURRENT_TIMESTAMP)
+     RETURNING id, email, username, first_name, last_name, email_verified, email_verification_token, created_at, terms_accepted_at`,
     [email, username, passwordHash, firstName, lastName, verificationToken]
   );
 
@@ -610,6 +639,111 @@ const deleteDocument = async (documentId, userId) => {
   }
 };
 
+// Fonction pour récupérer tous les utilisateurs (admin)
+const getAllUsers = async (limit = 50, offset = 0) => {
+  try {
+    const result = await query(
+      `SELECT id, email, username, first_name, last_name, email_verified, 
+              is_admin, is_banned, created_at, updated_at, provider, terms_accepted_at
+       FROM users
+       ORDER BY created_at DESC
+       LIMIT $1 OFFSET $2`,
+      [limit, offset]
+    );
+
+    return {
+      success: true,
+      users: result.rows,
+    };
+  } catch (error) {
+    console.error("❌ Erreur récupération utilisateurs:", error);
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+};
+
+// Fonction pour bannir/débannir un utilisateur (admin)
+const toggleUserBan = async (userId, isBanned) => {
+  try {
+    const result = await query(
+      `UPDATE users 
+       SET is_banned = $1, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $2
+       RETURNING id, email, username, is_banned`,
+      [isBanned, userId]
+    );
+
+    if (result.rows.length === 0) {
+      return {
+        success: false,
+        error: "Utilisateur non trouvé",
+      };
+    }
+
+    return {
+      success: true,
+      user: result.rows[0],
+    };
+  } catch (error) {
+    console.error("❌ Erreur bannissement utilisateur:", error);
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+};
+
+// Fonction pour promouvoir/rétrograder un utilisateur admin (admin)
+const toggleUserAdmin = async (userId, isAdmin) => {
+  try {
+    const result = await query(
+      `UPDATE users 
+       SET is_admin = $1, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $2
+       RETURNING id, email, username, is_admin`,
+      [isAdmin, userId]
+    );
+
+    if (result.rows.length === 0) {
+      return {
+        success: false,
+        error: "Utilisateur non trouvé",
+      };
+    }
+
+    return {
+      success: true,
+      user: result.rows[0],
+    };
+  } catch (error) {
+    console.error("❌ Erreur changement statut admin:", error);
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+};
+
+// Fonction pour vérifier si un utilisateur est admin
+const isUserAdmin = async (userId) => {
+  try {
+    const result = await query(`SELECT is_admin FROM users WHERE id = $1`, [
+      userId,
+    ]);
+
+    if (result.rows.length === 0) {
+      return false;
+    }
+
+    return result.rows[0].is_admin === true;
+  } catch (error) {
+    console.error("❌ Erreur vérification statut admin:", error);
+    return false;
+  }
+};
+
 module.exports = {
   pool,
   query,
@@ -626,6 +760,11 @@ module.exports = {
   getDocumentById,
   updateDocument,
   deleteDocument,
+  // Fonctions admin
+  getAllUsers,
+  toggleUserBan,
+  toggleUserAdmin,
+  isUserAdmin,
   // Anciennes fonctions pour compatibilité
   createNote: createDocument,
   getUserNotes: getUserDocuments,

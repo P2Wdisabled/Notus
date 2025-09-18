@@ -5,6 +5,7 @@ import { useLocalSession } from "@/hooks/useLocalSession";
 import { signOut } from "next-auth/react";
 import { clearUserSession } from "@/lib/session-utils";
 import { useRouter } from "next/navigation";
+import AdminButton from "./AdminButton";
 
 export default function Navigation({ serverSession }) {
   const {
@@ -63,12 +64,7 @@ export default function Navigation({ serverSession }) {
       <span className="text-gray-700 dark:text-gray-300">
         Bonjour, <strong>{userName}</strong>
       </span>
-      <Link
-        href="/profile"
-        className="text-blue-600 hover:text-blue-700 font-semibold"
-      >
-        Mon profil
-      </Link>
+      <AdminButton />
       <button
         onClick={handleLogout}
         className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"

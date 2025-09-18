@@ -4,12 +4,43 @@ import { useActionState } from "react";
 import { registerUser } from "@/lib/actions";
 import Link from "next/link";
 import GoogleSignInButton from "@/components/GoogleSignInButton";
+import { useLocalSession } from "@/hooks/useLocalSession";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
-export default function RegisterPage() {
+function RegisterPageClient({ serverSession }) {
+  const { isLoggedIn, loading } = useLocalSession(serverSession);
+  const router = useRouter();
   const [message, formAction, isPending] = useActionState(
     registerUser,
     undefined
   );
+
+  // Redirection si déjà connecté
+  useEffect(() => {
+    if (!loading && isLoggedIn) {
+      router.push("/");
+    }
+  }, [isLoggedIn, loading, router]);
+
+  // Affichage du loading pendant la vérification
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="text-gray-600 dark:text-gray-300 mt-4">
+            Vérification...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Ne pas afficher le formulaire si déjà connecté
+  if (isLoggedIn) {
+    return null;
+  }
 
   if (message && message.includes("réussie")) {
     return (
@@ -166,6 +197,43 @@ export default function RegisterPage() {
             </p>
           </div>
 
+          {/* Acceptation des conditions d'utilisation */}
+          <div className="flex items-start">
+            <div className="flex items-center h-5">
+              <input
+                id="acceptTerms"
+                name="acceptTerms"
+                type="checkbox"
+                required
+                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+              />
+            </div>
+            <div className="ml-3 text-sm">
+              <label
+                htmlFor="acceptTerms"
+                className="text-gray-700 dark:text-gray-300"
+              >
+                Je confirme avoir lu et accepté les{" "}
+                <Link
+                  href="/legal/cgu"
+                  target="_blank"
+                  className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline"
+                >
+                  conditions générales d&apos;utilisation
+                </Link>{" "}
+                et les{" "}
+                <Link
+                  href="/legal/rgpd"
+                  target="_blank"
+                  className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline"
+                >
+                  mentions légales RGPD
+                </Link>
+                . *
+              </label>
+            </div>
+          </div>
+
           {/* Message d'erreur */}
           {message && !message.includes("réussie") && (
             <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
@@ -199,4 +267,8 @@ export default function RegisterPage() {
       </div>
     </div>
   );
+}
+
+export default function RegisterPage() {
+  return <RegisterPageClient serverSession={null} />;
 }
