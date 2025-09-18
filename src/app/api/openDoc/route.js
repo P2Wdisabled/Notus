@@ -32,11 +32,12 @@ export async function GET(request) {
       );
     }
 
-    // Retourner seulement le titre et le contenu
+    // Retourner le titre, le contenu et la date de mise à jour
     const response = {
       success: true,
       title: result.document.title,
       content: result.document.content,
+      updated_at: result.document.updated_at,
     };
     return NextResponse.json(response);
   } catch (error) {

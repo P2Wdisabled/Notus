@@ -49,6 +49,7 @@ export default function EditDocumentPageClient({ session, params }) {
           id: params.id,
           title: result.title,
           content: result.content,
+          updated_at: result.updated_at,
           user_id: parseInt(userId), // Utiliser l'ID utilisateur de la session
         };
 
@@ -206,12 +207,6 @@ export default function EditDocumentPageClient({ session, params }) {
               Modifié le{" "}
               {new Date(document.updated_at).toLocaleDateString("fr-FR")}
             </span>
-            <button
-              onClick={() => router.back()}
-              className="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
-            >
-              Fermer
-            </button>
           </div>
         </div>
 
