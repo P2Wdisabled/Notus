@@ -1,15 +1,15 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { createDocumentAction } from "@/lib/actions";
-import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useLocalSession } from "@/hooks/useLocalSession";
+import PropTypes from "prop-types";
 
 export default function NewDocumentPageClient({ session }) {
   const router = useRouter();
-  const [message, formAction, isPending] = useActionState(
+  const [actionResult, formAction, isPending] = useActionState(
     createDocumentAction,
     undefined
   );
@@ -17,12 +17,16 @@ export default function NewDocumentPageClient({ session }) {
   const [content, setContent] = useState("");
 
   // Utiliser notre hook personnalisé pour gérer la session
-  const {
-    session: localSession,
-    loading,
-    isLoggedIn,
-    userId,
-  } = useLocalSession(session);
+  const { loading, isLoggedIn, userId } = useLocalSession(session);
+
+  useEffect(() => {
+    if (actionResult && typeof actionResult === "object" && actionResult.success) {
+      if (actionResult.documentId) {
+        // Rediriger vers la page d'édition du nouveau document
+        router.replace(`/documents/${actionResult.documentId}`);
+      }
+    }
+  }, [actionResult, router]);
 
   if (loading) {
     return (
@@ -93,11 +97,12 @@ export default function NewDocumentPageClient({ session }) {
           <form action={handleSubmit} className="space-y-6">
             {/* Titre */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor="title" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Titre du document
               </label>
               <input
                 type="text"
+                id="title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-xl font-semibold"
@@ -108,10 +113,11 @@ export default function NewDocumentPageClient({ session }) {
 
             {/* Contenu */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor="content" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Contenu
               </label>
               <textarea
+                id="content"
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none min-h-[400px]"
@@ -137,26 +143,26 @@ export default function NewDocumentPageClient({ session }) {
             </div>
 
             {/* Message de succès/erreur */}
-            {message && (
+            {actionResult && (
               <div
                 className={`rounded-lg p-4 ${
-                  message.includes("succès") ||
-                  message.includes("créé") ||
-                  message.includes("mis à jour")
+                  (typeof actionResult === "object" && actionResult.success) ||
+                  (typeof actionResult === "string" && (actionResult.includes("succès") || actionResult.includes("créé") || actionResult.includes("mis à jour")))
                     ? "bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800"
                     : "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"
                 }`}
               >
                 <p
                   className={`text-sm ${
-                    message.includes("succès") ||
-                    message.includes("créé") ||
-                    message.includes("mis à jour")
+                    (typeof actionResult === "object" && actionResult.success) ||
+                    (typeof actionResult === "string" && (actionResult.includes("succès") || actionResult.includes("créé") || actionResult.includes("mis à jour")))
                       ? "text-green-600 dark:text-green-400"
                       : "text-red-600 dark:text-red-400"
                   }`}
                 >
-                  {message}
+                  {typeof actionResult === "string"
+                    ? actionResult
+                    : actionResult.message}
                 </p>
               </div>
             )}
@@ -166,3 +172,7 @@ export default function NewDocumentPageClient({ session }) {
     </div>
   );
 }
+
+NewDocumentPageClient.propTypes = {
+  session: PropTypes.any,
+};

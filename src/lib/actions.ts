@@ -2,12 +2,21 @@
 
 import { signIn } from '../../auth';
 import { AuthError } from 'next-auth';
-import { createUser } from './database';
 import { validateRegistrationData } from './validation';
-import { initializeTables } from './database';
 import { generateVerificationToken, sendVerificationEmail, sendPasswordResetEmail } from './email';
 import bcrypt from 'bcryptjs';
-import { query, createDocument, createOrUpdateNote, createOrUpdateDocument, createOrUpdateDocumentById, getUserDocuments, getAllDocuments, getDocumentById, updateDocument, deleteDocument } from './database';
+import { 
+  createUser,
+  initializeTables,
+  query,
+  createDocument,
+  createOrUpdateNote,
+  createOrUpdateDocumentById,
+  getUserDocuments,
+  getAllDocuments,
+  getDocumentById,
+  deleteDocument
+} from './database';
 
 export async function authenticate(
   prevState: string | undefined,
@@ -86,7 +95,7 @@ export async function registerUser(
     const verificationToken = generateVerificationToken();
 
     // Créer l'utilisateur avec le token
-    const user = await createUser({
+    await createUser({
       ...userData,
       verificationToken,
     });
@@ -269,7 +278,7 @@ export async function resetPasswordAction(
 
 // Action pour créer un document
 export async function createDocumentAction(
-  prevState: string | undefined,
+  prevState: any,
   formData: FormData,
 ) {
   try {
@@ -278,7 +287,7 @@ export async function createDocumentAction(
     const userId = formData.get('userId') as string;
 
     if (!userId) {
-      return 'Utilisateur requis.';
+      return { success: false, message: 'Utilisateur requis.' };
     }
 
     // Debug: Afficher l'ID utilisateur reçu
@@ -289,7 +298,7 @@ export async function createDocumentAction(
     // Si l'ID utilisateur est undefined ou null
     if (!userId || userId === 'undefined' || userId === 'null' || userId === 'unknown') {
       console.error('❌ ID utilisateur non défini dans la session');
-      return 'Session utilisateur invalide. Veuillez vous reconnecter.';
+      return { success: false, message: 'Session utilisateur invalide. Veuillez vous reconnecter.' };
     }
     
     // Si c'est un ID de simulation OAuth
@@ -300,47 +309,51 @@ export async function createDocumentAction(
       userIdNumber = parseInt(userId);
       if (isNaN(userIdNumber) || userIdNumber <= 0) {
         console.error('❌ ID utilisateur invalide:', userId, 'Parsed as:', userIdNumber);
-        return 'ID utilisateur invalide. Veuillez vous reconnecter.';
+        return { success: false, message: 'ID utilisateur invalide. Veuillez vous reconnecter.' };
       }
     }
 
     if (!title || title.trim().length === 0) {
-      return 'Le titre du document ne peut pas être vide.';
+      return { success: false, message: 'Le titre du document ne peut pas être vide.' };
     }
 
     if (title.length > 255) {
-      return 'Le titre ne peut pas dépasser 255 caractères.';
+      return { success: false, message: 'Le titre ne peut pas dépasser 255 caractères.' };
     }
 
     // Vérifier si la base de données est configurée
     if (!process.env.DATABASE_URL) {
-      return 'Document créé avec succès (mode simulation). Configurez DATABASE_URL pour la persistance.';
+      return {
+        success: true,
+        message: 'Document créé avec succès (mode simulation). Configurez DATABASE_URL pour la persistance.',
+        documentId: undefined,
+      };
     }
 
     // Initialiser les tables si elles n'existent pas
     await initializeTables();
 
-    // Créer ou mettre à jour le document (évite les doublons)
-    const result = await createOrUpdateDocument(userIdNumber, title.trim(), content || '');
+    // Toujours créer un NOUVEAU document pour obtenir un ID unique
+    const result = await createDocument(userIdNumber, title.trim(), content || '');
 
     if (!result.success) {
       console.error('❌ Erreur création/mise à jour document:', result.error);
-      return 'Erreur lors de la création du document. Veuillez réessayer.';
+      return { success: false, message: 'Erreur lors de la création du document. Veuillez réessayer.' };
     }
 
-    if (result.isUpdate) {
-      return 'Document mis à jour avec succès !';
-    } else {
-      return 'Document créé avec succès !';
-    }
+    return {
+      success: true,
+      message: 'Document créé avec succès !',
+      documentId: (result as any).document?.id,
+    };
   } catch (error: any) {
     console.error('❌ Erreur lors de la création du document:', error);
     
     if (error.code === 'ECONNRESET' || error.code === 'ECONNREFUSED') {
-      return 'Base de données non accessible. Vérifiez la configuration PostgreSQL.';
+      return { success: false, message: 'Base de données non accessible. Vérifiez la configuration PostgreSQL.' };
     }
     
-    return 'Erreur lors de la création du document. Veuillez réessayer.';
+    return { success: false, message: 'Erreur lors de la création du document. Veuillez réessayer.' };
   }
 }
 
@@ -477,7 +490,7 @@ export async function deleteNoteAction(
     }
 
     // Supprimer la note
-    const result = await deleteNote(parseInt(noteId), userIdNumber);
+  const result = await deleteDocument(parseInt(noteId), userIdNumber);
 
     if (!result.success) {
       console.error('❌ Erreur suppression note:', result.error);
