@@ -14,7 +14,7 @@ export default function FloatingCreateButton({ serverSession }) {
   return (
     <Link
       href="/documents/new"
-      className="fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 z-50 group"
+      className="fixed bottom-6 right-6 bg-orange dark:bg-dark-purple dark:hover:bg-purple hover:bg-dark-orange text-black dark:text-white cursor-pointer p-4 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 z-50 group"
       title="Créer un document"
     >
       <svg

@@ -3,7 +3,8 @@ import Link from "next/link";
 import { getUserDocumentsAction } from "@/lib/actions";
 import DocumentCard from "@/components/DocumentCard";
 import Navigation from "@/components/Navigation";
-import { Button, Card, Alert, LoadingSpinner } from "@/components/ui";
+import NavBar from "@/components/NavBar";
+import { Button, Card, Alert, LoadingSpinner, Logo } from "@/components/ui";
 
 export default async function Home() {
   const session = await auth();
@@ -14,26 +15,26 @@ export default async function Home() {
     : { success: true, documents: [] };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
-      <div className="max-w-4xl mx-auto px-4 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-white to-gray dark:from-black dark:to-dark-gray">
+      {/* Persistent sidebar on md+ */}
+      <NavBar />
+      <div className="md:ml-64 max-w-4xl mx-auto px-4 py-8">
         {/* Header */}
         <header className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
-            Bienvenue sur Notus
-          </h1>
-          <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
+          <Logo />
+          <p className="text-xl text-dark-gray dark:text-gray max-w-2xl mx-auto">
             Partagez ce qui vous passe par la tête
           </p>
 
           {/* Navigation */}
-          <div className="mt-6 flex justify-center">
+          {/* <div className="mt-6 flex justify-center md:justify-end">
             <Navigation serverSession={session} />
-          </div>
+          </div> */}
         </header>
 
         {/* Fil d'actualité */}
         <div className="space-y-4">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+          <h2 className="text-2xl font-bold text-black dark:text-white">
             {session?.user ? "Mes documents" : "Documents"}
           </h2>
 

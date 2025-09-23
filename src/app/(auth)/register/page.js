@@ -7,7 +7,7 @@ import GoogleSignInButton from "@/components/GoogleSignInButton";
 import { useLocalSession } from "@/hooks/useLocalSession";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { Button, Input, Card, Alert, LoadingSpinner } from "@/components/ui";
+import { Button, Input, Card, Alert, LoadingSpinner, Logo } from "@/components/ui";
 
 function RegisterPageClient({ serverSession }) {
   const { isLoggedIn, loading } = useLocalSession(serverSession);
@@ -27,7 +27,7 @@ function RegisterPageClient({ serverSession }) {
   // Affichage du loading pendant la vérification
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-light-gray to-white dark:from-light-black dark:to-black flex items-center justify-center p-4">
         <LoadingSpinner.Card
           message="Vérification..."
           className="max-w-md w-full"
@@ -43,7 +43,7 @@ function RegisterPageClient({ serverSession }) {
 
   if (message && message.includes("réussie")) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-light-gray to-white dark:from-light-black dark:to-black flex items-center justify-center p-4">
         <Card className="max-w-md w-full text-center">
           <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
             <span className="text-white text-2xl">✓</span>
@@ -64,9 +64,10 @@ function RegisterPageClient({ serverSession }) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-light-gray to-white dark:from-light-black dark:to-black flex items-center justify-center p-4">
       <Card className="max-w-md w-full">
         <Card.Header className="text-center">
+        <Logo />
           <Card.Title className="text-3xl mb-2">Créer un compte</Card.Title>
           <Card.Description>Rejoignez notre communauté</Card.Description>
         </Card.Header>
@@ -79,10 +80,10 @@ function RegisterPageClient({ serverSession }) {
         {/* Séparateur */}
         <div className="relative mb-6">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-300 dark:border-gray-600" />
+            <div className="w-full border-t border-gray dark:border-dark-gray" />
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">
+            <span className="px-2 bg-white dark:bg-black text-dark-gray dark:text-gray">
               ou
             </span>
           </div>
@@ -150,24 +151,24 @@ function RegisterPageClient({ serverSession }) {
             {/* Acceptation des conditions d'utilisation */}
             <div className="flex items-start">
               <div className="flex items-center h-5">
-                <input
-                  id="acceptTerms"
-                  name="acceptTerms"
-                  type="checkbox"
-                  required
-                  className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-                />
+              <input
+              id="acceptTerms"
+              name="acceptTerms"
+              type="checkbox"
+              required
+              className="w-4 h-4 accent-orange dark:accent-dark-purple bg-white dark:bg-white border-orange dark:border-purple rounded"
+            />
               </div>
               <div className="ml-3 text-sm">
                 <label
                   htmlFor="acceptTerms"
-                  className="text-gray-700 dark:text-gray-300"
+                  className="text-dark-gray dark:text-gray"
                 >
                   Je confirme avoir lu et accepté les{" "}
                   <Link
                     href="/legal/cgu"
                     target="_blank"
-                    className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline"
+                    className="text-orange hover:text-dark-orange dark:text-dark-purple dark:hover:text-purple underline"
                   >
                     conditions générales d&apos;utilisation
                   </Link>{" "}
@@ -175,7 +176,7 @@ function RegisterPageClient({ serverSession }) {
                   <Link
                     href="/legal/rgpd"
                     target="_blank"
-                    className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline"
+                    className="text-orange hover:text-dark-orange dark:text-dark-purple dark:hover:text-purple underline"
                   >
                     mentions légales RGPD
                   </Link>
@@ -205,10 +206,10 @@ function RegisterPageClient({ serverSession }) {
         </Card.Content>
 
         <Card.Footer className="text-center">
-          <p className="text-gray-600 dark:text-gray-300">
+          <p className="text-dark-gray dark:text-gray">
             Déjà un compte ?{" "}
             <Button variant="link" asChild>
-              <Link href="/login">Se connecter</Link>
+              <Link className="text-orange dark:text-dark-purple" href="/login">Se connecter</Link>
             </Button>
           </p>
         </Card.Footer>

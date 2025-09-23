@@ -8,7 +8,7 @@ const Card = ({
   ...props
 }) => {
   const baseClasses =
-    "bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700";
+    "bg-white dark:bg-black rounded-2xl border border-gray-200 dark:border-gray-700";
 
   const paddingClasses = {
     none: "",
