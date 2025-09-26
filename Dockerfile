@@ -18,7 +18,7 @@ COPY . .
 # Exclure .env avec .dockerignore
 
 # Générer le client Prisma si nécessaire
-RUN npx prisma generate || true
+RUN npx prisma generate
 
 # Build conditionnel - seulement pour production
 ARG NODE_ENV=production
