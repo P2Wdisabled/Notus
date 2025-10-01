@@ -2,40 +2,41 @@
 
 import Link from "next/link";
 import { useLocalSession } from "@/hooks/useLocalSession";
+import { usePathname } from "next/navigation";
 
 export default function FloatingCreateButton({ serverSession }) {
-  const { isLoggedIn, loading } = useLocalSession(serverSession);
+  const { loading, isLoggedIn } = useLocalSession(serverSession);
+  const pathname = usePathname();
 
   // Ne pas afficher le bouton si l'utilisateur n'est pas connecté
-  if (loading || !isLoggedIn) {
+  if (loading || pathname === "/register" || pathname === "/login" || pathname === "/documents/new") {
     return null;
   }
+
+  // Remonter le bouton si l'utilisateur n'est pas connecté sur la page d'accueil
+  const bottomClass = !isLoggedIn && pathname === "/" ? "bottom-20" : "bottom-6";
 
   return (
     <Link
       href="/documents/new"
-      className="fixed bottom-6 right-6 bg-orange dark:bg-dark-purple dark:hover:bg-purple hover:bg-dark-orange text-black dark:text-white cursor-pointer p-4 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 z-50 group"
-      title="Créer un document"
+      className={`fixed ${bottomClass} right-[5%] whitespace-nowrap bg-orange dark:bg-dark-purple dark:hover:bg-purple hover:bg-dark-orange text-black dark:text-white cursor-pointer px-4 py-2 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 z-10 group inline-flex items-center gap-3`}
+      title="Créer une note"
     >
-      <svg
-        className="w-6 h-6"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M12 4v16m8-8H4"
-        />
-      </svg>
 
-      {/* Tooltip */}
-      <div className="absolute bottom-full right-0 mb-2 px-3 py-1 bg-gray-900 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">
-        Créer un document
-        <div className="absolute top-full right-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
-      </div>
+      <span className="font-title text-xl">Créer une note </span>
+      <svg
+            className="w-6 h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 4v16m8-8H4"
+            />
+      </svg>
     </Link>
   );
 }

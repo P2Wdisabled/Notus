@@ -35,7 +35,7 @@ function LoginPageClient({ serverSession }) {
   // Affichage du loading pendant la vérification
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-light-gray to-white dark:from-light-black dark:to-black flex items-center justify-center p-4">
+      <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center p-4">
         <LoadingSpinner.Card
           message="Vérification..."
           className="max-w-md w-full"
@@ -50,11 +50,11 @@ function LoginPageClient({ serverSession }) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-light-gray to-white dark:from-light-black dark:to-black flex items-center justify-center p-4">
+    <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center p-4">
       <Card className="max-w-md w-full">
         <Card.Header className="text-center">
           <Logo />
-          <Card.Title className="text-3xl mb-2">Se connecter</Card.Title>
+          <Card.Title className="text-4xl mb-2 font-light">Se connecter</Card.Title>
         </Card.Header>
 
         {/* Bouton Google */}
@@ -75,7 +75,7 @@ function LoginPageClient({ serverSession }) {
         </div>
 
         <Card.Content>
-          <form action={formAction} className="space-y-6">
+          <form action={formAction} className="space-y-6 mb-0">
             {/* Email/Pseudo */}
             <Input
               label="Email ou nom d'utilisateur"
@@ -87,7 +87,7 @@ function LoginPageClient({ serverSession }) {
             />
 
             {/* Mot de passe */}
-            <div>
+            <div className="mb-0">
               <div className="flex justify-between items-center mb-2">
                 <label
                   htmlFor="password"
@@ -97,7 +97,7 @@ function LoginPageClient({ serverSession }) {
                 </label>
                 <Link
                   href="/forgot-password"
-                  className="text-sm text-black hover:text-black font-medium"
+                  className="text-sm text-dark-gray dark:text-gray hover:text-light-gray dark:hover:text-white font-medium"
                 >
                   Mot de passe oublié ?
                 </Link>
@@ -114,27 +114,29 @@ function LoginPageClient({ serverSession }) {
                 error={errorMessage || undefined}
               />
             </div>
-
+            <Card.Footer className="text-center">
+              <p className="text-dark-gray dark:text-gray py-4">
+                Pas encore de compte ?{" "}
+                <Button variant="link" asChild>
+                  <Link className="text-orange dark:text-dark-purple" href="/register">S'inscrire</Link>
+                </Button>
+              </p>
+            </Card.Footer>
             {/* Bouton de soumission */}
             <Button
               type="submit"
               disabled={isPending}
               loading={isPending}
               className="w-full text-black dark:text-white"
-              size="lg"
             >
               {isPending ? "Connexion..." : "Se connecter"}
             </Button>
           </form>
         </Card.Content>
-
-        <Card.Footer className="text-center">
-          <p className="text-dark-gray dark:text-gray">
-            Pas encore de compte ?{" "}
-            <Button variant="link" asChild>
-              <Link className="text-orange dark:text-dark-purple" href="/register">S'inscrire</Link>
-            </Button>
-          </p>
+        <Card.Footer className="text-center p-2">
+          <Link href="/" className="text-dark-gray dark:text-gray">
+            Continuer en tant que personne anonyme
+          </Link>
         </Card.Footer>
       </Card>
     </div>

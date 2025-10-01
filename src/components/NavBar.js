@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import AdminButton from "./AdminButton";
-import { Logo } from "@/components/ui";
+import { Logo, Input } from "@/components/ui";
 import { useLocalSession } from "@/hooks/useLocalSession";
 import { signOut } from "next-auth/react";
 
@@ -12,7 +12,7 @@ export default function NavBar() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const router = useRouter();
-  const { userName, logout } = useLocalSession();
+  const { userName, username, logout, isLoggedIn } = useLocalSession();
 
   const items = [
     { name: "Récent", href: "/recent", icon: ClockIcon },
@@ -20,6 +20,7 @@ export default function NavBar() {
     { name: "Notes partagées", href: "/shared", icon: ShareIcon },
     { name: "Favoris", href: "/favorites", icon: StarIcon },
     { name: "Dossiers", href: "/folders", icon: FolderIcon },
+    { name: "Notifications", href: "/notifications", icon: BellIcon },
     { name: "Corbeille", href: "/trash", icon: TrashIcon },
   ];
 
@@ -27,39 +28,52 @@ export default function NavBar() {
 
   const handleLogout = async () => {
     try {
-      logout();
-      await signOut({ callbackUrl: "/", redirect: false });
-      router.push("/");
+      if (isLoggedIn) {
+        logout();
+        await signOut({ callbackUrl: "/", redirect: false });
+        router.push("/");
+      } else {
+        router.push("/login");
+      }
     } catch (_) {
     } finally {
       setIsOpen(false);
     }
   };
 
+  const [searchQuery, setSearchQuery] = useState("");
+  const handleDesktopSearchKeyDown = (e) => {
+    if (e.key === "Enter") {
+      const q = searchQuery.trim();
+      if (q.length > 0) {
+        router.push(`/search?q=${encodeURIComponent(q)}`);
+      } else {
+        router.push("/search");
+      }
+    }
+  };
+
   return (
     <>
       {/* Global top bar (mobile + desktop) */}
-      <div className="sticky top-0 z-40 bg-white/80 dark:bg-black/60 backdrop-blur border-b border-light-gray dark:border-dark-gray">
-        <div className="w-full px-2 h-14 flex items-center justify-between">
+      <div className="sticky top-0 z-40 bg-white dark:bg-black">
+        <div className="w-full px-2 h-14 flex items-center justify-between md:hidden">
           {/* Left: burger + page title */}
           <div className="flex items-center gap-3">
             <button
               aria-label="Ouvrir le menu"
               onClick={() => setIsOpen(!isOpen)}
-              className="md:hidden p-2 rounded-md hover:bg-light-gray dark:hover:bg-light-black text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-orange"
+              className="md:hidden p-2 rounded-md hover:bg-light-gray dark:hover:bg-light-black text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-orange dark:focus:ring-dark-purple cursor-pointer"
             >
               <MenuIcon />
             </button>
             <Link href="/" className="items-center hidden md:flex">
                 <Logo width={160} height={46} />
             </Link>
-            <span className="text-base md:text-lg font-semibold text-black md:pl-20 pl-0 dark:text-white">
-              {pageTitle}
-            </span>
           </div>
 
-          {/* Right: search, notifications, profile */}
-          <div className="flex items-center gap-2">
+          {/* Right: search, notifications, profile (hidden on desktop) */}
+          {/* <div className="flex items-center gap-2 md:hidden">
             <Link
               href="/search"
               aria-label="Rechercher"
@@ -74,15 +88,17 @@ export default function NavBar() {
             >
               <BellIcon />
             </Link>
-            <Link
-              href="/profile"
-              aria-label="Profil"
-              className="ml-1 inline-flex items-center justify-center w-8 h-8 rounded-full bg-light-gray dark:bg-light-black text-black dark:text-white font-semibold"
-              title={userName || "Profil"}
-            >
-              {getInitials(userName)}
-            </Link>
-          </div>
+            {isLoggedIn && (
+              <Link
+                href="/profile"
+                aria-label="Profil"
+                className="ml-1 inline-flex items-center justify-center w-8 h-8 rounded-full bg-light-gray dark:bg-light-black text-black dark:text-white font-semibold"
+                title={userName || "Profil"}
+              >
+                {getInitials(userName)}
+              </Link>
+            )}
+          </div> */}
         </div>
       </div>
 
@@ -93,19 +109,29 @@ export default function NavBar() {
             className="absolute inset-0 bg-black/30"
             onClick={() => setIsOpen(false)}
           />
-          <div className="absolute left-0 top-0 h-full w-72 bg-white dark:bg-black border-r border-light-gray dark:border-dark-gray p-4 flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <span className="font-bold text-black dark:text-white">Menu</span>
+          <div className="absolute left-0 top-0 h-full w-72 bg-white dark:bg-black p-4 flex flex-col">
+            <div className="flex items-center justify-end mb-4">
               <button
                 aria-label="Fermer"
                 onClick={() => setIsOpen(false)}
-                className="p-2 rounded-md hover:bg-light-gray dark:hover:bg-light-black text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-orange"
+                className="p-2 rounded-md hover:bg-light-gray dark:hover:bg-light-black text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-orange dark:focus:ring-dark-purple cursor-pointer"
               >
                 <CloseIcon />
               </button>
             </div>
             <nav className="space-y-1 flex-1 overflow-y-auto">
-              {items.map(({ name, href, icon: Icon }) => {
+              <div className="flex justify-center mb-3 p-3">
+                <Link
+                  href="/"
+                  onClick={() => setIsOpen(false)}
+                  className="inline-flex items-center"
+                >
+                  <Logo width={160} height={46} />
+                </Link>
+              </div>
+              {/* {items
+                .filter((i) => i.href !== "/notifications")
+                .map(({ name, href, icon: Icon }) => {
                 const active = pathname === href;
                 return (
                   <Link
@@ -122,17 +148,30 @@ export default function NavBar() {
                     <span className="text-base font-medium">{name}</span>
                   </Link>
                 );
-              })}
+              })} */}
               <div className="pt-3">
-                <AdminButton />
+                {/* <AdminButton /> */}
               </div>
             </nav>
-            <div className="pt-4 border-t border-light-gray dark:border-dark-gray">
+            <div className="pt-4 space-y-3">
+              {isLoggedIn && (
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-light-gray/50 dark:bg-light-black/50">
+                  <div className="flex items-center justify-center w-10 h-10 rounded-full bg-light-gray dark:bg-light-black text-black dark:text-white font-semibold">
+                    {getInitials(userName || username || "Anonyme")}
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-semibold text-black dark:text-white">
+                      {username || userName || "Anonyme"}
+                    </span>
+                    <span className="text-xs text-dark-gray dark:text-gray">Profil</span>
+                  </div>
+                </div>
+              )}
               <button
                 onClick={handleLogout}
-                className="w-full bg-orange hover:bg-dark-orange dark:bg-dark-purple dark:hover:bg-purple text-black dark:text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+                className="w-full bg-orange hover:bg-dark-orange dark:bg-dark-purple dark:hover:bg-purple text-black dark:text-white font-semibold py-2 px-4 rounded-lg transition-colors cursor-pointer"
               >
-                Se déconnecter
+                {isLoggedIn ? "Se déconnecter" : "Se connecter"}
               </button>
             </div>
           </div>
@@ -140,12 +179,22 @@ export default function NavBar() {
       )}
 
       {/* Desktop / Tablet sidebar like X */}
-      <aside className="hidden md:flex md:flex-col md:fixed md:inset-y-0 md:left-0 md:w-64 border-r border-light-gray dark:border-dark-gray bg-white dark:bg-black z-30">
-        <div className="h-14 flex items-center px-4 border-b border-light-gray dark:border-dark-gray">
-
+      <aside className="hidden md:flex md:flex-col md:fixed md:inset-y-0 md:left-0 md:w-64 bg-white dark:bg-black z-30">
+        <div className="px-4 py-3 pt-10 flex justify-center">
+          <Link href="/" className="inline-flex items-center">
+            <Logo width={140} height={40} />
+          </Link>
+          {/* <div className="mt-3">
+            <Input
+              placeholder="Rechercher..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={handleDesktopSearchKeyDown}
+            />
+          </div> */}
         </div>
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-          {items.map(({ name, href, icon: Icon }) => {
+          {/* {items.map(({ name, href, icon: Icon }) => {
             const active = pathname === href;
             return (
               <Link
@@ -161,15 +210,28 @@ export default function NavBar() {
                 <span>{name}</span>
               </Link>
             );
-          })}
+          })} */}
         </nav>
-        <div className="p-4 border-t border-light-gray dark:border-dark-gray space-y-3">
-          <AdminButton />
+        <div className="p-4 space-y-3">
+          {/* <AdminButton /> */}
+          {isLoggedIn && (
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-light-gray/50 dark:bg-light-black/50">
+              <div className="flex items-center justify-center w-10 h-10 rounded-full bg-light-gray dark:bg-light-black text-black dark:text-white font-semibold">
+                {getInitials(userName || username || "Anonyme")}
+              </div>
+              <div className="flex flex-col">
+                <span className="text-sm font-semibold text-black dark:text-white">
+                  {username || userName || "Anonyme"}
+                </span>
+                <span className="text-xs text-dark-gray dark:text-gray">Profil</span>
+              </div>
+            </div>
+          )}
           <button
             onClick={handleLogout}
-            className="w-full bg-orange hover:bg-dark-orange dark:bg-dark-purple dark:hover:bg-purple text-black dark:text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+            className="w-full bg-orange hover:bg-dark-orange dark:bg-dark-purple dark:hover:bg-purple text-black dark:text-white font-semibold py-2 px-4 rounded-lg transition-colors cursor-pointer"
           >
-            Se déconnecter
+            {isLoggedIn ? "Se déconnecter" : "Se connecter"}
           </button>
         </div>
       </aside>
@@ -382,7 +444,7 @@ function TrashIcon(props) {
 function getPageTitle(pathname, items) {
   const found = items.find((i) => i.href === pathname);
   if (found) return found.name;
-  if (pathname === "/") return "Accueil";
+  if (pathname === "/") return "Mes notes";
   return "Notus";
 }
 

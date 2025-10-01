@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState, useMemo } from "react";
 import { registerUser } from "@/lib/actions";
 import Link from "next/link";
 import GoogleSignInButton from "@/components/GoogleSignInButton";
@@ -16,6 +16,43 @@ function RegisterPageClient({ serverSession }) {
     registerUser,
     undefined
   );
+  
+  // Validation en temps réel (sans contrôler visuellement les champs)
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [acceptTerms, setAcceptTerms] = useState(false);
+
+  const validFirstName = firstName.trim().length >= 4; // > 3
+  const validLastName = lastName.trim().length >= 4; // > 3
+  const validUsername = username.trim().length >= 4; // > 3
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+  const validEmail = emailRegex.test(email);
+  const passMin = password.length >= 8;
+  const passUpper = /[A-Z]/.test(password);
+  const passLower = /[a-z]/.test(password);
+  const passDigit = /\d/.test(password);
+  const passSpecial = /[^A-Za-z0-9]/.test(password);
+  const validPassword = passMin && passUpper && passLower && passDigit && passSpecial;
+  const validConfirm = confirmPassword === password && password.length > 0;
+  const allValid = validFirstName && validLastName && validUsername && validEmail && validPassword && validConfirm && acceptTerms;
+
+  // Indicateurs de progression pour le mot de passe
+  const passwordRemaining = useMemo(() => {
+    const items = [];
+    if (!passMin) items.push("Au moins 8 caractères");
+    if (!passUpper) items.push("Une majuscule");
+    if (!passLower) items.push("Une minuscule");
+    if (!passDigit) items.push("Un chiffre");
+    if (!passSpecial) items.push("Un caractère spécial");
+    return items;
+  }, [passMin, passUpper, passLower, passDigit, passSpecial]);
+
+  const passwordSatisfied = 5 - passwordRemaining.length;
+  const passwordProgress = Math.round((passwordSatisfied / 5) * 100);
 
   // Redirection si déjà connecté
   useEffect(() => {
@@ -27,7 +64,7 @@ function RegisterPageClient({ serverSession }) {
   // Affichage du loading pendant la vérification
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-light-gray to-white dark:from-light-black dark:to-black flex items-center justify-center p-4">
+      <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center p-4">
         <LoadingSpinner.Card
           message="Vérification..."
           className="max-w-md w-full"
@@ -43,7 +80,7 @@ function RegisterPageClient({ serverSession }) {
 
   if (message && message.includes("réussie")) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-light-gray to-white dark:from-light-black dark:to-black flex items-center justify-center p-4">
+      <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center p-4">
         <Card className="max-w-md w-full text-center">
           <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
             <span className="text-white text-2xl">✓</span>
@@ -64,7 +101,7 @@ function RegisterPageClient({ serverSession }) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-light-gray to-white dark:from-light-black dark:to-black flex items-center justify-center p-4">
+    <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center p-4">
       <Card className="max-w-md w-full">
         <Card.Header className="text-center">
         <Logo />
@@ -99,7 +136,9 @@ function RegisterPageClient({ serverSession }) {
                 id="firstName"
                 name="firstName"
                 required
-                minLength={2}
+                minLength={4}
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
                 placeholder="Votre prénom"
               />
 
@@ -109,7 +148,9 @@ function RegisterPageClient({ serverSession }) {
                 id="lastName"
                 name="lastName"
                 required
-                minLength={2}
+                minLength={4}
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
                 placeholder="Votre nom"
               />
             </div>
@@ -121,6 +162,8 @@ function RegisterPageClient({ serverSession }) {
               id="email"
               name="email"
               required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               placeholder="votre@email.com"
             />
 
@@ -131,8 +174,10 @@ function RegisterPageClient({ serverSession }) {
               id="username"
               name="username"
               required
-              minLength={3}
+              minLength={4}
               pattern="[a-zA-Z0-9_]+"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               placeholder="nom_utilisateur"
             />
 
@@ -144,8 +189,39 @@ function RegisterPageClient({ serverSession }) {
               name="password"
               required
               minLength={8}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               placeholder="Votre mot de passe"
-              helperText="Au moins 8 caractères avec majuscules, minuscules, chiffres et caractères spéciaux"
+            />
+
+            {/* Indicateur de conditions du mot de passe */}
+            <div className="-mt-4">
+              <div className="w-full h-2 bg-light-gray dark:bg-dark-gray rounded-full overflow-hidden">
+                <div
+                  className={`bg-orange dark:bg-dark-purple h-full transition-all duration-300`}
+                  style={{ width: `${passwordProgress}%`, opacity: Math.max(0.2, passwordProgress / 100) }}
+                />
+              </div>
+              {passwordRemaining.length > 0 && (
+                <ul className="mt-2 text-xs text-dark-gray dark:text-gray list-disc pl-5 space-y-1">
+                  {passwordRemaining.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {/* Confirmation du mot de passe */}
+            <Input
+              label="Confirmer le mot de passe *"
+              type="password"
+              id="confirmPassword"
+              name="confirmPassword"
+              required
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Répétez votre mot de passe"
+              error={confirmPassword && confirmPassword !== password ? "Les mots de passe ne correspondent pas" : undefined}
             />
 
             {/* Acceptation des conditions d'utilisation */}
@@ -156,6 +232,8 @@ function RegisterPageClient({ serverSession }) {
               name="acceptTerms"
               type="checkbox"
               required
+              checked={acceptTerms}
+              onChange={(e) => setAcceptTerms(e.target.checked)}
               className="w-4 h-4 accent-orange dark:accent-dark-purple bg-white dark:bg-white border-orange dark:border-purple rounded"
             />
               </div>
@@ -195,7 +273,7 @@ function RegisterPageClient({ serverSession }) {
             {/* Bouton de soumission */}
             <Button
               type="submit"
-              disabled={isPending}
+              disabled={isPending || !allValid}
               loading={isPending}
               className="w-full"
               size="lg"

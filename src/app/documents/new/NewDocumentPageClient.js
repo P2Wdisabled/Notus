@@ -15,6 +15,7 @@ export default function NewDocumentPageClient({ session }) {
   );
   const [title, setTitle] = useState("Sans titre");
   const [content, setContent] = useState("");
+  const [localInfo, setLocalInfo] = useState("");
 
   // Utiliser notre hook personnalisé pour gérer la session
   const {
@@ -35,41 +36,59 @@ export default function NewDocumentPageClient({ session }) {
     );
   }
 
-  if (!isLoggedIn) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-            Accès refusé
-          </h1>
-          <p className="text-gray-600 dark:text-gray-300 mb-6">
-            Vous devez être connecté pour créer un document.
-          </p>
-          <Link
-            href="/login"
-            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
-          >
-            Se connecter
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  // Helpers pour la sauvegarde locale des documents pour utilisateurs non connectés
+  const LOCAL_DOCS_KEY = "notus.local.documents";
+
+  const loadLocalDocuments = () => {
+    try {
+      const raw = localStorage.getItem(LOCAL_DOCS_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch (_) {
+      return [];
+    }
+  };
+
+  const saveLocalDocuments = (docs) => {
+    try {
+      localStorage.setItem(LOCAL_DOCS_KEY, JSON.stringify(docs));
+      return true;
+    } catch (_) {
+      return false;
+    }
+  };
 
   const handleSubmit = (formData) => {
-    // Vérifier que l'ID utilisateur est défini dans la session localStorage
-    if (!userId) {
-      console.error(
-        "❌ Erreur: ID utilisateur non défini dans la session localStorage"
-      );
-      alert("Erreur: Session utilisateur invalide. Veuillez vous reconnecter.");
+    // Si l'utilisateur est connecté, on utilise le flux serveur habituel
+    if (isLoggedIn && userId) {
+      formData.append("userId", userId);
+      formData.append("title", title);
+      formData.append("content", content);
+      formAction(formData);
       return;
     }
 
-    formData.append("userId", userId);
-    formData.append("title", title);
-    formData.append("content", content);
-    formAction(formData);
+    // Sinon, sauvegarde locale dans le navigateur
+    const nowIso = new Date().toISOString();
+    const localId = typeof crypto !== "undefined" && crypto.randomUUID ? `local-${crypto.randomUUID()}` : `local-${Date.now()}`;
+    const newDoc = {
+      id: localId,
+      title: (title || "Sans titre").trim(),
+      content: content || "",
+      created_at: nowIso,
+      updated_at: nowIso,
+    };
+
+    const docs = loadLocalDocuments();
+    docs.unshift(newDoc);
+    const ok = saveLocalDocuments(docs);
+    if (ok) {
+      setLocalInfo("Document enregistré localement dans ce navigateur.");
+      // Réinitialiser le formulaire pour l'expérience anonyme
+      setTitle("Sans titre");
+      setContent("");
+    } else {
+      setLocalInfo("Impossible d'enregistrer localement (quota ou permissions).");
+    }
   };
 
   return (
@@ -87,6 +106,15 @@ export default function NewDocumentPageClient({ session }) {
             Nouveau document
           </h1>
         </div>
+
+        {/* Bandeau d'information en mode anonyme */}
+        {!isLoggedIn && (
+          <div className="mb-6 rounded-xl border border-yellow-300 bg-yellow-50 text-yellow-800 dark:border-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-300 p-4">
+            <p className="text-sm">
+              Vous n'êtes pas connecté. Votre document sera enregistré <strong>localement</strong> dans ce navigateur.
+            </p>
+          </div>
+        )}
 
         {/* Formulaire de création */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
@@ -137,26 +165,30 @@ export default function NewDocumentPageClient({ session }) {
             </div>
 
             {/* Message de succès/erreur */}
-            {message && (
+            {(message || localInfo) && (
               <div
                 className={`rounded-lg p-4 ${
-                  message.includes("succès") ||
-                  message.includes("créé") ||
-                  message.includes("mis à jour")
+                  (message && (
+                    message.includes("succès") ||
+                    message.includes("créé") ||
+                    message.includes("mis à jour")
+                  )) || localInfo
                     ? "bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800"
                     : "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"
                 }`}
               >
                 <p
                   className={`text-sm ${
-                    message.includes("succès") ||
-                    message.includes("créé") ||
-                    message.includes("mis à jour")
+                    (message && (
+                      message.includes("succès") ||
+                      message.includes("créé") ||
+                      message.includes("mis à jour")
+                    )) || localInfo
                       ? "text-green-600 dark:text-green-400"
                       : "text-red-600 dark:text-red-400"
                   }`}
                 >
-                  {message}
+                  {localInfo || message}
                 </p>
               </div>
             )}

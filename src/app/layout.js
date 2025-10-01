@@ -34,7 +34,7 @@ export default async function RootLayout({ children }) {
         </AuthSessionProvider>
 
         {/* Footer */}
-        <footer className="bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 mt-16">
+        {/* <footer className="bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
           <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
             <div className="flex flex-col md:flex-row justify-between items-center">
               <div className="text-gray-600 dark:text-gray-400 text-sm">
@@ -63,7 +63,7 @@ export default async function RootLayout({ children }) {
               </div>
             </div>
           </div>
-        </footer>
+        </footer> */}
       </body>
     </html>
   );
