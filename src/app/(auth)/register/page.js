@@ -110,12 +110,12 @@ function RegisterPageClient({ serverSession }) {
         </Card.Header>
 
         {/* Bouton Google */}
-        <div className="mb-6">
+        {/* <div className="mb-6">
           <GoogleSignInButton text="S'inscrire avec Google" />
-        </div>
+        </div> */}
 
         {/* Séparateur */}
-        <div className="relative mb-6">
+        {/* <div className="relative mb-6">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-gray dark:border-dark-gray" />
           </div>
@@ -124,7 +124,7 @@ function RegisterPageClient({ serverSession }) {
               ou
             </span>
           </div>
-        </div>
+        </div> */}
 
         <Card.Content>
           <form action={formAction} className="space-y-6">
