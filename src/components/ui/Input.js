@@ -1,6 +1,16 @@
-import React from "react";
+"use client";
+import React, { useState } from "react";
 
-const Input = ({ label, error, helperText, className = "", id, ...props }) => {
+const Input = ({
+  label,
+  error,
+  helperText,
+  className = "",
+  id,
+  enablePasswordToggle = false,
+  type = "text",
+  ...props
+}) => {
   const inputId = id || `input-${Math.random().toString(36).substr(2, 9)}`;
 
   const baseClasses =
@@ -8,7 +18,12 @@ const Input = ({ label, error, helperText, className = "", id, ...props }) => {
   const errorClasses = error
     ? "border-red-500 focus:ring-red-500"
     : "border-gray-300 dark:border-gray-600";
-  const inputClasses = `${baseClasses} ${errorClasses} ${className}`;
+  const hasPasswordToggle = enablePasswordToggle && type === "password";
+  const inputPaddingClasses = hasPasswordToggle ? "pr-10" : "";
+  const inputClasses = `${baseClasses} ${errorClasses} ${inputPaddingClasses} ${className}`;
+
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const computedType = type === "password" && isPasswordVisible ? "text" : type;
 
   return (
     <div className="space-y-1">
@@ -20,7 +35,19 @@ const Input = ({ label, error, helperText, className = "", id, ...props }) => {
           {label}
         </label>
       )}
-      <input id={inputId} className={inputClasses} {...props} />
+      <div className="relative">
+        <input id={inputId} className={inputClasses} type={computedType} {...props} />
+        {hasPasswordToggle && (
+          <button
+            type="button"
+            onClick={() => setIsPasswordVisible((v) => !v)}
+            aria-label={isPasswordVisible ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+            className="absolute inset-y-0 right-2 flex items-center text-dark-gray dark:text-gray hover:text-black dark:hover:text-white text-xs"
+          >
+            {isPasswordVisible ? "Masquer" : "Afficher"}
+          </button>
+        )}
+      </div>
       {error && (
         <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
       )}

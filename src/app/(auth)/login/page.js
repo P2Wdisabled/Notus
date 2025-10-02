@@ -112,6 +112,7 @@ function LoginPageClient({ serverSession }) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 error={errorMessage || undefined}
+                enablePasswordToggle
               />
             </div>
             <Card.Footer className="text-center">

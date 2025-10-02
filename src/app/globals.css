@@ -50,3 +50,30 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
 }
+/* Chrome / Edge / Safari */
+input:-webkit-autofill,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  /* Recolore le fond imposé par l'autofill */
+  caret-color: var(--autofill-fg, var(--white));
+  transition: background-color 9999s ease-out, color 9999s ease-out; /* neutralise le flash */
+}
+
+/* Thème clair (par défaut) */
+:root {
+  --autofill-bg: var(--white);
+  --autofill-fg: var(--black);
+}
+
+/* Thème sombre */
+.dark {
+  --autofill-bg: var(--black);
+  --autofill-fg: var(--white);
+}
+
+/* Firefox */
+input:-moz-autofill,
+textarea:-moz-autofill,
+select:-moz-autofill {
+  caret-color: var(--autofill-fg, var(--black));
+}

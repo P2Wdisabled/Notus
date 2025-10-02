@@ -192,6 +192,7 @@ function RegisterPageClient({ serverSession }) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Votre mot de passe"
+              enablePasswordToggle
             />
 
             {/* Indicateur de conditions du mot de passe */}
@@ -222,6 +223,7 @@ function RegisterPageClient({ serverSession }) {
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="Répétez votre mot de passe"
               error={confirmPassword && confirmPassword !== password ? "Les mots de passe ne correspondent pas" : undefined}
+              enablePasswordToggle
             />
 
             {/* Acceptation des conditions d'utilisation */}
