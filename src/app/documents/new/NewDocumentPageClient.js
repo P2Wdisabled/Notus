@@ -92,8 +92,8 @@ export default function NewDocumentPageClient({ session }) {
   };
 
   return (
-    <div className="min-h-screen bg-white dark:bg-black py-8">
-      <div className="max-w-4xl mx-auto px-4">
+    <div className="h-screen overflow-hidden bg-white dark:bg-black py-8">
+      <div className="mx-auto px-4 md:px-[10%] h-full flex flex-col">
         {/* En-tête */}
         <div className="flex items-center justify-between mb-6">
           <Link
@@ -116,8 +116,8 @@ export default function NewDocumentPageClient({ session }) {
         )}
 
         {/* Formulaire de création */}
-        <div className="bg-white dark:bg-black rounded-2xl border border-gray dark:border-dark-gray p-6">
-          <form action={handleSubmit} className="space-y-6">
+        <div className="flex-1 min-h-0 bg-white dark:bg-black rounded-2xl border border-gray dark:border-dark-gray p-6 overflow-hidden">
+          <form action={handleSubmit} className="flex h-full flex-col gap-4">
             {/* Titre */}
             <div>
               <input
@@ -131,11 +131,11 @@ export default function NewDocumentPageClient({ session }) {
             </div>
 
             {/* Contenu */}
-            <div>
+            <div className="flex-1 min-h-0">
               <textarea
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange dark:focus:ring-dark-purple bg-transparent text-black dark:text-white resize-none min-h-[400px]"
+                className="h-full w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange dark:focus:ring-dark-purple bg-transparent text-black dark:text-white resize-none"
                 placeholder="Commencez à écrire votre document..."
               />
             </div>
@@ -143,7 +143,7 @@ export default function NewDocumentPageClient({ session }) {
             {/* Message de succès/erreur */}
             {(message || localInfo) && (
               <div
-                className={`rounded-lg p-4 ${
+                className={`shrink-0 rounded-lg p-4 ${
                   (message && (
                     message.includes("succès") ||
                     message.includes("créé") ||
@@ -168,24 +168,25 @@ export default function NewDocumentPageClient({ session }) {
                 </p>
               </div>
             )}
+
+            {/* Boutons */}
+            <div className="flex justify-center space-x-4 pt-2 shrink-0">
+              <button
+                type="submit"
+                disabled={isPending}
+                className="bg-orange hover:bg-orange dark:bg-dark-purple dark:hover:bg-dark-purple disabled:bg-gray disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-lg hover:shadow-md shadow-light-gray dark:shadow-light-black transition-all duration-200 cursor-pointer"
+              >
+                {isPending ? "Sauvegarde..." : "Sauvegarder"}
+              </button>
+              <Link
+                href="/"
+                className="px-6 py-3 border border-orange dark:border-dark-purple text-orange dark:text-dark-purple rounded-lg hover:shadow-md shadow-orange dark:shadow-dark-purple transition-all duration-200 cursor-pointer"
+              >
+                Annuler
+              </Link>
+            </div>
           </form>
           
-        </div>
-        {/* Boutons */}
-        <div className="flex justify-center space-x-4 py-4">
-          <button
-            type="submit"
-            disabled={isPending}
-            className="bg-orange hover:bg-orange dark:bg-dark-purple dark:hover:bg-dark-purple disabled:bg-gray disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-lg hover:shadow-md shadow-light-gray dark:shadow-light-black transition-all duration-200 cursor-pointer"
-          >
-            {isPending ? "Sauvegarde..." : "Sauvegarder"}
-          </button>
-          <Link
-            href="/"
-            className="px-6 py-3 border border-orange dark:border-dark-purple text-orange dark:text-dark-purple rounded-lg hover:shadow-md shadow-orange dark:shadow-dark-purple transition-all duration-200 cursor-pointer"
-          >
-            Annuler
-          </Link>
         </div>
       </div>
     </div>
