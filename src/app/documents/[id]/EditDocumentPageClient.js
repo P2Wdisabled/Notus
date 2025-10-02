@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useLocalSession } from "@/hooks/useLocalSession";
+import CollaborativeNotepad from '@/components/Paper.js/CollaborativeNotepad';
 
 export default function EditDocumentPageClient({ session, params }) {
   const router = useRouter();
@@ -233,12 +234,9 @@ export default function EditDocumentPageClient({ session, params }) {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Contenu
               </label>
-              <textarea
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none min-h-[400px]"
-                placeholder="Commencez à écrire votre document..."
-              />
+              <div className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-700 min-h-[400px]">
+                <CollaborativeNotepad roomId={`document-${params.id}`} />
+              </div>
             </div>
 
             {/* Boutons */}
