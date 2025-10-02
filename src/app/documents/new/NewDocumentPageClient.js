@@ -13,7 +13,7 @@ export default function NewDocumentPageClient({ session }) {
     createDocumentAction,
     undefined
   );
-  const [title, setTitle] = useState("Sans titre");
+  const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [localInfo, setLocalInfo] = useState("");
 
@@ -92,19 +92,18 @@ export default function NewDocumentPageClient({ session }) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 py-8">
+    <div className="min-h-screen bg-white dark:bg-black py-8">
       <div className="max-w-4xl mx-auto px-4">
         {/* En-tête */}
         <div className="flex items-center justify-between mb-6">
           <Link
             href="/"
-            className="text-blue-600 hover:text-blue-700 font-semibold flex items-center"
+            className="text-black dark:text-white font-semibold flex items-center"
           >
-            ← Retour à l'accueil
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
+            </svg>
           </Link>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Nouveau document
-          </h1>
         </div>
 
         {/* Bandeau d'information en mode anonyme */}
@@ -117,51 +116,28 @@ export default function NewDocumentPageClient({ session }) {
         )}
 
         {/* Formulaire de création */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
+        <div className="bg-white dark:bg-black rounded-2xl border border-gray dark:border-dark-gray p-6">
           <form action={handleSubmit} className="space-y-6">
             {/* Titre */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Titre du document
-              </label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-xl font-semibold"
-                placeholder="Sans titre"
+                className="w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange dark:focus:ring-dark-purple bg-transparent text-black dark:text-white text-xl font-semibold"
+                placeholder="Titre de la note"
                 maxLength={255}
               />
             </div>
 
             {/* Contenu */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Contenu
-              </label>
               <textarea
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none min-h-[400px]"
+                className="w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange dark:focus:ring-dark-purple bg-transparent text-black dark:text-white resize-none min-h-[400px]"
                 placeholder="Commencez à écrire votre document..."
               />
-            </div>
-
-            {/* Boutons */}
-            <div className="flex justify-end space-x-4">
-              <Link
-                href="/"
-                className="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-              >
-                Annuler
-              </Link>
-              <button
-                type="submit"
-                disabled={isPending}
-                className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-lg transition-colors"
-              >
-                {isPending ? "Création..." : "Créer le document"}
-              </button>
             </div>
 
             {/* Message de succès/erreur */}
@@ -193,6 +169,23 @@ export default function NewDocumentPageClient({ session }) {
               </div>
             )}
           </form>
+          
+        </div>
+        {/* Boutons */}
+        <div className="flex justify-center space-x-4 py-4">
+          <button
+            type="submit"
+            disabled={isPending}
+            className="bg-orange hover:bg-orange dark:bg-dark-purple dark:hover:bg-dark-purple disabled:bg-gray disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-lg hover:shadow-md shadow-light-gray dark:shadow-light-black transition-all duration-200 cursor-pointer"
+          >
+            {isPending ? "Sauvegarde..." : "Sauvegarder"}
+          </button>
+          <Link
+            href="/"
+            className="px-6 py-3 border border-orange dark:border-dark-purple text-orange dark:text-dark-purple rounded-lg hover:shadow-md shadow-orange dark:shadow-dark-purple transition-all duration-200 cursor-pointer"
+          >
+            Annuler
+          </Link>
         </div>
       </div>
     </div>
