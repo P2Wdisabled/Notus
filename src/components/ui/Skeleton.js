@@ -4,7 +4,7 @@ const Skeleton = ({ className, ...props }) => {
   return (
     <div
       className={cn(
-        "animate-pulse rounded-md bg-gray-200 dark:bg-gray-700",
+        "animate-pulse rounded-md bg-orange dark:bg-dark-purple",
         className
       )}
       {...props}
@@ -16,7 +16,7 @@ const SkeletonCard = ({ className, ...props }) => {
   return (
     <div
       className={cn(
-        "animate-pulse rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6",
+        "animate-pulse rounded-lg border bg-white dark:bg-black border-orange dark:border-dark-purple p-6",
         className
       )}
       {...props}
@@ -28,7 +28,7 @@ const SkeletonButton = ({ className, ...props }) => {
   return (
     <div
       className={cn(
-        "animate-pulse rounded-md bg-gray-200 dark:bg-gray-700 h-10 w-24",
+        "animate-pulse rounded-md bg-orange dark:bg-dark-purple h-10 w-24",
         className
       )}
       {...props}
@@ -40,7 +40,7 @@ const SkeletonInput = ({ className, ...props }) => {
   return (
     <div
       className={cn(
-        "animate-pulse rounded-md bg-gray-200 dark:bg-gray-700 h-10 w-full",
+        "animate-pulse rounded-md bg-orange dark:bg-dark-purple h-10 w-full",
         className
       )}
       {...props}
@@ -65,7 +65,7 @@ const PageSkeleton = ({ className, ...props }) => {
   return (
     <div
       className={cn(
-        "min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800",
+        "min-h-screen bg-white text-black dark:bg-black dark:text-white",
         className
       )}
       {...props}
@@ -103,7 +103,7 @@ const AuthPageSkeleton = ({ className, ...props }) => {
   return (
     <div
       className={cn(
-        "min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4",
+        "min-h-screen bg-white text-black dark:bg-black dark:text-white flex items-center justify-center p-4",
         className
       )}
       {...props}
@@ -147,7 +147,7 @@ const LegalPageSkeleton = ({ className, ...props }) => {
   return (
     <div
       className={cn(
-        "min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 py-8",
+        "min-h-screen bg-white text-black dark:bg-black dark:text-white py-8",
         className
       )}
       {...props}
@@ -181,7 +181,7 @@ const HomePageSkeleton = ({ className, ...props }) => {
   return (
     <div
       className={cn(
-        "min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800",
+        "min-h-screen bg-white text-black dark:bg-black dark:text-white",
         className
       )}
       {...props}
@@ -227,7 +227,7 @@ const LoginPageSkeleton = ({ className, ...props }) => {
   return (
     <div
       className={cn(
-        "min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4",
+        "min-h-screen bg-white text-black dark:bg-black dark:text-white flex items-center justify-center p-4",
         className
       )}
       {...props}
@@ -283,7 +283,7 @@ const RegisterPageSkeleton = ({ className, ...props }) => {
   return (
     <div
       className={cn(
-        "min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4",
+        "min-h-screen bg-white text-black dark:bg-black dark:text-white flex items-center justify-center p-4",
         className
       )}
       {...props}
@@ -360,7 +360,7 @@ const VerifyEmailPageSkeleton = ({ className, ...props }) => {
   return (
     <div
       className={cn(
-        "min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4",
+        "min-h-screen bg-white text-black dark:bg-black dark:text-white flex items-center justify-center p-4",
         className
       )}
       {...props}

@@ -81,10 +81,10 @@ export default function EditLocalDocumentPageClient({ params }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+      <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-300">Chargement...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange dark:border-dark-purple mx-auto mb-4"></div>
+          <p className="text-orange dark:text-dark-purple">Chargement...</p>
         </div>
       </div>
     );
@@ -109,12 +109,17 @@ export default function EditLocalDocumentPageClient({ params }) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 py-8">
-      <div className="max-w-4xl mx-auto px-4">
+    <div className="h-screen overflow-hidden bg-white dark:bg-black py-8">
+      <div className="mx-auto px-4 md:px-[10%] h-full flex flex-col">
         {/* En-tête */}
         <div className="flex items-center justify-between mb-6">
-          <Link href="/" className="text-blue-600 hover:text-blue-700 font-semibold flex items-center">
-            ← Retour à l'accueil
+          <Link
+            href="/"
+            className="text-black dark:text-white font-semibold flex items-center"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
+            </svg>
           </Link>
           <div className="flex items-center space-x-4">
             <span className="text-sm text-gray-500 dark:text-gray-400">
@@ -123,45 +128,43 @@ export default function EditLocalDocumentPageClient({ params }) {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
-          <div className="space-y-6">
+        {/* Contenu */}
+        <div className="flex-1 min-h-0 bg-white dark:bg-black rounded-2xl border border-gray dark:border-dark-gray p-6 overflow-hidden">
+          <div className="space-y-6 h-full flex flex-col">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Titre du document</label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-xl font-semibold"
-                placeholder="Sans titre"
+                className="w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange dark:focus:ring-dark-purple bg-transparent text-black dark:text-white text-xl font-semibold"
+                placeholder="Titre du document"
                 maxLength={255}
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Contenu</label>
+            <div className="flex-1 min-h-0">
               <textarea
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none min-h-[400px]"
+                className="h-full w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange dark:focus:ring-dark-purple bg-transparent text-black dark:text-white resize-none"
                 placeholder="Commencez à écrire votre document..."
               />
             </div>
 
-            <div className="flex justify-end space-x-4">
-              <button
-                type="button"
-                onClick={() => router.back()}
-                className="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-              >
-                Annuler
-              </button>
+            <div className="flex justify-center space-x-4 pt-2 shrink-0">
               <button
                 type="button"
                 onClick={handleSave}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+                className="bg-orange hover:bg-orange dark:bg-dark-purple dark:hover:bg-dark-purple disabled:bg-gray disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-lg hover:shadow-md shadow-light-gray dark:shadow-light-black transition-all duration-200 cursor-pointer"
               >
                 Sauvegarder
               </button>
+              <Link
+                href="/"
+                className="px-6 py-3 border border-orange dark:border-dark-purple text-orange dark:text-dark-purple rounded-lg hover:shadow-md shadow-orange dark:shadow-dark-purple transition-all duration-200 cursor-pointer"
+              >
+                Annuler
+              </Link>
             </div>
           </div>
         </div>

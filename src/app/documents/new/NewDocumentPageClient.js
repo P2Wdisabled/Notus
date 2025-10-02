@@ -27,10 +27,10 @@ export default function NewDocumentPageClient({ session }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+      <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-300">Chargement...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange dark:border-dark-purple mx-auto mb-4"></div>
+          <p className="text-orange dark:text-dark-purple">Chargement...</p>
         </div>
       </div>
     );
@@ -108,8 +108,8 @@ export default function NewDocumentPageClient({ session }) {
 
         {/* Bandeau d'information en mode anonyme */}
         {!isLoggedIn && (
-          <div className="mb-6 rounded-xl border border-yellow-300 bg-yellow-50 text-yellow-800 dark:border-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-300 p-4">
-            <p className="text-sm">
+          <div className="mb-6 rounded-xl border border-orangebg-white text-orange dark:border-dark-purple dark:bg-black dark:text-dark-purple p-4">
+            <p className="text-md">
               Vous n'êtes pas connecté. Votre document sera enregistré <strong>localement</strong> dans ce navigateur.
             </p>
           </div>
@@ -149,7 +149,7 @@ export default function NewDocumentPageClient({ session }) {
                     message.includes("créé") ||
                     message.includes("mis à jour")
                   )) || localInfo
-                    ? "bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800"
+                    ? "bg-white dark:bg-black border border-orange dark:border-dark-purple"
                     : "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"
                 }`}
               >
@@ -160,7 +160,7 @@ export default function NewDocumentPageClient({ session }) {
                       message.includes("créé") ||
                       message.includes("mis à jour")
                     )) || localInfo
-                      ? "text-green-600 dark:text-green-400"
+                      ? "text-orange dark:text-dark-purple text-3xl"
                       : "text-red-600 dark:text-red-400"
                   }`}
                 >
