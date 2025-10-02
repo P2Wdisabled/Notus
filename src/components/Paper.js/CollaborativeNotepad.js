@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import RichTextEditor from './RichTextEditor';
-import Toolbar from './Toolbar';
+import Toolbar from './Toolbar/Toolbar.js';
 import { useSocket } from '../../lib/paper.js/socket';
 import { getSettings, saveSettings, clearLocalStorageData, getLocalStorageData, saveTextFormattingToLocalStorage } from '../../lib/paper.js/localStorage';
 

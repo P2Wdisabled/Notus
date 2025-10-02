@@ -23,7 +23,7 @@ const isLocalStorageAvailable = () => {
     window.localStorage.removeItem(test);
     return true;
   } catch (e) {
-    console.warn('localStorage is not available:', e);
+    // console.warn('localStorage is not available:', e);
     return false;
   }
 };
@@ -31,14 +31,14 @@ const isLocalStorageAvailable = () => {
 // Get current data from localStorage
 export const getLocalStorageData = () => {
   if (!isLocalStorageAvailable()) {
-    console.warn('localStorage unavailable, returning default data');
+    // console.warn('localStorage unavailable, returning default data');
     return { drawings: [], text: '', textFormatting: DEFAULT_TEXT_FORMATTING, timestamp: 0 };
   }
 
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (!saved) {
-      console.info('No saved data found, returning default data');
+      // console.info('No saved data found, returning default data');
       return { drawings: [], text: '', textFormatting: DEFAULT_TEXT_FORMATTING, timestamp: 0 };
     }
     
@@ -50,15 +50,15 @@ export const getLocalStorageData = () => {
     if (!data.timestamp) data.timestamp = 0;
     if (!data.textFormatting) data.textFormatting = DEFAULT_TEXT_FORMATTING;
     
-    console.info('Loaded data from localStorage:', {
-      drawingsCount: data.drawings.length,
-      textLength: data.text.length,
-      timestamp: data.timestamp
-    });
+    // console.info('Loaded data from localStorage:', {
+    //   drawingsCount: data.drawings.length,
+    //   textLength: data.text.length,
+    //   timestamp: data.timestamp
+    // });
     
     return data;
   } catch (error) {
-    console.error('Error loading from localStorage:', error);
+    // console.error('Error loading from localStorage:', error);
     return { drawings: [], text: '', timestamp: 0 };
   }
 };
@@ -66,7 +66,7 @@ export const getLocalStorageData = () => {
 // Save drawings to localStorage while preserving text
 export const saveDrawingsToLocalStorage = (drawings) => {
   if (!isLocalStorageAvailable()) {
-    console.warn('localStorage is not available');
+    // console.warn('localStorage is not available');
     return false;
   }
 
@@ -79,14 +79,14 @@ export const saveDrawingsToLocalStorage = (drawings) => {
     };
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    console.info('Saved drawings to localStorage:', {
-      drawingsCount: drawings.length,
-      preservedText: currentData.text.length > 0 ? 'Yes' : 'No',
-      timestamp: data.timestamp
-    });
+    // console.info('Saved drawings to localStorage:', {
+    //   drawingsCount: drawings.length,
+    //   preservedText: currentData.text.length > 0 ? 'Yes' : 'No',
+    //   timestamp: data.timestamp
+    // });
     return true;
   } catch (error) {
-    console.error('Error saving drawings to localStorage:', error);
+    // console.error('Error saving drawings to localStorage:', error);
     return false;
   }
 };
@@ -94,7 +94,7 @@ export const saveDrawingsToLocalStorage = (drawings) => {
 // Save text to localStorage while preserving drawings
 export const saveTextToLocalStorage = (text) => {
   if (!isLocalStorageAvailable()) {
-    console.warn('localStorage is not available');
+    // console.warn('localStorage is not available');
     return false;
   }
 
@@ -107,14 +107,14 @@ export const saveTextToLocalStorage = (text) => {
     };
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    console.info('Saved text to localStorage:', {
-      textLength: text.length,
-      preservedDrawings: currentData.drawings.length > 0 ? 'Yes' : 'No',
-      timestamp: data.timestamp
-    });
+    // console.info('Saved text to localStorage:', {
+    //   textLength: text.length,
+    //   preservedDrawings: currentData.drawings.length > 0 ? 'Yes' : 'No',
+    //   timestamp: data.timestamp
+    // });
     return true;
   } catch (error) {
-    console.error('Error saving text to localStorage:', error);
+    // console.error('Error saving text to localStorage:', error);
     return false;
   }
 };
@@ -128,10 +128,10 @@ export const clearLocalStorageData = () => {
   try {
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(SETTINGS_KEY);
-    console.info('Cleared all localStorage data');
+    // console.info('Cleared all localStorage data');
     return true;
   } catch (error) {
-    console.error('Error clearing localStorage:', error);
+    // console.error('Error clearing localStorage:', error);
     return false;
   }
 };
@@ -152,10 +152,10 @@ export const getSettings = () => {
     if (!saved) return null;
     
     const settings = JSON.parse(saved);
-    console.info('Loaded settings from localStorage:', settings);
+    // console.info('Loaded settings from localStorage:', settings);
     return settings;
   } catch (error) {
-    console.error('Error loading settings:', error);
+    // console.error('Error loading settings:', error);
     return null;
   }
 };
@@ -167,10 +167,10 @@ export const saveSettings = (settings) => {
 
   try {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-    console.info('Saved settings to localStorage:', settings);
+    // console.info('Saved settings to localStorage:', settings);
     return true;
   } catch (error) {
-    console.error('Error saving settings:', error);
+    // console.error('Error saving settings:', error);
     return false;
   }
 };
@@ -178,7 +178,7 @@ export const saveSettings = (settings) => {
 // Save text formatting to localStorage
 export const saveTextFormattingToLocalStorage = (formatting) => {
   if (!isLocalStorageAvailable()) {
-    console.warn('localStorage unavailable, cannot save text formatting');
+    // console.warn('localStorage unavailable, cannot save text formatting');
     return false;
   }
 
@@ -191,10 +191,10 @@ export const saveTextFormattingToLocalStorage = (formatting) => {
     };
     
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    console.info('Saved text formatting to localStorage:', formatting);
+    // console.info('Saved text formatting to localStorage:', formatting);
     return true;
   } catch (error) {
-    console.error('Error saving text formatting:', error);
+    // console.error('Error saving text formatting:', error);
     return false;
   }
 };
