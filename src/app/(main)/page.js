@@ -23,7 +23,7 @@ export default async function Home() {
 
         {/* Fil d'actualité */}
         <div className="space-y-4">
-          <h2 className="text-2xl font-bold text-black dark:text-white hidden md:block">
+          <h2 className="font-title text-4xl font-regular text-black dark:text-white hidden md:block">
             Mes notes
           </h2>
 

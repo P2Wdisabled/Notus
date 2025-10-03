@@ -389,6 +389,64 @@ const VerifyEmailPageSkeleton = ({ className, ...props }) => {
   );
 };
 
+// Profile page skeleton with left-content spacing handled by caller
+const ProfilePageSkeleton = ({ className, ...props }) => {
+  return (
+    <div
+      className={cn(
+        "min-h-screen bg-white text-black dark:bg-black dark:text-white",
+        className
+      )}
+      {...props}
+    >
+      {/* Cover */}
+      <div className="w-full h-40 md:h-52 bg-orange/70 dark:bg-dark-purple/50 animate-pulse" />
+
+      <div className="max-w-5xl mx-auto px-4 -mt-12 md:-mt-16">
+        {/* Avatar + actions */}
+        <div className="flex flex-col md:flex-row md:items-end gap-4">
+          <div className="w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-white dark:border-black bg-orange dark:bg-dark-purple animate-pulse" />
+
+          <div className="flex-1" />
+
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-10 w-36" />
+            <Skeleton className="h-10 w-40" />
+          </div>
+        </div>
+
+        {/* Name + meta */}
+        <div className="mt-4 space-y-2">
+          <Skeleton className="h-7 w-56" />
+          <Skeleton className="h-4 w-40" />
+          <Skeleton className="h-4 w-64" />
+        </div>
+
+        {/* Notes header */}
+        <div className="mt-8">
+          <Skeleton className="h-6 w-40" />
+        </div>
+
+        {/* Grid */}
+        <div className="mt-4 grid gap-4 grid-cols-[repeat(auto-fit,minmax(260px,1fr))]">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <SkeletonCard key={i}>
+              <div className="space-y-4">
+                <Skeleton className="h-5 w-3/4" />
+                <SkeletonText lines={3} />
+                <div className="flex gap-2">
+                  <SkeletonButton />
+                  <SkeletonButton />
+                </div>
+              </div>
+            </SkeletonCard>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export {
   Skeleton,
   SkeletonCard,
@@ -402,4 +460,5 @@ export {
   LoginPageSkeleton,
   RegisterPageSkeleton,
   VerifyEmailPageSkeleton,
+  ProfilePageSkeleton,
 };

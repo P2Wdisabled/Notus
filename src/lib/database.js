@@ -598,6 +598,66 @@ const createOrUpdateDocumentById = async (
   }
 };
 
+// Mettre à jour les informations du profil utilisateur
+const updateUserProfile = async (userId, fields) => {
+  try {
+    const updates = [];
+    const values = [];
+    let index = 1;
+
+    if (Object.prototype.hasOwnProperty.call(fields, "email")) {
+      updates.push(`email = $${index++}`);
+      values.push(fields.email);
+    }
+    if (Object.prototype.hasOwnProperty.call(fields, "username")) {
+      updates.push(`username = $${index++}`);
+      values.push(fields.username);
+    }
+    if (Object.prototype.hasOwnProperty.call(fields, "firstName")) {
+      updates.push(`first_name = $${index++}`);
+      values.push(fields.firstName);
+    }
+    if (Object.prototype.hasOwnProperty.call(fields, "lastName")) {
+      updates.push(`last_name = $${index++}`);
+      values.push(fields.lastName);
+    }
+
+    if (updates.length === 0) {
+      return { success: false, error: "Aucun champ à mettre à jour" };
+    }
+
+    // Always touch updated_at
+    updates.push(`updated_at = CURRENT_TIMESTAMP`);
+    values.push(userId);
+
+    const result = await query(
+      `UPDATE users SET ${updates.join(", ")}
+       WHERE id = $${index}
+       RETURNING id, email, username, first_name, last_name, updated_at`,
+      values
+    );
+
+    if (result.rows.length === 0) {
+      return { success: false, error: "Utilisateur non trouvé" };
+    }
+
+    return { success: true, user: result.rows[0] };
+  } catch (error) {
+    // Gérer les violations d'unicité (email/username)
+    if (error && error.code === "23505") {
+      const detail = String(error.detail || "");
+      if (detail.includes("users_email_key") || detail.includes("(email)")) {
+        return { success: false, error: "Cet email est déjà utilisé" };
+      }
+      if (detail.includes("users_username_key") || detail.includes("(username)")) {
+        return { success: false, error: "Ce nom d'utilisateur est déjà utilisé" };
+      }
+    }
+    console.error("❌ Erreur mise à jour profil:", error);
+    return { success: false, error: error.message };
+  }
+};
+
 // Fonction pour supprimer un document (seulement par son créateur)
 const deleteDocument = async (documentId, userId) => {
   try {
@@ -749,6 +809,8 @@ module.exports = {
   getDocumentById,
   updateDocument,
   deleteDocument,
+  // Fonctions profil utilisateur
+  updateUserProfile,
   // Fonctions admin
   getAllUsers,
   toggleUserBan,

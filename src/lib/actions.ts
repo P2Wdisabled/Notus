@@ -1,13 +1,14 @@
 'use server';
 
 import { signIn } from '../../auth';
+import { auth } from '../../auth';
 import { AuthError } from 'next-auth';
 import { createUser } from './database';
 import { validateRegistrationData } from './validation';
 import { initializeTables } from './database';
 import { generateVerificationToken, sendVerificationEmail, sendPasswordResetEmail } from './email';
 import bcrypt from 'bcryptjs';
-import { query, createDocument, createOrUpdateNote, createOrUpdateDocument, createOrUpdateDocumentById, getUserDocuments, getAllDocuments, getDocumentById, updateDocument, deleteDocument } from './database';
+import { query, createDocument, createOrUpdateNote, createOrUpdateDocument, createOrUpdateDocumentById, getUserDocuments, getAllDocuments, getDocumentById, updateDocument, deleteDocument, updateUserProfile, deleteNote } from './database';
 
 export async function authenticate(
   prevState: string | undefined,
@@ -264,6 +265,62 @@ export async function resetPasswordAction(
     }
     
     return 'Erreur lors de la réinitialisation. Veuillez réessayer.';
+  }
+}
+
+// Mettre à jour le profil utilisateur
+export async function updateUserProfileAction(
+  prevState: string | undefined,
+  formData: FormData,
+) {
+  try {
+    const session = await auth();
+    const userIdRaw = session?.user?.id as string | undefined;
+
+    if (!userIdRaw) {
+      return "Vous devez être connecté pour modifier votre profil.";
+    }
+
+    const email = (formData.get('email') as string | null) || undefined;
+    const username = (formData.get('username') as string | null) || undefined;
+    const firstName = (formData.get('firstName') as string | null) || undefined;
+    const lastName = (formData.get('lastName') as string | null) || undefined;
+
+    // Validation simple
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return 'Veuillez entrer une adresse email valide.';
+    }
+
+    const fields: Record<string, string> = {};
+    if (email !== undefined) fields.email = email.trim();
+    if (username !== undefined) fields.username = username.trim();
+    if (firstName !== undefined) fields.firstName = firstName.trim();
+    if (lastName !== undefined) fields.lastName = lastName.trim();
+
+    if (Object.keys(fields).length === 0) {
+      return 'Aucun changement détecté.';
+    }
+
+    if (!process.env.DATABASE_URL) {
+      return 'Profil mis à jour (mode simulation). Configurez DATABASE_URL pour la persistance.';
+    }
+
+    await initializeTables();
+
+    const userId = parseInt(String(userIdRaw));
+    const result = await updateUserProfile(userId, fields);
+
+    if (!result.success) {
+      return result.error || 'Erreur lors de la mise à jour du profil.';
+    }
+
+    return 'Profil mis à jour avec succès !';
+  } catch (error: any) {
+    console.error('❌ Erreur mise à jour profil:', error);
+    if (error.code === 'ECONNRESET' || error.code === 'ECONNREFUSED') {
+      return 'Base de données non accessible. Vérifiez la configuration PostgreSQL.';
+    }
+    return 'Erreur lors de la mise à jour du profil. Veuillez réessayer.';
   }
 }
 

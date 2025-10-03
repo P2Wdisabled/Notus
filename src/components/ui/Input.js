@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useId, useState } from "react";
 
 const Input = ({
   label,
@@ -8,19 +8,27 @@ const Input = ({
   className = "",
   id,
   enablePasswordToggle = false,
+  noFocusRing = false,
+  labelClassName = "",
   type = "text",
+  endAdornment = null,
   ...props
 }) => {
-  const inputId = id || `input-${Math.random().toString(36).substr(2, 9)}`;
+  const reactId = useId();
+  const inputId = id || reactId;
 
   const baseClasses =
-    "w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange dark:focus:ring-dark-purple focus:border-transparent transition-colors bg-white dark:bg-black text-black dark:text-white";
+    "w-full px-3 py-2 border rounded-lg transition-colors bg-white dark:bg-black text-black dark:text-white";
+  const focusClasses = noFocusRing
+    ? "focus:outline-none focus:ring-0 focus:ring-offset-0"
+    : "focus:outline-none focus:ring-2 focus:ring-orange dark:focus:ring-dark-purple focus:border-transparent";
   const errorClasses = error
     ? "border-red-500 focus:ring-red-500"
     : "border-gray-300 dark:border-gray-600";
   const hasPasswordToggle = enablePasswordToggle && type === "password";
-  const inputPaddingClasses = hasPasswordToggle ? "pr-10" : "";
-  const inputClasses = `${baseClasses} ${errorClasses} ${inputPaddingClasses} ${className}`;
+  const hasEndAdornment = Boolean(endAdornment);
+  const inputPaddingClasses = hasPasswordToggle || hasEndAdornment ? "pr-10" : "";
+  const inputClasses = `${baseClasses} ${focusClasses} ${errorClasses} ${inputPaddingClasses} ${className}`;
 
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const computedType = type === "password" && isPasswordVisible ? "text" : type;
@@ -30,7 +38,7 @@ const Input = ({
       {label && (
         <label
           htmlFor={inputId}
-          className="block text-sm font-medium text-dark-gray dark:text-gray"
+          className={`block text-sm font-medium text-dark-gray dark:text-gray ${labelClassName}`}
         >
           {label}
         </label>
@@ -46,6 +54,14 @@ const Input = ({
           >
             {isPasswordVisible ? "Masquer" : "Afficher"}
           </button>
+        )}
+        {hasEndAdornment && (
+          <div
+            className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-dark-gray dark:text-gray"
+            aria-hidden="true"
+          >
+            {endAdornment}
+          </div>
         )}
       </div>
       {error && (

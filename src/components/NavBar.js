@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import AdminButton from "./AdminButton";
 import { Logo, Input } from "@/components/ui";
 import { useLocalSession } from "@/hooks/useLocalSession";
-import { signOut } from "next-auth/react";
+import { Button } from "@/components/ui";
 
 export default function NavBar() {
   const pathname = usePathname();
@@ -29,9 +29,7 @@ export default function NavBar() {
   const handleLogout = async () => {
     try {
       if (isLoggedIn) {
-        logout();
-        await signOut({ callbackUrl: "/", redirect: false });
-        router.push("/");
+        router.push("/logout");
       } else {
         router.push("/login");
       }
@@ -67,14 +65,18 @@ export default function NavBar() {
             >
               <MenuIcon />
             </button>
+            {/* Mobile page title */}
+            <span className="font-title text-4xl font-regular text-black dark:text-white">
+              {pageTitle}
+            </span>
             <Link href="/" className="items-center hidden md:flex">
                 <Logo width={160} height={46} />
             </Link>
           </div>
 
           {/* Right: search, notifications, profile (hidden on desktop) */}
-          {/* <div className="flex items-center gap-2 md:hidden">
-            <Link
+          <div className="flex items-center gap-2 md:hidden">
+            {/* <Link
               href="/search"
               aria-label="Rechercher"
               className="p-2 rounded-full hover:bg-light-gray dark:hover:bg-light-black text-black dark:text-white"
@@ -86,8 +88,8 @@ export default function NavBar() {
               aria-label="Notifications"
               className="p-2 rounded-full hover:bg-light-gray dark:hover:bg-light-black text-black dark:text-white"
             >
-              <BellIcon />
-            </Link>
+              <BellIcon /> 
+            </Link>*/}
             {isLoggedIn && (
               <Link
                 href="/profile"
@@ -98,7 +100,7 @@ export default function NavBar() {
                 {getInitials(userName)}
               </Link>
             )}
-          </div> */}
+          </div>
         </div>
       </div>
 
@@ -155,7 +157,7 @@ export default function NavBar() {
             </nav>
             <div className="pt-4 space-y-3">
               {isLoggedIn && (
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-light-gray/50 dark:bg-light-black/50">
+                <Link href="/profile" className="flex items-center gap-3 p-3 bg-transparent cursor-pointer border-t border-gray dark:border-dark-gray">
                   <div className="flex items-center justify-center w-10 h-10 rounded-full bg-light-gray dark:bg-light-black text-black dark:text-white font-semibold">
                     {getInitials(userName || username || "Anonyme")}
                   </div>
@@ -163,16 +165,16 @@ export default function NavBar() {
                     <span className="text-sm font-semibold text-black dark:text-white">
                       {username || userName || "Anonyme"}
                     </span>
-                    <span className="text-xs text-dark-gray dark:text-gray">Profil</span>
                   </div>
-                </div>
+                </Link>
               )}
-              <button
+              <Button
                 onClick={handleLogout}
-                className="w-full bg-orange hover:bg-dark-orange dark:bg-dark-purple dark:hover:bg-purple text-black dark:text-white font-semibold py-2 px-4 rounded-lg transition-colors cursor-pointer"
+                className="w-full py-2"
+                variant="primary"
               >
                 {isLoggedIn ? "Se déconnecter" : "Se connecter"}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -182,7 +184,7 @@ export default function NavBar() {
       <aside className="hidden md:flex md:flex-col md:fixed md:inset-y-0 md:left-0 md:w-64 bg-white dark:bg-black z-30">
         <div className="px-4 py-3 pt-10 flex justify-center">
           <Link href="/" className="inline-flex items-center">
-            <Logo width={140} height={40} />
+            <Logo width={160} height={40} />
           </Link>
           {/* <div className="mt-3">
             <Input
@@ -215,24 +217,24 @@ export default function NavBar() {
         <div className="p-4 space-y-3">
           {/* <AdminButton /> */}
           {isLoggedIn && (
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-light-gray/50 dark:bg-light-black/50">
-              <div className="flex items-center justify-center w-10 h-10 rounded-full bg-light-gray dark:bg-light-black text-black dark:text-white font-semibold">
-                {getInitials(userName || username || "Anonyme")}
-              </div>
-              <div className="flex flex-col">
-                <span className="text-sm font-semibold text-black dark:text-white">
-                  {username || userName || "Anonyme"}
-                </span>
-                <span className="text-xs text-dark-gray dark:text-gray">Profil</span>
-              </div>
+            <Link href="/profile" className="flex items-center gap-3 p-3 bg-transparent cursor-pointer border-t border-gray dark:border-dark-gray">
+            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-light-gray dark:bg-light-black text-black dark:text-white font-semibold">
+              {getInitials(userName || username || "Anonyme")}
             </div>
+            <div className="flex flex-col">
+              <span className="text-sm font-semibold text-black dark:text-white">
+                {username || userName || "Anonyme"}
+              </span>
+            </div>
+          </Link>
           )}
-          <button
+          <Button
             onClick={handleLogout}
-            className="w-full bg-orange hover:bg-dark-orange dark:bg-dark-purple dark:hover:bg-purple text-black dark:text-white font-semibold py-2 px-4 rounded-lg transition-colors cursor-pointer"
+            variant="primary"
+            className="w-full"
           >
             {isLoggedIn ? "Se déconnecter" : "Se connecter"}
-          </button>
+          </Button>
         </div>
       </aside>
     </>
@@ -445,6 +447,8 @@ function getPageTitle(pathname, items) {
   const found = items.find((i) => i.href === pathname);
   if (found) return found.name;
   if (pathname === "/") return "Mes notes";
+  if (pathname === "/profile") return "Mon compte";
+  if (pathname.startsWith("/profile/edit")) return "Modifier le profil";
   return "Notus";
 }
 

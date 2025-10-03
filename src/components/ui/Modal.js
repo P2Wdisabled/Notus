@@ -43,14 +43,14 @@ const Modal = ({
     <div className="fixed inset-0 z-50 overflow-y-auto">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
+        className="fixed inset-0 bg-white dark:bg-black bg-opacity-50 transition-opacity"
         onClick={onClose}
       />
 
       {/* Modal */}
       <div className="flex min-h-full items-center justify-center p-4">
         <div
-          className={`relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full ${sizes[size]} ${className}`}
+          className={`relative bg-white dark:bg-black rounded-2xl shadow-xl w-full ${sizes[size]} ${className}`}
           {...props}
         >
           {/* Header */}

@@ -22,4 +22,5 @@ export {
   LoginPageSkeleton,
   RegisterPageSkeleton,
   VerifyEmailPageSkeleton,
+  ProfilePageSkeleton,
 } from "./Skeleton";

@@ -19,10 +19,10 @@ async function getUser(emailOrUsername: string) {
       [emailOrUsername]
     );
     
-    const user = result.rows[0];
+    const user = result.rows[0] as any;
     
     // Vérifier si l'utilisateur est banni
-    if (user && user.is_banned) {
+    if (user && (user as any).is_banned) {
       // Retourner un objet spécial pour indiquer le bannissement
       return { ...user, _banned: true };
     }
@@ -57,10 +57,10 @@ async function createOrUpdateOAuthUser(profile: any) {
 
     if (existingUser.rows.length > 0) {
       // Mettre à jour l'utilisateur existant avec les infos OAuth
-      const user = existingUser.rows[0];
+      const user = existingUser.rows[0] as any;
       
       // Vérifier si l'utilisateur est banni
-      if (user.is_banned) {
+      if ((user as any).is_banned) {
         throw new Error('Compte banni');
       }
       
@@ -176,7 +176,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               [profile.email]
             );
             
-            if (result.rows.length > 0 && result.rows[0].is_banned) {
+            if (result.rows.length > 0 && (result.rows[0] as any).is_banned) {
               return false; // Empêcher la connexion
             }
           }
@@ -192,7 +192,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       // Pour les connexions par credentials, laisser NextAuth gérer
       return true;
     },
-    async jwt({ token, user, account }) {
+    async jwt({ token, user, account, trigger, session }) {
       // Si c'est la première connexion OAuth
       if (account?.provider === 'google' && user) {
         try {
@@ -209,23 +209,38 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       }
       
       // Si c'est une connexion par credentials et que l'utilisateur a un ID
-      if (account?.provider === 'credentials' && user?.id) {
-        token.id = user.id;
-        token.email = user.email;
-        token.name = user.name;
-        token.firstName = user.firstName;
-        token.lastName = user.lastName;
-        token.username = user.username;
+      if (account?.provider === 'credentials' && (user as any)?.id) {
+        const u = user as any;
+        token.id = u.id;
+        token.email = u.email;
+        token.name = u.name;
+        token.firstName = u.firstName;
+        token.lastName = u.lastName;
+        token.username = u.username;
+      }
+      
+      // Mettre à jour le token lorsqu'une mise à jour de session est demandée côté client
+      if (trigger === 'update' && session) {
+        // Les champs envoyés depuis useSession().update({...}) sont accessibles via "session"
+        // Mettre à jour uniquement les champs présents
+        if ((session as any).name !== undefined) token.name = (session as any).name;
+        if ((session as any).firstName !== undefined) token.firstName = (session as any).firstName;
+        if ((session as any).lastName !== undefined) token.lastName = (session as any).lastName;
+        if ((session as any).username !== undefined) token.username = (session as any).username;
+        if ((session as any).email !== undefined) token.email = (session as any).email;
       }
       
       return token;
     },
     async session({ session, token }) {
       if (token.id) {
-        session.user.id = token.id as string;
-        session.user.firstName = token.firstName as string;
-        session.user.lastName = token.lastName as string;
-        session.user.username = token.username as string;
+        const u = session.user as any;
+        u.id = token.id as string;
+        u.firstName = token.firstName as string;
+        u.lastName = token.lastName as string;
+        u.username = token.username as string;
+        if (token.name) u.name = token.name as string;
+        if (token.email) u.email = token.email as string;
       }
       return session;
     },

@@ -9,7 +9,7 @@ export default function FloatingCreateButton({ serverSession }) {
   const pathname = usePathname();
 
   // Ne pas afficher le bouton si l'utilisateur n'est pas connecté
-  if (loading || pathname === "/register" || pathname === "/login" || pathname === "/documents/new" || pathname.startsWith("/documents/local/")) {
+  if (loading || pathname === "/register" || pathname === "/login" || pathname === "/documents/new" || pathname.startsWith("/profile") || pathname.startsWith("/documents/local/")) {
     return null;
   }
 
