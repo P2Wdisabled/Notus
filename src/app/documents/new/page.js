@@ -1,4 +1,4 @@
-import { auth } from "../../../../auth";
+import { auth } from "../../../../auth.js";
 import NewDocumentPageClient from "./NewDocumentPageClient";
 
 export default async function NewDocumentPage() {

@@ -1,4 +1,4 @@
-import { auth } from "../../../../auth";
+import { auth } from "../../../../auth.js";
 import EditDocumentPageClient from "./EditDocumentPageClient";
 
 export default async function EditDocumentPage({ params }) {

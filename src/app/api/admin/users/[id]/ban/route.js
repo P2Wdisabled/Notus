@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "../../../../../../../auth";
+import { auth } from "../../../../../../../auth.js";
 import { toggleUserBan, isUserAdmin, query } from "@/lib/database";
 import {
   sendBanNotificationEmail,

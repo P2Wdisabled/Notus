@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "../../../../../auth";
+import { auth } from "../../../../../auth.js";
 import { toggleUserAdmin } from "@/lib/database";
 
 export async function POST() {

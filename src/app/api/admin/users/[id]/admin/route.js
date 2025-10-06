@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "../../../../../../../auth";
+import { auth } from "../../../../../../../auth.js";
 import { toggleUserAdmin, isUserAdmin } from "@/lib/database";
 
 export async function PATCH(request, { params }) {
