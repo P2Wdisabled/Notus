@@ -1,6 +1,25 @@
+import { useRef, useEffect, useState } from "react";
+
 export default function HighlightPicker({ textFormatting, setTextFormatting, applyFormat }) {
+  const pickerRef = useRef(null);
+  const [computedStyle, setComputedStyle] = useState(null);
+
+  useEffect(() => {
+    // Only run in browser and when ref is attached
+    if (typeof window === "undefined") return;
+    const el = pickerRef.current;
+    if (el && el instanceof Element) {
+      try {
+        const style = window.getComputedStyle(el);
+        setComputedStyle(style);
+      } catch (e) {
+        // ignore
+      }
+    }
+  }, []);
+
   return (
-    <div className="flex items-center space-x-2 relative">
+    <div ref={pickerRef} className="flex items-center space-x-2 relative">
       <label className="text-sm font-medium">Highlight:</label>
       <div className="relative">
         <button
@@ -34,7 +53,7 @@ export default function HighlightPicker({ textFormatting, setTextFormatting, app
                   elementToCheck = selectedNode;
                 }
                 
-                if (elementToCheck) {
+                if (elementToCheck && elementToCheck instanceof Element) {
                   const computedStyle = window.getComputedStyle(elementToCheck);
                   if (
                     computedStyle.backgroundColor &&
@@ -280,9 +299,8 @@ export default function HighlightPicker({ textFormatting, setTextFormatting, app
                                            elementToCheck.style.backgroundColor !== "rgba(0, 0, 0, 0)" &&
                                            elementToCheck.style.backgroundColor !== "";
                       const hasPadding = elementToCheck.style.paddingTop || elementToCheck.style.paddingBottom;
-                      const hasBoxDecoration = elementToCheck.style.boxDecorationBreak;
                       
-                      if (hasBackground || hasPadding || hasBoxDecoration) {
+                      if (hasBackground || hasPadding) {
                         // Try multiple removal approaches
                         elementToCheck.style.removeProperty('background-color');
                         elementToCheck.style.removeProperty('background');

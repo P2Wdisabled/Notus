@@ -1,62 +1,143 @@
 "use client";
-
 import { useActionState } from "react";
 import { updateDocumentAction } from "@/lib/actions";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useLocalSession } from "@/hooks/useLocalSession";
-import CollaborativeNotepad from '@/components/Paper.js/CollaborativeNotepad';
+import CollaborativeNotepad from "@/components/Paper.js/CollaborativeNotepad";
 
-export default function EditDocumentPageClient({ session, params }) {
+export default function EditDocumentPageClient(props) {
+  // -------- ALL hooks in a stable order (top of component) --------
   const router = useRouter();
-  const [message, formAction, isPending] = useActionState(
+
+  const [document, setDocument] = useState(null);
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [canvasCtrl, setCanvasCtrl] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // keep custom hook declarations here (stable order)
+  const [actionMsg, formAction, isPending] = useActionState(
     updateDocumentAction,
     undefined
   );
-  const [document, setDocument] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
 
-  // Utiliser notre hook personnalisé pour gérer la session
+  // session hook
   const {
     session: localSession,
     loading: sessionLoading,
     isLoggedIn,
     userId,
-  } = useLocalSession(session);
+  } = useLocalSession(props.session);
 
-  useEffect(() => {
-    if (isLoggedIn && params.id && userId) {
-      loadDocument();
+  // move normalizeContent here so it's available to all effects/callbacks
+  const normalizeContent = (raw) => {
+    if (!raw) return { text: "", drawings: [] };
+    if (typeof raw === "string") {
+      try {
+        const parsed = JSON.parse(raw);
+        if (typeof parsed === "object" && parsed.text) return parsed;
+        return { text: parsed, drawings: [] };
+      } catch {
+        return { text: raw, drawings: [] };
+      }
     }
-  }, [isLoggedIn, params.id, userId]);
+    if (typeof raw === "object" && raw.text) return raw;
+    return { text: String(raw), drawings: [] };
+  };
 
+  function deepNormalizeContent(raw) {
+    let obj = raw;
+    let safety = 0;
+    while (obj && typeof obj === "string" && safety++ < 5) {
+      try {
+        obj = JSON.parse(obj);
+      } catch {
+        break;
+      }
+    }
+    // If obj.text is a stringified object, parse it
+    if (obj && typeof obj === "object" && typeof obj.text === "string") {
+      try {
+        const parsedText = JSON.parse(obj.text);
+        if (typeof parsedText === "object" && parsedText.text) {
+          obj.text = parsedText.text;
+          obj.drawings = parsedText.drawings ?? obj.drawings ?? [];
+          obj.textFormatting = parsedText.textFormatting ?? obj.textFormatting ?? {};
+          obj.timestamp = parsedText.timestamp ?? obj.timestamp ?? Date.now();
+        } else if (typeof parsedText === "string") {
+          obj.text = parsedText;
+        }
+      } catch {
+        // leave as is
+      }
+    }
+    if (!obj || typeof obj !== "object") {
+      return { text: String(obj ?? ""), drawings: [], textFormatting: {} };
+    }
+    return {
+      text: typeof obj.text === "string" ? obj.text : "",
+      drawings: Array.isArray(obj.drawings) ? obj.drawings : [],
+      textFormatting: obj.textFormatting ?? {},
+      timestamp: obj.timestamp ?? Date.now(),
+    };
+  }
+
+  // get the deepest plain text from nested structures (avoid "[object Object]")
+  const getPlainText = (value) => {
+    try {
+      let cur = value;
+      let safety = 0;
+      while (safety++ < 50) {
+        if (typeof cur === "string") return cur;
+        if (!cur || typeof cur !== "object") return String(cur ?? "");
+        // prefer .text if present
+        if ("text" in cur) {
+          cur = cur.text;
+          continue;
+        }
+        // fallback: find first string property
+        for (const k of Object.keys(cur)) {
+          if (typeof cur[k] === "string") return cur[k];
+          if (cur[k] && typeof cur[k] === "object" && "text" in cur[k]) {
+            cur = cur[k].text;
+            break;
+          }
+        }
+        // if nothing useful, stringify whole object (last resort)
+        return JSON.stringify(cur);
+      }
+      return String(value ?? "");
+    } catch (e) {
+      return String(value ?? "");
+    }
+  };
+
+  // helper: loadDocument must be declared before useEffect that calls it
   const loadDocument = useCallback(async () => {
     try {
-      setLoading(true);
-
-      // Utiliser l'API openDoc pour récupérer le titre et le contenu
-      const apiUrl = `/api/openDoc?id=${params.id}`;
-
+      setIsLoading(true);
+      const apiUrl = `/api/openDoc?id=${props.params.id}`;
       const response = await fetch(apiUrl);
       const result = await response.json();
 
-      if (result.success) {
-        // Créer un objet document avec les données reçues
-        const documentData = {
-          id: params.id,
-          title: result.title,
-          content: result.content,
-          updated_at: result.updated_at,
-          user_id: parseInt(userId), // Utiliser l'ID utilisateur de la session
-        };
+      console.log("DEBUG openDoc result:", result);
 
+      if (result.success) {
+        const normalizedContent = deepNormalizeContent(result.content);
+
+        const documentData = {
+          id: Number(props.params.id),
+          title: result.title,
+          content: normalizedContent,
+          updated_at: result.updated_at,
+          user_id: Number(result.user_id ?? result.owner ?? NaN),
+        };
         setDocument(documentData);
         setTitle(result.title);
-        setContent(result.content);
+        setContent(normalizedContent); // <-- store the full object!
       } else {
         console.error("❌ [CLIENT] Erreur API:", result.error);
         setError(result.error || "Erreur lors du chargement du document");
@@ -65,24 +146,154 @@ export default function EditDocumentPageClient({ session, params }) {
       setError("Erreur lors du chargement du document");
       console.error("❌ [CLIENT] Erreur:", err);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
-  }, [params.id, userId]);
+  }, [props.params.id]);
 
-  const handleSubmit = (formData) => {
-    if (!userId) {
-      console.error(
-        "❌ Erreur: ID utilisateur non défini dans la session localStorage"
-      );
-      alert("Erreur: Session utilisateur invalide. Veuillez vous reconnecter.");
-      return;
+  // Load document when session / user available
+  useEffect(() => {
+    if (isLoggedIn && props.params?.id && userId) {
+      loadDocument();
     }
+  }, [isLoggedIn, props.params?.id, userId, loadDocument]);
 
-    formData.append("documentId", params.id);
-    formData.append("userId", userId);
-    formData.append("title", title);
-    formData.append("content", content);
-    formAction(formData);
+  // debug logging for document (safe: effect always declared)
+  useEffect(() => {
+    if (!document) return;
+    console.log("DEBUG document:", document);
+  }, [document]);
+
+  // watch canvas controller changes (safe: effect always declared)
+  useEffect(() => {
+    console.log("canvasCtrl changed:", canvasCtrl);
+  }, [canvasCtrl]);
+
+  // reset editor state when switching documents so previous content doesn't leak
+  useEffect(() => {
+    setCanvasCtrl(null);
+    setTitle(document?.title ?? "");
+    setContent(document?.content ?? "");
+
+    // clear localStorage entries used by the editor (adjust prefix to match your editor)
+    try {
+      const prefix = "collab-notepad"; // change if your editor uses a different prefix/key
+      for (const key of Object.keys(localStorage || {})) {
+        if (key.startsWith(prefix) || key.includes(`notepad`)) {
+          localStorage.removeItem(key);
+        }
+      }
+    } catch (e) {
+      // ignore (SSR safety already handled by this effect running in browser)
+    }
+  }, [document?.id]);
+
+  // ---------- PATCH: build editorInitialData with only a plain string ----------
+  const editorInitialData = document
+    ? {
+        ...document,
+        // Only pass a plain string to the editor!
+        text: getPlainText(
+          document.content?.text ??
+            document.content ??
+            content?.text ??
+            content ??
+            ""
+        ),
+        drawings: Array.isArray(document.content?.drawings)
+          ? document.content.drawings
+          : [],
+        textFormatting: document.content?.textFormatting ?? {},
+      }
+    : null;
+
+  // clear editor-related localStorage entries for this doc (optional)
+  useEffect(() => {
+    try {
+      const prefix = `collab-notepad-${document?.id ?? ""}`; // adjust to your editor key
+      for (const k of Object.keys(localStorage || {})) {
+        if (
+          k.startsWith(prefix) ||
+          k.includes("collab-notepad") ||
+          k.includes("notepad")
+        ) {
+          localStorage.removeItem(k);
+        }
+      }
+    } catch (e) {
+      /* ignore in browsers without localStorage */
+    }
+  }, [document?.id]);
+
+  // ensure handleContentChange stores normalized object:
+  const handleContentChange = useCallback((newContent) => {
+    setContent(deepNormalizeContent(newContent));
+  }, []);
+  // current user id to send with save: prefer hook userId then session fallbacks
+  const currentUserId =
+    userId ?? localSession?.user?.id ?? props.session?.user?.id;
+
+  const handleSubmit = useCallback(
+    async (e) => {
+      e?.preventDefault?.();
+
+      let drawingsPayload = [];
+      if (canvasCtrl && typeof canvasCtrl.saveDrawings === "function") {
+        try {
+          drawingsPayload = await canvasCtrl.saveDrawings();
+        } catch (err) {
+          drawingsPayload = (content && content.drawings) || [];
+        }
+      } else {
+        drawingsPayload = (content && content.drawings) || [];
+      }
+
+      // FLATTEN content if nested
+      let normalized = content;
+      if (
+        content &&
+        typeof content === "object" &&
+        typeof content.text === "object"
+      ) {
+        // If content.text is an object, flatten it
+        normalized = {
+          ...content.text,
+          drawings: drawingsPayload,
+        };
+      } else if (content && typeof content === "object") {
+        normalized = {
+          ...content,
+          drawings: drawingsPayload,
+        };
+      }
+
+      const contentToSend = JSON.stringify(normalized);
+
+      const formData = new FormData();
+      formData.append("documentId", String(props.params?.id || ""));
+      formData.append("userId", String(currentUserId ?? ""));
+      formData.append("title", title || "");
+      formData.append("content", contentToSend);
+      formData.append("drawings", JSON.stringify(drawingsPayload));
+
+      const result = await updateDocumentAction(formData);
+
+      if (!result || result.ok !== true || result.dbResult?.success !== true) {
+        alert(
+          "Save failed: " +
+            (result?.dbResult?.error || result?.error || "Unknown error")
+        );
+        return;
+      }
+    },
+    [canvasCtrl, content, currentUserId, props.params.id, title]
+  );
+
+  const handleSetDrawingMode = () => {
+    if (canvasCtrl && typeof canvasCtrl.setMode === "function") {
+      canvasCtrl.setMode("drawing");
+    } else {
+      console.warn("canvasCtrl not ready or setMode missing", canvasCtrl);
+    }
   };
 
   if (sessionLoading) {
@@ -119,7 +330,7 @@ export default function EditDocumentPageClient({ session, params }) {
     );
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
         <div className="text-center">
@@ -170,8 +381,8 @@ export default function EditDocumentPageClient({ session, params }) {
     );
   }
 
-  // Vérifier si l'utilisateur est le propriétaire du document
-  if (document.user_id !== parseInt(userId)) {
+  // Verify ownership (use numeric comparison)
+  if (Number(document.user_id) !== Number(userId)) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
@@ -192,10 +403,14 @@ export default function EditDocumentPageClient({ session, params }) {
     );
   }
 
+  const normalizedContent = deepNormalizeContent(document.content);
+  //console.log("Editor initialData:", normalizedContent);
+
+  // Main render (editing form)
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 py-8">
       <div className="max-w-4xl mx-auto px-4">
-        {/* En-tête */}
+        {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <Link
             href="/"
@@ -211,10 +426,10 @@ export default function EditDocumentPageClient({ session, params }) {
           </div>
         </div>
 
-        {/* Formulaire d'édition */}
+        {/* Edit form */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
-          <form action={handleSubmit} className="space-y-6">
-            {/* Titre */}
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Title */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Titre du document
@@ -229,17 +444,26 @@ export default function EditDocumentPageClient({ session, params }) {
               />
             </div>
 
-            {/* Contenu */}
+            {/* Content */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Contenu
               </label>
               <div className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-700 min-h-[400px]">
-                <CollaborativeNotepad roomId={`document-${params.id}`} />
+                <CollaborativeNotepad
+                  key={`doc-${document.id}-${document.updated_at}-${normalizedContent.text}`}
+                  initialData={normalizedContent}
+                  useLocalStorage={false}
+                  calMode={false}
+                  onContentChange={handleContentChange}
+                  onCanvasReady={(ctrl) => setCanvasCtrl(ctrl)}
+                  placeholder="Edit your document..."
+                  className="min-h-[400px]"
+                />
               </div>
             </div>
 
-            {/* Boutons */}
+            {/* Buttons */}
             <div className="flex justify-end space-x-4">
               <button
                 type="button"
@@ -257,27 +481,37 @@ export default function EditDocumentPageClient({ session, params }) {
               </button>
             </div>
 
-            {/* Message de succès/erreur */}
-            {message && (
+            {/* Success / error message */}
+            {actionMsg && (
               <div
                 className={`rounded-lg p-4 ${
-                  message.includes("succès") || message.includes("sauvegardé")
+                  actionMsg.includes("succès") ||
+                  actionMsg.includes("sauvegardé")
                     ? "bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800"
                     : "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"
                 }`}
               >
                 <p
                   className={`text-sm ${
-                    message.includes("succès") || message.includes("sauvegardé")
+                    actionMsg.includes("succès") ||
+                    actionMsg.includes("sauvegardé")
                       ? "text-green-600 dark:text-green-400"
                       : "text-red-600 dark:text-red-400"
                   }`}
                 >
-                  {message}
+                  {actionMsg}
                 </p>
               </div>
             )}
           </form>
+
+          {/* Debug info - remove in production */}
+          {process.env.NODE_ENV === "development" && (
+            <div className="mt-4 p-3 bg-gray-100 dark:bg-gray-700 rounded text-xs text-gray-600 dark:text-gray-400">
+              Document ID: {document.id} | User ID: {userId} | Content Length:{" "}
+              {String(content).length}
+            </div>
+          )}
         </div>
       </div>
     </div>

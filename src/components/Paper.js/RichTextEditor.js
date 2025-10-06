@@ -8,7 +8,10 @@ export default function SimpleRichTextEditor({
   onContentChange, 
   textFormatting, 
   socket,
-  onSelectionChange 
+  onSelectionChange,
+  placeholder = 'Start typing...',
+  className = '',
+  disabled = false
 }) {
   const editorRef = useRef(null);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -47,6 +50,42 @@ export default function SimpleRichTextEditor({
       saveTextToLocalStorageCallback(newContent);
     }
   };
+
+  // Handle key down events
+  const handleKeyDown = useCallback((event) => {
+    // Handle special key combinations
+    if (event.ctrlKey || event.metaKey) {
+      switch (event.key) {
+        case 'b':
+          event.preventDefault();
+          applyFormatToSelection('bold');
+          break;
+        case 'i':
+          event.preventDefault();
+          applyFormatToSelection('italic');
+          break;
+        case 'u':
+          event.preventDefault();
+          applyFormatToSelection('underline');
+          break;
+        case 's':
+          event.preventDefault();
+          // Save shortcut
+          if (editorRef.current) {
+            saveTextToLocalStorageCallback(editorRef.current.innerHTML);
+          }
+          break;
+      }
+    }
+    
+    // Trigger content change on any key
+    setTimeout(handleContentChange, 0);
+  }, []);
+
+  // Handle selection events
+  const handleSelection = useCallback(() => {
+    handleSelectionChange();
+  }, []);
 
   // Handle selection change
   const handleSelectionChange = useCallback(() => {
@@ -172,20 +211,25 @@ export default function SimpleRichTextEditor({
     <div className="relative w-full h-full">
       <div
         ref={editorRef}
-        contentEditable
-        onInput={handleContentChange}
-        onPaste={(e) => {
-          // Allow paste but handle content change
-          setTimeout(() => handleContentChange(), 0);
-        }}
-        className="w-full h-full p-4 border-none resize-none focus:outline-none leading-relaxed overflow-auto"
+        contentEditable={!disabled}
+        className={`w-full h-full p-4 border-none outline-none bg-transparent ${disabled ? 'cursor-not-allowed opacity-50' : ''} ${className}`}
         style={{
+          color: textFormatting.color,
+          backgroundColor: textFormatting.backgroundColor,
+          fontSize: `${textFormatting.fontSize}px`,
+          fontFamily: textFormatting.fontFamily,
+          fontWeight: textFormatting.fontWeight,
+          textAlign: textFormatting.textAlign,
           minHeight: '100%',
           wordWrap: 'break-word',
           whiteSpace: 'pre-wrap'
         }}
+        onInput={handleContentChange}
+        onKeyDown={handleKeyDown}
+        onMouseUp={handleSelection}
+        onKeyUp={handleSelection}
         suppressContentEditableWarning={true}
-        data-placeholder="Start typing... Select text to format it!"
+        data-placeholder={content.length === 0 ? placeholder : ''}
       />
       
       <div className="absolute bottom-4 right-4 text-sm text-gray-500">

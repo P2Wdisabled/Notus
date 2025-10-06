@@ -104,32 +104,34 @@ export default function FontFamilySelector({ textFormatting, setTextFormatting, 
               }
               
               // Final check with computed style on the original element
-              const computedStyle = window.getComputedStyle(elementToCheck);
-              if (computedStyle.fontFamily) {
-                const fontFamily = computedStyle.fontFamily;
-                
-                // Update state if different from current
-                if (fontFamily !== textFormatting.fontFamily) {
-                  setTimeout(
-                    () =>
-                      setTextFormatting((prev) => ({
-                        ...prev,
-                        fontFamily: fontFamily,
-                      })),
-                    0
-                  );
+              if (elementToCheck && elementToCheck instanceof Element) {
+                const computedStyle = window.getComputedStyle(elementToCheck);
+                if (computedStyle.fontFamily) {
+                  const fontFamily = computedStyle.fontFamily;
+                  
+                  // Update state if different from current
+                  if (fontFamily !== textFormatting.fontFamily) {
+                    setTimeout(
+                      () =>
+                        setTextFormatting((prev) => ({
+                          ...prev,
+                          fontFamily: fontFamily,
+                        })),
+                      0
+                    );
+                  }
+                  
+                  // Match computed font family to our options
+                  const lowerFont = fontFamily.toLowerCase();
+                  if (lowerFont.includes('inter')) return "Inter, sans-serif";
+                  if (lowerFont.includes('arial')) return "Arial, sans-serif";
+                  if (lowerFont.includes('georgia')) return "Georgia, serif";
+                  if (lowerFont.includes('times')) return "'Times New Roman', serif";
+                  if (lowerFont.includes('courier')) return "'Courier New', monospace";
+                  if (lowerFont.includes('verdana')) return "Verdana, sans-serif";
+                  
+                  return fontFamily;
                 }
-                
-                // Match computed font family to our options
-                const lowerFont = fontFamily.toLowerCase();
-                if (lowerFont.includes('inter')) return "Inter, sans-serif";
-                if (lowerFont.includes('arial')) return "Arial, sans-serif";
-                if (lowerFont.includes('georgia')) return "Georgia, serif";
-                if (lowerFont.includes('times')) return "'Times New Roman', serif";
-                if (lowerFont.includes('courier')) return "'Courier New', monospace";
-                if (lowerFont.includes('verdana')) return "Verdana, sans-serif";
-                
-                return fontFamily;
               }
             }
           }

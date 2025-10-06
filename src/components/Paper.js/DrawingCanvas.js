@@ -1,137 +1,290 @@
 'use client';
 
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { getLocalStorageData, saveDrawingsToLocalStorage } from '../../lib/paper.js/localStorage';
-import { debounce } from '../../lib/paper.js/debounce';
 
-export default function DrawingCanvas({ 
-  brushColor, 
-  brushSize, 
-  onDrawingData, 
-  socket 
-}) {
+export default function DrawingCanvas(props) {
+  const {
+    brushColor = '#000000',
+    brushSize = 3,
+    onDrawingData,
+    socket,
+    drawings = [],
+    setDrawings,
+    useLocalStorage = false,
+    onCanvasReady,
+  } = props;
+
   const canvasRef = useRef(null);
   const [paper, setPaper] = useState(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const currentPathRef = useRef(null);
   const isDrawingRef = useRef(false);
+  const [isSetup, setIsSetup] = useState(false);
+  const isInitialLoadRef = useRef(true);
+  const isIsolatedRef = useRef(false);
+  const hasLoadedInitialDrawingsRef = useRef(false);
 
-  const loadFromLocalStorage = useCallback(() => {
-    try {
-      console.log('loadFromLocalStorage called');
-      console.log('- paper ready:', !!paper);
-      console.log('- project ready:', !!paper?.project);
-      console.log('- activeLayer ready:', !!paper?.project?.activeLayer);
-      console.log('- view ready:', !!paper?.view);
-      
-      if (!paper || !paper.project || !paper.project.activeLayer || !paper.view) {
-        console.log('Paper not fully ready, skipping load');
-        return;
-      }
+  const controllerRef = useRef({
+    // provide safe defaults so parent can call immediately
+    saveDrawings: async () => { return []; },
+    setMode: (mode) => { console.warn('setMode not ready yet', mode); },
+    clearCanvas: () => {},
+    exportDrawing: () => {},
+    forceReload: () => {},
+    debugState: () => {},
+  });
 
-      const data = getLocalStorageData();
-      console.log('Loading drawings from localStorage:', data.drawings.length, 'drawings found');
-      
-      // Load drawings
-      if (data.drawings && data.drawings.length > 0) {
-        // Clear existing drawings first
-        console.log('Clearing existing drawings...');
-        paper.project.clear();
-        
-        console.log('Loading saved drawings...');
-        data.drawings.forEach((serializedPath, index) => {
-          const isLegacyFormat = 'points' in serializedPath;
-          console.log(`Loading drawing ${index + 1}:`, {
-            segmentsCount: isLegacyFormat ? serializedPath.points.length : serializedPath.segments.length,
-            color: serializedPath.color,
-            size: serializedPath.size,
-            format: isLegacyFormat ? 'legacy' : 'new'
-          });
-          
-          const path = new paper.Path({
-            strokeColor: new paper.Color(serializedPath.color),
-            strokeWidth: serializedPath.size,
-            strokeCap: 'round',
-            strokeJoin: 'round',
-            closed: isLegacyFormat ? false : serializedPath.closed || false
-          });
-          
-          if (isLegacyFormat) {
-            // Old format compatibility - convert points to segments
-            serializedPath.points.forEach((point) => {
-              path.add(new paper.Point(point[0], point[1]));
-            });
-          } else {
-            // New format with curve data
-            serializedPath.segments.forEach(segment => {
-              const point = new paper.Point(segment.point[0], segment.point[1]);
-              const paperSegment = new paper.Segment(point);
-              
-              if (segment.handleIn) {
-                paperSegment.handleIn = new paper.Point(segment.handleIn[0], segment.handleIn[1]);
-              }
-              if (segment.handleOut) {
-                paperSegment.handleOut = new paper.Point(segment.handleOut[0], segment.handleOut[1]);
-              }
-              
-              path.add(paperSegment);
-            });
-          }
-          
-          console.log(`Created path with ${path.segments.length} segments`);
-        });
-        
-        console.log('Forcing canvas redraw...');
-        paper.view.draw();
-        
-        // Double check what's in the project now
-        const pathsInProject = paper.project.getItems({ className: 'Path' });
-        console.log('Paths now in project:', pathsInProject.length);
-        
-        console.log('Successfully loaded', data.drawings.length, 'drawings and redrawn canvas');
-      } else {
-        console.log('No drawings to load');
-      }
-    } catch (error) {
-      console.error('Error loading from localStorage:', error);
+  // expose controller immediately (so parent gets an object with stable shape)
+  useEffect(() => {
+    if (typeof onCanvasReady === 'function') {
+      onCanvasReady(controllerRef.current);
     }
-  }, [paper]);
+  }, [onCanvasReady]);
 
-  const saveToLocalStorage = useCallback(() => {
-    if (!paper || !paper.project) return;
+  // ✅ MOVE ALL CALLBACK FUNCTIONS TO THE TOP
+  
+  // Debug function to check what's in props vs canvas
+  const debugState = useCallback(() => {
+    console.log('🔍 DEBUG STATE CHECK:');
+    console.log('📄 Props drawings:', drawings);
+    console.log('📄 Props length:', drawings?.length || 0);
+    console.log('🎯 Canvas paths:', paper?.project?.getItems?.({ className: 'Path' })?.length || 0);
+    console.log('🏁 Load flags:', {
+      hasLoaded: hasLoadedInitialDrawingsRef.current,
+      isInitial: isInitialLoadRef.current,
+      isIsolated: isIsolatedRef.current
+    });
+    
+    if (paper?.project) {
+      const paths = paper.project.getItems({ className: 'Path' });
+      console.log('🎨 Canvas paths details:', paths.map(p => ({
+        segments: p.segments.length,
+        color: p.strokeColor?.toCSS(),
+        width: p.strokeWidth
+      })));
+    }
+  }, [drawings, paper]);
 
+  // Cleanup function to remove invalid drawings
+  const cleanupInvalidDrawings = useCallback(() => {
+    if (!drawings || !Array.isArray(drawings)) return;
+
+    console.log('🧹 CLEANING UP invalid drawings...');
+    
+    const validDrawings = drawings.filter((drawing, index) => {
+      try {
+        let pathData = drawing;
+        
+        // Parse string data
+        if (typeof drawing === 'string') {
+          try {
+            pathData = JSON.parse(drawing);
+          } catch (e) {
+            console.log(`❌ Drawing ${index + 1}: Invalid JSON`);
+            return false;
+          }
+        }
+
+        // Handle nested data
+        if (pathData.drawings && Array.isArray(pathData.drawings)) {
+          pathData = pathData.drawings[0];
+        }
+
+        // Check if it has valid structure
+        const hasValidPoints = pathData.points && Array.isArray(pathData.points) && pathData.points.length > 0;
+        const hasValidSegments = pathData.segments && Array.isArray(pathData.segments) && pathData.segments.length > 0;
+        
+        if (!hasValidPoints && !hasValidSegments) {
+          console.log(`❌ Drawing ${index + 1}: No valid points or segments`);
+          return false;
+        }
+
+        console.log(`✅ Drawing ${index + 1}: Valid`);
+        return true;
+      } catch (error) {
+        console.log(`❌ Drawing ${index + 1}: Error - ${error.message}`);
+        return false;
+      }
+    });
+
+    console.log(`🧹 Cleanup result: ${validDrawings.length}/${drawings.length} drawings are valid`);
+    
+    if (validDrawings.length !== drawings.length) {
+      console.log('🔄 Updating drawings state with only valid drawings...');
+      setDrawings(validDrawings);
+      return validDrawings.length;
+    }
+    
+    return drawings.length;
+  }, [drawings, setDrawings]);
+
+  // Analyze drawing data function
+  const analyzeDrawingData = useCallback(() => {
+    if (!drawings || !Array.isArray(drawings)) {
+      console.log('📊 No drawings to analyze');
+      return;
+    }
+
+    console.log('📊 ANALYZING DRAWING DATA:');
+    console.log(`Total drawings: ${drawings.length}`);
+    
+    const analysis = {
+      validPoints: 0,
+      validSegments: 0,
+      invalidJSON: 0,
+      invalidStructure: 0,
+      nested: 0,
+      empty: 0
+    };
+
+    drawings.slice(0, 20).forEach((drawing, index) => { // Analyze first 20
+      try {
+        let pathData = drawing;
+        
+        if (typeof drawing === 'string') {
+          try {
+            pathData = JSON.parse(drawing);
+          } catch (e) {
+            analysis.invalidJSON++;
+            return;
+          }
+        }
+
+        if (pathData.drawings && Array.isArray(pathData.drawings)) {
+          analysis.nested++;
+          pathData = pathData.drawings[0];
+        }
+
+        if (!pathData || typeof pathData !== 'object') {
+          analysis.invalidStructure++;
+          return;
+        }
+
+        const hasPoints = pathData.points && Array.isArray(pathData.points) && pathData.points.length > 0;
+        const hasSegments = pathData.segments && Array.isArray(pathData.segments) && pathData.segments.length > 0;
+        
+        if (hasPoints) analysis.validPoints++;
+        else if (hasSegments) analysis.validSegments++;
+        else analysis.empty++;
+
+      } catch (error) {
+        analysis.invalidStructure++;
+      }
+    });
+
+    console.log('📊 Analysis results (first 20 drawings):', analysis);
+    
+    // Show samples of each type
+    const sampleInvalidJSON = drawings.find(d => typeof d === 'string' && d.includes('{') && !d.startsWith('{'));
+    const sampleNested = drawings.find(d => d?.drawings);
+    const sampleValid = drawings.find(d => d?.segments || d?.points);
+    
+    console.log('📄 Sample data:');
+    if (sampleInvalidJSON) console.log('Invalid JSON sample:', sampleInvalidJSON);
+    if (sampleNested) console.log('Nested sample:', sampleNested);
+    if (sampleValid) console.log('Valid sample:', sampleValid);
+    
+  }, [drawings]);
+
+  // Force reload from props
+  const forceReloadFromProps = useCallback(() => {
+    console.log('🔄 FORCE RELOADING from props...');
+    console.log('🔍 Current state:', {
+      paperReady: !!paper?.project,
+      drawingsLength: drawings?.length || 0,
+      hasLoadedFlag: hasLoadedInitialDrawingsRef.current,
+      drawings: drawings
+    });
+    
+    if (paper?.project) {
+      hasLoadedInitialDrawingsRef.current = false; // Reset flag
+      paper.project.clear();
+      console.log('🗑️ Canvas cleared, flag reset');
+      
+      // Force trigger the loading effect
+      setTimeout(() => {
+        console.log('🔄 Triggering reload effect...');
+      }, 100);
+    }
+  }, [paper, drawings]);
+
+  // ✅ MODIFY: Save function - always return serialized array
+  const saveCurrentDrawings = useCallback(async () => {
+    if (!paper?.project) return [];
     try {
       const paths = paper.project.getItems({ className: 'Path' });
-      console.log('Saving drawings to localStorage, found paths:', paths.length);
-      
-      const serializedPaths = paths.map((path) => ({
-        segments: path.segments.map((segment) => ({
-          point: [segment.point.x, segment.point.y],
-          handleIn: segment.handleIn ? [segment.handleIn.x, segment.handleIn.y] : undefined,
-          handleOut: segment.handleOut ? [segment.handleOut.x, segment.handleOut.y] : undefined
-        })),
-        color: path.strokeColor.toCSS(true),
-        size: path.strokeWidth,
+      const serializedPaths = paths.map(path => ({
+        segments: path.segments.map(s => ({ point: [s.point.x, s.point.y], handleIn: s.handleIn ? [s.handleIn.x, s.handleIn.y] : undefined, handleOut: s.handleOut ? [s.handleOut.x, s.handleOut.y] : undefined })),
+        color: path.strokeColor ? path.strokeColor.toCSS(true) : '#000000',
+        size: path.strokeWidth || 3,
         type: 'pen',
-        closed: path.closed || false
+        closed: path.closed || false,
       }));
+      if (setDrawings) setDrawings(serializedPaths);
+      try { localStorage.setItem(`doc-${window.__CURRENT_DOCUMENT_ID__||'unspecified'}-drawings-backup`, JSON.stringify(serializedPaths)); } catch(e){}
+      if (socket && !isInitialLoadRef.current) socket.emit('drawings-update', { drawings: serializedPaths, timestamp: Date.now() });
+      console.log('saveCurrentDrawings ->', serializedPaths.length);
+      return serializedPaths; // IMPORTANT: always return array (even empty)
+    } catch (err) {
+      console.error('saveCurrentDrawings error', err);
+      return [];
+    }
+  }, [paper, setDrawings, socket]);
 
-      const success = saveDrawingsToLocalStorage(serializedPaths);
-      if (success) {
-        console.log('Successfully saved', serializedPaths.length, 'drawings with curve data');
-      }
-    } catch (error) {
-      console.error('Error saving to localStorage:', error);
+
+  const clearCanvas = useCallback(() => {
+    console.log('🧹 Clearing canvas');
+    if (paper?.project) {
+      paper.project.clear();
+      paper.view.draw();
+      hasLoadedInitialDrawingsRef.current = false;
+      if (setDrawings) setDrawings([]);
+    }
+    if (socket) {
+      socket.emit('clear-canvas');
+    }
+  }, [paper, socket, setDrawings]);
+
+  const exportDrawing = useCallback(() => {
+    if (paper?.project) {
+      const dataUrl = paper.project.exportSVG({ asString: true });
+      const blob = new Blob([dataUrl], { type: 'image/svg+xml' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `drawing-${new Date().toISOString().split('T')[0]}.svg`;
+      a.click();
+      URL.revokeObjectURL(url);
     }
   }, [paper]);
 
-  // Debounced save for frequent operations
-  const debouncedSave = useCallback(
-    debounce(saveToLocalStorage, 500), // Save after 500ms of inactivity
-    [saveToLocalStorage]
-  );
+  const toggleIsolation = useCallback(() => {
+    isIsolatedRef.current = !isIsolatedRef.current;
+    console.log('🔒 Canvas isolation:', isIsolatedRef.current ? 'ENABLED' : 'DISABLED');
+  }, []);
 
-  const [isSetup, setIsSetup] = useState(false);
+  // make sure setCanvasMode is defined earlier:
+  const setCanvasMode = useCallback((mode) => {
+    if (mode === 'drawing') {
+      isIsolatedRef.current = false;
+      console.log('🎨 Canvas set to drawing mode - responsive to input');
+    } else if (mode === 'text') {
+      isIsolatedRef.current = true;
+      console.log('📝 Canvas set to text mode - isolated from drawing input');
+    }
+  }, []);
+
+  // ✅ NOW ALL THE useEffect HOOKS
+
+    // after functions are defined, keep controllerRef updated
+  useEffect(() => {
+    controllerRef.current.saveDrawings = saveCurrentDrawings;      // your useCallback
+    controllerRef.current.setMode = setCanvasMode;
+    controllerRef.current.clearCanvas = clearCanvas;
+    controllerRef.current.exportDrawing = exportDrawing;
+    controllerRef.current.forceReload = forceReloadFromProps;
+    controllerRef.current.debugState = debugState;
+  }, [saveCurrentDrawings, setCanvasMode, clearCanvas, exportDrawing, forceReloadFromProps, debugState]);
 
   // Load paper.js only on client side
   useEffect(() => {
@@ -143,8 +296,9 @@ export default function DrawingCanvas({
         const paperInstance = paperModule.default || paperModule;
         setPaper(paperInstance);
         setIsLoaded(true);
+        console.log('✅ Paper.js loaded successfully');
       } catch (error) {
-        console.error('Failed to load Paper.js:', error);
+        console.error('❌ Failed to load Paper.js:', error);
       }
     };
 
@@ -157,145 +311,327 @@ export default function DrawingCanvas({
       return;
     }
 
-    console.log('Setting up Paper.js for the first time...');
+    console.log('🎯 Setting up Paper.js...');
     paper.setup(canvasRef.current);
     setIsSetup(true);
+    console.log('✅ Paper.js setup complete');
+  }, [isLoaded, paper, isSetup]);
+
+  // Reset the loaded flag when drawings prop changes significantly
+  useEffect(() => {
+    console.log('🔍 DRAWINGS PROP CHANGED:', {
+      length: drawings?.length || 0,
+      isArray: Array.isArray(drawings),
+      hasData: drawings && drawings.length > 0,
+      sample: drawings?.[0],
+      timestamp: Date.now()
+    });
+
+    // Reset loading flag if we get new drawings data
+    if (drawings && Array.isArray(drawings) && drawings.length > 0) {
+      const currentCanvasPaths = paper?.project?.getItems?.({ className: 'Path' })?.length || 0;
+      
+      if (currentCanvasPaths === 0 && hasLoadedInitialDrawingsRef.current) {
+        console.log('🔄 RESETTING load flag - we have drawings but empty canvas');
+        hasLoadedInitialDrawingsRef.current = false;
+      }
+    }
+  }, [drawings, paper]);
+
+  // Load initial drawings
+  useEffect(() => {
+    console.log("🎯 Drawing loading effect triggered:", {
+      isSetup,
+      hasPaper: !!paper,
+      hasLoaded: hasLoadedInitialDrawingsRef.current,
+      drawingsLength: drawings?.length || 0,
+      drawingsType: typeof drawings,
+    });
+
+    if (!isSetup || !paper) {
+      console.log("⏸️ Skipping - setup not ready");
+      return;
+    }
+
+    // Allow loading even if hasLoaded is true if canvas is empty
+    const currentCanvasPaths = paper.project.getItems({ className: 'Path' }).length;
+    const shouldSkipLoading = hasLoadedInitialDrawingsRef.current && currentCanvasPaths > 0;
     
-    console.log('Paper.js setup complete');
-    console.log('- project:', !!paper.project);
-    console.log('- activeLayer:', !!paper.project?.activeLayer);
-    console.log('- view:', !!paper.view);
+    if (shouldSkipLoading) {
+      console.log("⏸️ Skipping - already loaded initial drawings and canvas has paths");
+      return;
+    }
 
-    // Load drawings after setup
-    setTimeout(() => {
-      console.log('Loading drawings after Paper.js setup...');
-      loadFromLocalStorage();
-    }, 100);
-  }, [isLoaded, paper, isSetup, loadFromLocalStorage]);
+    console.log("🎯 Attempting to load drawings...", {
+      drawingsExists: !!drawings,
+      isArray: Array.isArray(drawings),
+      length: drawings?.length || 0,
+      currentCanvasPaths,
+      forceLoad: hasLoadedInitialDrawingsRef.current && currentCanvasPaths === 0
+    });
 
-  // Create/update drawing tool when brush settings change
+    if (drawings && Array.isArray(drawings) && drawings.length > 0) {
+      console.log("📡 Loading INITIAL drawings from props...", drawings.length);
+
+      try {
+        paper.project.clear();
+        console.log("🗑️ Cleared existing canvas");
+
+        let successCount = 0;
+
+        drawings.forEach((serializedPath, index) => {
+          try {
+            let pathData = serializedPath;
+            
+            // Handle different data formats
+            if (typeof serializedPath === 'string') {
+              try {
+                pathData = JSON.parse(serializedPath);
+              } catch (e) {
+                return;
+              }
+            }
+
+            if (pathData.drawings && Array.isArray(pathData.drawings)) {
+              pathData = pathData.drawings[0];
+            }
+
+            if (!pathData || typeof pathData !== 'object') {
+              return;
+            }
+
+            const isLegacyFormat = "points" in pathData;
+            const hasSegments = "segments" in pathData;
+
+            const path = new paper.Path({
+              strokeColor: new paper.Color(pathData.color || "#000000"),
+              strokeWidth: pathData.size || 3,
+              strokeCap: "round",
+              strokeJoin: "round",
+              closed: isLegacyFormat ? false : pathData.closed || false,
+            });
+
+            let pointsAdded = 0;
+
+            if (isLegacyFormat && pathData.points && Array.isArray(pathData.points)) {
+              pathData.points.forEach((point) => {
+                if (point && Array.isArray(point) && point.length >= 2) {
+                  path.add(new paper.Point(point[0], point[1]));
+                  pointsAdded++;
+                }
+              });
+            } else if (hasSegments && pathData.segments && Array.isArray(pathData.segments)) {
+              pathData.segments.forEach((segment) => {
+                if (
+                  segment.point &&
+                  Array.isArray(segment.point) &&
+                  segment.point.length >= 2
+                ) {
+                  const point = new paper.Point(
+                    segment.point[0],
+                    segment.point[1]
+                  );
+                  const paperSegment = new paper.Segment(point);
+
+                  if (segment.handleIn && Array.isArray(segment.handleIn)) {
+                    paperSegment.handleIn = new paper.Point(
+                      segment.handleIn[0],
+                      segment.handleIn[1]
+                    );
+                  }
+                  if (segment.handleOut && Array.isArray(segment.handleOut)) {
+                    paperSegment.handleOut = new paper.Point(
+                      segment.handleOut[0],
+                      segment.handleOut[1]
+                    );
+                  }
+
+                  path.add(paperSegment);
+                  pointsAdded++;
+                }
+              });
+            } else {
+              path.remove();
+              return;
+            }
+
+            if (pointsAdded > 0) {
+              successCount++;
+            } else {
+              path.remove();
+            }
+          } catch (pathError) {
+            console.error(`❌ Error processing drawing ${index + 1}:`, pathError);
+          }
+        });
+
+        paper.view.draw();
+        hasLoadedInitialDrawingsRef.current = true;
+        
+        console.log(`✅ Loaded ${successCount}/${drawings.length} drawings from props`);
+
+        const pathsInProject = paper.project.getItems({ className: "Path" });
+        console.log(`🎯 Canvas now has ${pathsInProject.length} paths`);
+      } catch (error) {
+        console.error("❌ Error loading initial drawings from props:", error);
+      }
+    } else {
+      console.log("📭 No drawings to load, marking as complete");
+      hasLoadedInitialDrawingsRef.current = true;
+    }
+  }, [drawings, isSetup, paper]);
+
+  // Set initial load complete after a delay
+  useEffect(() => {
+    if (!isSetup || !paper) return;
+
+    const timer = setTimeout(() => {
+      if (isInitialLoadRef.current) {
+        isInitialLoadRef.current = false;
+        console.log('✅ Initial load phase complete - canvas is now responsive');
+      }
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [isSetup, paper]);
+
+  // Create/update drawing tool
   useEffect(() => {
     if (!isSetup || !paper) {
       console.log('Paper.js not ready for tool creation');
       return;
     }
 
-    console.log('Creating drawing tool with brush settings - color:', brushColor, 'size:', brushSize);
+    console.log('🖊️ Creating drawing tool - color:', brushColor, 'size:', brushSize);
 
-    // Remove existing tools to prevent conflicts
     if (paper.tools && paper.tools.length > 0) {
-      console.log('Removing', paper.tools.length, 'existing tools');
       paper.tools.forEach((tool) => tool.remove());
     }
-    
-    // Create new tool with current brush settings
+
     const tool = new paper.Tool();
     tool.activate();
-    console.log('Tool created and activated');
 
     tool.onMouseDown = (event) => {
-      console.log('Mouse down detected - starting drawing');
+      if (isIsolatedRef.current) {
+        console.log('🚫 Drawing blocked - canvas is isolated');
+        return;
+      }
+
+      console.log('🖊️ Starting drawing');
       isDrawingRef.current = true;
+
       currentPathRef.current = new paper.Path({
         segments: [event.point],
         strokeColor: new paper.Color(brushColor),
         strokeWidth: brushSize,
         strokeCap: 'round',
-        strokeJoin: 'round'
+        strokeJoin: 'round',
       });
+
+      paper.view.draw();
 
       if (onDrawingData) {
         onDrawingData({
           type: 'start',
           point: event.point,
           color: brushColor,
-          size: brushSize
+          size: brushSize,
+        });
+      }
+
+      if (socket) {
+        socket.emit('drawing-data', {
+          type: 'start',
+          point: { x: event.point.x, y: event.point.y },
+          color: brushColor,
+          size: brushSize,
         });
       }
     };
 
     tool.onMouseDrag = (event) => {
-      if (!isDrawingRef.current || !currentPathRef.current) return;
-      
+      if (!isDrawingRef.current || !currentPathRef.current || isIsolatedRef.current)
+        return;
+
       currentPathRef.current.add(event.point);
+      paper.view.draw();
 
       if (onDrawingData) {
         onDrawingData({
           type: 'draw',
           point: event.point,
           color: brushColor,
-          size: brushSize
+          size: brushSize,
         });
       }
 
-      // Auto-save while drawing (debounced)
-      debouncedSave();
+      if (socket) {
+        socket.emit('drawing-data', {
+          type: 'draw',
+          point: { x: event.point.x, y: event.point.y },
+          color: brushColor,
+          size: brushSize,
+        });
+      }
     };
 
     tool.onMouseUp = (event) => {
-      if (!isDrawingRef.current || !currentPathRef.current) return;
-      
+      if (!isDrawingRef.current || !currentPathRef.current || isIsolatedRef.current)
+        return;
+
+      console.log('🖊️ Finishing drawing');
       isDrawingRef.current = false;
-      
-      // Smooth the path first to create nice curves
+
       currentPathRef.current.smooth();
-      
-      // Then simplify to reduce points while preserving curves
       currentPathRef.current.simplify();
+      paper.view.draw();
 
       if (onDrawingData) {
         onDrawingData({
           type: 'end',
-          point: event.point
+          point: event.point,
         });
       }
 
-      // Save on mouse up
-      saveToLocalStorage();
-      console.log('Drawing stroke completed, smoothed, and saved');
+      if (socket) {
+        socket.emit('drawing-data', {
+          type: 'end',
+          point: { x: event.point.x, y: event.point.y },
+        });
+      }
+
+      console.log('🖊️ Drawing completed');
     };
 
-    // Handle socket events
-    if (socket) {
-      const handleIncomingDrawing = (data) => {
-        if (data.type === 'start' && data.point) {
-          const remotePath = new paper.Path({
-            strokeColor: new paper.Color(data.color || '#000000'),
-            strokeWidth: data.size || 3,
-            strokeCap: 'round',
-            strokeJoin: 'round'
-          });
-          remotePath.add(data.point);
-          remotePath.data = { isRemote: true };
-        } else if (data.type === 'draw' && data.point) {
-          const paths = paper.project.getItems({ 
-            className: 'Path'
-          }).filter((item) => 
-            item.data?.isRemote === true
-          );
-          
-          if (paths.length > 0) {
-            const lastPath = paths[paths.length - 1];
-            lastPath.add(data.point);
-          }
-        }
-        saveToLocalStorage(); // Save remote changes too
-      };
-
-      socket.on('drawing-data', handleIncomingDrawing);
-      
-      return () => {
-        socket.off('drawing-data', handleIncomingDrawing);
-      };
-    }
-
-    // Cleanup function for tool creation
     return () => {
       if (paper && paper.tools) {
         paper.tools.forEach((tool) => tool.remove());
       }
     };
-  }, [isSetup, paper, brushColor, brushSize, onDrawingData, socket, saveToLocalStorage, debouncedSave]);
+  }, [isSetup, paper, brushColor, brushSize, onDrawingData, socket]);
+
+  // Socket handlers
+  useEffect(() => {
+    if (!socket || !paper || !isSetup) return;
+
+    const handleClearCanvas = () => {
+      console.log('📨 Received clear canvas command');
+      if (paper?.project) {
+        paper.project.clear();
+        paper.view.draw();
+        hasLoadedInitialDrawingsRef.current = false;
+        if (setDrawings) {
+          setDrawings([]);
+        }
+      }
+    };
+
+    socket.on('clear-canvas', handleClearCanvas);
+    
+    return () => {
+      socket.off('clear-canvas', handleClearCanvas);
+    };
+  }, [socket, paper, isSetup, setDrawings]);
 
   // Handle resize
   useEffect(() => {
@@ -319,29 +655,6 @@ export default function DrawingCanvas({
     };
   }, [paper]);
 
-  const clearCanvas = useCallback(() => {
-    if (paper?.project) {
-      paper.project.clear();
-      saveToLocalStorage(); // Save empty state
-    }
-    if (socket) {
-      socket.emit('clear-canvas');
-    }
-  }, [paper, socket, saveToLocalStorage]);
-
-  const exportDrawing = useCallback(() => {
-    if (paper?.project) {
-      const dataUrl = paper.project.exportSVG({ asString: true });
-      const blob = new Blob([dataUrl], { type: 'image/svg+xml' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `drawing-${new Date().toISOString().split('T')[0]}.svg`;
-      a.click();
-      URL.revokeObjectURL(url);
-    }
-  }, [paper]);
-
   return (
     <div className="relative w-full h-full">
       <canvas
@@ -349,33 +662,6 @@ export default function DrawingCanvas({
         className="w-full h-full bg-white"
         style={{ touchAction: 'none' }}
       />
-      
-      <div className="absolute top-4 right-4 flex flex-col space-y-2">
-        <button
-          onClick={loadFromLocalStorage}
-          className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition-colors text-sm"
-        >
-          Reload Drawings
-        </button>
-        <button
-          onClick={clearCanvas}
-          className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition-colors text-sm"
-        >
-          Clear Canvas
-        </button>
-        <button
-          onClick={exportDrawing}
-          className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 transition-colors text-sm"
-        >
-          Export SVG
-        </button>
-        <button
-          onClick={saveToLocalStorage}
-          className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition-colors text-sm"
-        >
-          Save Now
-        </button>
-      </div>
     </div>
   );
 }

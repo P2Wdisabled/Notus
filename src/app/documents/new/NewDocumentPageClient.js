@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useLocalSession } from "@/hooks/useLocalSession";
 import PropTypes from "prop-types";
+import CollaborativeNotepad from '@/components/Paper.js/CollaborativeNotepad';
 
 export default function NewDocumentPageClient({ session }) {
   const router = useRouter();
@@ -111,18 +112,28 @@ export default function NewDocumentPageClient({ session }) {
               />
             </div>
 
-            {/* Contenu */}
+            {/* Contenu - Replaced with CollaborativeNotepad */}
             <div>
               <label htmlFor="content" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Contenu
               </label>
-              <textarea
-                id="content"
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none min-h-[400px]"
-                placeholder="Commencez à écrire votre document..."
-              />
+              <div className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-700">
+                <CollaborativeNotepad 
+                  roomId="new-document"
+                  documentId={null}             // ← No document ID
+                  userId={session.user.id}
+                  initialData={null}            // ← No database data
+                  useLocalStorage={true}        // ← Use localStorage for new docs
+                  localMode={true}              // ← Local mode until saved
+                  onContentChange={setContent}
+                  placeholder="Commencez à écrire votre document avec mise en forme..."
+                  initialContent=""
+                  className="min-h-[500px]"
+                />
+              </div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                Utilisez la barre d'outils pour formater votre texte, ajouter des couleurs, dessiner ou collaborer en temps réel.
+              </p>
             </div>
 
             {/* Boutons */}
@@ -135,7 +146,7 @@ export default function NewDocumentPageClient({ session }) {
               </Link>
               <button
                 type="submit"
-                disabled={isPending}
+                disabled={isPending || title.trim().length === 0}
                 className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-lg transition-colors"
               >
                 {isPending ? "Création..." : "Créer le document"}

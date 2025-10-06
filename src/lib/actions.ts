@@ -5,7 +5,7 @@ import { AuthError } from 'next-auth';
 import { validateRegistrationData } from './validation';
 import { generateVerificationToken, sendVerificationEmail, sendPasswordResetEmail } from './email';
 import bcrypt from 'bcryptjs';
-import { 
+import {
   createUser,
   initializeTables,
   query,
@@ -15,8 +15,27 @@ import {
   getUserDocuments,
   getAllDocuments,
   getDocumentById,
-  deleteDocument
+  deleteDocument,
 } from './database';
+
+// Try to resolve getServerSession/authOptions at runtime (optional)
+let getServerSessionFn: any = undefined;
+let authOptionsModule: any = undefined;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const nextAuthNext = require('next-auth/next');
+  getServerSessionFn = nextAuthNext?.getServerSession ?? nextAuthNext?.unstable_getServerSession;
+} catch (e) {
+  // not available or not installed — fallback will be used
+  console.warn('next-auth getServerSession not available via require()', e?.message ?? e);
+}
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  authOptionsModule = require('@/pages/api/auth/[...nextauth]')?.authOptions;
+} catch (e) {
+  // file may not exist or path differs — that's fine for now
+  // console.warn('authOptions not found at "@/pages/api/auth/[...nextauth]"', e?.message ?? e);
+}
 
 export async function authenticate(
   prevState: string | undefined,
@@ -558,87 +577,120 @@ export async function getDocumentByIdAction(documentId: string) {
 }
 
 // Action pour mettre à jour un document
-export async function updateDocumentAction(
-  prevState: string | undefined,
-  formData: FormData,
-) {
+export async function updateDocumentAction(formDataOrObj: FormData | Record<string, any>) {
   try {
-    const documentId = formData.get('documentId') as string;
-    const userId = formData.get('userId') as string;
-    const title = formData.get('title') as string;
-    const content = formData.get('content') as string;
+    const fd = (formDataOrObj as any).get ? (formDataOrObj as FormData) : null;
+    const documentId = fd ? String(fd.get('documentId') || '') : String((formDataOrObj as any).documentId || '');
+    if (!documentId) return { ok: false, error: 'Missing documentId' };
 
-    if (!documentId || !userId || !title) {
-      return 'ID de document, utilisateur et titre requis.';
-    }
-
-    // Debug: Afficher les IDs reçus
-
-    // Vérifier que l'ID document est un nombre valide
-    const documentIdNumber = parseInt(documentId);
-    if (isNaN(documentIdNumber) || documentIdNumber <= 0) {
-      console.error('❌ ID document invalide:', documentId, 'Parsed as:', documentIdNumber);
-      return 'ID document invalide.';
-    }
-    
-    // Gérer les différents types d'IDs utilisateur
-    let userIdNumber: number;
-    
-    // Si l'ID utilisateur est undefined ou null
-    if (!userId || userId === 'undefined' || userId === 'null' || userId === 'unknown') {
-      console.error('❌ ID utilisateur non défini dans la session');
-      return 'Session utilisateur invalide. Veuillez vous reconnecter.';
-    }
-    
-    // Si c'est un ID de simulation OAuth
-    if (userId === 'oauth-simulated-user') {
-      userIdNumber = 1; // ID de simulation
-    } else {
-      // Vérifier que l'ID utilisateur est un nombre valide
-      userIdNumber = parseInt(userId);
-      if (isNaN(userIdNumber) || userIdNumber <= 0) {
-        console.error('❌ ID utilisateur invalide:', userId, 'Parsed as:', userIdNumber);
-        return 'ID utilisateur invalide. Veuillez vous reconnecter.';
+    // Try server session (if available)
+    let serverUserId: number | undefined;
+    try {
+      if (typeof getServerSessionFn === 'function' && authOptionsModule) {
+        const session = await getServerSessionFn(authOptionsModule);
+        serverUserId = session?.user?.id ? Number(session.user.id) : undefined;
       }
+    } catch (e) {
+      console.warn('getServerSession failed at runtime, falling back to client userId', e?.message ?? e);
     }
 
-    if (title.trim().length === 0) {
-      return 'Le titre du document ne peut pas être vide.';
+    // If no server session, try client-sent userId
+    let clientUserId: number | undefined;
+    if (fd) {
+      const u = fd.get('userId');
+      if (u) clientUserId = Number(String(u));
+    } else if ((formDataOrObj as any).userId) {
+      clientUserId = Number((formDataOrObj as any).userId);
     }
 
-    if (title.length > 255) {
-      return 'Le titre ne peut pas dépasser 255 caractères.';
+    const userIdToUse = serverUserId ?? clientUserId;
+    console.log('updateDocumentAction DEBUG: documentId=', documentId, 'serverUserId=', serverUserId, 'clientUserId=', clientUserId, 'userIdToUse=', userIdToUse);
+
+    if (!userIdToUse) {
+      return { ok: false, error: 'Not authenticated' };
     }
 
-    // Vérifier si la base de données est configurée
-    if (!process.env.DATABASE_URL) {
-      return 'Document sauvegardé avec succès (mode simulation). Configurez DATABASE_URL pour la persistance.';
+    const idNum = Number(documentId);
+
+    // use rich lookup (returns { success, document })
+    const docResult: any = await getDocumentById(idNum);
+    if (!docResult || docResult.success !== true || !docResult.document) {
+      console.warn('updateDocumentAction: document lookup failed for id', idNum, docResult);
+      return { ok: false, error: 'Document not found' };
     }
 
-    // Initialiser les tables si elles n'existent pas
-    await initializeTables();
-
-    // Créer ou mettre à jour le document avec ID spécifique
-    const result = await createOrUpdateDocumentById(documentIdNumber, userIdNumber, title.trim(), content || '');
-
-    if (!result.success) {
-      console.error('❌ Erreur création/mise à jour document:', result.error);
-      return result.error;
+    // docResult.document may be an object or an array of rows — normalize to a single object and cast to any
+    let existingAny: any = docResult.document;
+    if (Array.isArray(existingAny)) {
+      existingAny = existingAny.length > 0 ? existingAny[0] : null;
+    }
+    if (!existingAny) {
+      console.warn('updateDocumentAction: document result empty after normalization', docResult);
+      return { ok: false, error: 'Document not found' };
     }
 
-    if (result.isUpdate) {
-      return 'Document sauvegardé avec succès !';
+    console.log('updateDocumentAction DEBUG: existing document owner (raw):', existingAny);
+    // support plusieurs noms de champs possibles pour le propriétaire
+    const ownerCandidate = (existingAny as any).user_id ?? (existingAny as any).userId ?? (existingAny as any).owner_id ?? (existingAny as any).ownerId ?? (existingAny as any).user?.id;
+    const ownerId = Number(ownerCandidate);
+    // userIdToUse was already set above (serverUserId ?? clientUserId)
+    const userIdToUseNum = Number(userIdToUse);
+
+    console.log('updateDocumentAction DEBUG:', {
+      documentId: idNum,
+      ownerCandidate,
+      ownerId,
+      userIdToUse: userIdToUseNum,
+      ownerType: typeof ownerCandidate,
+      userIdType: typeof userIdToUseNum,
+    });
+
+    // parse title/content/drawings and call updateRichDocument(...)
+    // --- keep your existing parsing & update logic here ---
+    // Example (adapt to your code):
+    let title = '';
+    let contentStr = '';
+    let rawDrawings: any = null;
+    if (fd) {
+      title = String(fd.get('title') || '');
+      contentStr = String(fd.get('content') || '');
+      rawDrawings = fd.get('drawings') || null;
     } else {
-      return 'Document créé avec succès !';
+      title = (formDataOrObj as any).title || '';
+      contentStr = (formDataOrObj as any).content || '';
+      rawDrawings = (formDataOrObj as any).drawings || null;
     }
-  } catch (error: any) {
-    console.error('❌ Erreur lors de la mise à jour du document:', error);
-    
-    if (error.code === 'ECONNRESET' || error.code === 'ECONNREFUSED') {
-      return 'Base de données non accessible. Vérifiez la configuration PostgreSQL.';
+
+    let drawings: any[] = [];
+    try {
+      if (rawDrawings) drawings = typeof rawDrawings === 'string' ? JSON.parse(rawDrawings) : rawDrawings;
+    } catch (e) {
+      console.warn('Failed to parse drawings payload', e);
+      drawings = [];
     }
-    
-    return 'Erreur lors de la sauvegarde du document. Veuillez réessayer.';
+
+    // Actually update the document in the database
+    // Use your existing update function
+    const updateResult = await createOrUpdateDocumentById(
+      idNum,
+      userIdToUseNum,
+      title,
+      contentStr
+    );
+
+    if (!updateResult.success) {
+      console.error('❌ Erreur mise à jour document:', updateResult.error);
+      return { ok: false, error: updateResult.error || 'Erreur lors de la mise à jour du document.' };
+    }
+
+    return {
+      ok: true,
+      id: idNum,
+      dbResult: updateResult
+    };
+  } catch (err) {
+    console.error(err);
+    return { ok: false, error: String(err?.message || err) };
   }
 }
 
