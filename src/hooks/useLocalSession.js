@@ -1,66 +1,22 @@
-import { useState, useEffect } from "react";
-import {
-  getUserSession,
-  saveUserSession,
-  clearUserSession,
-} from "@/lib/session-utils";
+import { useSession as useNextAuthSession } from "next-auth/react";
 
 export function useLocalSession(serverSession = null) {
-  const [localSession, setLocalSession] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const loadSession = () => {
-      try {
-        // Essayer de récupérer la session depuis localStorage
-        let userSession = getUserSession();
-
-        if (userSession) {
-          setLocalSession(userSession);
-        } else if (serverSession?.user) {
-          // Si pas de session localStorage mais session serveur disponible
-          const userId = serverSession.user.id;
-
-          const sessionData = {
-            id: userId || "unknown",
-            email: serverSession.user.email,
-            name: serverSession.user.name,
-            firstName: serverSession.user.firstName,
-            lastName: serverSession.user.lastName,
-            username: serverSession.user.username,
-          };
-
-          if (saveUserSession(sessionData)) {
-            setLocalSession(sessionData);
-          }
-        }
-      } catch (error) {
-        console.error("❌ Erreur lors du chargement de la session:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadSession();
-  }, [serverSession]);
-
-  const logout = () => {
-    clearUserSession();
-    setLocalSession(null);
-  };
-
-  const isLoggedIn = localSession !== null && localSession.id;
+  const { data: session, status } = useNextAuthSession();
+  
+  const loading = status === "loading";
+  const isLoggedIn = !!session?.user;
 
   return {
-    session: localSession,
+    session: session || serverSession,
     loading,
     isLoggedIn,
-    logout,
-    userId: localSession?.id || null,
-    userName: localSession?.name || null,
-    userEmail: localSession?.email || null,
-    userFirstName: localSession?.firstName || null,
-    userLastName: localSession?.lastName || null,
-    username: localSession?.username || null,
+    userId: session?.user?.id || null,
+    userName: session?.user?.name || null,
+    userEmail: session?.user?.email || null,
+    userFirstName: session?.user?.firstName || null,
+    userLastName: session?.user?.lastName || null,
+    username: session?.user?.username || null,
+    isAdmin: session?.user?.isAdmin || false,
+    isVerified: session?.user?.isVerified || false,
   };
 }

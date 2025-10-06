@@ -1,22 +1,15 @@
 'use server';
 
-import { signIn } from '../../auth';
+import { signIn } from 'next-auth/react';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '../../lib/auth';
 import { AuthError } from 'next-auth';
+import { createUser } from './database';
 import { validateRegistrationData } from './validation';
+import { initializeTables } from './database';
 import { generateVerificationToken, sendVerificationEmail, sendPasswordResetEmail } from './email';
 import bcrypt from 'bcryptjs';
-import { 
-  createUser,
-  initializeTables,
-  query,
-  createDocument,
-  createOrUpdateNote,
-  createOrUpdateDocumentById,
-  getUserDocuments,
-  getAllDocuments,
-  getDocumentById,
-  deleteDocument
-} from './database';
+import { query, createDocument, createOrUpdateNote, createOrUpdateDocument, createOrUpdateDocumentById, getUserDocuments, getAllDocuments, getDocumentById, updateDocument, deleteDocument, updateUserProfile, deleteNote } from './database';
 
 export async function authenticate(
   prevState: string | undefined,
@@ -95,7 +88,7 @@ export async function registerUser(
     const verificationToken = generateVerificationToken();
 
     // Créer l'utilisateur avec le token
-    await createUser({
+    const user = await createUser({
       ...userData,
       verificationToken,
     });
@@ -276,9 +269,65 @@ export async function resetPasswordAction(
   }
 }
 
+// Mettre à jour le profil utilisateur
+export async function updateUserProfileAction(
+  prevState: string | undefined,
+  formData: FormData,
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    const userIdRaw = session?.user?.id as string | undefined;
+
+    if (!userIdRaw) {
+      return "Vous devez être connecté pour modifier votre profil.";
+    }
+
+    const email = (formData.get('email') as string | null) || undefined;
+    const username = (formData.get('username') as string | null) || undefined;
+    const firstName = (formData.get('firstName') as string | null) || undefined;
+    const lastName = (formData.get('lastName') as string | null) || undefined;
+
+    // Validation simple
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return 'Veuillez entrer une adresse email valide.';
+    }
+
+    const fields: Record<string, string> = {};
+    if (email !== undefined) fields.email = email.trim();
+    if (username !== undefined) fields.username = username.trim();
+    if (firstName !== undefined) fields.firstName = firstName.trim();
+    if (lastName !== undefined) fields.lastName = lastName.trim();
+
+    if (Object.keys(fields).length === 0) {
+      return 'Aucun changement détecté.';
+    }
+
+    if (!process.env.DATABASE_URL) {
+      return 'Profil mis à jour (mode simulation). Configurez DATABASE_URL pour la persistance.';
+    }
+
+    await initializeTables();
+
+    const userId = parseInt(String(userIdRaw));
+    const result = await updateUserProfile(userId, fields);
+
+    if (!result.success) {
+      return result.error || 'Erreur lors de la mise à jour du profil.';
+    }
+
+    return 'Profil mis à jour avec succès !';
+  } catch (error: any) {
+    console.error('❌ Erreur mise à jour profil:', error);
+    if (error.code === 'ECONNRESET' || error.code === 'ECONNREFUSED') {
+      return 'Base de données non accessible. Vérifiez la configuration PostgreSQL.';
+    }
+    return 'Erreur lors de la mise à jour du profil. Veuillez réessayer.';
+  }
+}
+
 // Action pour créer un document
 export async function createDocumentAction(
-  prevState: any,
+  prevState: string | undefined,
   formData: FormData,
 ) {
   try {
@@ -287,7 +336,7 @@ export async function createDocumentAction(
     const userId = formData.get('userId') as string;
 
     if (!userId) {
-      return { success: false, message: 'Utilisateur requis.' };
+      return 'Utilisateur requis.';
     }
 
     // Debug: Afficher l'ID utilisateur reçu
@@ -298,7 +347,7 @@ export async function createDocumentAction(
     // Si l'ID utilisateur est undefined ou null
     if (!userId || userId === 'undefined' || userId === 'null' || userId === 'unknown') {
       console.error('❌ ID utilisateur non défini dans la session');
-      return { success: false, message: 'Session utilisateur invalide. Veuillez vous reconnecter.' };
+      return 'Session utilisateur invalide. Veuillez vous reconnecter.';
     }
     
     // Si c'est un ID de simulation OAuth
@@ -309,51 +358,47 @@ export async function createDocumentAction(
       userIdNumber = parseInt(userId);
       if (isNaN(userIdNumber) || userIdNumber <= 0) {
         console.error('❌ ID utilisateur invalide:', userId, 'Parsed as:', userIdNumber);
-        return { success: false, message: 'ID utilisateur invalide. Veuillez vous reconnecter.' };
+        return 'ID utilisateur invalide. Veuillez vous reconnecter.';
       }
     }
 
     if (!title || title.trim().length === 0) {
-      return { success: false, message: 'Le titre du document ne peut pas être vide.' };
+      return 'Le titre du document ne peut pas être vide.';
     }
 
     if (title.length > 255) {
-      return { success: false, message: 'Le titre ne peut pas dépasser 255 caractères.' };
+      return 'Le titre ne peut pas dépasser 255 caractères.';
     }
 
     // Vérifier si la base de données est configurée
     if (!process.env.DATABASE_URL) {
-      return {
-        success: true,
-        message: 'Document créé avec succès (mode simulation). Configurez DATABASE_URL pour la persistance.',
-        documentId: undefined,
-      };
+      return 'Document créé avec succès (mode simulation). Configurez DATABASE_URL pour la persistance.';
     }
 
     // Initialiser les tables si elles n'existent pas
     await initializeTables();
 
-    // Toujours créer un NOUVEAU document pour obtenir un ID unique
-    const result = await createDocument(userIdNumber, title.trim(), content || '');
+    // Créer ou mettre à jour le document (évite les doublons)
+    const result = await createOrUpdateDocument(userIdNumber, title.trim(), content || '');
 
     if (!result.success) {
       console.error('❌ Erreur création/mise à jour document:', result.error);
-      return { success: false, message: 'Erreur lors de la création du document. Veuillez réessayer.' };
+      return 'Erreur lors de la création du document. Veuillez réessayer.';
     }
 
-    return {
-      success: true,
-      message: 'Document créé avec succès !',
-      documentId: (result as any).document?.id,
-    };
+    if (result.isUpdate) {
+      return 'Document mis à jour avec succès !';
+    } else {
+      return 'Document créé avec succès !';
+    }
   } catch (error: any) {
     console.error('❌ Erreur lors de la création du document:', error);
     
     if (error.code === 'ECONNRESET' || error.code === 'ECONNREFUSED') {
-      return { success: false, message: 'Base de données non accessible. Vérifiez la configuration PostgreSQL.' };
+      return 'Base de données non accessible. Vérifiez la configuration PostgreSQL.';
     }
     
-    return { success: false, message: 'Erreur lors de la création du document. Veuillez réessayer.' };
+    return 'Erreur lors de la création du document. Veuillez réessayer.';
   }
 }
 
@@ -490,7 +535,7 @@ export async function deleteNoteAction(
     }
 
     // Supprimer la note
-  const result = await deleteDocument(parseInt(noteId), userIdNumber);
+    const result = await deleteNote(parseInt(noteId), userIdNumber);
 
     if (!result.success) {
       console.error('❌ Erreur suppression note:', result.error);

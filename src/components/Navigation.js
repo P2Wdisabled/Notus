@@ -2,40 +2,17 @@
 
 import Link from "next/link";
 import { useLocalSession } from "@/hooks/useLocalSession";
-import { signOut } from "next-auth/react";
-import { clearUserSession } from "@/lib/session-utils";
-import { useRouter } from "next/navigation";
 import AdminButton from "./AdminButton";
 
 export default function Navigation({ serverSession }) {
-  const {
-    session: localSession,
-    loading,
-    isLoggedIn,
-    userName,
-    logout,
-  } = useLocalSession(serverSession);
-  const router = useRouter();
-
-  const handleLogout = async () => {
-    // Nettoyer la session localStorage
-    logout();
-
-    // Déconnexion NextAuth
-    await signOut({
-      callbackUrl: "/",
-      redirect: false,
-    });
-
-    // Redirection manuelle
-    router.push("/");
-  };
+  const { session: localSession, loading, isLoggedIn, userName } =
+    useLocalSession(serverSession);
 
   if (loading) {
     return (
       <div className="flex items-center space-x-4">
-        <div className="animate-pulse bg-gray-300 dark:bg-gray-600 h-8 w-20 rounded"></div>
-        <div className="animate-pulse bg-gray-300 dark:bg-gray-600 h-8 w-20 rounded"></div>
+        <div className="animate-pulse bg-gray dark:bg-dark-gray h-8 w-20 rounded"></div>
+        <div className="animate-pulse bg-gray dark:bg-dark-gray h-8 w-20 rounded"></div>
       </div>
     );
   }
@@ -51,7 +28,7 @@ export default function Navigation({ serverSession }) {
         </Link>
         <Link
           href="/login"
-          className="border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-semibold py-2 px-4 rounded-lg transition-colors"
+          className="border border-gray dark:border-dark-gray hover:bg-light-gray dark:hover:bg-gray-700 text-gray-700 dark:text-gray font-semibold py-2 px-4 rounded-lg transition-colors"
         >
           Se connecter
         </Link>
@@ -61,16 +38,10 @@ export default function Navigation({ serverSession }) {
 
   return (
     <div className="flex items-center space-x-4">
-      <span className="text-gray-700 dark:text-gray-300">
+      <span className="text-gray-700 dark:text-gray">
         Bonjour, <strong>{userName}</strong>
       </span>
       <AdminButton />
-      <button
-        onClick={handleLogout}
-        className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
-      >
-        Se déconnecter
-      </button>
     </div>
   );
 }

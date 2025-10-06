@@ -2,6 +2,7 @@
 require("dotenv").config();
 
 const { initializeTables, testConnection } = require("../src/lib/database");
+const { initNextAuthTables } = require("./init-nextauth-tables");
 
 async function initDatabase() {
   console.log("🚀 Initialisation de la base de données...");
@@ -18,8 +19,11 @@ async function initDatabase() {
       process.exit(1);
     }
 
-    // Initialiser les tables
+    // Initialiser les tables principales
     await initializeTables();
+
+    // Initialiser les tables NextAuth
+    await initNextAuthTables();
 
     console.log("✅ Base de données initialisée avec succès !");
     process.exit(0);

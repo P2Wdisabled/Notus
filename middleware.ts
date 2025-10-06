@@ -1,45 +1,59 @@
-import NextAuth from 'next-auth';
-import { authConfig } from './auth.config';
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
+import { getToken } from "next-auth/jwt";
 import { query } from './src/lib/database';
 
-// Middleware personnalisé pour vérifier le statut banni
-export async function middleware(request: any) {
-  // Exécuter le middleware NextAuth d'abord
-  const response = await NextAuth(authConfig).auth(request);
-  
-  // Si l'utilisateur est connecté, vérifier s'il est banni
-  if (response && request.nextUrl.pathname !== '/login' && request.nextUrl.pathname !== '/logout') {
+export default async function middleware(req) {
+  const { nextUrl } = req;
+  const token = await getToken({ req });
+  const isLoggedIn = !!token;
+
+  const isPublicPath = 
+    nextUrl.pathname === "/login" || 
+    nextUrl.pathname === "/register" || 
+    nextUrl.pathname === "/" ||
+    nextUrl.pathname.startsWith("/auth") ||
+    nextUrl.pathname.startsWith("/api/auth");
+
+  const isAdminPath = nextUrl.pathname.startsWith("/admin");
+
+  // Redirect unauthenticated users to login for protected routes
+  if (!isPublicPath && !isLoggedIn) {
+    return NextResponse.redirect(new URL("/login", nextUrl));
+  }
+
+  // Redirect authenticated users away from auth pages
+  if (isLoggedIn && (nextUrl.pathname === "/login" || nextUrl.pathname === "/register")) {
+    return NextResponse.redirect(new URL("/", nextUrl));
+  }
+
+  // Admin routes require admin privileges
+  if (isAdminPath && isLoggedIn && !token?.isAdmin) {
+    return NextResponse.redirect(new URL("/", nextUrl));
+  }
+
+  // Vérifier le statut banni pour les utilisateurs connectés
+  if (isLoggedIn && token?.id && nextUrl.pathname !== '/banned') {
     try {
-      // Récupérer la session depuis la réponse NextAuth
-      const session = response;
+      const userResult = await query(
+        'SELECT is_banned FROM users WHERE id = $1::bigint',
+        [token.id]
+      );
       
-      if (session?.user?.id) {
-        // Vérifier le statut banni dans la base de données
-        const userResult = await query(
-          'SELECT is_banned FROM users WHERE id = $1',
-          [session.user.id]
-        );
-        
-        if (userResult.rows.length > 0 && userResult.rows[0].is_banned) {
-          console.log('🚫 Utilisateur banni détecté, redirection vers page banni:', session.user.id);
-          // Rediriger vers la page de compte banni
-          return NextResponse.redirect(new URL('/banned', request.url));
-        }
+      if (userResult.rows.length > 0 && userResult.rows[0].is_banned) {
+        console.log('🚫 Utilisateur banni détecté, redirection vers page banni:', token.id);
+        return NextResponse.redirect(new URL('/banned', nextUrl));
       }
     } catch (error) {
       console.error('Erreur lors de la vérification du statut banni:', error);
-      // En cas d'erreur, continuer normalement
     }
   }
-  
-  return response;
-}
 
-export default middleware;
+  return NextResponse.next();
+}
 
 export const config = {
   // https://nextjs.org/docs/app/building-your-application/routing/middleware#matcher
   matcher: ['/((?!api|_next/static|_next/image|.*\\.png$).*)'],
   runtime: 'nodejs',
 };
+

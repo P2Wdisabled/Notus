@@ -1,9 +1,9 @@
 import type { NextAuthConfig } from 'next-auth';
-import Google from 'next-auth/providers/google';
 
 export const authConfig = {
   pages: {
     signIn: '/login',
+    error: '/auth/error',
   },
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
@@ -12,6 +12,7 @@ export const authConfig = {
       const isOnAdmin = nextUrl.pathname.startsWith('/admin');
       const isOnRegister = nextUrl.pathname.startsWith('/register');
       const isOnLogin = nextUrl.pathname.startsWith('/login');
+      const isOnAuth = nextUrl.pathname.startsWith('/auth');
       
       if (isOnDashboard) {
         if (isLoggedIn) return true;
@@ -21,14 +22,11 @@ export const authConfig = {
         return false; // Redirect unauthenticated users to login page
       } else if (isLoggedIn && (isOnLogin || isOnRegister)) {
         return Response.redirect(new URL('/', nextUrl));
+      } else if (isOnAuth) {
+        return true; // Autoriser l'accès aux pages d'authentification
       }
       return true;
     },
   },
-  providers: [
-    Google({
-      clientId: process.env.AUTH_GOOGLE_ID!,
-      clientSecret: process.env.AUTH_GOOGLE_SECRET!,
-    }),
-  ],
+  debug: process.env.NODE_ENV === 'development',
 } satisfies NextAuthConfig;
