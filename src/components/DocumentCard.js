@@ -40,7 +40,7 @@ export default function DocumentCard({ document, currentUserId, onDelete }) {
 
       {/* Titre du document */}
       <div className="mb-2">
-        <span className="text-xl font-title text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+        <span className="text-xl font-title text-dark dark:text-white hover:text-dark-gray dark:hover:text-light-gray transition-colors">
           {document.title}
         </span>
       </div>
