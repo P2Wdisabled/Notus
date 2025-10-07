@@ -279,6 +279,47 @@ export default function EditDocumentPageClient(props) {
             })
           : [];
 
+      // Convert event stream (start/draw/end) into strokes [{ points: [[x,y],...], color, size }]
+      const eventsToStrokes = (events) => {
+        if (!Array.isArray(events) || events.length === 0) return [];
+        const strokes = [];
+        let current = null;
+        for (const ev of events) {
+          if (!ev || typeof ev !== 'object') continue;
+          const t = ev.type;
+          if (t === 'start') {
+            current = {
+              points: Array.isArray(ev.point) ? [[ev.point[0], ev.point[1]]] : [],
+              color: ev.color ?? '#000000',
+              size: ev.size ?? 3,
+            };
+            strokes.push(current);
+          } else if (t === 'draw') {
+            if (!current) {
+              current = {
+                points: Array.isArray(ev.point) ? [[ev.point[0], ev.point[1]]] : [],
+                color: ev.color ?? '#000000',
+                size: ev.size ?? 3,
+              };
+              strokes.push(current);
+            } else if (Array.isArray(ev.point)) {
+              current.points.push([ev.point[0], ev.point[1]]);
+            }
+          } else if (t === 'end') {
+            current = null;
+          } else if (ev.points && Array.isArray(ev.points)) {
+            // already a stroke-like object
+            strokes.push({
+              points: ev.points.map(p => (Array.isArray(p) ? [p[0], p[1]] : p)),
+              color: ev.color ?? '#000000',
+              size: ev.size ?? 3,
+            });
+            current = null;
+          }
+        }
+        return strokes.filter(s => Array.isArray(s.points) && s.points.length > 0);
+      };
+
       const cleanedDrawings = simplifyDrawings(drawingsPayload);
 
       // convert event stream to strokes for storage (idempotent)
