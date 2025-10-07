@@ -242,11 +242,11 @@ export default function EditDocumentPageClient(props) {
         return;
       }
 
-      // collect raw drawings (prefer canvas controller)
+      // collect raw drawings (prefer canvas controller) - force serialization
       let drawingsPayload = [];
       if (canvasCtrl && typeof canvasCtrl.saveDrawings === 'function') {
         try {
-          drawingsPayload = await canvasCtrl.saveDrawings();
+          drawingsPayload = await canvasCtrl.saveDrawings({ force: true });
         } catch (err) {
           console.warn('canvasCtrl.saveDrawings failed, falling back to content.drawings', err);
         }
@@ -258,72 +258,40 @@ export default function EditDocumentPageClient(props) {
           [];
       }
 
-      // helper: simplify drawing events to avoid huge payloads (round coords)
-      const simplifyDrawings = (dArr) =>
-        Array.isArray(dArr)
-          ? dArr.map((ev) => {
-              if (!ev || typeof ev !== 'object') return ev;
-              const copy = { ...ev };
-              if (Array.isArray(ev.point)) {
-                copy.point = ev.point.map((p) =>
-                  typeof p === 'number' ? Math.round(p * 100) / 100 : p
-                );
-              }
-              // keep only needed props
-              const allowed = {};
-              if (copy.type) allowed.type = copy.type;
-              if (copy.point) allowed.point = copy.point;
-              if (copy.color) allowed.color = copy.color;
-              if (copy.size !== undefined) allowed.size = copy.size;
-              return allowed;
-            })
-          : [];
-
-      // Convert event stream (start/draw/end) into strokes [{ points: [[x,y],...], color, size }]
-      const eventsToStrokes = (events) => {
-        if (!Array.isArray(events) || events.length === 0) return [];
-        const strokes = [];
-        let current = null;
-        for (const ev of events) {
-          if (!ev || typeof ev !== 'object') continue;
-          const t = ev.type;
-          if (t === 'start') {
-            current = {
-              points: Array.isArray(ev.point) ? [[ev.point[0], ev.point[1]]] : [],
-              color: ev.color ?? '#000000',
-              size: ev.size ?? 3,
-            };
-            strokes.push(current);
-          } else if (t === 'draw') {
-            if (!current) {
-              current = {
-                points: Array.isArray(ev.point) ? [[ev.point[0], ev.point[1]]] : [],
-                color: ev.color ?? '#000000',
-                size: ev.size ?? 3,
+      // Convert Paper-style serialized paths (segments[]) into simple strokes [{ points:[[x,y]...], color, size }]
+      const serializedPathsToStrokes = (arr) => {
+        if (!Array.isArray(arr)) return [];
+        return arr
+          .map((p) => {
+            if (!p || typeof p !== 'object') return null;
+            // If it's already a stroke-like object
+            if (Array.isArray(p.points)) {
+              return {
+                points: p.points.map(pt => Array.isArray(pt) ? [pt[0], pt[1]] : pt),
+                color: p.color ?? '#000000',
+                size: p.size ?? 3,
               };
-              strokes.push(current);
-            } else if (Array.isArray(ev.point)) {
-              current.points.push([ev.point[0], ev.point[1]]);
             }
-          } else if (t === 'end') {
-            current = null;
-          } else if (ev.points && Array.isArray(ev.points)) {
-            // already a stroke-like object
-            strokes.push({
-              points: ev.points.map(p => (Array.isArray(p) ? [p[0], p[1]] : p)),
-              color: ev.color ?? '#000000',
-              size: ev.size ?? 3,
-            });
-            current = null;
-          }
-        }
-        return strokes.filter(s => Array.isArray(s.points) && s.points.length > 0);
+            // If it's Paper serialized path with segments: [{ point: [x,y], ...}, ...]
+            if (Array.isArray(p.segments)) {
+              const pts = p.segments
+                .map(s => {
+                  if (!s) return null;
+                  if (Array.isArray(s.point)) return [Number(s.point[0]) || 0, Number(s.point[1]) || 0];
+                  if (s.point && typeof s.point.x === 'number' && typeof s.point.y === 'number') return [s.point.x, s.point.y];
+                  return null;
+                })
+                .filter(Boolean);
+              return pts.length > 0
+                ? { points: pts, color: p.color ?? '#000000', size: p.size ?? p.strokeWidth ?? 3 }
+                : null;
+            }
+            return null;
+          })
+          .filter(Boolean);
       };
 
-      const cleanedDrawings = simplifyDrawings(drawingsPayload);
-
-      // convert event stream to strokes for storage (idempotent)
-      const drawingsToSave = eventsToStrokes(cleanedDrawings);
+      const drawingsToSave = serializedPathsToStrokes(drawingsPayload);
 
       // Build normalized content (single source of truth) - save strokes
       const normalizedContentObj = {
@@ -345,8 +313,6 @@ export default function EditDocumentPageClient(props) {
       formData.append('userId', String(submittingUserId));
       formData.append('title', title || '');
       formData.append('content', JSON.stringify(normalizedContentObj));
-
-      console.log('Submitting document with drawings length:', cleanedDrawings.length);
 
       const result = await updateDocumentAction(formData);
       console.log('updateDocumentAction result:', result);

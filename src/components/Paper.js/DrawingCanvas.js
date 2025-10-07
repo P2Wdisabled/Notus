@@ -10,7 +10,6 @@ export default function DrawingCanvas(props) {
     socket,
     drawings = [],
     setDrawings,
-    useLocalStorage = false,
     onCanvasReady,
   } = props;
 
@@ -23,6 +22,10 @@ export default function DrawingCanvas(props) {
   const isInitialLoadRef = useRef(true);
   const isIsolatedRef = useRef(false);
   const hasLoadedInitialDrawingsRef = useRef(false);
+
+  // new refs to prevent duplicate saves / identify this client
+  const clientIdRef = useRef(null);
+  const lastSaveAtRef = useRef(0);
 
   const controllerRef = useRef({
     // provide safe defaults so parent can call immediately
@@ -208,28 +211,67 @@ export default function DrawingCanvas(props) {
     }
   }, [paper, drawings]);
 
-  // ✅ MODIFY: Save function - always return serialized array
-  const saveCurrentDrawings = useCallback(async () => {
+  // ✅ MODIFY: Save function - avoid no-op saves, include source id, and debounce small bursts
+  const saveCurrentDrawings = useCallback(async (opts = {}) => {
+    const { force = false } = opts || {};
     if (!paper?.project) return [];
     try {
+      const now = Date.now();
+      // small debounce to avoid rapid repeated saves (but allow force)
+      if (!force && now - (lastSaveAtRef.current || 0) < 300) {
+        console.log('⏱️ Skipping save - debounced');
+        return [];
+      }
+      lastSaveAtRef.current = now;
+
       const paths = paper.project.getItems({ className: 'Path' });
       const serializedPaths = paths.map(path => ({
-        segments: path.segments.map(s => ({ point: [s.point.x, s.point.y], handleIn: s.handleIn ? [s.handleIn.x, s.handleIn.y] : undefined, handleOut: s.handleOut ? [s.handleOut.x, s.handleOut.y] : undefined })),
+        segments: path.segments.map(s => ({
+          point: [s.point.x, s.point.y],
+          handleIn: s.handleIn ? [s.handleIn.x, s.handleIn.y] : null,
+          handleOut: s.handleOut ? [s.handleOut.x, s.handleOut.y] : null
+        })),
         color: path.strokeColor ? path.strokeColor.toCSS(true) : '#000000',
         size: path.strokeWidth || 3,
         type: 'pen',
-        closed: path.closed || false,
+        closed: !!path.closed,
       }));
+
+      // skip if nothing changed compared to incoming prop to avoid update loops
+      try {
+        const incomingJSON = JSON.stringify(drawings || []);
+        const currentJSON = JSON.stringify(serializedPaths || []);
+        if (incomingJSON === currentJSON) {
+          console.log('✅ No canvas changes to save (skip set/emit)');
+          return serializedPaths;
+        }
+      } catch (e) {
+        // fallback to continue if stringify fails
+      }
+
+      // update local state (replace, don't append)
       if (setDrawings) setDrawings(serializedPaths);
-      try { localStorage.setItem(`doc-${window.__CURRENT_DOCUMENT_ID__||'unspecified'}-drawings-backup`, JSON.stringify(serializedPaths)); } catch(e){}
-      if (socket && !isInitialLoadRef.current) socket.emit('drawings-update', { drawings: serializedPaths, timestamp: Date.now() });
+
+      // include a client id so server/other clients can ignore echo
+      const source = clientIdRef.current || (socket && socket.id) || `local-${Date.now()}-${Math.random()}`;
+      clientIdRef.current = source;
+
+      // emit realtime update (server/other clients can use it for live sync)
+      if (socket) {
+        try {
+          socket.emit('drawings-update', { drawings: serializedPaths, timestamp: Date.now(), source });
+        } catch (err) {
+          console.warn('socket emit failed', err);
+        }
+      }
+
       console.log('saveCurrentDrawings ->', serializedPaths.length);
-      return serializedPaths; // IMPORTANT: always return array (even empty)
+      return serializedPaths; // always return array
     } catch (err) {
       console.error('saveCurrentDrawings error', err);
       return [];
     }
-  }, [paper, setDrawings, socket]);
+  }, [paper, setDrawings, socket, drawings]);
 
 
   const clearCanvas = useCallback(() => {
@@ -600,6 +642,9 @@ export default function DrawingCanvas(props) {
         });
       }
 
+      // Save the full canvas to DB (via socket + optional HTTP)
+      saveCurrentDrawings().catch(e => console.warn('saveCurrentDrawings failed', e));
+
       console.log('🖊️ Drawing completed');
     };
 
@@ -608,7 +653,7 @@ export default function DrawingCanvas(props) {
         paper.tools.forEach((tool) => tool.remove());
       }
     };
-  }, [isSetup, paper, brushColor, brushSize, onDrawingData, socket]);
+  }, [isSetup, paper, brushColor, brushSize, onDrawingData, socket, saveCurrentDrawings]);
 
   // Socket handlers
   useEffect(() => {
@@ -632,6 +677,34 @@ export default function DrawingCanvas(props) {
       socket.off('clear-canvas', handleClearCanvas);
     };
   }, [socket, paper, isSetup, setDrawings]);
+
+  // Listen for remote drawing updates but ignore those from this client
+  useEffect(() => {
+    if (!socket || !setDrawings) return;
+
+    const handleDrawingsUpdate = (payload) => {
+      try {
+        if (!payload) return;
+        if (payload.source && payload.source === clientIdRef.current) {
+          // ignore server echo of our own save
+          return;
+        }
+        if (payload.drawings && Array.isArray(payload.drawings)) {
+          console.log('📨 Received drawings-update from remote, replacing local drawings');
+          setDrawings(payload.drawings);
+          // optionally force reload canvas if desired:
+          // hasLoadedInitialDrawingsRef.current = false;
+        }
+      } catch (e) {
+        console.warn('handleDrawingsUpdate error', e);
+      }
+    };
+
+    socket.on('drawings-update', handleDrawingsUpdate);
+    return () => {
+      socket.off('drawings-update', handleDrawingsUpdate);
+    };
+  }, [socket, setDrawings]);
 
   // Handle resize
   useEffect(() => {
