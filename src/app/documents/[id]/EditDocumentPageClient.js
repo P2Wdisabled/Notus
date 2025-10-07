@@ -236,56 +236,87 @@ export default function EditDocumentPageClient(props) {
     async (e) => {
       e?.preventDefault?.();
 
+      const submittingUserId = Number(currentUserId ?? 0);
+      if (!submittingUserId || isNaN(submittingUserId)) {
+        alert('Session invalide. Veuillez vous reconnecter.');
+        return;
+      }
+
+      // collect raw drawings (prefer canvas controller)
       let drawingsPayload = [];
-      if (canvasCtrl && typeof canvasCtrl.saveDrawings === "function") {
+      if (canvasCtrl && typeof canvasCtrl.saveDrawings === 'function') {
         try {
           drawingsPayload = await canvasCtrl.saveDrawings();
         } catch (err) {
-          drawingsPayload = (content && content.drawings) || [];
+          console.warn('canvasCtrl.saveDrawings failed, falling back to content.drawings', err);
         }
-      } else {
-        drawingsPayload = (content && content.drawings) || [];
+      }
+      if (!Array.isArray(drawingsPayload) || drawingsPayload.length === 0) {
+        drawingsPayload =
+          (content && content.drawings) ||
+          (document?.content && document.content.drawings) ||
+          [];
       }
 
-      // FLATTEN content if nested
-      let normalized = content;
-      if (
-        content &&
-        typeof content === "object" &&
-        typeof content.text === "object"
-      ) {
-        // If content.text is an object, flatten it
-        normalized = {
-          ...content.text,
-          drawings: drawingsPayload,
-        };
-      } else if (content && typeof content === "object") {
-        normalized = {
-          ...content,
-          drawings: drawingsPayload,
-        };
-      }
+      // helper: simplify drawing events to avoid huge payloads (round coords)
+      const simplifyDrawings = (dArr) =>
+        Array.isArray(dArr)
+          ? dArr.map((ev) => {
+              if (!ev || typeof ev !== 'object') return ev;
+              const copy = { ...ev };
+              if (Array.isArray(ev.point)) {
+                copy.point = ev.point.map((p) =>
+                  typeof p === 'number' ? Math.round(p * 100) / 100 : p
+                );
+              }
+              // keep only needed props
+              const allowed = {};
+              if (copy.type) allowed.type = copy.type;
+              if (copy.point) allowed.point = copy.point;
+              if (copy.color) allowed.color = copy.color;
+              if (copy.size !== undefined) allowed.size = copy.size;
+              return allowed;
+            })
+          : [];
 
-      const contentToSend = JSON.stringify(normalized);
+      const cleanedDrawings = simplifyDrawings(drawingsPayload);
 
+      // convert event stream to strokes for storage (idempotent)
+      const drawingsToSave = eventsToStrokes(cleanedDrawings);
+
+      // Build normalized content (single source of truth) - save strokes
+      const normalizedContentObj = {
+        text: (content && content.text) || getPlainText(content) || "",
+        drawings: drawingsToSave,               // <-- store strokes here
+        textFormatting: (content && content.textFormatting) || {},
+        timestamp: Date.now(),
+      };
+
+      console.log('Submitting document with drawings strokes:', drawingsToSave.length);
+      console.log('normalizedContentObj preview:', {
+        textLength: normalizedContentObj.text.length,
+        drawingsSamples: normalizedContentObj.drawings.slice(0,2)
+      });
+
+      // Send only content (avoid duplicate drawings field)
       const formData = new FormData();
-      formData.append("documentId", String(props.params?.id || ""));
-      formData.append("userId", String(currentUserId ?? ""));
-      formData.append("title", title || "");
-      formData.append("content", contentToSend);
-      formData.append("drawings", JSON.stringify(drawingsPayload));
+      formData.append('documentId', String(props.params?.id || ''));
+      formData.append('userId', String(submittingUserId));
+      formData.append('title', title || '');
+      formData.append('content', JSON.stringify(normalizedContentObj));
+
+      console.log('Submitting document with drawings length:', cleanedDrawings.length);
 
       const result = await updateDocumentAction(formData);
+      console.log('updateDocumentAction result:', result);
 
       if (!result || result.ok !== true || result.dbResult?.success !== true) {
-        alert(
-          "Save failed: " +
-            (result?.dbResult?.error || result?.error || "Unknown error")
-        );
+        alert('Save failed: ' + (result?.dbResult?.error || result?.error || 'Unknown error'));
         return;
       }
+      // success: you may update local state / notify user
     },
-    [canvasCtrl, content, currentUserId, props.params.id, title]
+    [canvasCtrl, content, currentUserId, props.params.id, title, document]
   );
 
   const handleSetDrawingMode = () => {
