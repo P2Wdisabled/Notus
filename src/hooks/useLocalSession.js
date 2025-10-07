@@ -28,6 +28,8 @@ export function useLocalSession(serverSession = null) {
             firstName: serverSession.user.firstName,
             lastName: serverSession.user.lastName,
             username: serverSession.user.username,
+            profileImage: serverSession.user.profileImage,
+            bannerImage: serverSession.user.bannerImage,
           };
 
           if (saveUserSession(sessionData)) {
@@ -62,5 +64,7 @@ export function useLocalSession(serverSession = null) {
     userFirstName: localSession?.firstName || null,
     userLastName: localSession?.lastName || null,
     username: localSession?.username || null,
+    profileImage: localSession?.profileImage || null,
+    bannerImage: localSession?.bannerImage || null,
   };
 }

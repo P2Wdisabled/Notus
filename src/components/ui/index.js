@@ -9,6 +9,7 @@ export { default as Modal } from "./Modal";
 export { default as Badge } from "./Badge";
 export { default as Form } from "./Form";
 export { default as Logo } from "./Logo";
+export { default as ImageUpload } from "./ImageUpload";
 export {
   Skeleton,
   SkeletonCard,

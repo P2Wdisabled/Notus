@@ -134,6 +134,25 @@ const initializeTables = async () => {
       // Ignorer l'erreur si la colonne existe déjà
     }
 
+    // Ajouter les colonnes pour les images de profil et bannière
+    try {
+      await query(`
+        ALTER TABLE users 
+        ADD COLUMN IF NOT EXISTS profile_image TEXT
+      `);
+    } catch (error) {
+      // Ignorer l'erreur si la colonne existe déjà
+    }
+
+    try {
+      await query(`
+        ALTER TABLE users 
+        ADD COLUMN IF NOT EXISTS banner_image TEXT
+      `);
+    } catch (error) {
+      // Ignorer l'erreur si la colonne existe déjà
+    }
+
     // Table des sessions (pour JWT)
     await query(`
       CREATE TABLE IF NOT EXISTS user_sessions (
@@ -621,6 +640,14 @@ const updateUserProfile = async (userId, fields) => {
       updates.push(`last_name = $${index++}`);
       values.push(fields.lastName);
     }
+    if (Object.prototype.hasOwnProperty.call(fields, "profileImage")) {
+      updates.push(`profile_image = $${index++}`);
+      values.push(fields.profileImage);
+    }
+    if (Object.prototype.hasOwnProperty.call(fields, "bannerImage")) {
+      updates.push(`banner_image = $${index++}`);
+      values.push(fields.bannerImage);
+    }
 
     if (updates.length === 0) {
       return { success: false, error: "Aucun champ à mettre à jour" };
@@ -633,7 +660,7 @@ const updateUserProfile = async (userId, fields) => {
     const result = await query(
       `UPDATE users SET ${updates.join(", ")}
        WHERE id = $${index}
-       RETURNING id, email, username, first_name, last_name, updated_at`,
+       RETURNING id, email, username, first_name, last_name, profile_image, banner_image, updated_at`,
       values
     );
 
@@ -649,8 +676,14 @@ const updateUserProfile = async (userId, fields) => {
       if (detail.includes("users_email_key") || detail.includes("(email)")) {
         return { success: false, error: "Cet email est déjà utilisé" };
       }
-      if (detail.includes("users_username_key") || detail.includes("(username)")) {
-        return { success: false, error: "Ce nom d'utilisateur est déjà utilisé" };
+      if (
+        detail.includes("users_username_key") ||
+        detail.includes("(username)")
+      ) {
+        return {
+          success: false,
+          error: "Ce nom d'utilisateur est déjà utilisé",
+        };
       }
     }
     console.error("❌ Erreur mise à jour profil:", error);
@@ -693,7 +726,8 @@ const getAllUsers = async (limit = 50, offset = 0) => {
   try {
     const result = await query(
       `SELECT id, email, username, first_name, last_name, email_verified, 
-              is_admin, is_banned, created_at, updated_at, provider, terms_accepted_at
+              is_admin, is_banned, created_at, updated_at, provider, terms_accepted_at,
+              profile_image, banner_image
        FROM users
        ORDER BY created_at DESC
        LIMIT $1 OFFSET $2`,

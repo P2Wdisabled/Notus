@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import AdminButton from "./AdminButton";
@@ -12,7 +12,43 @@ export default function NavBar() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const router = useRouter();
-  const { userName, username, logout, isLoggedIn } = useLocalSession();
+  const {
+    userName,
+    username,
+    logout,
+    isLoggedIn,
+    profileImage: localProfileImage,
+  } = useLocalSession();
+  const [profileImage, setProfileImage] = useState(localProfileImage);
+
+  // Récupérer l'image de profil depuis la base de données
+  useEffect(() => {
+    const fetchProfileImage = async () => {
+      if (isLoggedIn && !localProfileImage) {
+        try {
+          const response = await fetch("/api/profile-image");
+          if (response.ok) {
+            const data = await response.json();
+            if (data.profileImage) {
+              setProfileImage(data.profileImage);
+            }
+          }
+        } catch (error) {
+          console.error(
+            "Erreur lors de la récupération de l'image de profil:",
+            error
+          );
+        }
+      }
+    };
+
+    fetchProfileImage();
+  }, [isLoggedIn, localProfileImage]);
+
+  // Mettre à jour l'image de profil quand elle change dans la session locale
+  useEffect(() => {
+    setProfileImage(localProfileImage);
+  }, [localProfileImage]);
 
   const items = [
     { name: "Récent", href: "/recent", icon: ClockIcon },
@@ -70,7 +106,7 @@ export default function NavBar() {
               {pageTitle}
             </span>
             <Link href="/" className="items-center hidden md:flex">
-                <Logo width={160} height={46} />
+              <Logo width={160} height={46} />
             </Link>
           </div>
 
@@ -94,10 +130,20 @@ export default function NavBar() {
               <Link
                 href="/profile"
                 aria-label="Profil"
-                className="ml-1 inline-flex items-center justify-center w-8 h-8 rounded-full bg-light-gray dark:bg-light-black text-black dark:text-white font-semibold"
+                className="ml-1 inline-flex items-center justify-center w-8 h-8 rounded-full overflow-hidden"
                 title={userName || "Profil"}
               >
-                {getInitials(userName)}
+                {profileImage ? (
+                  <img
+                    src={profileImage}
+                    alt="Photo de profil"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-light-gray dark:bg-light-black text-black dark:text-white font-semibold flex items-center justify-center">
+                    {getInitials(userName)}
+                  </div>
+                )}
               </Link>
             )}
           </div>
@@ -151,15 +197,26 @@ export default function NavBar() {
                   </Link>
                 );
               })} */}
-              <div className="pt-3">
-                {/* <AdminButton /> */}
-              </div>
+              <div className="pt-3">{/* <AdminButton /> */}</div>
             </nav>
             <div className="pt-4 space-y-3">
               {isLoggedIn && (
-                <Link href="/profile" className="flex items-center gap-3 p-3 bg-transparent cursor-pointer border-t border-gray dark:border-dark-gray">
-                  <div className="flex items-center justify-center w-10 h-10 rounded-full bg-light-gray dark:bg-light-black text-black dark:text-white font-semibold">
-                    {getInitials(userName || username || "Anonyme")}
+                <Link
+                  href="/profile"
+                  className="flex items-center gap-3 p-3 bg-transparent cursor-pointer border-t border-gray dark:border-dark-gray"
+                >
+                  <div className="flex items-center justify-center w-10 h-10 rounded-full overflow-hidden">
+                    {profileImage ? (
+                      <img
+                        src={profileImage}
+                        alt="Photo de profil"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-light-gray dark:bg-light-black text-black dark:text-white font-semibold flex items-center justify-center">
+                        {getInitials(userName || username || "Anonyme")}
+                      </div>
+                    )}
                   </div>
                   <div className="flex flex-col">
                     <span className="text-sm font-semibold text-black dark:text-white">
@@ -217,22 +274,31 @@ export default function NavBar() {
         <div className="p-4 space-y-3">
           {/* <AdminButton /> */}
           {isLoggedIn && (
-            <Link href="/profile" className="flex items-center gap-3 p-3 bg-transparent cursor-pointer border-t border-gray dark:border-dark-gray">
-            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-light-gray dark:bg-light-black text-black dark:text-white font-semibold">
-              {getInitials(userName || username || "Anonyme")}
-            </div>
-            <div className="flex flex-col">
-              <span className="text-sm font-semibold text-black dark:text-white">
-                {username || userName || "Anonyme"}
-              </span>
-            </div>
-          </Link>
+            <Link
+              href="/profile"
+              className="flex items-center gap-3 p-3 bg-transparent cursor-pointer border-t border-gray dark:border-dark-gray"
+            >
+              <div className="flex items-center justify-center w-10 h-10 rounded-full overflow-hidden">
+                {profileImage ? (
+                  <img
+                    src={profileImage}
+                    alt="Photo de profil"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-light-gray dark:bg-light-black text-black dark:text-white font-semibold flex items-center justify-center">
+                    {getInitials(userName || username || "Anonyme")}
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-col">
+                <span className="text-sm font-semibold text-black dark:text-white">
+                  {username || userName || "Anonyme"}
+                </span>
+              </div>
+            </Link>
           )}
-          <Button
-            onClick={handleLogout}
-            variant="primary"
-            className="w-full"
-          >
+          <Button onClick={handleLogout} variant="primary" className="w-full">
             {isLoggedIn ? "Se déconnecter" : "Se connecter"}
           </Button>
         </div>
@@ -459,5 +525,3 @@ function getInitials(name) {
   const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
   return (first + last).toUpperCase() || "?";
 }
-
-

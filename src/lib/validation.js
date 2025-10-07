@@ -74,6 +74,45 @@ const validateName = (name, fieldName) => {
   };
 };
 
+// Validation des images en base64
+const validateBase64Image = (base64, fieldName) => {
+  const errors = [];
+
+  if (base64 && base64.trim() !== "") {
+    // Vérifier le format base64
+    const base64Regex = /^data:image\/(jpeg|jpg|png|gif);base64,/;
+    if (!base64Regex.test(base64)) {
+      errors.push(
+        `${fieldName} doit être une image en base64 valide (JPEG, PNG, ou GIF)`
+      );
+    } else {
+      // Vérifier que les données base64 sont valides
+      const base64Data = base64.split(",")[1];
+      if (!base64Data || base64Data.length === 0) {
+        errors.push(`${fieldName} contient des données base64 invalides`);
+      } else {
+        // Vérifier que c'est du base64 valide
+        try {
+          atob(base64Data);
+        } catch {
+          errors.push(`${fieldName} contient des données base64 corrompues`);
+        }
+      }
+    }
+
+    // Vérifier la taille (limite à 10MB pour éviter les problèmes de performance)
+    if (base64.length > 13.3 * 1024 * 1024) {
+      // 10MB en base64 ≈ 13.3MB
+      errors.push(`${fieldName} est trop volumineuse (maximum 10MB)`);
+    }
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+  };
+};
+
 // Validation complète des données d'inscription
 const validateRegistrationData = (data) => {
   const errors = {};
@@ -151,11 +190,74 @@ const validateLoginData = (data) => {
   };
 };
 
+// Validation des données de profil utilisateur
+const validateProfileData = (data) => {
+  const errors = {};
+
+  // Validation email
+  if (data.email && !validateEmail(data.email)) {
+    errors.email = "Format d'email invalide";
+  }
+
+  // Validation nom d'utilisateur
+  if (data.username) {
+    const usernameValidation = validateUsername(data.username);
+    if (!usernameValidation.isValid) {
+      errors.username = usernameValidation.errors[0];
+    }
+  }
+
+  // Validation prénom
+  if (data.firstName) {
+    const firstNameValidation = validateName(data.firstName, "Prénom");
+    if (!firstNameValidation.isValid) {
+      errors.firstName = firstNameValidation.errors[0];
+    }
+  }
+
+  // Validation nom
+  if (data.lastName) {
+    const lastNameValidation = validateName(data.lastName, "Nom");
+    if (!lastNameValidation.isValid) {
+      errors.lastName = lastNameValidation.errors[0];
+    }
+  }
+
+  // Validation image de profil
+  if (data.profileImage) {
+    const profileImageValidation = validateBase64Image(
+      data.profileImage,
+      "Image de profil"
+    );
+    if (!profileImageValidation.isValid) {
+      errors.profileImage = profileImageValidation.errors[0];
+    }
+  }
+
+  // Validation image de bannière
+  if (data.bannerImage) {
+    const bannerImageValidation = validateBase64Image(
+      data.bannerImage,
+      "Image de bannière"
+    );
+    if (!bannerImageValidation.isValid) {
+      errors.bannerImage = bannerImageValidation.errors[0];
+    }
+  }
+
+  return {
+    isValid: Object.keys(errors).length === 0,
+    errors,
+  };
+};
+
 module.exports = {
   validateEmail,
   validatePassword,
   validateUsername,
   validateName,
+  validateBase64Image,
   validateRegistrationData,
   validateLoginData,
+  validateProfileData,
 };

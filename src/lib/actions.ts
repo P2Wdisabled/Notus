@@ -4,7 +4,7 @@ import { signIn } from '../../auth';
 import { auth } from '../../auth';
 import { AuthError } from 'next-auth';
 import { createUser } from './database';
-import { validateRegistrationData } from './validation';
+import { validateRegistrationData, validateProfileData } from './validation';
 import { initializeTables } from './database';
 import { generateVerificationToken, sendVerificationEmail, sendPasswordResetEmail } from './email';
 import bcrypt from 'bcryptjs';
@@ -285,10 +285,22 @@ export async function updateUserProfileAction(
     const username = (formData.get('username') as string | null) || undefined;
     const firstName = (formData.get('firstName') as string | null) || undefined;
     const lastName = (formData.get('lastName') as string | null) || undefined;
+    const profileImage = (formData.get('profileImage') as string | null) || undefined;
+    const bannerImage = (formData.get('bannerImage') as string | null) || undefined;
 
-    // Validation simple
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return 'Veuillez entrer une adresse email valide.';
+    // Validation des données de profil (inclut les images)
+    const profileData = {
+      email: email?.trim(),
+      username: username?.trim(),
+      firstName: firstName?.trim(),
+      lastName: lastName?.trim(),
+      profileImage,
+      bannerImage
+    };
+
+    const validation = validateProfileData(profileData);
+    if (!validation.isValid) {
+      return Object.values(validation.errors)[0] || 'Données invalides';
     }
 
     const fields: Record<string, string> = {};
@@ -296,6 +308,8 @@ export async function updateUserProfileAction(
     if (username !== undefined) fields.username = username.trim();
     if (firstName !== undefined) fields.firstName = firstName.trim();
     if (lastName !== undefined) fields.lastName = lastName.trim();
+    if (profileImage !== undefined) fields.profileImage = profileImage;
+    if (bannerImage !== undefined) fields.bannerImage = bannerImage;
 
     if (Object.keys(fields).length === 0) {
       return 'Aucun changement détecté.';
@@ -778,6 +792,56 @@ export async function getUserIdByEmailAction(email: string) {
     return {
       success: false,
       error: 'Erreur lors de la récupération de l\'ID utilisateur'
+    };
+  }
+}
+
+// Action pour récupérer les données complètes du profil utilisateur
+export async function getUserProfileAction(userId: number) {
+  try {
+    // Vérifier si la base de données est configurée
+    if (!process.env.DATABASE_URL) {
+      return {
+        success: true,
+        user: {
+          id: userId,
+          username: "simulation",
+          first_name: "Test",
+          last_name: "User",
+          email: "test@example.com",
+          profile_image: null,
+          banner_image: null,
+          created_at: new Date().toISOString(),
+        }
+      };
+    }
+
+    // Initialiser les tables si elles n'existent pas
+    await initializeTables();
+
+    // Récupérer les données complètes de l'utilisateur
+    const result = await query(
+      `SELECT id, username, first_name, last_name, email, profile_image, banner_image, created_at
+       FROM users WHERE id = $1`,
+      [userId]
+    );
+
+    if (result.rows.length === 0) {
+      return {
+        success: false,
+        error: 'Utilisateur non trouvé'
+      };
+    }
+
+    return {
+      success: true,
+      user: result.rows[0]
+    };
+  } catch (error: any) {
+    console.error('❌ Erreur lors de la récupération du profil utilisateur:', error);
+    return {
+      success: false,
+      error: 'Erreur lors de la récupération du profil'
     };
   }
 }
