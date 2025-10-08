@@ -1,4 +1,4 @@
-"use client";
+'use client';
 import { useActionState } from "react";
 import { updateDocumentAction } from "@/lib/actions";
 import { useState, useEffect, useCallback } from "react";
@@ -19,7 +19,7 @@ export default function EditDocumentPageClient(props) {
   const [error, setError] = useState(null);
 
   // keep custom hook declarations here (stable order)
-  const [actionMsg, formAction, isPending] = useActionState(
+  const [isPending] = useActionState(
     updateDocumentAction,
     undefined
   );
@@ -31,22 +31,6 @@ export default function EditDocumentPageClient(props) {
     isLoggedIn,
     userId,
   } = useLocalSession(props.session);
-
-  // move normalizeContent here so it's available to all effects/callbacks
-  const normalizeContent = (raw) => {
-    if (!raw) return { text: "", drawings: [] };
-    if (typeof raw === "string") {
-      try {
-        const parsed = JSON.parse(raw);
-        if (typeof parsed === "object" && parsed.text) return parsed;
-        return { text: parsed, drawings: [] };
-      } catch {
-        return { text: raw, drawings: [] };
-      }
-    }
-    if (typeof raw === "object" && raw.text) return raw;
-    return { text: String(raw), drawings: [] };
-  };
 
   function deepNormalizeContent(raw) {
     let obj = raw;
@@ -123,8 +107,6 @@ export default function EditDocumentPageClient(props) {
       const response = await fetch(apiUrl);
       const result = await response.json();
 
-      console.log("DEBUG openDoc result:", result);
-
       if (result.success) {
         const normalizedContent = deepNormalizeContent(result.content);
 
@@ -139,12 +121,10 @@ export default function EditDocumentPageClient(props) {
         setTitle(result.title);
         setContent(normalizedContent); // <-- store the full object!
       } else {
-        console.error("❌ [CLIENT] Erreur API:", result.error);
         setError(result.error || "Erreur lors du chargement du document");
       }
     } catch (err) {
       setError("Erreur lors du chargement du document");
-      console.error("❌ [CLIENT] Erreur:", err);
     } finally {
       setIsLoading(false);
     }
@@ -156,17 +136,6 @@ export default function EditDocumentPageClient(props) {
       loadDocument();
     }
   }, [isLoggedIn, props.params?.id, userId, loadDocument]);
-
-  // debug logging for document (safe: effect always declared)
-  useEffect(() => {
-    if (!document) return;
-    console.log("DEBUG document:", document);
-  }, [document]);
-
-  // watch canvas controller changes (safe: effect always declared)
-  useEffect(() => {
-    console.log("canvasCtrl changed:", canvasCtrl);
-  }, [canvasCtrl]);
 
   // reset editor state when switching documents so previous content doesn't leak
   useEffect(() => {
@@ -186,25 +155,6 @@ export default function EditDocumentPageClient(props) {
       // ignore (SSR safety already handled by this effect running in browser)
     }
   }, [document?.id]);
-
-  // ---------- PATCH: build editorInitialData with only a plain string ----------
-  const editorInitialData = document
-    ? {
-        ...document,
-        // Only pass a plain string to the editor!
-        text: getPlainText(
-          document.content?.text ??
-            document.content ??
-            content?.text ??
-            content ??
-            ""
-        ),
-        drawings: Array.isArray(document.content?.drawings)
-          ? document.content.drawings
-          : [],
-        textFormatting: document.content?.textFormatting ?? {},
-      }
-    : null;
 
   // clear editor-related localStorage entries for this doc (optional)
   useEffect(() => {
@@ -248,7 +198,7 @@ export default function EditDocumentPageClient(props) {
         try {
           drawingsPayload = await canvasCtrl.saveDrawings({ force: true });
         } catch (err) {
-          console.warn('canvasCtrl.saveDrawings failed, falling back to content.drawings', err);
+          // ignore save failure and fallback to existing content
         }
       }
       if (!Array.isArray(drawingsPayload) || drawingsPayload.length === 0) {
@@ -301,12 +251,6 @@ export default function EditDocumentPageClient(props) {
         timestamp: Date.now(),
       };
 
-      console.log('Submitting document with drawings strokes:', drawingsToSave.length);
-      console.log('normalizedContentObj preview:', {
-        textLength: normalizedContentObj.text.length,
-        drawingsSamples: normalizedContentObj.drawings.slice(0,2)
-      });
-
       // Send only content (avoid duplicate drawings field)
       const formData = new FormData();
       formData.append('documentId', String(props.params?.id || ''));
@@ -315,7 +259,6 @@ export default function EditDocumentPageClient(props) {
       formData.append('content', JSON.stringify(normalizedContentObj));
 
       const result = await updateDocumentAction(formData);
-      console.log('updateDocumentAction result:', result);
 
       if (!result || result.ok !== true || result.dbResult?.success !== true) {
         alert('Save failed: ' + (result?.dbResult?.error || result?.error || 'Unknown error'));
@@ -325,14 +268,6 @@ export default function EditDocumentPageClient(props) {
     },
     [canvasCtrl, content, currentUserId, props.params.id, title, document]
   );
-
-  const handleSetDrawingMode = () => {
-    if (canvasCtrl && typeof canvasCtrl.setMode === "function") {
-      canvasCtrl.setMode("drawing");
-    } else {
-      console.warn("canvasCtrl not ready or setMode missing", canvasCtrl);
-    }
-  };
 
   if (sessionLoading) {
     return (
@@ -442,7 +377,6 @@ export default function EditDocumentPageClient(props) {
   }
 
   const normalizedContent = deepNormalizeContent(document.content);
-  //console.log("Editor initialData:", normalizedContent);
 
   // Main render (editing form)
   return (
@@ -518,38 +452,7 @@ export default function EditDocumentPageClient(props) {
                 {isPending ? "Sauvegarde..." : "Sauvegarder"}
               </button>
             </div>
-
-            {/* Success / error message */}
-            {actionMsg && (
-              <div
-                className={`rounded-lg p-4 ${
-                  actionMsg.includes("succès") ||
-                  actionMsg.includes("sauvegardé")
-                    ? "bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800"
-                    : "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"
-                }`}
-              >
-                <p
-                  className={`text-sm ${
-                    actionMsg.includes("succès") ||
-                    actionMsg.includes("sauvegardé")
-                      ? "text-green-600 dark:text-green-400"
-                      : "text-red-600 dark:text-red-400"
-                  }`}
-                >
-                  {actionMsg}
-                </p>
-              </div>
-            )}
           </form>
-
-          {/* Debug info - remove in production */}
-          {process.env.NODE_ENV === "development" && (
-            <div className="mt-4 p-3 bg-gray-100 dark:bg-gray-700 rounded text-xs text-gray-600 dark:text-gray-400">
-              Document ID: {document.id} | User ID: {userId} | Content Length:{" "}
-              {String(content).length}
-            </div>
-          )}
         </div>
       </div>
     </div>
