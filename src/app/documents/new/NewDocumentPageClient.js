@@ -6,6 +6,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useLocalSession } from "@/hooks/useLocalSession";
+import PropTypes from "prop-types";
+import CollaborativeNotepad from "@/components/Paper.js/CollaborativeNotepad";
 
 export default function NewDocumentPageClient({ session }) {
   const router = useRouter();
@@ -69,7 +71,10 @@ export default function NewDocumentPageClient({ session }) {
 
     // Sinon, sauvegarde locale dans le navigateur
     const nowIso = new Date().toISOString();
-    const localId = typeof crypto !== "undefined" && crypto.randomUUID ? `local-${crypto.randomUUID()}` : `local-${Date.now()}`;
+    const localId =
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? `local-${crypto.randomUUID()}`
+        : `local-${Date.now()}`;
     const newDoc = {
       id: localId,
       title: (title || "Sans titre").trim(),
@@ -87,7 +92,9 @@ export default function NewDocumentPageClient({ session }) {
       setTitle("Sans titre");
       setContent("");
     } else {
-      setLocalInfo("Impossible d'enregistrer localement (quota ou permissions).");
+      setLocalInfo(
+        "Impossible d'enregistrer localement (quota ou permissions)."
+      );
     }
   };
 
@@ -100,8 +107,17 @@ export default function NewDocumentPageClient({ session }) {
             href="/"
             className="text-black dark:text-white font-semibold flex items-center"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5 mr-2"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fillRule="evenodd"
+                d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z"
+                clipRule="evenodd"
+              />
             </svg>
           </Link>
         </div>
@@ -110,7 +126,8 @@ export default function NewDocumentPageClient({ session }) {
         {!isLoggedIn && (
           <div className="mb-6 rounded-xl border border-orangebg-white text-orange dark:border-dark-purple dark:bg-black dark:text-dark-purple p-4">
             <p className="text-md">
-              Vous n'êtes pas connecté. Votre document sera enregistré <strong>localement</strong> dans ce navigateur.
+              Vous n'êtes pas connecté. Votre document sera enregistré{" "}
+              <strong>localement</strong> dans ce navigateur.
             </p>
           </div>
         )}
@@ -130,36 +147,71 @@ export default function NewDocumentPageClient({ session }) {
               />
             </div>
 
-            {/* Contenu */}
-            <div className="flex-1 min-h-0">
-              <textarea
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                className="h-full w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange dark:focus:ring-dark-purple bg-transparent text-black dark:text-white resize-none"
-                placeholder="Commencez à écrire votre document..."
-              />
+            {/* Contenu - Replaced with CollaborativeNotepad */}
+            <div>
+              <label
+                htmlFor="content"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              >
+                Contenu
+              </label>
+              <div className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-700">
+                <CollaborativeNotepad
+                  roomId="new-document"
+                  documentId={null} // ← No document ID
+                  userId={session.user.id}
+                  initialData={null} // ← No database data
+                  useLocalStorage={true} // ← Use localStorage for new docs
+                  localMode={true} // ← Local mode until saved
+                  onContentChange={setContent}
+                  placeholder="Commencez à écrire votre document avec mise en forme..."
+                  initialContent=""
+                  className="min-h-[500px]"
+                />
+              </div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                Utilisez la barre d'outils pour formater votre texte, ajouter
+                des couleurs, dessiner ou collaborer en temps réel.
+              </p>
+            </div>
+
+            {/* Boutons */}
+            <div className="flex justify-end space-x-4">
+              <Link
+                href="/"
+                className="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                Annuler
+              </Link>
+              <button
+                type="submit"
+                disabled={isPending || title.trim().length === 0}
+                className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+              >
+                {isPending ? "Création..." : "Créer le document"}
+              </button>
             </div>
 
             {/* Message de succès/erreur */}
             {(message || localInfo) && (
               <div
                 className={`shrink-0 rounded-lg p-4 ${
-                  (message && (
-                    message.includes("succès") ||
-                    message.includes("créé") ||
-                    message.includes("mis à jour")
-                  )) || localInfo
+                  (message &&
+                    (message.includes("succès") ||
+                      message.includes("créé") ||
+                      message.includes("mis à jour"))) ||
+                  localInfo
                     ? "bg-white dark:bg-black border border-orange dark:border-dark-purple"
                     : "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"
                 }`}
               >
                 <p
                   className={`text-sm ${
-                    (message && (
-                      message.includes("succès") ||
-                      message.includes("créé") ||
-                      message.includes("mis à jour")
-                    )) || localInfo
+                    (message &&
+                      (message.includes("succès") ||
+                        message.includes("créé") ||
+                        message.includes("mis à jour"))) ||
+                    localInfo
                       ? "text-orange dark:text-dark-purple text-3xl"
                       : "text-red-600 dark:text-red-400"
                   }`}
@@ -186,7 +238,6 @@ export default function NewDocumentPageClient({ session }) {
               </Link>
             </div>
           </form>
-          
         </div>
       </div>
     </div>
