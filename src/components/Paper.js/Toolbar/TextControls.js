@@ -1,5 +1,4 @@
 import useTextFormatting from '../../../hooks/UseTextFormatting';
-import SelectionStatus from './SelectionStatus';
 import FormatButtons from './FormatButtons.js';
 import TextColorPicker from './TextColorPicker';
 import HighlightPicker from './HighlightPicker';
@@ -21,7 +20,6 @@ export default function TextControls({ textFormatting, setTextFormatting }) {
 
   return (
     <div className="flex flex-wrap gap-4 space-x-4">
-      <SelectionStatus hasSelection={hasSelection} selectedText={selectedText} />
       
       <FormatButtons
         isBold={isBold}

@@ -26,7 +26,8 @@ export default function CollaborativeNotepad({
   className = '',
   initialContent = ''
 }) {
-  const [mode, setMode] = useState('draw');
+  // default to text mode so users see the editor on page load
+  const [mode, setMode] = useState('text');
   const [brushColor, setBrushColor] = useState('#000000');
   const [brushSize, setBrushSize] = useState(3);
   const [content, setContent] = useState('');
@@ -162,6 +163,8 @@ export default function CollaborativeNotepad({
 
   const handleTextChange = (newContent) => {
     setContent(newContent);
+
+    // immediately send current content (use newContent rather than state)
     if (socket && isConnected && documentId && userId && !localMode) {
       socket.emit('text-update', {
         documentId,
@@ -169,14 +172,26 @@ export default function CollaborativeNotepad({
         content: newContent
       });
     }
+
     if (onContentChange) {
-      handleContentChangeCallback();
+      const fullContent = {
+        text: newContent,
+        drawings: drawings,
+        textFormatting: textFormatting,
+        timestamp: Date.now()
+      };
+      if (localMode || !documentId) {
+        onContentChange(JSON.stringify(fullContent));
+      } else {
+        onContentChange(fullContent);
+      }
     }
   };
 
   const handleTextFormattingChange = (formatting) => {
     const newFormatting = { ...textFormatting, ...formatting };
     setTextFormatting(newFormatting);
+
     if (socket && isConnected && documentId && userId && !localMode) {
       socket.emit('text-formatting-update', {
         documentId,
@@ -184,8 +199,19 @@ export default function CollaborativeNotepad({
         formatting: newFormatting
       });
     }
+
     if (onContentChange) {
-      handleContentChangeCallback();
+      const fullContent = {
+        text: content,
+        drawings: drawings,
+        textFormatting: newFormatting,
+        timestamp: Date.now()
+      };
+      if (localMode || !documentId) {
+        onContentChange(JSON.stringify(fullContent));
+      } else {
+        onContentChange(fullContent);
+      }
     }
   };
 
@@ -239,15 +265,56 @@ export default function CollaborativeNotepad({
   useEffect(() => {
     if (!canvasControls) return;
     const ctrl = canvasControls.current ?? canvasControls;
-    if (typeof ctrl.setMode === 'function') {
-      try {
-        ctrl.setMode('drawing');
-      } catch (e) {
-        // ignore
+    try {
+      if (typeof ctrl.setMode === 'function') {
+        ctrl.setMode(mode === 'draw' ? 'drawing' : 'text');
       }
-      return;
+
+      // When switching to draw mode, render the current HTML text into the canvas as an overlay
+      if (mode === 'draw') {
+        const tryRender = (attempt = 0) => {
+          try {
+            if (typeof ctrl.renderTextFromHTML === 'function') {
+              // get editor padding to match appearance
+              const editorEl = document.querySelector('[contenteditable]');
+              let padding = null;
+              if (editorEl) {
+                const cs = window.getComputedStyle(editorEl);
+                const pt = cs.paddingTop || '0px';
+                const pr = cs.paddingRight || '0px';
+                const pb = cs.paddingBottom || '0px';
+                const pl = cs.paddingLeft || '0px';
+                padding = `${pt} ${pr} ${pb} ${pl}`;
+              }
+
+              const formattingWithPadding = { ...textFormatting };
+              if (padding) formattingWithPadding.padding = padding;
+
+              ctrl.renderTextFromHTML(content, formattingWithPadding);
+              return true;
+            }
+          } catch (e) {
+            // fallthrough to retry
+          }
+
+          // retry once after a short delay if not yet available
+          if (attempt === 0) {
+            setTimeout(() => tryRender(1), 300);
+          }
+          return false;
+        };
+
+        tryRender(0);
+      }
+
+      // When switching to text mode, clear any text overlay so the editor shows the live content
+      if (mode === 'text' && typeof ctrl.clearTextOverlay === 'function') {
+        ctrl.clearTextOverlay();
+      }
+    } catch (e) {
+      // ignore
     }
-  }, [canvasControls]);
+  }, [canvasControls, mode, content, textFormatting]);
 
   if (!isInitialized) {
     return (

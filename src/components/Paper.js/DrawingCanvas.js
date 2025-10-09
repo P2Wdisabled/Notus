@@ -33,11 +33,15 @@ export default function DrawingCanvas(props) {
     exportDrawing: () => {},
     forceReload: () => {},
     debugState: () => {},
+    renderTextFromHTML: async () => {},
+    clearTextOverlay: () => {},
   });
+
+  const textRasterRef = useRef(null);
 
   useEffect(() => {
     if (typeof onCanvasReady === 'function') {
-      onCanvasReady(controllerRef.current);
+      try { onCanvasReady({ ...controllerRef.current }); } catch (e) {}
     }
   }, [onCanvasReady]);
 
@@ -130,6 +134,65 @@ export default function DrawingCanvas(props) {
     controllerRef.current.setMode = setCanvasMode;
     controllerRef.current.clearCanvas = clearCanvas;
     controllerRef.current.exportDrawing = exportDrawing;
+    controllerRef.current.renderTextFromHTML = async (html, formatting = {}) => {
+      if (!paper || !canvasRef.current) return;
+      try {
+        // remove existing text raster
+        if (textRasterRef.current) {
+          try { textRasterRef.current.remove(); } catch (e) {}
+          textRasterRef.current = null;
+        }
+
+        const width = canvasRef.current.offsetWidth || canvasRef.current.width || 800;
+        const height = canvasRef.current.offsetHeight || canvasRef.current.height || 600;
+
+  const fontFamily = formatting.fontFamily || 'Inter, sans-serif';
+  const fontSize = formatting.fontSize || 16;
+  const color = formatting.color || '#000000';
+  const backgroundColor = formatting.backgroundColor || 'transparent';
+  const padding = formatting.padding || '0px 0px 0px 0px';
+
+  // Wrap HTML in a foreignObject-enabled SVG. Ensure width/height inline styles so layout matches.
+  const safeHtml = html || '';
+  // include padding to match editor spacing
+  const svg = `<?xml version="1.0" encoding="utf-8"?>\n<svg xmlns='http://www.w3.org/2000/svg' width='${width}' height='${height}'>\n  <foreignObject width='100%' height='100%'>\n    <div xmlns='http://www.w3.org/1999/xhtml' style="box-sizing:border-box; width:${width}px; height:${height}px; padding:${padding}; background:${backgroundColor}; color:${color}; font-family:${fontFamily}; font-size:${fontSize}px; white-space:pre-wrap;">${safeHtml}</div>\n  </foreignObject>\n</svg>`;
+
+        const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const raster = new paper.Raster(img);
+            // position raster centered
+            raster.position = new paper.Point(width / 2, height / 2);
+            raster.locked = true;
+            raster.name = 'textOverlayRaster';
+            // put raster at the back so drawings appear above
+            try { raster.sendToBack(); } catch (e) {}
+            textRasterRef.current = raster;
+            paper.view.draw();
+          } catch (e) {}
+          URL.revokeObjectURL(url);
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); };
+        img.src = url;
+      } catch (e) {
+      }
+    };
+
+    controllerRef.current.clearTextOverlay = () => {
+      try {
+        if (textRasterRef.current) {
+          try { textRasterRef.current.remove(); } catch (e) {}
+          textRasterRef.current = null;
+          paper.view.draw();
+        }
+      } catch (e) {}
+    };
+    // Ensure parent receives the updated controller with render/clear methods
+    if (typeof onCanvasReady === 'function') {
+      try { onCanvasReady({ ...controllerRef.current }); } catch (e) {}
+    }
   }, [saveCurrentDrawings, setCanvasMode, clearCanvas, exportDrawing]);
 
   useEffect(() => {
@@ -369,8 +432,18 @@ export default function DrawingCanvas(props) {
 
       isDrawingRef.current = false;
 
-      currentPathRef.current.smooth();
-      currentPathRef.current.simplify();
+  // Only smooth the path to generate proper bezier handles.
+  // Avoid simplify() here because it can remove control points/handles
+  // which makes curves render as pointy on reload.
+  try {
+    // prefer 'continuous' smoothing when available
+    if (typeof currentPathRef.current.smooth === 'function') {
+      try { currentPathRef.current.smooth('continuous'); }
+      catch { currentPathRef.current.smooth(); }
+    }
+  } catch (e) {
+    try { currentPathRef.current.smooth(); } catch (e) {}
+  }
       paper.view.draw();
 
       if (onDrawingData) {

@@ -59,7 +59,8 @@ export default function TextColorPicker({ textFormatting, setTextFormatting, app
 
         <div
           id="colorPalette"
-          className="absolute top-full left-0 mt-1 p-2 bg-gray-700 rounded shadow-lg hidden z-10"
+          onMouseDown={(e) => { e.preventDefault(); }}
+          className="absolute top-full left-0 mt-1 p-2 bg-gray-700 rounded shadow-lg hidden z-50"
         >
           <div className="grid grid-cols-3 gap-1 w-24">
             {[
@@ -75,6 +76,7 @@ export default function TextColorPicker({ textFormatting, setTextFormatting, app
               { color: "#ffffff", label: "White" },
             ].map(({ color, label }) => (
               <button
+                onMouseDown={(e) => e.preventDefault()}
                 key={color}
                 onClick={() => {
                   setTextFormatting({ ...textFormatting, color });

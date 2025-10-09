@@ -231,10 +231,6 @@ export default function SimpleRichTextEditor({
         suppressContentEditableWarning={true}
         data-placeholder={content.length === 0 ? placeholder : ''}
       />
-      
-      <div className="absolute bottom-4 right-4 text-sm text-gray-500">
-        Auto-saved locally • Rich Text Mode
-      </div>
     </div>
   );
 }
