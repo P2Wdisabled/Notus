@@ -81,7 +81,7 @@ export default async function ProfilePage() {
 
       <div className="md:ml-64 md:max-w-4/5 max-w-5xl mx-auto px-4 md:px-6 -mt-12 md:-mt-16 pb-10">
         {/* Header */}
-        <div className="flex flex-col items-center md:flex-row md:items-end gap-4">
+        <div className="flex flex-col items-center md:flex-row md:items-end gap-4 relative z-10">
           <div className="w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-white dark:border-black overflow-hidden">
             {userProfile?.profile_image ? (
               <img

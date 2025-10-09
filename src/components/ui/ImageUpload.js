@@ -13,6 +13,8 @@ export default function ImageUpload({
   maxSize = 10 * 1024 * 1024, // 10MB
   preview = true,
   recommendedSize = null,
+  // new: render as an input-like control instead of a dropzone
+  variant = "dropzone", // "dropzone" | "input"
 }) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [previewUrl, setPreviewUrl] = useState(value || null);
@@ -82,6 +84,69 @@ export default function ImageUpload({
     fileInputRef.current?.click();
   };
 
+  const sizeInMb = Math.round(maxSize / 1024 / 1024);
+
+  // Input-like variant (compact, similar to text input with pencil icon)
+  if (variant === "input") {
+    return (
+      <div className={`space-y-2 ${className}`}>
+        <label className="block text-black dark:text-white text-xl font-title font-bold">
+          {label}
+        </label>
+        <div
+          className={`relative w-full px-3 py-2 border rounded-lg transition-colors bg-white dark:bg-black text-black dark:text-white ${
+            error
+              ? "border-red-500 focus-within:ring-red-500"
+              : "border-gray-300 dark:border-gray-600"
+          } focus-within:outline-none focus-within:ring-2 focus-within:ring-orange dark:focus-within:ring-dark-purple focus-within:border-transparent`}
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onClick={handleClick}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              handleClick();
+            }
+          }}
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept={accept}
+            onChange={handleFileInputChange}
+            className="hidden"
+          />
+
+          <div className="flex items-center justify-between select-none">
+            <div className="text-dark-gray dark:text-gray text-sm">
+              {previewUrl
+                ? "Image sélectionnée — cliquez pour changer"
+                : `JPEG, PNG, GIF et moins de ${sizeInMb}MB`}
+            </div>
+            <div className="text-dark-gray dark:text-gray">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z" fill="currentColor" />
+                <path d="M20.71 7.04a1.003 1.003 0 000-1.42l-2.34-2.34a1.003 1.003 0 00-1.42 0l-1.83 1.83 3.75 3.75 1.84-1.82z" fill="currentColor" />
+              </svg>
+            </div>
+          </div>
+        </div>
+        {recommendedSize && (
+          <p className="text-sm text-dark-gray dark:text-light-gray">
+            Format recommandé : {recommendedSize}
+          </p>
+        )}
+        {error && (
+          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+        )}
+      </div>
+    );
+  }
+
+  // Default: dropzone variant
   return (
     <div className={`space-y-2 ${className}`}>
       <label className="block text-black dark:text-white text-xl font-title font-bold">

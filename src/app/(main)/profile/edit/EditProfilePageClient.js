@@ -145,9 +145,19 @@ export default function EditProfilePageClient({ user }) {
   return (
     <div>
       {/* Header with avatar and edit badges like screenshot */}
-      <div className="flex flex-col items-center md:flex-row md:items-end gap-4">
-        <div className="w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-white dark:border-black bg-orange dark:bg-dark-purple flex items-center justify-center text-black font-bold text-xl">
-          {getInitials(displayName)}
+      <div className="flex flex-col items-center md:flex-row md:items-end gap-4 relative z-10">
+        <div className="w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-white dark:border-black overflow-hidden">
+          {profileImage ? (
+            <img
+              src={profileImage}
+              alt="Photo de profil"
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full bg-orange dark:bg-dark-purple flex items-center justify-center text-black font-bold text-xl">
+              {getInitials(displayName)}
+            </div>
+          )}
         </div>
         <div className="flex-1" />
       </div>
@@ -261,6 +271,7 @@ export default function EditProfilePageClient({ user }) {
                 className="mt-6"
                 accept="image/jpeg,image/jpg,image/png,image/gif"
                 maxSize={10 * 1024 * 1024} // 10MB
+                variant="input"
               />
 
               <ImageUpload
@@ -272,6 +283,7 @@ export default function EditProfilePageClient({ user }) {
                 accept="image/jpeg,image/jpg,image/png,image/gif"
                 maxSize={10 * 1024 * 1024} // 10MB
                 recommendedSize="1200x480 pixels"
+                variant="input"
               />
             </div>
 
