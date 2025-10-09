@@ -18,7 +18,7 @@ export default function ModeSelector({ mode, setMode, onClearAllData }) {
         Text
       </button>
 
-      {onClearAllData && (
+      {/* {onClearAllData && (
         <button
           onClick={onClearAllData}
           className="px-3 py-2 bg-red-600 rounded hover:bg-red-700 transition-colors text-sm"
@@ -26,7 +26,7 @@ export default function ModeSelector({ mode, setMode, onClearAllData }) {
         >
           Clear Data
         </button>
-      )}
+      )} */}
     </div>
   );
 }

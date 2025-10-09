@@ -36,12 +36,44 @@ export default function DrawingCanvas(props) {
     renderTextFromHTML: async () => {},
     clearTextOverlay: () => {},
   });
+  const sentControllerRef = useRef(false);
 
   const textRasterRef = useRef(null);
+  const prevWidthRef = useRef(0);
+
+  const fitContentToWidth = useCallback((targetWidth, targetHeight, paddingRatio = 0.98) => {
+    try {
+      if (!paper || !paper.project) return false;
+      const layer = paper.project.activeLayer;
+      if (!layer || !layer.bounds) return false;
+
+      const bounds = layer.bounds;
+      if (!bounds || bounds.width === 0) return false;
+
+      const desiredWidth = targetWidth * paddingRatio;
+      const scaleFactor = desiredWidth / bounds.width;
+
+      // Scale around bounds center and then center in canvas
+      try { layer.scale(scaleFactor, scaleFactor, bounds.center); } catch (e) {}
+
+      try {
+        const newBounds = layer.bounds;
+        const canvasCenter = new paper.Point(targetWidth / 2, targetHeight / 2);
+        const offset = canvasCenter.subtract(newBounds.center);
+        layer.translate(offset);
+      } catch (e) {}
+
+      paper.view.draw();
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }, [paper]);
 
   useEffect(() => {
-    if (typeof onCanvasReady === 'function') {
-      try { onCanvasReady({ ...controllerRef.current }); } catch (e) {}
+    if (typeof onCanvasReady === 'function' && !sentControllerRef.current) {
+      try { onCanvasReady(controllerRef); } catch (e) {}
+      sentControllerRef.current = true;
     }
   }, [onCanvasReady]);
 
@@ -56,17 +88,34 @@ export default function DrawingCanvas(props) {
       lastSaveAtRef.current = now;
 
       const paths = paper.project.getItems({ className: 'Path' });
-      const serializedPaths = paths.map(path => ({
-        segments: path.segments.map(s => ({
+      const viewSize = paper.view.viewSize || { width: canvasRef.current?.offsetWidth || 800, height: canvasRef.current?.offsetHeight || 600 };
+      const vw = viewSize.width || canvasRef.current?.offsetWidth || 800;
+      const vh = viewSize.height || canvasRef.current?.offsetHeight || 600;
+
+      const serializedPaths = paths.map(path => {
+        const segmentsAbs = path.segments.map(s => ({
           point: [s.point.x, s.point.y],
           handleIn: s.handleIn ? [s.handleIn.x, s.handleIn.y] : null,
           handleOut: s.handleOut ? [s.handleOut.x, s.handleOut.y] : null
-        })),
-        color: path.strokeColor ? path.strokeColor.toCSS(true) : '#000000',
-        size: path.strokeWidth || 3,
-        type: 'pen',
-        closed: !!path.closed,
-      }));
+        }));
+
+        // normalized segments in percent (0..1) relative to viewport
+        const segmentsNorm = path.segments.map(s => ({
+          point: [s.point.x / vw, s.point.y / vh],
+          handleIn: s.handleIn ? [s.handleIn.x / vw, s.handleIn.y / vh] : null,
+          handleOut: s.handleOut ? [s.handleOut.x / vw, s.handleOut.y / vh] : null
+        }));
+
+        return {
+          segments: segmentsAbs,
+          normalizedSegments: segmentsNorm,
+          viewport: { width: vw, height: vh },
+          color: path.strokeColor ? path.strokeColor.toCSS(true) : '#000000',
+          size: path.strokeWidth || 3,
+          type: 'pen',
+          closed: !!path.closed,
+        };
+      });
 
       try {
         const incomingJSON = JSON.stringify(drawings || []);
@@ -190,8 +239,9 @@ export default function DrawingCanvas(props) {
       } catch (e) {}
     };
     // Ensure parent receives the updated controller with render/clear methods
-    if (typeof onCanvasReady === 'function') {
-      try { onCanvasReady({ ...controllerRef.current }); } catch (e) {}
+    if (typeof onCanvasReady === 'function' && !sentControllerRef.current) {
+      try { onCanvasReady(controllerRef); } catch (e) {}
+      sentControllerRef.current = true;
     }
   }, [saveCurrentDrawings, setCanvasMode, clearCanvas, exportDrawing]);
 
@@ -260,9 +310,9 @@ export default function DrawingCanvas(props) {
               }
             }
 
-            if (pathData.drawings && Array.isArray(pathData.drawings)) {
-              pathData = pathData.drawings[0];
-            }
+              if (pathData.drawings && Array.isArray(pathData.drawings)) {
+                pathData = pathData.drawings[0];
+              }
 
             if (!pathData || typeof pathData !== 'object') {
               return;
@@ -289,8 +339,36 @@ export default function DrawingCanvas(props) {
                 }
               });
             } else if (hasSegments && pathData.segments && Array.isArray(pathData.segments)) {
-              pathData.segments.forEach((segment) => {
+              // Support multiple serialization formats:
+              // - normalizedSegments + viewport: normalized coords (0..1)
+              // - segments + viewport: absolute coords from original viewport
+              // - segments only: assume coords are in current canvas pixels
+              const currentW = paper.view.viewSize.width || canvasRef.current.offsetWidth;
+              const currentH = paper.view.viewSize.height || canvasRef.current.offsetHeight;
+
+              let sourceSegments = null;
+              if (Array.isArray(pathData.normalizedSegments)) {
+                sourceSegments = pathData.normalizedSegments.map(s => ({
+                  point: [s.point[0] * currentW, s.point[1] * currentH],
+                  handleIn: s.handleIn ? [s.handleIn[0] * currentW, s.handleIn[1] * currentH] : null,
+                  handleOut: s.handleOut ? [s.handleOut[0] * currentW, s.handleOut[1] * currentH] : null,
+                }));
+              } else if (Array.isArray(pathData.segments) && pathData.viewport && pathData.viewport.width && pathData.viewport.height) {
+                // scale absolute segments from original viewport to current viewport
+                const sx = currentW / pathData.viewport.width;
+                const sy = currentH / pathData.viewport.height;
+                sourceSegments = pathData.segments.map(s => ({
+                  point: [s.point[0] * sx, s.point[1] * sy],
+                  handleIn: s.handleIn ? [s.handleIn[0] * sx, s.handleIn[1] * sy] : null,
+                  handleOut: s.handleOut ? [s.handleOut[0] * sx, s.handleOut[1] * sy] : null,
+                }));
+              } else {
+                sourceSegments = pathData.segments;
+              }
+
+              (sourceSegments || []).forEach((segment) => {
                 if (
+                  segment &&
                   segment.point &&
                   Array.isArray(segment.point) &&
                   segment.point.length >= 2
@@ -324,6 +402,19 @@ export default function DrawingCanvas(props) {
             }
 
             if (pointsAdded > 0) {
+              // scale stroke width if viewport differs from source
+              try {
+                if (pathData && pathData.viewport && pathData.viewport.width && pathData.viewport.height) {
+                  const currentW = paper.view.viewSize.width || canvasRef.current.offsetWidth;
+                  const sx = currentW / pathData.viewport.width;
+                  path.strokeWidth = (pathData.size || 3) * sx;
+                } else {
+                  path.strokeWidth = pathData.size || 3;
+                }
+              } catch (e) {
+                path.strokeWidth = pathData.size || 3;
+              }
+
               successCount++;
             } else {
               path.remove();
@@ -516,23 +607,45 @@ export default function DrawingCanvas(props) {
   useEffect(() => {
     if (!paper || !canvasRef.current) return;
 
+    const el = canvasRef.current;
+
     const handleResize = () => {
-      if (canvasRef.current && paper.view) {
-        paper.view.viewSize = new paper.Size(
-          canvasRef.current.offsetWidth,
-          canvasRef.current.offsetHeight
-        );
+      try {
+        const newW = el.offsetWidth || el.clientWidth || 0;
+        const newH = el.offsetHeight || el.clientHeight || 0;
+        if (!newW || !newH) return;
+
+        const prevW = prevWidthRef.current || 0;
+
+        // Always update viewSize
+        try { paper.view.viewSize = new paper.Size(newW, newH); } catch (e) {}
+
+        // If canvas width increased (e.g., mobile -> desktop), fit content to width
+        if (prevW && newW > prevW) {
+          try { fitContentToWidth(newW, newH, 0.98); } catch (e) {}
+        }
+
+        prevWidthRef.current = newW;
         paper.view.draw();
-      }
+      } catch (e) {}
     };
 
-    window.addEventListener('resize', handleResize);
+    let ro = null;
+    try {
+      ro = new ResizeObserver(() => handleResize());
+      const target = el.parentElement || el;
+      ro.observe(target);
+    } catch (e) {
+      window.addEventListener('resize', handleResize);
+    }
+
     handleResize();
 
     return () => {
-      window.removeEventListener('resize', handleResize);
+      try { if (ro && ro.disconnect) ro.disconnect(); } catch (e) {}
+      try { window.removeEventListener('resize', handleResize); } catch (e) {}
     };
-  }, [paper]);
+  }, [paper, fitContentToWidth]);
 
   return (
     <div className="relative w-full h-full">
