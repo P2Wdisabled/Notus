@@ -40,12 +40,16 @@ export async function GET(request) {
       );
     }
 
+    // Retourner le titre, le contenu, les tags et la date de mise à jour
     const response = {
       success: true,
       title: doc.title,
       content: doc.content,
+      tags: doc.tags || [],
       updated_at: doc.updated_at,
-      user_id: Number(doc.user_id ?? doc.userId ?? doc.owner_id ?? doc.ownerId ?? null),
+      user_id: Number(
+        doc.user_id ?? doc.userId ?? doc.owner_id ?? doc.ownerId ?? null
+      ),
     };
     return NextResponse.json(response);
   } catch (error) {

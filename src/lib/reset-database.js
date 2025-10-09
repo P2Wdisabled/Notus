@@ -4,6 +4,7 @@ const { query } = require("./database");
 async function resetDatabase() {
   try {
     // Supprimer les tables dans l'ordre inverse de création (pour éviter les contraintes de clés étrangères)
+    await query("DROP TABLE IF EXISTS documents CASCADE");
     await query("DROP TABLE IF EXISTS user_sessions CASCADE");
     await query("DROP TABLE IF EXISTS users CASCADE");
 
@@ -36,6 +37,18 @@ async function resetDatabase() {
       )
     `);
 
+    await query(`
+      CREATE TABLE IF NOT EXISTS documents (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        title VARCHAR(255) NOT NULL DEFAULT 'Sans titre',
+        content TEXT NOT NULL DEFAULT '',
+        tags TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     // Créer les index
     await query("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)");
     await query(
@@ -43,6 +56,12 @@ async function resetDatabase() {
     );
     await query(
       "CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON user_sessions(user_id)"
+    );
+    await query(
+      "CREATE INDEX IF NOT EXISTS idx_documents_user_id ON documents(user_id)"
+    );
+    await query(
+      "CREATE INDEX IF NOT EXISTS idx_documents_created_at ON documents(created_at DESC)"
     );
 
     // Créer la fonction de mise à jour automatique
@@ -56,11 +75,19 @@ async function resetDatabase() {
       $$ language 'plpgsql'
     `);
 
-    // Créer le trigger
+    // Créer les triggers
     await query(`
       DROP TRIGGER IF EXISTS update_users_updated_at ON users;
       CREATE TRIGGER update_users_updated_at
         BEFORE UPDATE ON users
+        FOR EACH ROW
+        EXECUTE FUNCTION update_updated_at_column()
+    `);
+
+    await query(`
+      DROP TRIGGER IF EXISTS update_documents_updated_at ON documents;
+      CREATE TRIGGER update_documents_updated_at
+        BEFORE UPDATE ON documents
         FOR EACH ROW
         EXECUTE FUNCTION update_updated_at_column()
     `);

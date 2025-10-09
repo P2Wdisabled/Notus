@@ -1,9 +1,10 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { useActionState } from "react";
-import { deleteDocumentAction } from "@/lib/actions";
+import { useActionState, startTransition } from "react";
+import { deleteDocumentAction, updateDocumentAction } from "@/lib/actions";
 import Link from "next/link";
 import DOMPurify from "dompurify";
+import { Button, Badge, Input } from "@/components/ui";
 
 function unwrapToString(raw) {
   try {
@@ -81,6 +82,10 @@ export default function DocumentCard({ document, currentUserId, onDelete }) {
     deleteDocumentAction,
     undefined
   );
+  const [updateMsg, updateFormAction, isUpdating] = useActionState(
+    updateDocumentAction,
+    { ok: false }
+  );
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const isOwner = document.user_id === currentUserId;
@@ -130,6 +135,72 @@ export default function DocumentCard({ document, currentUserId, onDelete }) {
       mounted = false;
     };
   }, [document?.content, contentIsHtml]);
+
+  // --- Tags (stockés localement par document) ---
+  const [tags, setTags] = useState([]);
+  const [showTagInput, setShowTagInput] = useState(false);
+  const [newTag, setNewTag] = useState("");
+
+  useEffect(() => {
+    // Priorité aux tags venant de la base si présents
+    if (Array.isArray(document.tags)) {
+      setTags(document.tags);
+      return;
+    }
+    try {
+      const raw = localStorage.getItem("notus.tags");
+      const parsed = raw ? JSON.parse(raw) : {};
+      const existing = parsed?.[String(document.id)] || [];
+      if (Array.isArray(existing)) setTags(existing);
+    } catch (_) {
+      // ignore
+    }
+  }, [document.id, document.tags]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("notus.tags");
+      const parsed = raw ? JSON.parse(raw) : {};
+      parsed[String(document.id)] = tags;
+      localStorage.setItem("notus.tags", JSON.stringify(parsed));
+    } catch (_) {
+      // ignore
+    }
+  }, [tags, document.id]);
+
+  const persistTags = (nextTags) => {
+    if (!currentUserId) return; // pas connecté => pas de persistance
+    const fd = new FormData();
+    fd.append("documentId", String(document.id));
+    fd.append("userId", String(currentUserId));
+    fd.append("title", document.title || "Sans titre");
+    fd.append("content", document.content || "");
+    fd.append("tags", JSON.stringify(nextTags));
+    startTransition(() => {
+      updateFormAction(fd);
+    });
+  };
+
+  const addTag = () => {
+    const value = (newTag || "").trim().substring(0, 30);
+    if (!value) return;
+    if (tags.includes(value)) {
+      setNewTag("");
+      setShowTagInput(false);
+      return;
+    }
+    const next = [...tags, value];
+    setTags(next);
+    persistTags(next);
+    setNewTag("");
+    setShowTagInput(false);
+  };
+
+  const removeTag = (value) => {
+    const next = tags.filter((t) => t !== value);
+    setTags(next);
+    persistTags(next);
+  };
 
   const handleDelete = (formData) => {
     if (!currentUserId) return;
@@ -184,13 +255,82 @@ export default function DocumentCard({ document, currentUserId, onDelete }) {
       href={`/documents/${document.id}`}
       className="block bg-white dark:bg-black rounded-2xl shadow-lg p-6 mb-4 hover:shadow-lg transition-shadow border border-gray dark:border-dark-gray"
     >
-      {/* En-tête du document */}
-      {/* <div className="flex justify-between items-start mb-4">
-      </div> */}
+      {/* Tags + ajout */}
+      <div className="mb-2">
+        <div
+          className="flex flex-wrap items-center gap-2"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+        >
+          {tags.map((tag) => (
+            <Badge key={tag} variant="purple" size="sm" className="pr-1">
+              <span className="mr-1 max-w-[200px] truncate" title={tag}>
+                {tag}
+              </span>
+              <button
+                type="button"
+                className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full text-purple dark:text-light-purple hover:bg-purple/20 dark:hover:bg-purple/30"
+                aria-label={`Supprimer le tag ${tag}`}
+                onClick={() => removeTag(tag)}
+              >
+                ×
+              </button>
+            </Badge>
+          ))}
+
+          {!showTagInput && (
+            <Button
+              variant="secondary"
+              className="px-2 py-0.5 text-sm"
+              onClick={() => setShowTagInput(true)}
+            >
+              +
+            </Button>
+          )}
+
+          {showTagInput && (
+            <div className="flex items-center gap-1">
+              <Input
+                value={newTag}
+                onChange={(e) => setNewTag(e.target.value)}
+                placeholder="Nouveau tag"
+                className="h-7 text-sm"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") addTag();
+                  if (e.key === "Escape") {
+                    setShowTagInput(false);
+                    setNewTag("");
+                  }
+                }}
+                autoFocus
+              />
+              <Button
+                variant="primary"
+                className="px-2 py-0.5 text-sm"
+                onClick={addTag}
+              >
+                Ajouter
+              </Button>
+              <Button
+                variant="ghost"
+                className="px-2 py-0.5 text-sm"
+                onClick={() => {
+                  setShowTagInput(false);
+                  setNewTag("");
+                }}
+              >
+                Annuler
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Titre du document */}
       <div className="mb-2">
-        <span className="text-xl font-title text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+        <span className="block truncate text-xl font-title text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
           {document.title}
         </span>
       </div>

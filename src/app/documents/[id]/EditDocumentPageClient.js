@@ -1,5 +1,6 @@
 "use client";
-import { useActionState } from "react";
+import { useActionState, startTransition } from "react";
+import { Button } from "@/components/ui";
 import { updateDocumentAction } from "@/lib/actions";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
@@ -14,12 +15,15 @@ export default function EditDocumentPageClient(props) {
   const [document, setDocument] = useState(null);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [tags, setTags] = useState([]);
+  const [showTagInput, setShowTagInput] = useState(false);
+  const [newTag, setNewTag] = useState("");
   const [canvasCtrl, setCanvasCtrl] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
   // keep custom hook declarations here (stable order)
-  const [isPending] = useActionState(updateDocumentAction, undefined);
+  const [isPending] = useActionState(updateDocumentAction, { ok: false });
 
   // session hook
   const {
@@ -112,12 +116,14 @@ export default function EditDocumentPageClient(props) {
           id: Number(props.params.id),
           title: result.title,
           content: normalizedContent,
+          tags: Array.isArray(result.tags) ? result.tags : [],
           updated_at: result.updated_at,
           user_id: Number(result.user_id ?? result.owner ?? NaN),
         };
         setDocument(documentData);
         setTitle(result.title);
         setContent(normalizedContent); // <-- store the full object!
+        setTags(Array.isArray(result.tags) ? result.tags : []);
       } else {
         setError(result.error || "Erreur lors du chargement du document");
       }
@@ -267,8 +273,9 @@ export default function EditDocumentPageClient(props) {
       formData.append("userId", String(submittingUserId));
       formData.append("title", title || "");
       formData.append("content", JSON.stringify(normalizedContentObj));
+      formData.append("tags", JSON.stringify(tags));
 
-      const result = await updateDocumentAction(formData);
+      const result = await updateDocumentAction({ ok: false }, formData);
 
       if (!result || result.ok !== true || result.dbResult?.success !== true) {
         alert(
@@ -279,8 +286,42 @@ export default function EditDocumentPageClient(props) {
       }
       // success: you may update local state / notify user
     },
-    [canvasCtrl, content, currentUserId, props.params.id, title, document]
+    [canvasCtrl, content, currentUserId, props.params.id, title, document, tags]
   );
+
+  const persistTags = (nextTags) => {
+    if (!currentUserId) return;
+    const fd = new FormData();
+    fd.append("documentId", String(props.params?.id || ""));
+    fd.append("userId", String(currentUserId));
+    fd.append("title", title || "Sans titre");
+    fd.append("content", JSON.stringify(content || ""));
+    fd.append("tags", JSON.stringify(nextTags));
+    startTransition(() => {
+      updateDocumentAction({ ok: false }, fd);
+    });
+  };
+
+  const addTag = () => {
+    const value = (newTag || "").trim().substring(0, 30);
+    if (!value) return;
+    if (tags.includes(value)) {
+      setNewTag("");
+      setShowTagInput(false);
+      return;
+    }
+    const next = [...tags, value];
+    setTags(next);
+    persistTags(next);
+    setNewTag("");
+    setShowTagInput(false);
+  };
+
+  const removeTag = (value) => {
+    const next = tags.filter((t) => t !== value);
+    setTags(next);
+    persistTags(next);
+  };
 
   if (sessionLoading) {
     return (
@@ -425,6 +466,73 @@ export default function EditDocumentPageClient(props) {
         {/* Edit form */}
         <div className="bg-white dark:bg-black rounded-2xl border border-gray dark:border-dark-gray p-6 overflow-hidden">
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Tags */}
+            <div className="mb-1">
+              <div className="flex flex-wrap items-center gap-2">
+                {tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="inline-flex items-center font-medium rounded-full px-2 py-0.5 text-xs bg-purple/10 dark:bg-purple/20 text-purple dark:text-light-purple border border-purple/20 dark:border-purple/30 pr-1"
+                  >
+                    <span className="mr-1 max-w-[200px] truncate" title={tag}>
+                      {tag}
+                    </span>
+                    <button
+                      type="button"
+                      className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full text-purple dark:text-light-purple hover:bg-purple/20 dark:hover:bg-purple/30"
+                      aria-label={`Supprimer le tag ${tag}`}
+                      onClick={() => removeTag(tag)}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+                {!showTagInput && (
+                  <Button
+                    variant="secondary"
+                    className="px-2 py-0.5 text-sm"
+                    onClick={() => setShowTagInput(true)}
+                  >
+                    +
+                  </Button>
+                )}
+                {showTagInput && (
+                  <div className="flex items-center gap-1">
+                    <input
+                      value={newTag}
+                      onChange={(e) => setNewTag(e.target.value)}
+                      placeholder="Nouveau tag"
+                      className="h-7 text-sm px-2 py-1 rounded border border-gray dark:border-dark-gray bg-transparent text-black dark:text-white"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") addTag();
+                        if (e.key === "Escape") {
+                          setShowTagInput(false);
+                          setNewTag("");
+                        }
+                      }}
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      className="px-2 py-0.5 text-sm bg-orange dark:bg-dark-purple text-white rounded"
+                      onClick={addTag}
+                    >
+                      Ajouter
+                    </button>
+                    <button
+                      type="button"
+                      className="px-2 py-0.5 text-sm border border-gray dark:border-dark-gray rounded"
+                      onClick={() => {
+                        setShowTagInput(false);
+                        setNewTag("");
+                      }}
+                    >
+                      Annuler
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
             {/* Title */}
             <div>
               <input

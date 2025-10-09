@@ -17,6 +17,7 @@ import {
   query,
   createDocument,
   createOrUpdateNote,
+  createOrUpdateDocument,
   createOrUpdateDocumentById,
   getUserDocuments,
   getAllDocuments,
@@ -41,10 +42,10 @@ try {
 }
 try {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
-  authOptionsModule = require("@/pages/api/auth/[...nextauth]")?.authOptions;
+  authOptionsModule = require("../../auth")?.authOptions;
 } catch (e) {
   // file may not exist or path differs — that's fine for now
-  // console.warn('authOptions not found at "@/pages/api/auth/[...nextauth]"', e?.message ?? e);
+  // console.warn('authOptions not found at "../../auth"', e?.message ?? e);
 }
 
 export async function authenticate(prevState, formData) {
@@ -354,6 +355,7 @@ export async function createDocumentAction(prevState, formData) {
     const title = formData.get("title");
     const content = formData.get("content");
     const userId = formData.get("userId");
+    const rawTags = formData.get("tags");
 
     if (!userId) {
       return "Utilisateur requis.";
@@ -408,23 +410,30 @@ export async function createDocumentAction(prevState, formData) {
     // Initialiser les tables si elles n'existent pas
     await initializeTables();
 
-    // Créer ou mettre à jour le document (évite les doublons)
-    const result = await createOrUpdateDocument(
+    // Parser les tags
+    let tags = [];
+    try {
+      if (rawTags)
+        tags = typeof rawTags === "string" ? JSON.parse(rawTags) : rawTags;
+    } catch (e) {
+      console.warn("Failed to parse tags payload", e);
+      tags = [];
+    }
+
+    // Créer un nouveau document avec un ID unique
+    const result = await createDocument(
       userIdNumber,
       title.trim(),
-      content || ""
+      content || "",
+      tags
     );
 
     if (!result.success) {
-      console.error("❌ Erreur création/mise à jour document:", result.error);
+      console.error("❌ Erreur création document:", result.error);
       return "Erreur lors de la création du document. Veuillez réessayer.";
     }
 
-    if (result.isUpdate) {
-      return "Document mis à jour avec succès !";
-    } else {
-      return "Document créé avec succès !";
-    }
+    return "Document créé avec succès !";
   } catch (error) {
     console.error("❌ Erreur lors de la création du document:", error);
 
@@ -638,8 +647,13 @@ export async function getDocumentByIdAction(documentId) {
 }
 
 // Action pour mettre à jour un document
-export async function updateDocumentAction(formDataOrObj) {
+export async function updateDocumentAction(prevState, formDataOrObj) {
   try {
+    // Vérifier que formDataOrObj existe et est valide
+    if (!formDataOrObj) {
+      return { ok: false, error: "No data provided" };
+    }
+
     const fd = formDataOrObj.get ? formDataOrObj : null;
     const documentId = fd
       ? String(fd.get("documentId") || "")
@@ -735,23 +749,27 @@ export async function updateDocumentAction(formDataOrObj) {
       userIdType: typeof userIdToUseNum,
     });
 
-    // parse title/content/drawings and call updateRichDocument(...)
+    // parse title/content/drawings/tags and call updateRichDocument(...)
     // --- keep your existing parsing & update logic here ---
     // Example (adapt to your code):
     let title = "";
     let contentStr = "";
     let rawDrawings = null;
+    let rawTags = null;
     if (fd) {
       title = String(fd.get("title") || "");
       contentStr = String(fd.get("content") || "");
       rawDrawings = fd.get("drawings") || null;
+      rawTags = fd.get("tags") || null;
     } else {
       title = formDataOrObj.title || "";
       contentStr = formDataOrObj.content || "";
       rawDrawings = formDataOrObj.drawings || null;
+      rawTags = formDataOrObj.tags || null;
     }
 
     let drawings = [];
+    let tags = [];
     try {
       if (rawDrawings)
         drawings =
@@ -763,13 +781,22 @@ export async function updateDocumentAction(formDataOrObj) {
       drawings = [];
     }
 
+    try {
+      if (rawTags)
+        tags = typeof rawTags === "string" ? JSON.parse(rawTags) : rawTags;
+    } catch (e) {
+      console.warn("Failed to parse tags payload", e);
+      tags = [];
+    }
+
     // Actually update the document in the database
     // Use your existing update function
     const updateResult = await createOrUpdateDocumentById(
       idNum,
       userIdToUseNum,
       title,
-      contentStr
+      contentStr,
+      tags
     );
 
     if (!updateResult.success) {
