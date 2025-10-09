@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, startTransition } from "react";
+import { Button } from "@/components/ui";
 import { updateDocumentAction } from "@/lib/actions";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
@@ -18,6 +19,9 @@ export default function EditDocumentPageClient({ session, params }) {
   const [error, setError] = useState(null);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [tags, setTags] = useState([]);
+  const [showTagInput, setShowTagInput] = useState(false);
+  const [newTag, setNewTag] = useState("");
 
   // Utiliser notre hook personnalisé pour gérer la session
   const {
@@ -49,6 +53,7 @@ export default function EditDocumentPageClient({ session, params }) {
           id: params.id,
           title: result.title,
           content: result.content,
+          tags: Array.isArray(result.tags) ? result.tags : [],
           updated_at: result.updated_at,
           user_id: parseInt(userId), // Utiliser l'ID utilisateur de la session
         };
@@ -56,6 +61,7 @@ export default function EditDocumentPageClient({ session, params }) {
         setDocument(documentData);
         setTitle(result.title);
         setContent(result.content);
+        setTags(Array.isArray(result.tags) ? result.tags : []);
       } else {
         console.error("❌ [CLIENT] Erreur API:", result.error);
         setError(result.error || "Erreur lors du chargement du document");
@@ -81,7 +87,42 @@ export default function EditDocumentPageClient({ session, params }) {
     formData.append("userId", userId);
     formData.append("title", title);
     formData.append("content", content);
+    formData.append("tags", JSON.stringify(tags));
     formAction(formData);
+  };
+
+  const persistTags = (nextTags) => {
+    if (!userId) return;
+    const fd = new FormData();
+    fd.append("documentId", params.id);
+    fd.append("userId", userId);
+    fd.append("title", title || "Sans titre");
+    fd.append("content", content || "");
+    fd.append("tags", JSON.stringify(nextTags));
+    startTransition(() => {
+      formAction(fd);
+    });
+  };
+
+  const addTag = () => {
+    const value = (newTag || "").trim().substring(0, 30);
+    if (!value) return;
+    if (tags.includes(value)) {
+      setNewTag("");
+      setShowTagInput(false);
+      return;
+    }
+    const next = [...tags, value];
+    setTags(next);
+    persistTags(next);
+    setNewTag("");
+    setShowTagInput(false);
+  };
+
+  const removeTag = (value) => {
+    const next = tags.filter((t) => t !== value);
+    setTags(next);
+    persistTags(next);
   };
 
   if (sessionLoading) {
@@ -200,13 +241,23 @@ export default function EditDocumentPageClient({ session, params }) {
             href="/"
             className="text-black dark:text-white font-semibold flex items-center"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5 mr-2"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fillRule="evenodd"
+                d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z"
+                clipRule="evenodd"
+              />
             </svg>
           </Link>
           <div className="flex items-center space-x-4">
             <span className="text-sm text-gray-500 dark:text-gray-400">
-              Modifié le {new Date(document.updated_at).toLocaleDateString("fr-FR")}
+              Modifié le{" "}
+              {new Date(document.updated_at).toLocaleDateString("fr-FR")}
             </span>
           </div>
         </div>
@@ -214,6 +265,73 @@ export default function EditDocumentPageClient({ session, params }) {
         {/* Formulaire d'édition */}
         <div className="flex-1 min-h-0 bg-white dark:bg-black rounded-2xl border border-gray dark:border-dark-gray p-6 overflow-hidden">
           <form action={handleSubmit} className="flex h-full flex-col gap-4">
+            {/* Tags */}
+            <div className="mb-1">
+              <div className="flex flex-wrap items-center gap-2">
+                {tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="inline-flex items-center font-medium rounded-full px-2 py-0.5 text-xs bg-purple/10 dark:bg-purple/20 text-purple dark:text-light-purple border border-purple/20 dark:border-purple/30 pr-1"
+                  >
+                    <span className="mr-1 max-w-[200px] truncate" title={tag}>
+                      {tag}
+                    </span>
+                    <button
+                      type="button"
+                      className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full text-purple dark:text-light-purple hover:bg-purple/20 dark:hover:bg-purple/30"
+                      aria-label={`Supprimer le tag ${tag}`}
+                      onClick={() => removeTag(tag)}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+                {!showTagInput && (
+                  <Button
+                    variant="secondary"
+                    className="px-2 py-0.5 text-sm"
+                    onClick={() => setShowTagInput(true)}
+                  >
+                    +
+                  </Button>
+                )}
+                {showTagInput && (
+                  <div className="flex items-center gap-1">
+                    <input
+                      value={newTag}
+                      onChange={(e) => setNewTag(e.target.value)}
+                      placeholder="Nouveau tag"
+                      className="h-7 text-sm px-2 py-1 rounded border border-gray dark:border-dark-gray bg-transparent text-black dark:text-white"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") addTag();
+                        if (e.key === "Escape") {
+                          setShowTagInput(false);
+                          setNewTag("");
+                        }
+                      }}
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      className="px-2 py-0.5 text-sm bg-orange dark:bg-dark-purple text-white rounded"
+                      onClick={addTag}
+                    >
+                      Ajouter
+                    </button>
+                    <button
+                      type="button"
+                      className="px-2 py-0.5 text-sm border border-gray dark:border-dark-gray rounded"
+                      onClick={() => {
+                        setShowTagInput(false);
+                        setNewTag("");
+                      }}
+                    >
+                      Annuler
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
             {/* Titre */}
             <div>
               <input

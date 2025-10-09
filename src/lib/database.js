@@ -152,10 +152,21 @@ const initializeTables = async () => {
         user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
         title VARCHAR(255) NOT NULL DEFAULT 'Sans titre',
         content TEXT NOT NULL DEFAULT '',
+        tags TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    // Ajouter la colonne tags si base déjà existante
+    try {
+      await query(`
+        ALTER TABLE documents
+        ADD COLUMN IF NOT EXISTS tags TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[]
+      `);
+    } catch (error) {
+      // Ignorer si déjà présent
+    }
 
     // Index pour améliorer les performances
     await query(`
@@ -305,13 +316,18 @@ const verifyUserEmail = async (token) => {
 };
 
 // Fonction pour créer un document
-const createDocument = async (userId, title = "Sans titre", content = "") => {
+const createDocument = async (
+  userId,
+  title = "Sans titre",
+  content = "",
+  tags = []
+) => {
   try {
     const result = await query(
-      `INSERT INTO documents (user_id, title, content)
-       VALUES ($1, $2, $3)
-       RETURNING id, title, content, created_at, updated_at`,
-      [userId, title, content]
+      `INSERT INTO documents (user_id, title, content, tags)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, title, content, tags, created_at, updated_at`,
+      [userId, title, content, tags]
     );
 
     return {
@@ -380,7 +396,12 @@ const createOrUpdateNote = async (userId, content) => {
 };
 
 // Fonction pour créer ou mettre à jour un document (évite les doublons)
-const createOrUpdateDocument = async (userId, title, content) => {
+const createOrUpdateDocument = async (
+  userId,
+  title,
+  content,
+  tags = undefined
+) => {
   try {
     // Vérifier s'il existe déjà un document "en cours" pour cet utilisateur
     // Un document est considéré "en cours" s'il a été créé dans les dernières 24h
@@ -393,12 +414,19 @@ const createOrUpdateDocument = async (userId, title, content) => {
 
     if (existingDocument.rows.length > 0) {
       // Mettre à jour le document existant
+      const updateFields = ["title = $1", "content = $2"];
+      const values = [title, content, existingDocument.rows[0].id, userId];
+      if (Array.isArray(tags)) {
+        updateFields.push(`tags = $3`);
+        values.splice(2, 0, tags); // insère tags en 3e position
+      }
+
       const result = await query(
         `UPDATE documents 
-         SET title = $1, content = $2, updated_at = CURRENT_TIMESTAMP
-         WHERE id = $3 AND user_id = $4
-         RETURNING id, title, content, created_at, updated_at`,
-        [title, content, existingDocument.rows[0].id, userId]
+         SET ${updateFields.join(", ")}, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $${values.length - 1} AND user_id = $${values.length}
+         RETURNING id, title, content, tags, created_at, updated_at`,
+        values
       );
 
       return {
@@ -409,10 +437,10 @@ const createOrUpdateDocument = async (userId, title, content) => {
     } else {
       // Créer un nouveau document
       const result = await query(
-        `INSERT INTO documents (user_id, title, content)
-         VALUES ($1, $2, $3)
-         RETURNING id, title, content, created_at, updated_at`,
-        [userId, title, content]
+        `INSERT INTO documents (user_id, title, content, tags)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id, title, content, tags, created_at, updated_at`,
+        [userId, title, content, Array.isArray(tags) ? tags : []]
       );
 
       return {
@@ -434,7 +462,7 @@ const createOrUpdateDocument = async (userId, title, content) => {
 const getUserDocuments = async (userId, limit = 20, offset = 0) => {
   try {
     const result = await query(
-      `SELECT d.id, d.title, d.content, d.created_at, d.updated_at, u.username, u.first_name, u.last_name
+      `SELECT d.id, d.title, d.content, d.tags, d.created_at, d.updated_at, u.username, u.first_name, u.last_name
        FROM documents d
        JOIN users u ON d.user_id = u.id
        WHERE d.user_id = $1
@@ -460,7 +488,7 @@ const getUserDocuments = async (userId, limit = 20, offset = 0) => {
 const getAllDocuments = async (limit = 20, offset = 0) => {
   try {
     const result = await query(
-      `SELECT d.id, d.title, d.content, d.created_at, d.updated_at, u.username, u.first_name, u.last_name
+      `SELECT d.id, d.title, d.content, d.tags, d.created_at, d.updated_at, u.username, u.first_name, u.last_name
        FROM documents d
        JOIN users u ON d.user_id = u.id
        ORDER BY d.updated_at DESC
@@ -485,7 +513,7 @@ const getAllDocuments = async (limit = 20, offset = 0) => {
 const getDocumentById = async (documentId) => {
   try {
     const result = await query(
-      `SELECT d.id, d.title, d.content, d.created_at, d.updated_at, u.username, u.first_name, u.last_name, d.user_id
+      `SELECT d.id, d.title, d.content, d.tags, d.created_at, d.updated_at, u.username, u.first_name, u.last_name, d.user_id
        FROM documents d
        JOIN users u ON d.user_id = u.id
        WHERE d.id = $1`,
@@ -513,14 +541,27 @@ const getDocumentById = async (documentId) => {
 };
 
 // Fonction pour mettre à jour un document
-const updateDocument = async (documentId, userId, title, content) => {
+const updateDocument = async (
+  documentId,
+  userId,
+  title,
+  content,
+  tags = undefined
+) => {
   try {
+    const updateFields = ["title = $1", "content = $2"];
+    const values = [title, content, documentId, userId];
+    if (Array.isArray(tags)) {
+      updateFields.push(`tags = $3`);
+      values.splice(2, 0, tags);
+    }
+
     const result = await query(
       `UPDATE documents 
-       SET title = $1, content = $2, updated_at = CURRENT_TIMESTAMP
-       WHERE id = $3 AND user_id = $4
-       RETURNING id, title, content, updated_at`,
-      [title, content, documentId, userId]
+       SET ${updateFields.join(", ")}, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $${values.length - 1} AND user_id = $${values.length}
+       RETURNING id, title, content, tags, updated_at`,
+      values
     );
 
     if (result.rows.length === 0) {
@@ -548,17 +589,25 @@ const createOrUpdateDocumentById = async (
   documentId,
   userId,
   title,
-  content
+  content,
+  tags = undefined
 ) => {
   try {
     if (documentId) {
       // Mettre à jour le document existant
+      const updateFields = ["title = $1", "content = $2"];
+      const values = [title, content, documentId, userId];
+      if (Array.isArray(tags)) {
+        updateFields.push(`tags = $3`);
+        values.splice(2, 0, tags);
+      }
+
       const result = await query(
         `UPDATE documents 
-         SET title = $1, content = $2, updated_at = CURRENT_TIMESTAMP
-         WHERE id = $3 AND user_id = $4
-         RETURNING id, title, content, created_at, updated_at`,
-        [title, content, documentId, userId]
+         SET ${updateFields.join(", ")}, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $${values.length - 1} AND user_id = $${values.length}
+         RETURNING id, title, content, tags, created_at, updated_at`,
+        values
       );
 
       if (result.rows.length === 0) {
@@ -577,10 +626,10 @@ const createOrUpdateDocumentById = async (
     } else {
       // Créer un nouveau document
       const result = await query(
-        `INSERT INTO documents (user_id, title, content)
-         VALUES ($1, $2, $3)
-         RETURNING id, title, content, created_at, updated_at`,
-        [userId, title, content]
+        `INSERT INTO documents (user_id, title, content, tags)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id, title, content, tags, created_at, updated_at`,
+        [userId, title, content, Array.isArray(tags) ? tags : []]
       );
 
       return {
@@ -649,8 +698,14 @@ const updateUserProfile = async (userId, fields) => {
       if (detail.includes("users_email_key") || detail.includes("(email)")) {
         return { success: false, error: "Cet email est déjà utilisé" };
       }
-      if (detail.includes("users_username_key") || detail.includes("(username)")) {
-        return { success: false, error: "Ce nom d'utilisateur est déjà utilisé" };
+      if (
+        detail.includes("users_username_key") ||
+        detail.includes("(username)")
+      ) {
+        return {
+          success: false,
+          error: "Ce nom d'utilisateur est déjà utilisé",
+        };
       }
     }
     console.error("❌ Erreur mise à jour profil:", error);

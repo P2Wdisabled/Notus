@@ -1,7 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
-import { authenticate } from "@/lib/actions";
+import { signIn } from "next-auth/react";
 import Link from "next/link";
 import GoogleSignInButton from "@/components/GoogleSignInButton";
 import GoogleTestButton from "@/components/GoogleTestButton";
@@ -20,10 +19,8 @@ import {
 function LoginPageClient({ serverSession }) {
   const { isLoggedIn, loading } = useLocalSession(serverSession);
   const router = useRouter();
-  const [errorMessage, formAction, isPending] = useActionState(
-    authenticate,
-    undefined
-  );
+  const [errorMessage, setErrorMessage] = useState("");
+  const [isPending, setIsPending] = useState(false);
   const [password, setPassword] = useState("");
 
   // Clear only the password on auth error
@@ -90,7 +87,48 @@ function LoginPageClient({ serverSession }) {
         </div>
 
         <Card.Content>
-          <form action={formAction} className="space-y-6 mb-0">
+          <form
+            className="space-y-6 mb-0"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setErrorMessage("");
+              setIsPending(true);
+              try {
+                const formData = new FormData(e.currentTarget);
+                const email = (formData.get("email") || "").toString();
+                const passwordValue = (
+                  formData.get("password") || ""
+                ).toString();
+
+                if (!email || !passwordValue) {
+                  setErrorMessage(
+                    "Veuillez renseigner votre identifiant et votre mot de passe."
+                  );
+                  setIsPending(false);
+                  return;
+                }
+
+                const result = await signIn("credentials", {
+                  redirect: false,
+                  callbackUrl: "/",
+                  email,
+                  password: passwordValue,
+                });
+
+                if (result?.ok && !result.error) {
+                  router.push("/");
+                } else {
+                  setErrorMessage(
+                    "Email ou mot de passe incorrect, ou email non vérifié."
+                  );
+                }
+              } catch (err) {
+                setErrorMessage("Une erreur est survenue.");
+              } finally {
+                setIsPending(false);
+              }
+            }}
+          >
             {/* Email/Pseudo */}
             <Input
               label="Email ou nom d'utilisateur"

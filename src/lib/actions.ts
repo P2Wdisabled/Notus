@@ -3,7 +3,6 @@
 import { signIn } from 'next-auth/react';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../../lib/auth';
-import { AuthError } from 'next-auth';
 import { createUser } from './database';
 import { validateRegistrationData } from './validation';
 import { initializeTables } from './database';
@@ -17,6 +16,7 @@ export async function authenticate(
 ) {
   try {
     const email = formData.get('email') as string;
+    const password = formData.get('password') as string;
     
     // Vérifier si l'utilisateur est banni avant la tentative de connexion
     if (email && process.env.DATABASE_URL) {
@@ -35,18 +35,23 @@ export async function authenticate(
       }
     }
     
-    await signIn('credentials', formData);
-  } catch (error) {
-    if (error instanceof AuthError) {
-      switch (error.type) {
-        case 'CredentialsSignin':
-          return 'Email ou mot de passe incorrect, ou email non vérifié.';
-        default:
-          return 'Une erreur est survenue.';
-      }
+    if (!email || !password) {
+      return 'Veuillez renseigner votre identifiant et votre mot de passe.';
     }
-    
-    throw error;
+
+    const result = await signIn('credentials', {
+      redirect: false,
+      callbackUrl: '/',
+      email,
+      password,
+    });
+
+    if (result?.error) {
+      return 'Email ou mot de passe incorrect, ou email non vérifié.';
+    }
+  } catch (error) {
+    console.error('Erreur authenticate:', error);
+    return 'Une erreur est survenue.';
   }
 }
 
@@ -275,7 +280,7 @@ export async function updateUserProfileAction(
   formData: FormData,
 ) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = (await getServerSession(authOptions as any)) as any;
     const userIdRaw = session?.user?.id as string | undefined;
 
     if (!userIdRaw) {
@@ -334,6 +339,8 @@ export async function createDocumentAction(
     const title = formData.get('title') as string;
     const content = formData.get('content') as string;
     const userId = formData.get('userId') as string;
+    const tagsRaw = (formData.get('tags') as string | null) || null;
+    const tags = tagsRaw ? JSON.parse(tagsRaw) as string[] : [];
 
     if (!userId) {
       return 'Utilisateur requis.';
@@ -379,7 +386,7 @@ export async function createDocumentAction(
     await initializeTables();
 
     // Créer ou mettre à jour le document (évite les doublons)
-    const result = await createOrUpdateDocument(userIdNumber, title.trim(), content || '');
+    const result = await createOrUpdateDocument(userIdNumber, title.trim(), content || '', tags);
 
     if (!result.success) {
       console.error('❌ Erreur création/mise à jour document:', result.error);
@@ -612,6 +619,8 @@ export async function updateDocumentAction(
     const userId = formData.get('userId') as string;
     const title = formData.get('title') as string;
     const content = formData.get('content') as string;
+    const tagsRaw = (formData.get('tags') as string | null) || null;
+    const tags = tagsRaw ? JSON.parse(tagsRaw) as string[] : undefined;
 
     if (!documentId || !userId || !title) {
       return 'ID de document, utilisateur et titre requis.';
@@ -664,7 +673,7 @@ export async function updateDocumentAction(
     await initializeTables();
 
     // Créer ou mettre à jour le document avec ID spécifique
-    const result = await createOrUpdateDocumentById(documentIdNumber, userIdNumber, title.trim(), content || '');
+    const result = await createOrUpdateDocumentById(documentIdNumber, userIdNumber, title.trim(), content || '', tags);
 
     if (!result.success) {
       console.error('❌ Erreur création/mise à jour document:', result.error);
