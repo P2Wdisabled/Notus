@@ -12,6 +12,8 @@ const Badge = ({
   const variants = {
     default: "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200",
     primary: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200",
+    purple:
+      "bg-purple/10 dark:bg-purple/20 text-purple dark:text-light-purple border border-purple/20 dark:border-purple/30",
     success:
       "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
     warning:

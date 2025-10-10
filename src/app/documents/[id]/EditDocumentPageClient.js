@@ -1,87 +1,326 @@
 "use client";
-
-import { useActionState } from "react";
+import { useActionState, startTransition } from "react";
+import { Button } from "@/components/ui";
 import { updateDocumentAction } from "@/lib/actions";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useLocalSession } from "@/hooks/useLocalSession";
+import CollaborativeNotepad from "@/components/Paper.js/CollaborativeNotepad";
 
-export default function EditDocumentPageClient({ session, params }) {
+export default function EditDocumentPageClient(props) {
+  // -------- ALL hooks in a stable order (top of component) --------
   const router = useRouter();
-  const [message, formAction, isPending] = useActionState(
-    updateDocumentAction,
-    undefined
-  );
+
   const [document, setDocument] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [tags, setTags] = useState([]);
+  const [showTagInput, setShowTagInput] = useState(false);
+  const [newTag, setNewTag] = useState("");
+  const [canvasCtrl, setCanvasCtrl] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Utiliser notre hook personnalisé pour gérer la session
+  // keep custom hook declarations here (stable order)
+  const [isPending] = useActionState(updateDocumentAction, { ok: false });
+
+  // session hook
   const {
     session: localSession,
     loading: sessionLoading,
     isLoggedIn,
     userId,
-  } = useLocalSession(session);
+  } = useLocalSession(props.session);
 
-  useEffect(() => {
-    if (isLoggedIn && params.id && userId) {
-      loadDocument();
+  function deepNormalizeContent(raw) {
+    let obj = raw;
+    let safety = 0;
+    while (obj && typeof obj === "string" && safety++ < 5) {
+      try {
+        obj = JSON.parse(obj);
+      } catch {
+        break;
+      }
     }
-  }, [isLoggedIn, params.id, userId]);
+    // If obj.text is a stringified object, parse it
+    if (obj && typeof obj === "object" && typeof obj.text === "string") {
+      try {
+        const parsedText = JSON.parse(obj.text);
+        if (typeof parsedText === "object" && parsedText.text) {
+          obj.text = parsedText.text;
+          obj.drawings = parsedText.drawings ?? obj.drawings ?? [];
+          obj.textFormatting =
+            parsedText.textFormatting ?? obj.textFormatting ?? {};
+          obj.timestamp = parsedText.timestamp ?? obj.timestamp ?? Date.now();
+        } else if (typeof parsedText === "string") {
+          obj.text = parsedText;
+        }
+      } catch {
+        // leave as is
+      }
+    }
+    if (!obj || typeof obj !== "object") {
+      return { text: String(obj ?? ""), drawings: [], textFormatting: {} };
+    }
+    return {
+      text: typeof obj.text === "string" ? obj.text : "",
+      drawings: Array.isArray(obj.drawings) ? obj.drawings : [],
+      textFormatting: obj.textFormatting ?? {},
+      timestamp: obj.timestamp ?? Date.now(),
+    };
+  }
 
+  // get the deepest plain text from nested structures (avoid "[object Object]")
+  const getPlainText = (value) => {
+    try {
+      let cur = value;
+      let safety = 0;
+      while (safety++ < 50) {
+        if (typeof cur === "string") return cur;
+        if (!cur || typeof cur !== "object") return String(cur ?? "");
+        // prefer .text if present
+        if ("text" in cur) {
+          cur = cur.text;
+          continue;
+        }
+        // fallback: find first string property
+        for (const k of Object.keys(cur)) {
+          if (typeof cur[k] === "string") return cur[k];
+          if (cur[k] && typeof cur[k] === "object" && "text" in cur[k]) {
+            cur = cur[k].text;
+            break;
+          }
+        }
+        // if nothing useful, stringify whole object (last resort)
+        return JSON.stringify(cur);
+      }
+      return String(value ?? "");
+    } catch (e) {
+      return String(value ?? "");
+    }
+  };
+
+  // helper: loadDocument must be declared before useEffect that calls it
   const loadDocument = useCallback(async () => {
     try {
-      setLoading(true);
-
-      // Utiliser l'API openDoc pour récupérer le titre et le contenu
-      const apiUrl = `/api/openDoc?id=${params.id}`;
-
+      setIsLoading(true);
+      const apiUrl = `/api/openDoc?id=${props.params.id}`;
       const response = await fetch(apiUrl);
       const result = await response.json();
 
       if (result.success) {
-        // Créer un objet document avec les données reçues
-        const documentData = {
-          id: params.id,
-          title: result.title,
-          content: result.content,
-          updated_at: result.updated_at,
-          user_id: parseInt(userId), // Utiliser l'ID utilisateur de la session
-        };
+        const normalizedContent = deepNormalizeContent(result.content);
 
+        const documentData = {
+          id: Number(props.params.id),
+          title: result.title,
+          content: normalizedContent,
+          tags: Array.isArray(result.tags) ? result.tags : [],
+          updated_at: result.updated_at,
+          user_id: Number(result.user_id ?? result.owner ?? NaN),
+        };
         setDocument(documentData);
         setTitle(result.title);
-        setContent(result.content);
+        setContent(normalizedContent); // <-- store the full object!
+        setTags(Array.isArray(result.tags) ? result.tags : []);
       } else {
-        console.error("❌ [CLIENT] Erreur API:", result.error);
         setError(result.error || "Erreur lors du chargement du document");
       }
     } catch (err) {
       setError("Erreur lors du chargement du document");
-      console.error("❌ [CLIENT] Erreur:", err);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
-  }, [params.id, userId]);
+  }, [props.params.id]);
 
-  const handleSubmit = (formData) => {
-    if (!userId) {
-      console.error(
-        "❌ Erreur: ID utilisateur non défini dans la session localStorage"
-      );
-      alert("Erreur: Session utilisateur invalide. Veuillez vous reconnecter.");
+  // Load document when session / user available
+  useEffect(() => {
+    if (isLoggedIn && props.params?.id && userId) {
+      loadDocument();
+    }
+  }, [isLoggedIn, props.params?.id, userId, loadDocument]);
+
+  // reset editor state when switching documents so previous content doesn't leak
+  useEffect(() => {
+    setCanvasCtrl(null);
+    setTitle(document?.title ?? "");
+    setContent(document?.content ?? "");
+
+    // clear localStorage entries used by the editor (adjust prefix to match your editor)
+    try {
+      const prefix = "collab-notepad"; // change if your editor uses a different prefix/key
+      for (const key of Object.keys(localStorage || {})) {
+        if (key.startsWith(prefix) || key.includes(`notepad`)) {
+          localStorage.removeItem(key);
+        }
+      }
+    } catch (e) {
+      // ignore (SSR safety already handled by this effect running in browser)
+    }
+  }, [document?.id]);
+
+  // clear editor-related localStorage entries for this doc (optional)
+  useEffect(() => {
+    try {
+      const prefix = `collab-notepad-${document?.id ?? ""}`; // adjust to your editor key
+      for (const k of Object.keys(localStorage || {})) {
+        if (
+          k.startsWith(prefix) ||
+          k.includes("collab-notepad") ||
+          k.includes("notepad")
+        ) {
+          localStorage.removeItem(k);
+        }
+      }
+    } catch (e) {
+      /* ignore in browsers without localStorage */
+    }
+  }, [document?.id]);
+
+  // ensure handleContentChange stores normalized object:
+  const handleContentChange = useCallback((newContent) => {
+    setContent(deepNormalizeContent(newContent));
+  }, []);
+  // current user id to send with save: prefer hook userId then session fallbacks
+  const currentUserId =
+    userId ?? localSession?.user?.id ?? props.session?.user?.id;
+
+  const handleSubmit = useCallback(
+    async (e) => {
+      e?.preventDefault?.();
+
+      const submittingUserId = Number(currentUserId ?? 0);
+      if (!submittingUserId || isNaN(submittingUserId)) {
+        alert("Session invalide. Veuillez vous reconnecter.");
+        return;
+      }
+
+      // collect raw drawings (prefer canvas controller) - force serialization
+      let drawingsPayload = [];
+      if (canvasCtrl && typeof canvasCtrl.saveDrawings === "function") {
+        try {
+          drawingsPayload = await canvasCtrl.saveDrawings({ force: true });
+        } catch (err) {
+          // ignore save failure and fallback to existing content
+        }
+      }
+      if (!Array.isArray(drawingsPayload) || drawingsPayload.length === 0) {
+        drawingsPayload =
+          (content && content.drawings) ||
+          (document?.content && document.content.drawings) ||
+          [];
+      }
+
+      // Convert Paper-style serialized paths (segments[]) into simple strokes [{ points:[[x,y]...], color, size }]
+      const serializedPathsToStrokes = (arr) => {
+        if (!Array.isArray(arr)) return [];
+        return arr
+          .map((p) => {
+            if (!p || typeof p !== "object") return null;
+            // If it's already a stroke-like object
+            if (Array.isArray(p.points)) {
+              return {
+                points: p.points.map((pt) =>
+                  Array.isArray(pt) ? [pt[0], pt[1]] : pt
+                ),
+                color: p.color ?? "#000000",
+                size: p.size ?? 3,
+              };
+            }
+            // If it's Paper serialized path with segments: [{ point: [x,y], ...}, ...]
+            if (Array.isArray(p.segments)) {
+              const pts = p.segments
+                .map((s) => {
+                  if (!s) return null;
+                  if (Array.isArray(s.point))
+                    return [Number(s.point[0]) || 0, Number(s.point[1]) || 0];
+                  if (
+                    s.point &&
+                    typeof s.point.x === "number" &&
+                    typeof s.point.y === "number"
+                  )
+                    return [s.point.x, s.point.y];
+                  return null;
+                })
+                .filter(Boolean);
+              return pts.length > 0
+                ? {
+                    points: pts,
+                    color: p.color ?? "#000000",
+                    size: p.size ?? p.strokeWidth ?? 3,
+                  }
+                : null;
+            }
+            return null;
+          })
+          .filter(Boolean);
+      };
+
+      const drawingsToSave = serializedPathsToStrokes(drawingsPayload);
+
+      // Build normalized content (single source of truth) - save strokes
+      const normalizedContentObj = {
+        text: (content && content.text) || getPlainText(content) || "",
+        drawings: drawingsToSave, // <-- store strokes here
+        textFormatting: (content && content.textFormatting) || {},
+        timestamp: Date.now(),
+      };
+
+      // Send only content (avoid duplicate drawings field)
+      const formData = new FormData();
+      formData.append("documentId", String(props.params?.id || ""));
+      formData.append("userId", String(submittingUserId));
+      formData.append("title", title || "");
+      formData.append("content", JSON.stringify(normalizedContentObj));
+      formData.append("tags", JSON.stringify(tags));
+
+      const result = await updateDocumentAction({ ok: false }, formData);
+
+      if (!result || result.ok !== true || result.dbResult?.success !== true) {
+        alert(
+          "Save failed: " +
+            (result?.dbResult?.error || result?.error || "Unknown error")
+        );
+        return;
+      }
+      // success: you may update local state / notify user
+    },
+    [canvasCtrl, content, currentUserId, props.params.id, title, document, tags]
+  );
+
+  const persistTags = (nextTags) => {
+    if (!currentUserId) return;
+    const fd = new FormData();
+    fd.append("documentId", String(props.params?.id || ""));
+    fd.append("userId", String(currentUserId));
+    fd.append("title", title || "Sans titre");
+    fd.append("content", JSON.stringify(content || ""));
+    fd.append("tags", JSON.stringify(nextTags));
+    startTransition(() => {
+      updateDocumentAction({ ok: false }, fd);
+    });
+  };
+
+  const addTag = () => {
+    const value = (newTag || "").trim().substring(0, 30);
+    if (!value) return;
+    if (tags.includes(value)) {
+      setNewTag("");
+      setShowTagInput(false);
       return;
     }
+    const next = [...tags, value];
+    setTags(next);
+    persistTags(next);
+    setNewTag("");
+    setShowTagInput(false);
+  };
 
-    formData.append("documentId", params.id);
-    formData.append("userId", userId);
-    formData.append("title", title);
-    formData.append("content", content);
-    formAction(formData);
+  const removeTag = (value) => {
+    const next = tags.filter((t) => t !== value);
+    setTags(next);
+    persistTags(next);
   };
 
   if (sessionLoading) {
@@ -118,7 +357,7 @@ export default function EditDocumentPageClient({ session, params }) {
     );
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center">
         <div className="text-center">
@@ -169,8 +408,8 @@ export default function EditDocumentPageClient({ session, params }) {
     );
   }
 
-  // Vérifier si l'utilisateur est le propriétaire du document
-  if (document.user_id !== parseInt(userId)) {
+  // Verify ownership (use numeric comparison)
+  if (Number(document.user_id) !== Number(userId)) {
     return (
       <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center p-4">
         <div className="bg-white dark:bg-black rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
@@ -191,30 +430,110 @@ export default function EditDocumentPageClient({ session, params }) {
     );
   }
 
+  const normalizedContent = deepNormalizeContent(document.content);
+
+  // Main render (editing form)
   return (
     <div className="h-screen overflow-hidden bg-white dark:bg-black py-8">
-      <div className="mx-auto px-4 md:px-[10%] h-full flex flex-col">
-        {/* En-tête */}
+      <div className="max-w-4xl mx-auto px-4">
+        {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <Link
             href="/"
             className="text-black dark:text-white font-semibold flex items-center"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5 mr-2"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fillRule="evenodd"
+                d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z"
+                clipRule="evenodd"
+              />
             </svg>
           </Link>
           <div className="flex items-center space-x-4">
             <span className="text-sm text-gray-500 dark:text-gray-400">
-              Modifié le {new Date(document.updated_at).toLocaleDateString("fr-FR")}
+              Modifié le{" "}
+              {new Date(document.updated_at).toLocaleDateString("fr-FR")}
             </span>
           </div>
         </div>
 
-        {/* Formulaire d'édition */}
-        <div className="flex-1 min-h-0 bg-white dark:bg-black rounded-2xl border border-gray dark:border-dark-gray p-6 overflow-hidden">
-          <form action={handleSubmit} className="flex h-full flex-col gap-4">
-            {/* Titre */}
+        {/* Edit form */}
+        <div className="bg-white dark:bg-black rounded-2xl border border-gray dark:border-dark-gray p-6 overflow-hidden">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Tags */}
+            <div className="mb-1">
+              <div className="flex flex-wrap items-center gap-2">
+                {tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="inline-flex items-center font-medium rounded-full px-2 py-0.5 text-xs bg-purple/10 dark:bg-purple/20 text-purple dark:text-light-purple border border-purple/20 dark:border-purple/30 pr-1"
+                  >
+                    <span className="mr-1 max-w-[200px] truncate" title={tag}>
+                      {tag}
+                    </span>
+                    <button
+                      type="button"
+                      className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full text-purple dark:text-light-purple hover:bg-purple/20 dark:hover:bg-purple/30"
+                      aria-label={`Supprimer le tag ${tag}`}
+                      onClick={() => removeTag(tag)}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+                {!showTagInput && (
+                  <Button
+                    variant="secondary"
+                    className="px-2 py-0.5 text-sm"
+                    onClick={() => setShowTagInput(true)}
+                  >
+                    +
+                  </Button>
+                )}
+                {showTagInput && (
+                  <div className="flex items-center gap-1">
+                    <input
+                      value={newTag}
+                      onChange={(e) => setNewTag(e.target.value)}
+                      placeholder="Nouveau tag"
+                      className="h-7 text-sm px-2 py-1 rounded border border-gray dark:border-dark-gray bg-transparent text-black dark:text-white"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") addTag();
+                        if (e.key === "Escape") {
+                          setShowTagInput(false);
+                          setNewTag("");
+                        }
+                      }}
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      className="px-2 py-0.5 text-sm bg-orange dark:bg-dark-purple text-white rounded"
+                      onClick={addTag}
+                    >
+                      Ajouter
+                    </button>
+                    <button
+                      type="button"
+                      className="px-2 py-0.5 text-sm border border-gray dark:border-dark-gray rounded"
+                      onClick={() => {
+                        setShowTagInput(false);
+                        setNewTag("");
+                      }}
+                    >
+                      Annuler
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+            {/* Title */}
             <div>
               <input
                 type="text"
@@ -226,18 +545,27 @@ export default function EditDocumentPageClient({ session, params }) {
               />
             </div>
 
-            {/* Contenu */}
-            <div className="flex-1 min-h-0">
-              <textarea
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                className="h-full w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange dark:focus:ring-dark-purple bg-transparent text-black dark:text-white resize-none"
-                placeholder="Commencez à écrire votre document..."
-              />
+            {/* Content */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Contenu
+              </label>
+              <div className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-700 min-h-[400px]">
+                <CollaborativeNotepad
+                  key={`doc-${document.id}-${document.updated_at}-${normalizedContent.text}`}
+                  initialData={normalizedContent}
+                  useLocalStorage={false}
+                  calMode={false}
+                  onContentChange={handleContentChange}
+                  onCanvasReady={(ctrl) => setCanvasCtrl(ctrl)}
+                  placeholder="Edit your document..."
+                  className="min-h-[400px]"
+                />
+              </div>
             </div>
 
-            {/* Boutons */}
-            <div className="flex justify-center space-x-4 pt-2 shrink-0">
+            {/* Buttons */}
+            <div className="flex justify-end space-x-4">
               <button
                 type="submit"
                 disabled={isPending}
@@ -252,31 +580,6 @@ export default function EditDocumentPageClient({ session, params }) {
                 Annuler
               </Link>
             </div>
-
-            {/* Message de succès/erreur */}
-            {message && (
-              <div
-                className={`shrink-0 rounded-lg p-4 ${
-                  message.includes("succès") ||
-                  message.includes("mis à jour") ||
-                  message.includes("sauvegardé")
-                    ? "bg-white dark:bg-black border border-orange dark:border-dark-purple"
-                    : "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"
-                }`}
-              >
-                <p
-                  className={`text-sm ${
-                    message.includes("succès") ||
-                    message.includes("mis à jour") ||
-                    message.includes("sauvegardé")
-                      ? "text-orange dark:text-dark-purple text-3xl"
-                      : "text-red-600 dark:text-red-400"
-                  }`}
-                >
-                  {message}
-                </p>
-              </div>
-            )}
           </form>
         </div>
       </div>

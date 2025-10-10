@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
-import { query } from './src/lib/database';
+import { query } from "./src/lib/database";
 
 export default async function middleware(req) {
   const { nextUrl } = req;
   const token = await getToken({ req });
   const isLoggedIn = !!token;
 
-  const isPublicPath = 
-    nextUrl.pathname === "/login" || 
-    nextUrl.pathname === "/register" || 
+  const isPublicPath =
+    nextUrl.pathname === "/login" ||
+    nextUrl.pathname === "/register" ||
     nextUrl.pathname === "/" ||
     nextUrl.pathname.startsWith("/auth") ||
     nextUrl.pathname.startsWith("/api/auth");
@@ -22,7 +22,10 @@ export default async function middleware(req) {
   }
 
   // Redirect authenticated users away from auth pages
-  if (isLoggedIn && (nextUrl.pathname === "/login" || nextUrl.pathname === "/register")) {
+  if (
+    isLoggedIn &&
+    (nextUrl.pathname === "/login" || nextUrl.pathname === "/register")
+  ) {
     return NextResponse.redirect(new URL("/", nextUrl));
   }
 
@@ -32,19 +35,22 @@ export default async function middleware(req) {
   }
 
   // Vérifier le statut banni pour les utilisateurs connectés
-  if (isLoggedIn && token?.id && nextUrl.pathname !== '/banned') {
+  if (isLoggedIn && token?.id && nextUrl.pathname !== "/banned") {
     try {
       const userResult = await query(
-        'SELECT is_banned FROM users WHERE id = $1::bigint',
+        "SELECT is_banned FROM users WHERE id = $1::bigint",
         [token.id]
       );
-      
+
       if (userResult.rows.length > 0 && userResult.rows[0].is_banned) {
-        console.log('🚫 Utilisateur banni détecté, redirection vers page banni:', token.id);
-        return NextResponse.redirect(new URL('/banned', nextUrl));
+        console.log(
+          "🚫 Utilisateur banni détecté, redirection vers page banni:",
+          token.id
+        );
+        return NextResponse.redirect(new URL("/banned", nextUrl));
       }
     } catch (error) {
-      console.error('Erreur lors de la vérification du statut banni:', error);
+      console.error("Erreur lors de la vérification du statut banni:", error);
     }
   }
 
@@ -53,7 +59,6 @@ export default async function middleware(req) {
 
 export const config = {
   // https://nextjs.org/docs/app/building-your-application/routing/middleware#matcher
-  matcher: ['/((?!api|_next/static|_next/image|.*\\.png$).*)'],
-  runtime: 'nodejs',
+  matcher: ["/((?!api|_next/static|_next/image|.*\\.png$).*)"],
+  runtime: "nodejs",
 };
-
