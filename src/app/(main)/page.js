@@ -2,8 +2,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/../lib/auth";
 import Link from "next/link";
 import { getUserDocumentsAction } from "@/lib/actions";
-import DocumentCard from "@/components/DocumentCard";
-import LocalDocumentsList from "@/components/LocalDocumentsList";
+import DocumentsGridClient from "@/components/DocumentsGridClient";
 import Navigation from "@/components/Navigation";
 import NavBar from "@/components/NavBar";
 import { Button, Card, Alert, LoadingSpinner, Logo } from "@/components/ui";
@@ -27,60 +26,18 @@ export default async function Home() {
             Mes notes
           </h2>
 
-          {!session?.user && <LocalDocumentsList />}
-
-          {session?.user &&
-            documentsResult.success &&
-            documentsResult.documents.length === 0 && (
-              <Card className="text-center py-12">
-                <Card.Content>
-                  <div className="text-gray-400 dark:text-gray-500 mb-4">
-                    <svg
-                      className="w-16 h-16 mx-auto"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={1}
-                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                      />
-                    </svg>
-                  </div>
-                  <Card.Title className="text-lg mb-2">
-                    Aucun document pour le moment
-                  </Card.Title>
-                  <Card.Description>
-                    Créez votre premier document !
-                  </Card.Description>
-                </Card.Content>
-              </Card>
-            )}
-
-          {session?.user &&
-            documentsResult.success &&
-            documentsResult.documents.length > 0 && (
-              <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(300px,1fr))]">
-                {documentsResult.documents.map((document) => (
-                  <div key={document.id} className="w-full">
-                    <DocumentCard
-                      document={document}
-                      currentUserId={session.user.id}
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
-
-          {session?.user && !documentsResult.success && (
+          {!documentsResult.success && session?.user && (
             <Alert variant="error">
               <Alert.Description>
                 Erreur lors du chargement des documents: {documentsResult.error}
               </Alert.Description>
             </Alert>
           )}
+
+          <DocumentsGridClient
+            documents={documentsResult.success ? documentsResult.documents : []}
+            currentUserId={session?.user?.id}
+          />
         </div>
       </div>
       {!session?.user && (

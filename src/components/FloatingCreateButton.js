@@ -14,7 +14,8 @@ export default function FloatingCreateButton({ serverSession }) {
   }
 
   // Remonter le bouton si l'utilisateur n'est pas connecté sur la page d'accueil
-  const bottomClass = !isLoggedIn && pathname === "/" ? "bottom-20" : "bottom-6";
+  // bottom-32 pour laisser de la place à la barre de non-connexion ET à la barre de sélection
+  const bottomClass = !isLoggedIn && pathname === "/" ? "bottom-32" : "bottom-20";
 
   return (
     <Link

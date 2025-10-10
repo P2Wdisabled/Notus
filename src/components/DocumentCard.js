@@ -77,7 +77,16 @@ function stripHtml(str) {
   return str.replace(/<\/?[^>]+(>|$)/g, "");
 }
 
-export default function DocumentCard({ document, currentUserId, onDelete }) {
+export default function DocumentCard({ 
+  document, 
+  currentUserId, 
+  onDelete, 
+  selectMode = false, 
+  selected = false, 
+  onToggleSelect = () => {}, 
+  onEnterSelectMode = () => {}, 
+  isLocal = false 
+}) {
   const [message, formAction, isPending] = useActionState(
     deleteDocumentAction,
     undefined
@@ -213,6 +222,50 @@ export default function DocumentCard({ document, currentUserId, onDelete }) {
     }
   };
 
+  // Gestion du mode sélection (long press / clic contextuel)
+  const longPressTimerRef = useRef(null);
+  const longPressActivatedRef = useRef(false);
+
+  const handleCheckboxClick = (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+  };
+
+  const handleCheckboxChange = (e) => {
+    onToggleSelect(document.id, e.target.checked);
+  };
+
+  const clearLongPressTimer = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const startLongPressTimer = () => {
+    clearLongPressTimer();
+    longPressActivatedRef.current = false;
+    longPressTimerRef.current = setTimeout(() => {
+      longPressActivatedRef.current = true;
+      onEnterSelectMode(document.id);
+      onToggleSelect(document.id, true);
+    }, 500);
+  };
+
+  const handleContextMenu = (e) => {
+    e.preventDefault();
+    onEnterSelectMode(document.id);
+    onToggleSelect(document.id, !selected);
+  };
+
+  const handleClick = (e) => {
+    if (selectMode || longPressActivatedRef.current) {
+      e.preventDefault();
+      onToggleSelect(document.id, !selected);
+      longPressActivatedRef.current = false;
+    }
+  };
+
   // ref + state pour lire les styles calculés
   const previewRef = useRef(null);
   const [computedStyle, setComputedStyle] = useState({
@@ -250,10 +303,22 @@ export default function DocumentCard({ document, currentUserId, onDelete }) {
     // ajoutez en dépendances un state qui change (ex: previewHtml, theme)
   }, [previewHtml, previewText]); // relire quand le contenu est mis à jour
 
+  // Définir l'URL en fonction du type de document (local ou serveur)
+  const documentUrl = isLocal 
+    ? `/documents/local/${encodeURIComponent(document.id)}`
+    : `/documents/${document.id}`;
+
   return (
     <Link
-      href={`/documents/${document.id}`}
+      href={documentUrl}
       className="block bg-white dark:bg-black rounded-2xl shadow-lg p-6 mb-4 hover:shadow-lg transition-shadow border border-gray dark:border-dark-gray"
+      onContextMenu={handleContextMenu}
+      onClick={handleClick}
+      onMouseDown={startLongPressTimer}
+      onMouseUp={clearLongPressTimer}
+      onMouseLeave={clearLongPressTimer}
+      onTouchStart={startLongPressTimer}
+      onTouchEnd={clearLongPressTimer}
     >
       {/* Tags + ajout */}
       <div className="mb-2">
@@ -363,12 +428,24 @@ export default function DocumentCard({ document, currentUserId, onDelete }) {
             Document vide
           </p>
         )}
-        <time
-          dateTime={document.updated_at}
-          className="text-xs text-light-gray dark:text-dark-gray"
-        >
-          {formattedDate}
-        </time>
+        <div className="flex items-center justify-between mt-2">
+          <time
+            dateTime={document.updated_at}
+            className="text-xs text-light-gray dark:text-dark-gray"
+          >
+            {formattedDate}
+          </time>
+          {selectMode && (
+            <input
+              type="checkbox"
+              checked={selected}
+              onClick={handleCheckboxClick}
+              onChange={handleCheckboxChange}
+              className="w-5 h-5 cursor-pointer rounded-full appearance-none border-2 border-gray-300 dark:border-gray-600 checked:border-orange dark:checked:border-dark-purple checked:bg-orange dark:checked:bg-dark-purple"
+              aria-label="Sélectionner ce document"
+            />
+          )}
+        </div>
       </div>
 
       {/* Actions */}
