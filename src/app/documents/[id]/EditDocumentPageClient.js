@@ -23,7 +23,7 @@ export default function EditDocumentPageClient(props) {
   const [error, setError] = useState(null);
 
   // keep custom hook declarations here (stable order)
-  const [isPending] = useActionState(updateDocumentAction, { ok: false });
+  const [state, formAction, isPending] = useActionState(updateDocumentAction, { ok: false });
 
   // session hook
   const {
@@ -552,7 +552,7 @@ export default function EditDocumentPageClient(props) {
               </label>
               <div className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-700 min-h-[400px]">
                 <CollaborativeNotepad
-                  key={`doc-${document.id}-${document.updated_at}-${normalizedContent.text}`}
+                  key={`doc-${document.id}-${document.updated_at}`}
                   initialData={normalizedContent}
                   useLocalStorage={false}
                   calMode={false}
