@@ -3,7 +3,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { getLocalStorageData, saveTextToLocalStorage } from '../../lib/paper.js/localStorage';
 
-export default function SimpleRichTextEditor({ 
+export default function RichTextEditor({ 
   content, 
   onContentChange, 
   textFormatting, 
@@ -11,7 +11,8 @@ export default function SimpleRichTextEditor({
   onSelectionChange,
   placeholder = 'Start typing...',
   className = '',
-  disabled = false
+  disabled = false,
+  disableLocalStorageLoad = false
 }) {
   const editorRef = useRef(null);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -19,10 +20,12 @@ export default function SimpleRichTextEditor({
   // Load text from localStorage on component mount
   useEffect(() => {
     if (!isInitialized) {
-      loadFromLocalStorage();
+      if (!disableLocalStorageLoad) {
+        loadFromLocalStorage();
+      }
       setIsInitialized(true);
     }
-  }, [isInitialized]);
+  }, [isInitialized, disableLocalStorageLoad]);
 
   const loadFromLocalStorage = () => {
     try {

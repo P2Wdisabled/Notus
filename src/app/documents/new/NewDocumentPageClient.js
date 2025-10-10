@@ -16,7 +16,7 @@ export default function NewDocumentPageClient({ session }) {
     undefined
   );
   const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
+  const [content, setContent] = useState({ text: "", drawings: [], textFormatting: {} });
   const [localInfo, setLocalInfo] = useState("");
 
   // Utiliser notre hook personnalisé pour gérer la session
@@ -59,8 +59,11 @@ export default function NewDocumentPageClient({ session }) {
     }
   };
 
+  // Track last saved note to prevent duplicates
+  const [lastSaved, setLastSaved] = useState({ title: "", content: "" });
+  let saveTimeout = null;
+
   const handleSubmit = (formData) => {
-    // Si l'utilisateur est connecté, on utilise le flux serveur habituel
     if (isLoggedIn && userId) {
       formData.append("userId", userId);
       formData.append("title", title);
@@ -69,33 +72,44 @@ export default function NewDocumentPageClient({ session }) {
       return;
     }
 
-    // Sinon, sauvegarde locale dans le navigateur
-    const nowIso = new Date().toISOString();
-    const localId =
-      typeof crypto !== "undefined" && crypto.randomUUID
-        ? `local-${crypto.randomUUID()}`
-        : `local-${Date.now()}`;
-    const newDoc = {
-      id: localId,
-      title: (title || "Sans titre").trim(),
-      content: content || "",
-      created_at: nowIso,
-      updated_at: nowIso,
-    };
-
-    const docs = loadLocalDocuments();
-    docs.unshift(newDoc);
-    const ok = saveLocalDocuments(docs);
-    if (ok) {
-      setLocalInfo("Document enregistré localement dans ce navigateur.");
-      // Réinitialiser le formulaire pour l'expérience anonyme
-      setTitle("Sans titre");
-      setContent("");
-    } else {
-      setLocalInfo(
-        "Impossible d'enregistrer localement (quota ou permissions)."
-      );
+    // Prevent duplicate notes: only save if content/title changed
+    if (title.trim() === lastSaved.title && content === lastSaved.content) {
+      setLocalInfo("Ce document a déjà été enregistré.");
+      return;
     }
+
+    // Debounce rapid submissions
+    if (saveTimeout) {
+      clearTimeout(saveTimeout);
+    }
+    saveTimeout = setTimeout(() => {
+      const nowIso = new Date().toISOString();
+      const localId =
+        typeof crypto !== "undefined" && crypto.randomUUID
+          ? `local-${crypto.randomUUID()}`
+          : `local-${Date.now()}`;
+      const newDoc = {
+        id: localId,
+        title: (title || "Sans titre").trim(),
+        content: content || "",
+        created_at: nowIso,
+        updated_at: nowIso,
+      };
+
+      const docs = loadLocalDocuments();
+      docs.unshift(newDoc);
+      const ok = saveLocalDocuments(docs);
+      if (ok) {
+        setLocalInfo("Document enregistré localement dans ce navigateur.");
+        setLastSaved({ title: title.trim(), content });
+        setTitle("Sans titre");
+        setContent("");
+      } else {
+        setLocalInfo(
+          "Impossible d'enregistrer localement (quota ou permissions)."
+        );
+      }
+    }, 200);
   };
 
   return (
@@ -158,14 +172,23 @@ export default function NewDocumentPageClient({ session }) {
               <div className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-700">
                 <CollaborativeNotepad
                   roomId="new-document"
-                  documentId={null} // ← No document ID
-                  userId={session.user.id}
-                  initialData={null} // ← No database data
-                  useLocalStorage={true} // ← Use localStorage for new docs
-                  localMode={true} // ← Local mode until saved
-                  onContentChange={setContent}
+                  documentId={null}
+                  userId={session?.user?.id ?? null}
+                  initialData={{ text: "", drawings: [], textFormatting: {} }}
+                  useLocalStorage={false}
+                  localMode={true}
+                  onContentChange={(val) => {
+                    if (typeof val === 'string') {
+                      try {
+                        setContent(JSON.parse(val));
+                      } catch {
+                        setContent({ text: val, drawings: [], textFormatting: {} });
+                      }
+                    } else {
+                      setContent(val);
+                    }
+                  }}
                   placeholder="Commencez à écrire votre document avec mise en forme..."
-                  initialContent=""
                   className="min-h-[500px]"
                 />
               </div>

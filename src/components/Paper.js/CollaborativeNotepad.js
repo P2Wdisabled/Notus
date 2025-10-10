@@ -361,6 +361,7 @@ export default function CollaborativeNotepad({
             placeholder={placeholder}
             className="w-full h-full"
             disabled={mode === 'draw'}
+            disableLocalStorageLoad={localMode && !documentId}
           />
         </div>
       </div>

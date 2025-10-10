@@ -1,18 +1,24 @@
 "use client";
+import CollaborativeNotepad from "@/components/Paper.js/CollaborativeNotepad";
 
 import { useEffect, useState, useCallback } from "react";
+import { useLocalSession } from "@/hooks/useLocalSession";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 const LOCAL_DOCS_KEY = "notus.local.documents";
 
 export default function EditLocalDocumentPageClient({ params }) {
+  const localSession = useLocalSession();
   const router = useRouter();
   const [document, setDocument] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
+  // If creating a new document (no id), always start with empty content and a fresh editor key
+  const isNewDoc = !params?.id;
+  const [content, setContent] = useState(() => isNewDoc ? { text: "", drawings: [], textFormatting: {} } : { text: "", drawings: [], textFormatting: {} });
+  const [editorKey, setEditorKey] = useState(() => isNewDoc ? `new-${Date.now()}` : "");
   const docId = params?.id;
 
   const loadLocalDocuments = () => {
@@ -44,7 +50,17 @@ export default function EditLocalDocumentPageClient({ params }) {
       } else {
         setDocument(found);
         setTitle(found.title || "Sans titre");
-        setContent(found.content || "");
+        // Normalize content for editor
+        let normalized = found.content;
+        if (typeof normalized === "string") {
+          try {
+            normalized = JSON.parse(normalized);
+          } catch {
+            normalized = { text: normalized, drawings: [], textFormatting: {} };
+          }
+        }
+        setContent(normalized || { text: "", drawings: [], textFormatting: {} });
+        setEditorKey(`local-doc-${docId}-${found.updated_at}`);
       }
     } finally {
       setLoading(false);
@@ -54,21 +70,34 @@ export default function EditLocalDocumentPageClient({ params }) {
   useEffect(() => {
     if (docId) {
       load();
+    } else {
+      // New document: reset content and editor key
+      setContent({ text: "", drawings: [], textFormatting: {} });
+      setEditorKey(`new-${Date.now()}`);
     }
   }, [docId, load]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const docs = loadLocalDocuments();
     const idx = docs.findIndex((d) => d.id === docId);
     if (idx === -1) {
       setError("Document local introuvable");
       return;
     }
+    // Get latest drawings from editor if available
+    let drawingsPayload = content.drawings || [];
+    // Build normalized content object
+    const normalizedContentObj = {
+      text: content.text || "",
+      drawings: drawingsPayload,
+      textFormatting: content.textFormatting || {},
+      timestamp: Date.now(),
+    };
     const nowIso = new Date().toISOString();
     docs[idx] = {
       ...docs[idx],
       title: (title || "Sans titre").trim(),
-      content: content || "",
+      content: normalizedContentObj,
       updated_at: nowIso,
     };
     const ok = saveLocalDocuments(docs);
@@ -108,6 +137,11 @@ export default function EditLocalDocumentPageClient({ params }) {
     return null;
   }
 
+  // Determine the content text for the document
+  const contentText = typeof document.content === 'object' && document.content !== null
+    ? document.content.text || ''
+    : document.content || '';
+
   return (
     <div className="h-screen overflow-hidden bg-white dark:bg-black py-8">
       <div className="mx-auto px-4 md:px-[10%] h-full flex flex-col">
@@ -143,11 +177,24 @@ export default function EditLocalDocumentPageClient({ params }) {
             </div>
 
             <div className="flex-1 min-h-0">
-              <textarea
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                className="h-full w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange dark:focus:ring-dark-purple bg-transparent text-black dark:text-white resize-none"
+              <CollaborativeNotepad
+                key={editorKey}
+                initialData={content}
+                useLocalStorage={false}
+                calMode={false}
+                onContentChange={(val) => {
+                  if (typeof val === 'string') {
+                    try {
+                      setContent(JSON.parse(val));
+                    } catch {
+                      setContent({ text: val, drawings: [], textFormatting: {} });
+                    }
+                  } else {
+                    setContent(val);
+                  }
+                }}
                 placeholder="Commencez à écrire votre document..."
+                className="min-h-[400px]"
               />
             </div>
 

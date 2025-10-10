@@ -135,7 +135,12 @@ function LocalDocItem({ doc }) {
     e.stopPropagation();
   };
 
-  const firstLine = (doc.content || "").split(/\r?\n/)[0];
+  const contentText = typeof doc.content === 'object' && doc.content !== null
+    ? doc.content.text || ''
+    : doc.content || '';
+  // Remove HTML tags from the first line
+  const firstLineRaw = contentText.split(/\r?\n/)[0];
+  const firstLine = firstLineRaw.replace(/<[^>]+>/g, '').trim();
 
   return (
     <article
