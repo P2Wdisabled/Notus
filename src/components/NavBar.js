@@ -7,12 +7,14 @@ import AdminButton from "./AdminButton";
 import { Logo, Input } from "@/components/ui";
 import { useLocalSession } from "@/hooks/useLocalSession";
 import { Button } from "@/components/ui";
+import { useSearch } from "@/contexts/SearchContext";
 
 export default function NavBar() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const router = useRouter();
   const { userName, username, logout, isLoggedIn } = useLocalSession();
+  const { searchQuery, startSearch, clearSearch } = useSearch();
 
   const items = [
     { name: "Récent", href: "/recent", icon: ClockIcon },
@@ -39,15 +41,23 @@ export default function NavBar() {
     }
   };
 
-  const [searchQuery, setSearchQuery] = useState("");
   const handleDesktopSearchKeyDown = (e) => {
     if (e.key === "Enter") {
       const q = searchQuery.trim();
       if (q.length > 0) {
-        router.push(`/search?q=${encodeURIComponent(q)}`);
+        startSearch(q);
       } else {
-        router.push("/search");
+        clearSearch();
       }
+    }
+  };
+
+  const handleSearchChange = (e) => {
+    const value = e.target.value;
+    if (value.length > 0) {
+      startSearch(value);
+    } else {
+      clearSearch();
     }
   };
 
@@ -70,7 +80,7 @@ export default function NavBar() {
               {pageTitle}
             </span>
             <Link href="/" className="items-center hidden md:flex">
-                <Logo width={160} height={46} />
+              <Logo width={160} height={46} />
             </Link>
           </div>
 
@@ -151,13 +161,14 @@ export default function NavBar() {
                   </Link>
                 );
               })} */}
-              <div className="pt-3">
-                {/* <AdminButton /> */}
-              </div>
+              <div className="pt-3">{/* <AdminButton /> */}</div>
             </nav>
             <div className="pt-4 space-y-3">
               {isLoggedIn && (
-                <Link href="/profile" className="flex items-center gap-3 p-3 bg-transparent cursor-pointer border-t border-gray dark:border-dark-gray">
+                <Link
+                  href="/profile"
+                  className="flex items-center gap-3 p-3 bg-transparent cursor-pointer border-t border-gray dark:border-dark-gray"
+                >
                   <div className="flex items-center justify-center w-10 h-10 rounded-full bg-light-gray dark:bg-light-black text-black dark:text-white font-semibold">
                     {getInitials(userName || username || "Anonyme")}
                   </div>
@@ -186,16 +197,16 @@ export default function NavBar() {
           <Link href="/" className="inline-flex items-center">
             <Logo width={160} height={40} />
           </Link>
-          {/* <div className="mt-3">
+        </div>
+        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
+          <div className="mt-3">
             <Input
               placeholder="Rechercher..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={handleSearchChange}
               onKeyDown={handleDesktopSearchKeyDown}
             />
-          </div> */}
-        </div>
-        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
+          </div>
           {/* {items.map(({ name, href, icon: Icon }) => {
             const active = pathname === href;
             return (
@@ -217,22 +228,21 @@ export default function NavBar() {
         <div className="p-4 space-y-3">
           {/* <AdminButton /> */}
           {isLoggedIn && (
-            <Link href="/profile" className="flex items-center gap-3 p-3 bg-transparent cursor-pointer border-t border-gray dark:border-dark-gray">
-            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-light-gray dark:bg-light-black text-black dark:text-white font-semibold">
-              {getInitials(userName || username || "Anonyme")}
-            </div>
-            <div className="flex flex-col">
-              <span className="text-sm font-semibold text-black dark:text-white">
-                {username || userName || "Anonyme"}
-              </span>
-            </div>
-          </Link>
+            <Link
+              href="/profile"
+              className="flex items-center gap-3 p-3 bg-transparent cursor-pointer border-t border-gray dark:border-dark-gray"
+            >
+              <div className="flex items-center justify-center w-10 h-10 rounded-full bg-light-gray dark:bg-light-black text-black dark:text-white font-semibold">
+                {getInitials(userName || username || "Anonyme")}
+              </div>
+              <div className="flex flex-col">
+                <span className="text-sm font-semibold text-black dark:text-white">
+                  {username || userName || "Anonyme"}
+                </span>
+              </div>
+            </Link>
           )}
-          <Button
-            onClick={handleLogout}
-            variant="primary"
-            className="w-full"
-          >
+          <Button onClick={handleLogout} variant="primary" className="w-full">
             {isLoggedIn ? "Se déconnecter" : "Se connecter"}
           </Button>
         </div>
@@ -459,5 +469,3 @@ function getInitials(name) {
   const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
   return (first + last).toUpperCase() || "?";
 }
-
-

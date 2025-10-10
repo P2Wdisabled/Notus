@@ -2,6 +2,7 @@ import "./globals.css";
 import FloatingCreateButton from "@/components/FloatingCreateButton";
 import AuthSessionProvider from "@/components/SessionProvider";
 import PromoteAdminButton from "@/components/PromoteAdminButton";
+import { SearchProvider } from "@/contexts/SearchContext";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../lib/auth";
 import Link from "next/link";
@@ -34,8 +35,10 @@ export default async function RootLayout({ children }) {
       </head>
       <body className="antialiased">
         <AuthSessionProvider session={session}>
-          {children}
-          <FloatingCreateButton serverSession={session} />
+          <SearchProvider>
+            {children}
+            <FloatingCreateButton serverSession={session} />
+          </SearchProvider>
         </AuthSessionProvider>
 
         {/* Footer */}

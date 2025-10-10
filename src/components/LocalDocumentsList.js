@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { Card, Button, Badge, Input } from "@/components/ui";
+import { useSearch } from "@/contexts/SearchContext";
 
 const LOCAL_DOCS_KEY = "notus.local.documents";
 
 export default function LocalDocumentsList() {
   const [documents, setDocuments] = useState([]);
+  const { filterLocalDocuments, isSearching } = useSearch();
 
   const load = () => {
     try {
@@ -32,6 +34,8 @@ export default function LocalDocumentsList() {
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
   }, []);
+
+  const filteredDocuments = filterLocalDocuments(documents);
 
   if (!documents || documents.length === 0) {
     return (
@@ -63,10 +67,40 @@ export default function LocalDocumentsList() {
     );
   }
 
+  if (isSearching && filteredDocuments.length === 0) {
+    return (
+      <section aria-labelledby="local-docs-no-results">
+        <Card className="text-center py-12">
+          <Card.Content>
+            <div className="text-gray-400 dark:text-gray-500 mb-4">
+              <svg
+                className="w-16 h-16 mx-auto"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
+              </svg>
+            </div>
+            <Card.Title id="local-docs-no-results" className="text-lg mb-2">
+              Aucun résultat trouvé
+            </Card.Title>
+            <Card.Description>Essayez avec d'autres mots-clés</Card.Description>
+          </Card.Content>
+        </Card>
+      </section>
+    );
+  }
+
   return (
     <section aria-labelledby="local-docs-heading" className="space-y-4">
       <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(300px,1fr))]">
-        {documents.map((doc) => (
+        {filteredDocuments.map((doc) => (
           <div key={doc.id} className="w-full">
             <a
               href={`/documents/local/${encodeURIComponent(doc.id)}`}
