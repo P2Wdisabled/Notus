@@ -29,7 +29,6 @@ import {
 let getServerSessionFn = undefined;
 let authOptionsModule = undefined;
 try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const nextAuthNext = require("next-auth/next");
   getServerSessionFn =
     nextAuthNext?.getServerSession ?? nextAuthNext?.unstable_getServerSession;
@@ -41,7 +40,6 @@ try {
   );
 }
 try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
   authOptionsModule = require("../../auth")?.authOptions;
 } catch (e) {
   // file may not exist or path differs — that's fine for now
