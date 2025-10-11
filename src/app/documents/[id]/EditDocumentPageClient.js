@@ -466,7 +466,7 @@ export default function EditDocumentPageClient(props) {
   return (
     <div className="h-screen overflow-hidden bg-white dark:bg-black py-8">
       <div className="max-w-4xl mx-auto px-4">
-        {/* Header */}
+        {/* En-tête */}
         <div className="flex items-center justify-between mb-6">
           <Link
             href="/"
@@ -485,85 +485,12 @@ export default function EditDocumentPageClient(props) {
               />
             </svg>
           </Link>
-          <div className="flex items-center space-x-4">
-            <span className="text-sm text-gray-500 dark:text-gray-400">
-              Modifié le{" "}
-              {new Date(document.updated_at).toLocaleDateString("fr-FR")}
-            </span>
-          </div>
         </div>
 
-        {/* Edit form */}
+        {/* Formulaire d'édition */}
         <div className="bg-white dark:bg-black rounded-2xl border border-gray dark:border-dark-gray p-6 overflow-hidden">
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Tags */}
-            <div className="mb-1">
-              <div className="flex flex-wrap items-center gap-2">
-                {tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="inline-flex items-center font-medium rounded-full px-2 py-0.5 text-xs bg-purple/10 dark:bg-purple/20 text-purple dark:text-light-purple border border-purple/20 dark:border-purple/30 pr-1"
-                  >
-                    <span className="mr-1 max-w-[200px] truncate" title={tag}>
-                      {tag}
-                    </span>
-                    <button
-                      type="button"
-                      className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full text-purple dark:text-light-purple hover:bg-purple/20 dark:hover:bg-purple/30"
-                      aria-label={`Supprimer le tag ${tag}`}
-                      onClick={() => removeTag(tag)}
-                    >
-                      ×
-                    </button>
-                  </span>
-                ))}
-                {!showTagInput && (
-                  <Button
-                    variant="secondary"
-                    className="px-2 py-0.5 text-sm"
-                    onClick={() => setShowTagInput(true)}
-                  >
-                    +
-                  </Button>
-                )}
-                {showTagInput && (
-                  <div className="flex items-center gap-1">
-                    <input
-                      value={newTag}
-                      onChange={(e) => setNewTag(e.target.value)}
-                      placeholder="Nouveau tag"
-                      className="h-7 text-sm px-2 py-1 rounded border border-gray dark:border-dark-gray bg-transparent text-black dark:text-white"
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") addTag();
-                        if (e.key === "Escape") {
-                          setShowTagInput(false);
-                          setNewTag("");
-                        }
-                      }}
-                      autoFocus
-                    />
-                    <button
-                      type="button"
-                      className="px-2 py-0.5 text-sm bg-orange dark:bg-dark-purple text-white rounded"
-                      onClick={addTag}
-                    >
-                      Ajouter
-                    </button>
-                    <button
-                      type="button"
-                      className="px-2 py-0.5 text-sm border border-gray dark:border-dark-gray rounded"
-                      onClick={() => {
-                        setShowTagInput(false);
-                        setNewTag("");
-                      }}
-                    >
-                      Annuler
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-            {/* Title */}
+            {/* Titre */}
             <div>
               <input
                 type="text"
@@ -575,7 +502,7 @@ export default function EditDocumentPageClient(props) {
               />
             </div>
 
-            {/* Content */}
+            {/* Contenu */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Contenu
@@ -588,14 +515,20 @@ export default function EditDocumentPageClient(props) {
                   calMode={false}
                   onContentChange={handleContentChange}
                   onCanvasReady={(ctrl) => setCanvasCtrl(ctrl)}
-                  placeholder="Edit your document..."
+                  placeholder="Commencez à écrire votre document avec mise en forme..."
                   className="min-h-[400px]"
                 />
               </div>
             </div>
 
-            {/* Buttons */}
+            {/* Boutons */}
             <div className="flex justify-end space-x-4">
+              <Link
+                href="/"
+                className="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                Annuler
+              </Link>
               <button
                 type="submit"
                 disabled={isPending}
@@ -603,7 +536,7 @@ export default function EditDocumentPageClient(props) {
                   showSavedState
                     ? "bg-green-600 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-600"
                     : "bg-orange hover:bg-orange dark:bg-dark-purple dark:hover:bg-dark-purple"
-                } disabled:bg-gray disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-lg hover:shadow-md shadow-light-gray dark:shadow-light-black transition-all duration-200 cursor-pointer`}
+                } disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-lg transition-colors`}
               >
                 {isPending
                   ? "Sauvegarde..."
@@ -611,16 +544,10 @@ export default function EditDocumentPageClient(props) {
                     ? "Sauvegardé"
                     : "Sauvegarder"}
               </button>
-              <Link
-                href="/"
-                className="px-6 py-3 border border-orange dark:border-dark-purple text-orange dark:text-dark-purple rounded-lg hover:shadow-md shadow-orange dark:shadow-dark-purple transition-all duration-200 cursor-pointer"
-              >
-                Annuler
-              </Link>
             </div>
 
             {/* Message de succès/erreur */}
-            {(showSuccessMessage || (state && !state.ok)) && (
+            {(showSuccessMessage || (state && state.error)) && (
               <div
                 className={`shrink-0 rounded-lg p-4 mt-4 ${
                   showSuccessMessage

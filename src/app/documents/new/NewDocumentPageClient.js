@@ -184,7 +184,7 @@ export default function NewDocumentPageClient({ session }) {
 
   return (
     <div className="h-screen overflow-hidden bg-white dark:bg-black py-8">
-      <div className="mx-auto px-4 md:px-[10%] h-full flex flex-col">
+      <div className="max-w-4xl mx-auto px-4">
         {/* En-tête */}
         <div className="flex items-center justify-between mb-6">
           <Link
@@ -208,7 +208,7 @@ export default function NewDocumentPageClient({ session }) {
 
         {/* Bandeau d'information en mode anonyme */}
         {!isLoggedIn && (
-          <div className="mb-6 rounded-xl border border-orangebg-white text-orange dark:border-dark-purple dark:bg-black dark:text-dark-purple p-4">
+          <div className="mb-6 rounded-xl border border-orange bg-white text-orange dark:border-dark-purple dark:bg-black dark:text-dark-purple p-4">
             <p className="text-md">
               Vous n'êtes pas connecté. Votre document sera enregistré{" "}
               <strong>localement</strong> dans ce navigateur.
@@ -217,8 +217,8 @@ export default function NewDocumentPageClient({ session }) {
         )}
 
         {/* Formulaire de création */}
-        <div className="flex-1 min-h-0 bg-white dark:bg-black rounded-2xl border border-gray dark:border-dark-gray p-6 overflow-hidden">
-          <form action={handleSubmit} className="flex h-full flex-col gap-4">
+        <div className="bg-white dark:bg-black rounded-2xl border border-gray dark:border-dark-gray p-6 overflow-hidden">
+          <form action={handleSubmit} className="space-y-6">
             {/* Titre */}
             <div>
               <input
@@ -226,20 +226,17 @@ export default function NewDocumentPageClient({ session }) {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 className="w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange dark:focus:ring-dark-purple bg-transparent text-black dark:text-white text-xl font-semibold"
-                placeholder="Titre de la note"
+                placeholder="Titre du document"
                 maxLength={255}
               />
             </div>
 
-            {/* Contenu - Replaced with CollaborativeNotepad */}
+            {/* Contenu */}
             <div>
-              <label
-                htmlFor="content"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-              >
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Contenu
               </label>
-              <div className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-700">
+              <div className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-700 min-h-[400px]">
                 <CollaborativeNotepad
                   roomId="new-document"
                   documentId={null}
@@ -249,13 +246,9 @@ export default function NewDocumentPageClient({ session }) {
                   localMode={true}
                   onContentChange={handleContentChange}
                   placeholder="Commencez à écrire votre document avec mise en forme..."
-                  className="min-h-[380px]"
+                  className="min-h-[400px]"
                 />
               </div>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                Utilisez la barre d'outils pour formater votre texte, ajouter
-                des couleurs, dessiner ou collaborer en temps réel.
-              </p>
             </div>
 
             {/* Boutons */}
@@ -269,14 +262,16 @@ export default function NewDocumentPageClient({ session }) {
               <button
                 type="submit"
                 disabled={isPending || title.trim().length === 0}
-                className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+                className="bg-orange hover:bg-orange dark:bg-dark-purple dark:hover:bg-dark-purple disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-lg transition-colors"
               >
                 {isPending ? "Création..." : "Créer le document"}
               </button>
             </div>
 
             {/* Message de succès/erreur */}
-            {(message || localInfo) && (
+            {((message && typeof message === "string" && message.trim()) ||
+              (typeof message === "object" && message.message) ||
+              localInfo) && (
               <div
                 className={`shrink-0 rounded-lg p-4 ${
                   (message &&
