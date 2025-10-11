@@ -2,8 +2,6 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/../lib/auth";
 import Link from "next/link";
 import { getUserDocumentsAction } from "@/lib/actions";
-import DocumentCard from "@/components/DocumentCard";
-import LocalDocumentsList from "@/components/LocalDocumentsList";
 import Navigation from "@/components/Navigation";
 import NavBar from "@/components/NavBar";
 import { Button, Card, Alert, LoadingSpinner, Logo } from "@/components/ui";
@@ -28,17 +26,19 @@ export default async function Home() {
             Mes notes
           </h2>
 
-          {!session?.user && <LocalDocumentsList />}
-
-          {session?.user && (
-            <SearchableDocumentsList
-              documents={
-                documentsResult.success ? documentsResult.documents : []
-              }
-              currentUserId={session.user.id}
-              error={!documentsResult.success ? documentsResult.error : null}
-            />
+          {!documentsResult.success && session?.user && (
+            <Alert variant="error">
+              <Alert.Description>
+                Erreur lors du chargement des documents: {documentsResult.error}
+              </Alert.Description>
+            </Alert>
           )}
+
+          <SearchableDocumentsList
+            documents={documentsResult.success ? documentsResult.documents : []}
+            currentUserId={session?.user?.id}
+            error={!documentsResult.success ? documentsResult.error : null}
+          />
         </div>
       </div>
       {!session?.user && (

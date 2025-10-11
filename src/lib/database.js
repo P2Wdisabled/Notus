@@ -224,7 +224,43 @@ const initializeTables = async () => {
     throw error;
   }
 };
+// Suppression en masse de documents (seulement par leur créateur)
+const deleteDocumentsBulk = async (userId, documentIds) => {
+  try {
+    if (!Array.isArray(documentIds) || documentIds.length === 0) {
+      return { success: false, error: "Aucun document sélectionné" };
+    }
 
+    // Forcer le typage en entiers et retirer les valeurs invalides
+    const ids = documentIds
+      .map((id) => parseInt(id))
+      .filter((id) => !isNaN(id) && id > 0);
+
+    if (ids.length === 0) {
+      return { success: false, error: "Identifiants de documents invalides" };
+    }
+
+    const result = await query(
+      `DELETE FROM documents
+       WHERE user_id = $1 AND id = ANY($2::int[])
+       RETURNING id`,
+      [userId, ids]
+    );
+
+    return {
+      success: true,
+      deletedIds: result.rows.map((r) => r.id),
+      deletedCount: result.rows.length,
+      message: `${result.rows.length} document(s) supprimé(s) avec succès`,
+    };
+  } catch (error) {
+    console.error("❌ Erreur suppression multiple documents:", error);
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+};
 // Fonction pour vérifier la connexion
 const testConnection = async () => {
   try {
@@ -462,7 +498,7 @@ const createOrUpdateDocument = async (
 const getUserDocuments = async (userId, limit = 20, offset = 0) => {
   try {
     const result = await query(
-      `SELECT d.id, d.title, d.content, d.tags, d.created_at, d.updated_at, u.username, u.first_name, u.last_name
+      `SELECT d.id, d.user_id, d.title, d.content, d.tags, d.created_at, d.updated_at, u.username, u.first_name, u.last_name
        FROM documents d
        JOIN users u ON d.user_id = u.id
        WHERE d.user_id = $1
@@ -488,7 +524,7 @@ const getUserDocuments = async (userId, limit = 20, offset = 0) => {
 const getAllDocuments = async (limit = 20, offset = 0) => {
   try {
     const result = await query(
-      `SELECT d.id, d.title, d.content, d.tags, d.created_at, d.updated_at, u.username, u.first_name, u.last_name
+      `SELECT d.id, d.user_id, d.title, d.content, d.tags, d.created_at, d.updated_at, u.username, u.first_name, u.last_name
        FROM documents d
        JOIN users u ON d.user_id = u.id
        ORDER BY d.updated_at DESC
@@ -864,6 +900,7 @@ module.exports = {
   getDocumentById,
   updateDocument,
   deleteDocument,
+  deleteDocumentsBulk,
   // Fonctions profil utilisateur
   updateUserProfile,
   // Fonctions admin

@@ -3,7 +3,6 @@
 import { signIn } from "next-auth/react";
 import Link from "next/link";
 import GoogleSignInButton from "@/components/GoogleSignInButton";
-import GoogleTestButton from "@/components/GoogleTestButton";
 import { useLocalSession } from "@/hooks/useLocalSession";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -67,11 +66,6 @@ function LoginPageClient({ serverSession }) {
         {/* Bouton Google */}
         <div className="mb-6">
           <GoogleSignInButton text="Se connecter avec Google" />
-        </div>
-
-        {/* Test Google OAuth */}
-        <div className="mb-6">
-          <GoogleTestButton />
         </div>
 
         {/* Séparateur */}

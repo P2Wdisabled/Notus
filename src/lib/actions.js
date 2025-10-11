@@ -23,6 +23,7 @@ import {
   getAllDocuments,
   getDocumentById,
   deleteDocument,
+  deleteDocumentsBulk,
 } from "./database";
 
 // Try to resolve getServerSession/authOptions at runtime (optional)
@@ -914,7 +915,43 @@ export async function getUserIdByEmailAction(email) {
     };
   }
 }
+// Action pour supprimer plusieurs documents d'un coup
+export async function deleteMultipleDocumentsAction(prevState, formData) {
+  try {
+    const userId = formData.get("userId");
+    const idsRaw = formData.getAll("documentIds");
 
+    if (!userId) {
+      return "ID utilisateur requis.";
+    }
+
+    const userIdNumber = parseInt(userId);
+    if (isNaN(userIdNumber) || userIdNumber <= 0) {
+      return "ID utilisateur invalide. Veuillez vous reconnecter.";
+    }
+
+    // Vérifier si la base de données est configurée
+    if (!process.env.DATABASE_URL) {
+      return `${idsRaw.length} document(s) supprimé(s) (mode simulation). Configurez DATABASE_URL pour la persistance.`;
+    }
+
+    await initializeTables();
+
+    const result = await deleteDocumentsBulk(userIdNumber, idsRaw);
+
+    if (!result.success) {
+      return result.error || "Erreur lors de la suppression multiple.";
+    }
+
+    return result.message;
+  } catch (error) {
+    console.error("❌ Erreur lors de la suppression multiple:", error);
+    if (error.code === "ECONNRESET" || error.code === "ECONNREFUSED") {
+      return "Base de données non accessible. Vérifiez la configuration PostgreSQL.";
+    }
+    return "Erreur lors de la suppression multiple. Veuillez réessayer.";
+  }
+}
 // Action pour créer une note (alias pour createDocumentAction)
 export async function createNoteAction(prevState, formData) {
   try {
