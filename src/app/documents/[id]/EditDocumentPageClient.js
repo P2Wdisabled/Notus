@@ -21,9 +21,13 @@ export default function EditDocumentPageClient(props) {
   const [canvasCtrl, setCanvasCtrl] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [showSavedState, setShowSavedState] = useState(false);
 
   // keep custom hook declarations here (stable order)
-  const [state, formAction, isPending] = useActionState(updateDocumentAction, { ok: false });
+  const [state, formAction, isPending] = useActionState(updateDocumentAction, {
+    ok: false,
+  });
 
   // session hook
   const {
@@ -32,6 +36,29 @@ export default function EditDocumentPageClient(props) {
     isLoggedIn,
     userId,
   } = useLocalSession(props.session);
+
+  // Gérer l'affichage du message de succès et l'état "Sauvegardé"
+  useEffect(() => {
+    if (state && state.ok) {
+      setShowSuccessMessage(true);
+      setShowSavedState(true);
+
+      // Effacer l'état "Sauvegardé" après 1.5 secondes
+      const savedTimer = setTimeout(() => {
+        setShowSavedState(false);
+      }, 1500);
+
+      // Effacer le message de succès après 3 secondes
+      const messageTimer = setTimeout(() => {
+        setShowSuccessMessage(false);
+      }, 3000);
+
+      return () => {
+        clearTimeout(savedTimer);
+        clearTimeout(messageTimer);
+      };
+    }
+  }, [state]);
 
   function deepNormalizeContent(raw) {
     let obj = raw;
@@ -158,7 +185,7 @@ export default function EditDocumentPageClient(props) {
     } catch (e) {
       // ignore (SSR safety already handled by this effect running in browser)
     }
-  }, [document?.id]);
+  }, [document?.id, document?.content, document?.title]);
 
   // clear editor-related localStorage entries for this doc (optional)
   useEffect(() => {
@@ -275,18 +302,21 @@ export default function EditDocumentPageClient(props) {
       formData.append("content", JSON.stringify(normalizedContentObj));
       formData.append("tags", JSON.stringify(tags));
 
-      const result = await updateDocumentAction({ ok: false }, formData);
-
-      if (!result || result.ok !== true || result.dbResult?.success !== true) {
-        alert(
-          "Save failed: " +
-            (result?.dbResult?.error || result?.error || "Unknown error")
-        );
-        return;
-      }
-      // success: you may update local state / notify user
+      // Utiliser formAction dans startTransition pour déclencher isPending et gérer les messages
+      startTransition(() => {
+        formAction(formData);
+      });
     },
-    [canvasCtrl, content, currentUserId, props.params.id, title, document, tags]
+    [
+      canvasCtrl,
+      content,
+      currentUserId,
+      props.params.id,
+      title,
+      document,
+      tags,
+      formAction,
+    ]
   );
 
   const persistTags = (nextTags) => {
@@ -569,9 +599,17 @@ export default function EditDocumentPageClient(props) {
               <button
                 type="submit"
                 disabled={isPending}
-                className="bg-orange hover:bg-orange dark:bg-dark-purple dark:hover:bg-dark-purple disabled:bg-gray disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-lg hover:shadow-md shadow-light-gray dark:shadow-light-black transition-all duration-200 cursor-pointer"
+                className={`${
+                  showSavedState
+                    ? "bg-green-600 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-600"
+                    : "bg-orange hover:bg-orange dark:bg-dark-purple dark:hover:bg-dark-purple"
+                } disabled:bg-gray disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-lg hover:shadow-md shadow-light-gray dark:shadow-light-black transition-all duration-200 cursor-pointer`}
               >
-                {isPending ? "Sauvegarde..." : "Sauvegarder"}
+                {isPending
+                  ? "Sauvegarde..."
+                  : showSavedState
+                    ? "Sauvegardé"
+                    : "Sauvegarder"}
               </button>
               <Link
                 href="/"
@@ -580,6 +618,29 @@ export default function EditDocumentPageClient(props) {
                 Annuler
               </Link>
             </div>
+
+            {/* Message de succès/erreur */}
+            {(showSuccessMessage || (state && !state.ok)) && (
+              <div
+                className={`shrink-0 rounded-lg p-4 mt-4 ${
+                  showSuccessMessage
+                    ? "bg-white dark:bg-black border border-orange dark:border-dark-purple"
+                    : "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"
+                }`}
+              >
+                <p
+                  className={`text-sm ${
+                    showSuccessMessage
+                      ? "text-orange dark:text-dark-purple"
+                      : "text-red-600 dark:text-red-400"
+                  }`}
+                >
+                  {showSuccessMessage
+                    ? "Document sauvegardé avec succès !"
+                    : state?.error || "Erreur lors de la sauvegarde"}
+                </p>
+              </div>
+            )}
           </form>
         </div>
       </div>

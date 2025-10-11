@@ -431,7 +431,11 @@ export async function createDocumentAction(prevState, formData) {
       return "Erreur lors de la création du document. Veuillez réessayer.";
     }
 
-    return "Document créé avec succès !";
+    return {
+      success: true,
+      message: "Document créé avec succès !",
+      documentId: result.document.id,
+    };
   } catch (error) {
     console.error("❌ Erreur lors de la création du document:", error);
 

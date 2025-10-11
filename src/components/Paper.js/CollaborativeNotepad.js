@@ -1,44 +1,44 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import dynamic from 'next/dynamic';
-import RichTextEditor from './RichTextEditor';
-import Toolbar from './Toolbar/Toolbar.js';
-import { useSocket } from '../../lib/paper.js/socket';
+import { useState, useEffect, useRef, useCallback } from "react";
+import dynamic from "next/dynamic";
+import RichTextEditor from "./RichTextEditor";
+import Toolbar from "./Toolbar/Toolbar.js";
+import { useSocket } from "../../lib/paper.js/socket";
 
-const DrawingCanvas = dynamic(() => import('./DrawingCanvas'), {
+const DrawingCanvas = dynamic(() => import("./DrawingCanvas"), {
   ssr: true,
   loading: () => (
     <div className="w-full h-full flex items-center justify-center bg-white">
       <div className="text-gray-500">Loading drawing canvas...</div>
     </div>
-  )
+  ),
 });
 
-export default function CollaborativeNotepad({ 
-  roomId = 'default-room',
+export default function CollaborativeNotepad({
+  roomId = "default-room",
   documentId,
   userId,
   initialData,
   onContentChange,
   localMode = false,
-  placeholder = 'Start typing...',
-  className = '',
-  initialContent = ''
+  placeholder = "Start typing...",
+  className = "",
+  initialContent = "",
 }) {
   // default to text mode so users see the editor on page load
-  const [mode, setMode] = useState('text');
-  const [brushColor, setBrushColor] = useState('#000000');
+  const [mode, setMode] = useState("text");
+  const [brushColor, setBrushColor] = useState("#000000");
   const [brushSize, setBrushSize] = useState(3);
-  const [content, setContent] = useState('');
+  const [content, setContent] = useState("");
   const [drawings, setDrawings] = useState([]);
   const [textFormatting, setTextFormatting] = useState({
-    color: '#000000',
-    backgroundColor: 'transparent',
+    color: "#000000",
+    backgroundColor: "transparent",
     fontSize: 16,
-    fontFamily: 'Inter, sans-serif',
-    fontWeight: 'normal',
-    textAlign: 'left'
+    fontFamily: "Inter, sans-serif",
+    fontWeight: "normal",
+    textAlign: "left",
   });
   const [isInitialized, setIsInitialized] = useState(false);
   const [canvasControls, setCanvasControls] = useState(null);
@@ -49,7 +49,7 @@ export default function CollaborativeNotepad({
     if (isInitialized) return;
 
     if (initialData) {
-      let dbTextContent = '';
+      let dbTextContent = "";
       let dbDrawings = [];
       let dbTextFormatting = {};
 
@@ -74,23 +74,24 @@ export default function CollaborativeNotepad({
         } else if (initialData.drawings_data) {
           dbDrawings = Array.isArray(initialData.drawings_data)
             ? initialData.drawings_data
-            : JSON.parse(initialData.drawings_data || '[]');
+            : JSON.parse(initialData.drawings_data || "[]");
         }
 
         if (initialData.textFormatting) {
           dbTextFormatting = initialData.textFormatting;
         } else if (initialData.text_formatting) {
-          dbTextFormatting = typeof initialData.text_formatting === 'object'
-            ? initialData.text_formatting
-            : JSON.parse(initialData.text_formatting || '{}');
+          dbTextFormatting =
+            typeof initialData.text_formatting === "object"
+              ? initialData.text_formatting
+              : JSON.parse(initialData.text_formatting || "{}");
         }
       } catch (error) {
-        dbTextContent = initialData.text ?? initialData.content ?? '';
+        dbTextContent = initialData.text ?? initialData.content ?? "";
       }
 
       setContent(dbTextContent);
       setDrawings(dbDrawings);
-      setTextFormatting(prev => ({ ...prev, ...dbTextFormatting }));
+      setTextFormatting((prev) => ({ ...prev, ...dbTextFormatting }));
     } else if (initialContent) {
       setContent(initialContent);
     } else {
@@ -102,7 +103,7 @@ export default function CollaborativeNotepad({
 
   useEffect(() => {
     if (socket && documentId && !localMode) {
-      socket.emit('join-document', documentId);
+      socket.emit("join-document", documentId);
     }
   }, [socket, documentId, localMode]);
 
@@ -111,15 +112,15 @@ export default function CollaborativeNotepad({
 
     const handleDocumentState = (data) => {
       if (!isInitialized) return;
-      setContent(data.content || '');
+      setContent(data.content || "");
       setDrawings(data.drawings || []);
       if (data.textFormatting) {
-        setTextFormatting(prev => ({ ...prev, ...data.textFormatting }));
+        setTextFormatting((prev) => ({ ...prev, ...data.textFormatting }));
       }
     };
 
     const handleDrawingData = (data) => {
-      setDrawings(prev => [...prev, data.drawingData]);
+      setDrawings((prev) => [...prev, data.drawingData]);
     };
 
     const handleTextUpdate = (data) => {
@@ -127,36 +128,36 @@ export default function CollaborativeNotepad({
     };
 
     const handleTextFormattingUpdate = (data) => {
-      setTextFormatting(prev => ({ ...prev, ...data.formatting }));
+      setTextFormatting((prev) => ({ ...prev, ...data.formatting }));
     };
 
     const handleClearCanvas = () => {
-      setContent('');
+      setContent("");
       setDrawings([]);
     };
 
-    socket.on('document-state', handleDocumentState);
-    socket.on('drawing-data', handleDrawingData);
-    socket.on('text-update', handleTextUpdate);
-    socket.on('text-formatting-update', handleTextFormattingUpdate);
-    socket.on('clear-canvas', handleClearCanvas);
+    socket.on("document-state", handleDocumentState);
+    socket.on("drawing-data", handleDrawingData);
+    socket.on("text-update", handleTextUpdate);
+    socket.on("text-formatting-update", handleTextFormattingUpdate);
+    socket.on("clear-canvas", handleClearCanvas);
 
     return () => {
-      socket.off('document-state', handleDocumentState);
-      socket.off('drawing-data', handleDrawingData);
-      socket.off('text-update', handleTextUpdate);
-      socket.off('text-formatting-update', handleTextFormattingUpdate);
-      socket.off('clear-canvas', handleClearCanvas);
+      socket.off("document-state", handleDocumentState);
+      socket.off("drawing-data", handleDrawingData);
+      socket.off("text-update", handleTextUpdate);
+      socket.off("text-formatting-update", handleTextFormattingUpdate);
+      socket.off("clear-canvas", handleClearCanvas);
     };
   }, [socket, localMode, isInitialized]);
 
   const handleDrawingData = (data) => {
-    setDrawings(prev => [...prev, data]);
+    setDrawings((prev) => [...prev, data]);
     if (socket && isConnected && documentId && userId && !localMode) {
-      socket.emit('drawing-data', {
+      socket.emit("drawing-data", {
         documentId,
         userId,
-        drawingData: data
+        drawingData: data,
       });
     }
   };
@@ -166,10 +167,10 @@ export default function CollaborativeNotepad({
 
     // immediately send current content (use newContent rather than state)
     if (socket && isConnected && documentId && userId && !localMode) {
-      socket.emit('text-update', {
+      socket.emit("text-update", {
         documentId,
         userId,
-        content: newContent
+        content: newContent,
       });
     }
 
@@ -178,7 +179,7 @@ export default function CollaborativeNotepad({
         text: newContent,
         drawings: drawings,
         textFormatting: textFormatting,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       };
       if (localMode || !documentId) {
         onContentChange(JSON.stringify(fullContent));
@@ -193,10 +194,10 @@ export default function CollaborativeNotepad({
     setTextFormatting(newFormatting);
 
     if (socket && isConnected && documentId && userId && !localMode) {
-      socket.emit('text-formatting-update', {
+      socket.emit("text-formatting-update", {
         documentId,
         userId,
-        formatting: newFormatting
+        formatting: newFormatting,
       });
     }
 
@@ -205,7 +206,7 @@ export default function CollaborativeNotepad({
         text: content,
         drawings: drawings,
         textFormatting: newFormatting,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       };
       if (localMode || !documentId) {
         onContentChange(JSON.stringify(fullContent));
@@ -221,7 +222,7 @@ export default function CollaborativeNotepad({
         text: content,
         drawings: drawings,
         textFormatting: textFormatting,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       };
 
       if (localMode || !documentId) {
@@ -230,7 +231,15 @@ export default function CollaborativeNotepad({
         onContentChange(fullContent);
       }
     }
-  }, [onContentChange, content, drawings, textFormatting, localMode, documentId, isInitialized]);
+  }, [
+    onContentChange,
+    content,
+    drawings,
+    textFormatting,
+    localMode,
+    documentId,
+    isInitialized,
+  ]);
 
   useEffect(() => {
     if (!isInitialized || !onContentChange) return;
@@ -240,24 +249,32 @@ export default function CollaborativeNotepad({
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [content, drawings, textFormatting, handleContentChangeCallback, isInitialized]);
+  }, [
+    content,
+    drawings,
+    textFormatting,
+    handleContentChangeCallback,
+    isInitialized,
+  ]);
 
   const clearAllData = () => {
-    if (confirm('Are you sure you want to clear all data? This cannot be undone.')) {
-      setContent('');
+    if (
+      confirm("Are you sure you want to clear all data? This cannot be undone.")
+    ) {
+      setContent("");
       setDrawings([]);
       setTextFormatting({
-        color: '#000000',
-        backgroundColor: 'transparent',
+        color: "#000000",
+        backgroundColor: "transparent",
         fontSize: 16,
-        fontFamily: 'Inter, sans-serif',
-        fontWeight: 'normal',
-        textAlign: 'left'
+        fontFamily: "Inter, sans-serif",
+        fontWeight: "normal",
+        textAlign: "left",
       });
 
-      const editor = document.querySelector('[contenteditable]');
+      const editor = document.querySelector("[contenteditable]");
       if (editor) {
-        editor.innerHTML = '';
+        editor.innerHTML = "";
       }
     }
   };
@@ -266,24 +283,24 @@ export default function CollaborativeNotepad({
     if (!canvasControls) return;
     const ctrl = canvasControls.current ?? canvasControls;
     try {
-      if (typeof ctrl.setMode === 'function') {
-        ctrl.setMode(mode === 'draw' ? 'drawing' : 'text');
+      if (typeof ctrl.setMode === "function") {
+        ctrl.setMode(mode === "draw" ? "drawing" : "text");
       }
 
       // When switching to draw mode, render the current HTML text into the canvas as an overlay
-      if (mode === 'draw') {
+      if (mode === "draw") {
         const tryRender = (attempt = 0) => {
           try {
-            if (typeof ctrl.renderTextFromHTML === 'function') {
+            if (typeof ctrl.renderTextFromHTML === "function") {
               // get editor padding to match appearance
-              const editorEl = document.querySelector('[contenteditable]');
+              const editorEl = document.querySelector("[contenteditable]");
               let padding = null;
               if (editorEl) {
                 const cs = window.getComputedStyle(editorEl);
-                const pt = cs.paddingTop || '0px';
-                const pr = cs.paddingRight || '0px';
-                const pb = cs.paddingBottom || '0px';
-                const pl = cs.paddingLeft || '0px';
+                const pt = cs.paddingTop || "0px";
+                const pr = cs.paddingRight || "0px";
+                const pb = cs.paddingBottom || "0px";
+                const pl = cs.paddingLeft || "0px";
                 padding = `${pt} ${pr} ${pb} ${pl}`;
               }
 
@@ -308,7 +325,7 @@ export default function CollaborativeNotepad({
       }
 
       // When switching to text mode, clear any text overlay so the editor shows the live content
-      if (mode === 'text' && typeof ctrl.clearTextOverlay === 'function') {
+      if (mode === "text" && typeof ctrl.clearTextOverlay === "function") {
         ctrl.clearTextOverlay();
       }
     } catch (e) {
@@ -325,7 +342,7 @@ export default function CollaborativeNotepad({
   }
 
   return (
-    <div className={`w-full flex flex-col ${className || ''}`}>
+    <div className={`w-full flex flex-col ${className || ""}`}>
       <Toolbar
         mode={mode}
         setMode={setMode}
@@ -338,9 +355,11 @@ export default function CollaborativeNotepad({
         isConnected={isConnected}
         onClearAllData={clearAllData}
       />
-      
+
       <div className="flex-1 relative">
-        <div className={`absolute inset-0 ${mode === 'draw' ? 'z-10' : 'z-0 pointer-events-none'}`}>
+        <div
+          className={`absolute inset-0 ${mode === "draw" ? "z-10" : "z-0 pointer-events-none"}`}
+        >
           <DrawingCanvas
             brushColor={brushColor}
             brushSize={brushSize}
@@ -351,16 +370,18 @@ export default function CollaborativeNotepad({
             onCanvasReady={setCanvasControls}
           />
         </div>
-        
-        <div className={`absolute inset-0 ${mode === 'text' ? 'z-10' : 'z-0'} ${mode === 'draw' ? 'pointer-events-none' : ''}`}>
+
+        <div
+          className={`absolute inset-0 ${mode === "text" ? "z-10" : "z-0"} ${mode === "draw" ? "pointer-events-none" : ""}`}
+        >
           <RichTextEditor
             content={content}
             onContentChange={handleTextChange}
             textFormatting={textFormatting}
             socket={localMode ? null : socket}
             placeholder={placeholder}
-            className="w-full h-full"
-            disabled={mode === 'draw'}
+            className="w-full h-fit"
+            disabled={mode === "draw"}
             disableLocalStorageLoad={localMode && !documentId}
           />
         </div>

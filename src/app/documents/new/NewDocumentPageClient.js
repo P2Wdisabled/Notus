@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { createDocumentAction } from "@/lib/actions";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useLocalSession } from "@/hooks/useLocalSession";
@@ -16,8 +16,13 @@ export default function NewDocumentPageClient({ session }) {
     undefined
   );
   const [title, setTitle] = useState("");
-  const [content, setContent] = useState({ text: "", drawings: [], textFormatting: {} });
+  const [content, setContent] = useState({
+    text: "",
+    drawings: [],
+    textFormatting: {},
+  });
   const [localInfo, setLocalInfo] = useState("");
+  const [lastSaved, setLastSaved] = useState({ title: "", content: "" });
 
   // Utiliser notre hook personnalisé pour gérer la session
   const {
@@ -26,6 +31,19 @@ export default function NewDocumentPageClient({ session }) {
     isLoggedIn,
     userId,
   } = useLocalSession(session);
+
+  // Redirection vers la page d'édition après création du document
+  useEffect(() => {
+    if (
+      message &&
+      typeof message === "object" &&
+      message.success &&
+      message.documentId
+    ) {
+      // Rediriger vers la page d'édition du document créé
+      router.push(`/documents/${message.documentId}`);
+    }
+  }, [message, router]);
 
   if (loading) {
     return (
@@ -60,20 +78,22 @@ export default function NewDocumentPageClient({ session }) {
   };
 
   // Track last saved note to prevent duplicates
-  const [lastSaved, setLastSaved] = useState({ title: "", content: "" });
   let saveTimeout = null;
 
   const handleSubmit = (formData) => {
     if (isLoggedIn && userId) {
       formData.append("userId", userId);
       formData.append("title", title);
-      formData.append("content", content);
+      formData.append("content", JSON.stringify(content));
       formAction(formData);
       return;
     }
 
     // Prevent duplicate notes: only save if content/title changed
-    if (title.trim() === lastSaved.title && content === lastSaved.content) {
+    if (
+      title.trim() === lastSaved.title &&
+      JSON.stringify(content) === lastSaved.content
+    ) {
       setLocalInfo("Ce document a déjà été enregistré.");
       return;
     }
@@ -91,7 +111,7 @@ export default function NewDocumentPageClient({ session }) {
       const newDoc = {
         id: localId,
         title: (title || "Sans titre").trim(),
-        content: content || "",
+        content: JSON.stringify(content || {}),
         created_at: nowIso,
         updated_at: nowIso,
       };
@@ -101,9 +121,9 @@ export default function NewDocumentPageClient({ session }) {
       const ok = saveLocalDocuments(docs);
       if (ok) {
         setLocalInfo("Document enregistré localement dans ce navigateur.");
-        setLastSaved({ title: title.trim(), content });
+        setLastSaved({ title: title.trim(), content: JSON.stringify(content) });
         setTitle("Sans titre");
-        setContent("");
+        setContent({ text: "", drawings: [], textFormatting: {} });
       } else {
         setLocalInfo(
           "Impossible d'enregistrer localement (quota ou permissions)."
@@ -178,18 +198,22 @@ export default function NewDocumentPageClient({ session }) {
                   useLocalStorage={false}
                   localMode={true}
                   onContentChange={(val) => {
-                    if (typeof val === 'string') {
+                    if (typeof val === "string") {
                       try {
                         setContent(JSON.parse(val));
                       } catch {
-                        setContent({ text: val, drawings: [], textFormatting: {} });
+                        setContent({
+                          text: val,
+                          drawings: [],
+                          textFormatting: {},
+                        });
                       }
                     } else {
                       setContent(val);
                     }
                   }}
                   placeholder="Commencez à écrire votre document avec mise en forme..."
-                  className="min-h-[500px]"
+                  className="min-h-[380px]"
                 />
               </div>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
@@ -220,9 +244,11 @@ export default function NewDocumentPageClient({ session }) {
               <div
                 className={`shrink-0 rounded-lg p-4 ${
                   (message &&
+                    typeof message === "string" &&
                     (message.includes("succès") ||
                       message.includes("créé") ||
                       message.includes("mis à jour"))) ||
+                  (typeof message === "object" && message.success) ||
                   localInfo
                     ? "bg-white dark:bg-black border border-orange dark:border-dark-purple"
                     : "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"
@@ -231,21 +257,24 @@ export default function NewDocumentPageClient({ session }) {
                 <p
                   className={`text-sm ${
                     (message &&
+                      typeof message === "string" &&
                       (message.includes("succès") ||
                         message.includes("créé") ||
                         message.includes("mis à jour"))) ||
+                    (typeof message === "object" && message.success) ||
                     localInfo
                       ? "text-orange dark:text-dark-purple text-3xl"
                       : "text-red-600 dark:text-red-400"
                   }`}
                 >
-                  {localInfo || message}
+                  {localInfo ||
+                    (typeof message === "object" ? message.message : message)}
                 </p>
               </div>
             )}
 
             {/* Boutons */}
-            <div className="flex justify-center space-x-4 pt-2 shrink-0">
+            {/* <div className="flex justify-center space-x-4 pt-2 shrink-0">
               <button
                 type="submit"
                 disabled={isPending}
@@ -259,7 +288,7 @@ export default function NewDocumentPageClient({ session }) {
               >
                 Annuler
               </Link>
-            </div>
+            </div> */}
           </form>
         </div>
       </div>
