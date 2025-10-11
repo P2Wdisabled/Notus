@@ -40,6 +40,7 @@ export default function CollaborativeNotepad({
     fontWeight: "normal",
     textAlign: "left",
   });
+  const drawingsTimeoutRef = useRef(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [canvasControls, setCanvasControls] = useState(null);
 
@@ -153,6 +154,26 @@ export default function CollaborativeNotepad({
 
   const handleDrawingData = (data) => {
     setDrawings((prev) => [...prev, data]);
+
+    // Clear existing timeout
+    if (drawingsTimeoutRef.current) {
+      clearTimeout(drawingsTimeoutRef.current);
+    }
+
+    // Set new timeout for debounced onContentChange
+    drawingsTimeoutRef.current = setTimeout(() => {
+      if (onContentChange) {
+        onContentChange(
+          JSON.stringify({
+            text: content,
+            drawings: [...drawings, data],
+            textFormatting: textFormatting,
+            timestamp: Date.now(),
+          })
+        );
+      }
+    }, 100); // 100ms debounce
+
     if (socket && isConnected && documentId && userId && !localMode) {
       socket.emit("drawing-data", {
         documentId,
@@ -175,17 +196,7 @@ export default function CollaborativeNotepad({
     }
 
     if (onContentChange) {
-      const fullContent = {
-        text: newContent,
-        drawings: drawings,
-        textFormatting: textFormatting,
-        timestamp: Date.now(),
-      };
-      if (localMode || !documentId) {
-        onContentChange(JSON.stringify(fullContent));
-      } else {
-        onContentChange(fullContent);
-      }
+      onContentChange(newContent);
     }
   };
 
@@ -200,62 +211,30 @@ export default function CollaborativeNotepad({
         formatting: newFormatting,
       });
     }
-
-    if (onContentChange) {
-      const fullContent = {
-        text: content,
-        drawings: drawings,
-        textFormatting: newFormatting,
-        timestamp: Date.now(),
-      };
-      if (localMode || !documentId) {
-        onContentChange(JSON.stringify(fullContent));
-      } else {
-        onContentChange(fullContent);
-      }
-    }
   };
 
-  const handleContentChangeCallback = useCallback(() => {
-    if (onContentChange && isInitialized) {
-      const fullContent = {
-        text: content,
-        drawings: drawings,
-        textFormatting: textFormatting,
-        timestamp: Date.now(),
-      };
-
-      if (localMode || !documentId) {
-        onContentChange(JSON.stringify(fullContent));
-      } else {
-        onContentChange(fullContent);
-      }
-    }
-  }, [
-    onContentChange,
-    content,
-    drawings,
-    textFormatting,
-    localMode,
-    documentId,
-    isInitialized,
-  ]);
-
+  // Auto-save when content or formatting changes (excluding drawings to avoid loops)
   useEffect(() => {
-    if (!isInitialized || !onContentChange) return;
+    if (onContentChange) {
+      onContentChange(
+        JSON.stringify({
+          text: content,
+          drawings: drawings,
+          textFormatting: textFormatting,
+          timestamp: Date.now(),
+        })
+      );
+    }
+  }, [textFormatting, content, onContentChange]);
 
-    const timeoutId = setTimeout(() => {
-      handleContentChangeCallback();
-    }, 500);
-
-    return () => clearTimeout(timeoutId);
-  }, [
-    content,
-    drawings,
-    textFormatting,
-    handleContentChangeCallback,
-    isInitialized,
-  ]);
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (drawingsTimeoutRef.current) {
+        clearTimeout(drawingsTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const clearAllData = () => {
     if (
@@ -304,10 +283,13 @@ export default function CollaborativeNotepad({
                 padding = `${pt} ${pr} ${pb} ${pl}`;
               }
 
-              const formattingWithPadding = { ...textFormatting };
+              // Utiliser les valeurs actuelles sans les inclure dans les dépendances
+              const currentContent = content;
+              const currentTextFormatting = textFormatting;
+              const formattingWithPadding = { ...currentTextFormatting };
               if (padding) formattingWithPadding.padding = padding;
 
-              ctrl.renderTextFromHTML(content, formattingWithPadding);
+              ctrl.renderTextFromHTML(currentContent, formattingWithPadding);
               return true;
             }
           } catch (e) {
@@ -331,7 +313,7 @@ export default function CollaborativeNotepad({
     } catch (e) {
       // ignore
     }
-  }, [canvasControls, mode, content, textFormatting]);
+  }, [canvasControls, mode]);
 
   if (!isInitialized) {
     return (
@@ -351,7 +333,7 @@ export default function CollaborativeNotepad({
         brushSize={brushSize}
         setBrushSize={setBrushSize}
         textFormatting={textFormatting}
-        setTextFormatting={handleTextFormattingChange}
+        setTextFormatting={setTextFormatting}
         isConnected={isConnected}
         onClearAllData={clearAllData}
       />
@@ -359,6 +341,9 @@ export default function CollaborativeNotepad({
       <div className="flex-1 relative">
         <div
           className={`absolute inset-0 ${mode === "draw" ? "z-10" : "z-0 pointer-events-none"}`}
+          style={{
+            backgroundColor: mode === "text" ? "white" : "transparent",
+          }}
         >
           <DrawingCanvas
             brushColor={brushColor}
@@ -373,6 +358,9 @@ export default function CollaborativeNotepad({
 
         <div
           className={`absolute inset-0 ${mode === "text" ? "z-10" : "z-0"} ${mode === "draw" ? "pointer-events-none" : ""}`}
+          style={{
+            backgroundColor: mode === "draw" ? "white" : "transparent",
+          }}
         >
           <RichTextEditor
             content={content}
@@ -383,6 +371,9 @@ export default function CollaborativeNotepad({
             className="w-full h-fit"
             disabled={mode === "draw"}
             disableLocalStorageLoad={localMode && !documentId}
+            style={{
+              backgroundColor: mode === "draw" ? "white" : "transparent",
+            }}
           />
         </div>
       </div>

@@ -8,6 +8,7 @@ export default function TextAlignment({
       <label className="text-sm font-medium">Align:</label>
       <div className="flex space-x-1">
         <button
+          type="button"
           onClick={() => {
             setTextFormatting({
               ...textFormatting,
@@ -24,6 +25,7 @@ export default function TextAlignment({
           L
         </button>
         <button
+          type="button"
           onClick={() => {
             setTextFormatting({
               ...textFormatting,
@@ -40,6 +42,7 @@ export default function TextAlignment({
           C
         </button>
         <button
+          type="button"
           onClick={() => {
             setTextFormatting({
               ...textFormatting,

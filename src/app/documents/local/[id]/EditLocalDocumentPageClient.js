@@ -17,8 +17,14 @@ export default function EditLocalDocumentPageClient({ params }) {
   const [title, setTitle] = useState("");
   // If creating a new document (no id), always start with empty content and a fresh editor key
   const isNewDoc = !params?.id;
-  const [content, setContent] = useState(() => isNewDoc ? { text: "", drawings: [], textFormatting: {} } : { text: "", drawings: [], textFormatting: {} });
-  const [editorKey, setEditorKey] = useState(() => isNewDoc ? `new-${Date.now()}` : "");
+  const [content, setContent] = useState(() =>
+    isNewDoc
+      ? { text: "", drawings: [], textFormatting: {} }
+      : { text: "", drawings: [], textFormatting: {} }
+  );
+  const [editorKey, setEditorKey] = useState(() =>
+    isNewDoc ? `new-${Date.now()}` : ""
+  );
   const docId = params?.id;
 
   const loadLocalDocuments = () => {
@@ -59,7 +65,9 @@ export default function EditLocalDocumentPageClient({ params }) {
             normalized = { text: normalized, drawings: [], textFormatting: {} };
           }
         }
-        setContent(normalized || { text: "", drawings: [], textFormatting: {} });
+        setContent(
+          normalized || { text: "", drawings: [], textFormatting: {} }
+        );
         setEditorKey(`local-doc-${docId}-${found.updated_at}`);
       }
     } finally {
@@ -123,9 +131,14 @@ export default function EditLocalDocumentPageClient({ params }) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Erreur</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+            Erreur
+          </h1>
           <p className="text-gray-600 dark:text-gray-300 mb-6">{error}</p>
-          <Link href="/" className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors">
+          <Link
+            href="/"
+            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+          >
             Retour à l'accueil
           </Link>
         </div>
@@ -138,9 +151,10 @@ export default function EditLocalDocumentPageClient({ params }) {
   }
 
   // Determine the content text for the document
-  const contentText = typeof document.content === 'object' && document.content !== null
-    ? document.content.text || ''
-    : document.content || '';
+  const contentText =
+    typeof document.content === "object" && document.content !== null
+      ? document.content.text || ""
+      : document.content || "";
 
   return (
     <div className="h-screen overflow-hidden bg-white dark:bg-black py-8">
@@ -151,13 +165,23 @@ export default function EditLocalDocumentPageClient({ params }) {
             href="/"
             className="text-black dark:text-white font-semibold flex items-center"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5 mr-2"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fillRule="evenodd"
+                d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z"
+                clipRule="evenodd"
+              />
             </svg>
           </Link>
           <div className="flex items-center space-x-4">
             <span className="text-sm text-gray-500 dark:text-gray-400">
-              Modifié le {new Date(document.updated_at).toLocaleDateString("fr-FR")}
+              Modifié le{" "}
+              {new Date(document.updated_at).toLocaleDateString("fr-FR")}
             </span>
           </div>
         </div>
@@ -183,11 +207,15 @@ export default function EditLocalDocumentPageClient({ params }) {
                 useLocalStorage={false}
                 calMode={false}
                 onContentChange={(val) => {
-                  if (typeof val === 'string') {
+                  if (typeof val === "string") {
                     try {
                       setContent(JSON.parse(val));
                     } catch {
-                      setContent({ text: val, drawings: [], textFormatting: {} });
+                      setContent({
+                        text: val,
+                        drawings: [],
+                        textFormatting: {},
+                      });
                     }
                   } else {
                     setContent(val);
@@ -219,6 +247,3 @@ export default function EditLocalDocumentPageClient({ params }) {
     </div>
   );
 }
-
-
-

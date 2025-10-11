@@ -7,6 +7,7 @@ export default function FormatButtons({
   return (
     <div className="flex items-center space-x-1">
       <button
+        type="button"
         onClick={() => applyFormat("bold")}
         className={`px-2 py-1 rounded text-sm font-bold transition-colors ${
           isBold
@@ -18,6 +19,7 @@ export default function FormatButtons({
         B
       </button>
       <button
+        type="button"
         onClick={() => applyFormat("italic")}
         className={`px-2 py-1 rounded text-sm italic transition-colors ${
           isItalic
@@ -29,6 +31,7 @@ export default function FormatButtons({
         I
       </button>
       <button
+        type="button"
         onClick={() => applyFormat("underline")}
         className={`px-2 py-1 rounded text-sm underline transition-colors ${
           isUnderline

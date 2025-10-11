@@ -44,6 +44,12 @@ export function clearUserSession() {
   try {
     // Vider complètement le sessionStorage
     sessionStorage.clear();
+
+    // Vider aussi le localStorage pour la session utilisateur
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("userSession");
+    }
+
     return true;
   } catch (error) {
     console.error("❌ Erreur lors de la suppression de la session:", error);

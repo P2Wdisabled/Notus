@@ -3,8 +3,9 @@
 import { signIn } from "next-auth/react";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../lib/auth";
+import { auth } from "../../auth";
 import { AuthError } from "next-auth";
-import { validateRegistrationData } from "./validation";
+import { validateRegistrationData, validateProfileData } from "./validation";
 import {
   generateVerificationToken,
   sendVerificationEmail,
@@ -24,6 +25,7 @@ import {
   getDocumentById,
   deleteDocument,
   deleteDocumentsBulk,
+  updateUserProfile,
 } from "./database";
 
 // Try to resolve getServerSession/authOptions at runtime (optional)
@@ -298,7 +300,7 @@ export async function resetPasswordAction(prevState, formData) {
 // Mettre à jour le profil utilisateur
 export async function updateUserProfileAction(prevState, formData) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     const userIdRaw = session?.user?.id;
 
     if (!userIdRaw) {
@@ -309,10 +311,22 @@ export async function updateUserProfileAction(prevState, formData) {
     const username = formData.get("username") || undefined;
     const firstName = formData.get("firstName") || undefined;
     const lastName = formData.get("lastName") || undefined;
+    const profileImage = formData.get("profileImage") || undefined;
+    const bannerImage = formData.get("bannerImage") || undefined;
 
-    // Validation simple
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return "Veuillez entrer une adresse email valide.";
+    // Validation des données de profil (inclut les images)
+    const profileData = {
+      email: email?.trim(),
+      username: username?.trim(),
+      firstName: firstName?.trim(),
+      lastName: lastName?.trim(),
+      profileImage,
+      bannerImage,
+    };
+
+    const validation = validateProfileData(profileData);
+    if (!validation.isValid) {
+      return Object.values(validation.errors)[0] || "Données invalides";
     }
 
     const fields = {};
@@ -320,6 +334,8 @@ export async function updateUserProfileAction(prevState, formData) {
     if (username !== undefined) fields.username = username.trim();
     if (firstName !== undefined) fields.firstName = firstName.trim();
     if (lastName !== undefined) fields.lastName = lastName.trim();
+    if (profileImage !== undefined) fields.profileImage = profileImage;
+    if (bannerImage !== undefined) fields.bannerImage = bannerImage;
 
     if (Object.keys(fields).length === 0) {
       return "Aucun changement détecté.";
@@ -952,6 +968,59 @@ export async function deleteMultipleDocumentsAction(prevState, formData) {
     return "Erreur lors de la suppression multiple. Veuillez réessayer.";
   }
 }
+
+export async function getUserProfileAction(userId) {
+  try {
+    // Vérifier si la base de données est configurée
+    if (!process.env.DATABASE_URL) {
+      return {
+        success: true,
+        user: {
+          id: userId,
+          username: "simulation",
+          first_name: "Test",
+          last_name: "User",
+          email: "test@example.com",
+          profile_image: null,
+          banner_image: null,
+          created_at: new Date().toISOString(),
+        },
+      };
+    }
+
+    // Initialiser les tables si elles n'existent pas
+    await initializeTables();
+
+    // Récupérer les données complètes de l'utilisateur
+    const result = await query(
+      `SELECT id, username, first_name, last_name, email, profile_image, banner_image, created_at
+       FROM users WHERE id = $1`,
+      [userId]
+    );
+
+    if (result.rows.length === 0) {
+      return {
+        success: false,
+        error: "Utilisateur non trouvé",
+      };
+    }
+
+    return {
+      success: true,
+      user: result.rows[0],
+    };
+  } catch (error) {
+    console.error(
+      "❌ Erreur lors de la récupération du profil utilisateur:",
+      error
+    );
+    return {
+      success: false,
+      error: "Erreur lors de la récupération du profil",
+    };
+  }
+}
+
 // Action pour créer une note (alias pour createDocumentAction)
 export async function createNoteAction(prevState, formData) {
   try {

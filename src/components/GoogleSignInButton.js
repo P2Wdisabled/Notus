@@ -15,9 +15,9 @@ export default function GoogleSignInButton({
     setError(null);
 
     try {
-      await signIn("google", { 
+      await signIn("google", {
         callbackUrl: "/",
-        redirect: true 
+        redirect: true,
       });
     } catch (error) {
       console.error("Erreur connexion Google:", error);
@@ -33,7 +33,7 @@ export default function GoogleSignInButton({
         disabled={isLoading}
         loading={isLoading}
         variant="outline"
-        className="w-full flex items-center justify-center space-x-2"
+        className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-black text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-black focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
       >
         <svg className="w-5 h-5" viewBox="0 0 24 24">
           <path

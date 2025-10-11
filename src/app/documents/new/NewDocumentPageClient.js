@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { createDocumentAction } from "@/lib/actions";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useLocalSession } from "@/hooks/useLocalSession";
@@ -45,6 +45,56 @@ export default function NewDocumentPageClient({ session }) {
     }
   }, [message, router]);
 
+  // Debounce content updates to prevent infinite loops
+  const [debouncedContent, setDebouncedContent] = useState(content);
+  const contentUpdateTimeoutRef = useRef(null);
+
+  // Sync debouncedContent with content on initial load
+  useEffect(() => {
+    setDebouncedContent(content);
+  }, []);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (contentUpdateTimeoutRef.current) {
+        clearTimeout(contentUpdateTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Debounced content change handler
+  const handleContentChange = useCallback((val) => {
+    // Clear existing timeout
+    if (contentUpdateTimeoutRef.current) {
+      clearTimeout(contentUpdateTimeoutRef.current);
+    }
+
+    // Set new timeout for debounced update
+    const timeout = setTimeout(() => {
+      if (typeof val === "string") {
+        try {
+          const parsed = JSON.parse(val);
+          setContent(parsed);
+          setDebouncedContent(parsed);
+        } catch {
+          const fallback = {
+            text: val,
+            drawings: [],
+            textFormatting: {},
+          };
+          setContent(fallback);
+          setDebouncedContent(fallback);
+        }
+      } else {
+        setContent(val);
+        setDebouncedContent(val);
+      }
+    }, 100); // 100ms debounce
+
+    contentUpdateTimeoutRef.current = timeout;
+  }, []);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center">
@@ -84,7 +134,7 @@ export default function NewDocumentPageClient({ session }) {
     if (isLoggedIn && userId) {
       formData.append("userId", userId);
       formData.append("title", title);
-      formData.append("content", JSON.stringify(content));
+      formData.append("content", JSON.stringify(debouncedContent));
       formAction(formData);
       return;
     }
@@ -92,7 +142,7 @@ export default function NewDocumentPageClient({ session }) {
     // Prevent duplicate notes: only save if content/title changed
     if (
       title.trim() === lastSaved.title &&
-      JSON.stringify(content) === lastSaved.content
+      JSON.stringify(debouncedContent) === lastSaved.content
     ) {
       setLocalInfo("Ce document a déjà été enregistré.");
       return;
@@ -197,21 +247,7 @@ export default function NewDocumentPageClient({ session }) {
                   initialData={{ text: "", drawings: [], textFormatting: {} }}
                   useLocalStorage={false}
                   localMode={true}
-                  onContentChange={(val) => {
-                    if (typeof val === "string") {
-                      try {
-                        setContent(JSON.parse(val));
-                      } catch {
-                        setContent({
-                          text: val,
-                          drawings: [],
-                          textFormatting: {},
-                        });
-                      }
-                    } else {
-                      setContent(val);
-                    }
-                  }}
+                  onContentChange={handleContentChange}
                   placeholder="Commencez à écrire votre document avec mise en forme..."
                   className="min-h-[380px]"
                 />

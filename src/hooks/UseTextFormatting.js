@@ -1,6 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from "react";
 
-export default function useTextFormatting(mode, textFormatting, setTextFormatting) {
+export default function useTextFormatting(
+  mode,
+  textFormatting,
+  setTextFormatting
+) {
   const [hasSelection, setHasSelection] = useState(false);
   const [selectedText, setSelectedText] = useState("");
   const [detectedFontSize, setDetectedFontSize] = useState(null);
@@ -54,10 +58,26 @@ export default function useTextFormatting(mode, textFormatting, setTextFormattin
               // walk up to find the nearest block-level ancestor or the contenteditable root
               let node = elementToCheck;
               // find the contenteditable root if present
-              const contentEditableRoot = node.closest && node.closest('[contenteditable]');
+              const contentEditableRoot =
+                node.closest && node.closest("[contenteditable]");
 
               const BLOCK_TAGS = new Set([
-                'DIV', 'P', 'LI', 'BLOCKQUOTE', 'TD', 'TH', 'SECTION', 'ARTICLE', 'HEADER', 'FOOTER', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6'
+                "DIV",
+                "P",
+                "LI",
+                "BLOCKQUOTE",
+                "TD",
+                "TH",
+                "SECTION",
+                "ARTICLE",
+                "HEADER",
+                "FOOTER",
+                "H1",
+                "H2",
+                "H3",
+                "H4",
+                "H5",
+                "H6",
               ]);
 
               let foundAlign = null;
@@ -65,8 +85,11 @@ export default function useTextFormatting(mode, textFormatting, setTextFormattin
                 if (node.nodeType === 1) {
                   const cs = window.getComputedStyle(node);
                   // prefer block-level elements or ones that explicitly set text-align
-                  if (BLOCK_TAGS.has(node.tagName) || (cs.display && cs.display !== 'inline')) {
-                    if (cs.textAlign && cs.textAlign !== 'inherit') {
+                  if (
+                    BLOCK_TAGS.has(node.tagName) ||
+                    (cs.display && cs.display !== "inline")
+                  ) {
+                    if (cs.textAlign && cs.textAlign !== "inherit") {
                       foundAlign = cs.textAlign;
                       break;
                     }
@@ -83,12 +106,17 @@ export default function useTextFormatting(mode, textFormatting, setTextFormattin
 
               // sync font size from the original element (best-effort)
               if (finalComputed.fontSize) {
-                const fontSizeValue = Math.round(parseFloat(finalComputed.fontSize));
+                const fontSizeValue = Math.round(
+                  parseFloat(finalComputed.fontSize)
+                );
                 if (fontSizeValue && fontSizeValue !== detectedFontSize) {
                   setDetectedFontSize(fontSizeValue);
                   setTimeout(() => {
                     try {
-                      setTextFormatting({ ...textFormatting, fontSize: fontSizeValue });
+                      setTextFormatting({
+                        ...textFormatting,
+                        fontSize: fontSizeValue,
+                      });
                     } catch (e) {
                       // ignore if setTextFormatting is not available
                     }
@@ -97,20 +125,28 @@ export default function useTextFormatting(mode, textFormatting, setTextFormattin
               }
 
               // determine alignment: prefer foundAlign then fallback to computed style
-              let alignValue = foundAlign || finalComputed.textAlign || '';
-              if (alignValue === 'start') alignValue = 'left';
-              if (alignValue === 'end') alignValue = 'right';
+              let alignValue = foundAlign || finalComputed.textAlign || "";
+              if (alignValue === "start") alignValue = "left";
+              if (alignValue === "end") alignValue = "right";
 
               if (alignValue) {
                 // diagnostics: log detected alignment vs current prop
                 try {
-                  console.debug('[useTextFormatting] detectedAlign=', alignValue, 'propAlign=', textFormatting.textAlign);
+                  console.debug(
+                    "[useTextFormatting] detectedAlign=",
+                    alignValue,
+                    "propAlign=",
+                    textFormatting.textAlign
+                  );
                 } catch (e) {}
 
                 if (alignValue !== textFormatting.textAlign) {
                   setTimeout(() => {
                     try {
-                      setTextFormatting({ ...textFormatting, textAlign: alignValue });
+                      setTextFormatting({
+                        ...textFormatting,
+                        textAlign: alignValue,
+                      });
                     } catch (e) {
                       // ignore
                     }
@@ -128,9 +164,9 @@ export default function useTextFormatting(mode, textFormatting, setTextFormattin
     const handleMouseUp = () => checkSelection();
     const handleKeyUp = () => checkSelection();
 
-  document.addEventListener("mouseup", handleMouseUp);
-  document.addEventListener("keyup", handleKeyUp);
-  const interval = setInterval(checkSelection, 1000);
+    document.addEventListener("mouseup", handleMouseUp);
+    document.addEventListener("keyup", handleKeyUp);
+    const interval = setInterval(checkSelection, 1000);
 
     return () => {
       document.removeEventListener("mouseup", handleMouseUp);

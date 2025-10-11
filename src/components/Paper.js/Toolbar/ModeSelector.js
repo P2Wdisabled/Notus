@@ -2,6 +2,7 @@ export default function ModeSelector({ mode, setMode, onClearAllData }) {
   return (
     <div className="flex items-center space-x-4">
       <button
+        type="button"
         onClick={() => setMode("draw")}
         className={`px-4 py-2 rounded transition-colors ${
           mode === "draw"
@@ -12,6 +13,7 @@ export default function ModeSelector({ mode, setMode, onClearAllData }) {
         Draw
       </button>
       <button
+        type="button"
         onClick={() => setMode("text")}
         className={`px-4 py-2 rounded transition-colors ${
           mode === "text"

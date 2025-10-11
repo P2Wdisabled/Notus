@@ -77,15 +77,15 @@ function stripHtml(str) {
   return str.replace(/<\/?[^>]+(>|$)/g, "");
 }
 
-export default function DocumentCard({ 
-  document, 
-  currentUserId, 
-  onDelete, 
-  selectMode = false, 
-  selected = false, 
-  onToggleSelect = () => {}, 
-  onEnterSelectMode = () => {}, 
-  isLocal = false 
+export default function DocumentCard({
+  document,
+  currentUserId,
+  onDelete,
+  selectMode = false,
+  selected = false,
+  onToggleSelect = () => {},
+  onEnterSelectMode = () => {},
+  isLocal = false,
 }) {
   const [message, formAction, isPending] = useActionState(
     deleteDocumentAction,
@@ -304,7 +304,7 @@ export default function DocumentCard({
   }, [previewHtml, previewText]); // relire quand le contenu est mis à jour
 
   // Définir l'URL en fonction du type de document (local ou serveur)
-  const documentUrl = isLocal 
+  const documentUrl = isLocal
     ? `/documents/local/${encodeURIComponent(document.id)}`
     : `/documents/${document.id}`;
 
