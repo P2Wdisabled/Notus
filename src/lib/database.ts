@@ -332,12 +332,14 @@ const deleteDocumentsBulk = async (userId: number, documentIds: (string | number
     console.error("❌ Erreur suppression multiple documents:", error);
     return {
       success: false,
-      error: error.message,
+      error: error instanceof Error ? error.message : "Erreur inconnue",
     };
   }
 };
 
 // Fonction pour vérifier la connexion
+// UNUSED: Utilisée seulement dans les scripts de test
+/*
 const testConnection = async (): Promise<boolean> => {
   try {
     const result = await query("SELECT NOW()");
@@ -347,6 +349,7 @@ const testConnection = async (): Promise<boolean> => {
     return false;
   }
 };
+*/
 
 // Fonction pour créer un utilisateur avec token de vérification
 const createUser = async (userData: {
@@ -439,7 +442,7 @@ const verifyUserEmail = async (token: string): Promise<{
     console.error("❌ Erreur vérification email:", error);
     return {
       success: false,
-      error: error.message,
+      error: error instanceof Error ? error.message : "Erreur inconnue",
     };
   }
 };
@@ -471,12 +474,14 @@ const createDocument = async (
     console.error("❌ Erreur création document:", error);
     return {
       success: false,
-      error: error.message,
+      error: error instanceof Error ? error.message : "Erreur inconnue",
     };
   }
 };
 
 // Fonction pour créer ou mettre à jour une note (évite les doublons)
+// UNUSED: Utilisée seulement dans actions.ts mais pas dans le frontend
+/*
 const createOrUpdateNote = async (userId: number, content: string): Promise<{
   success: boolean;
   error?: string;
@@ -532,8 +537,11 @@ const createOrUpdateNote = async (userId: number, content: string): Promise<{
     };
   }
 };
+*/
 
 // Fonction pour créer ou mettre à jour un document (évite les doublons)
+// UNUSED: Utilisée seulement dans actions.ts mais pas dans le frontend
+/*
 const createOrUpdateDocument = async (
   userId: number,
   title: string,
@@ -600,6 +608,7 @@ const createOrUpdateDocument = async (
     };
   }
 };
+*/
 
 // Fonction pour récupérer les documents d'un utilisateur
 const getUserDocuments = async (userId: number, limit: number = 20, offset: number = 0): Promise<{
@@ -626,12 +635,14 @@ const getUserDocuments = async (userId: number, limit: number = 20, offset: numb
     console.error("❌ Erreur récupération documents:", error);
     return {
       success: false,
-      error: error.message,
+      error: error instanceof Error ? error.message : "Erreur inconnue",
     };
   }
 };
 
 // Fonction pour récupérer tous les documents (fil d'actualité)
+// UNUSED: Utilisée seulement dans actions.ts mais pas dans le frontend
+/*
 const getAllDocuments = async (limit: number = 20, offset: number = 0): Promise<{
   success: boolean;
   error?: string;
@@ -659,6 +670,7 @@ const getAllDocuments = async (limit: number = 20, offset: number = 0): Promise<
     };
   }
 };
+*/
 
 // Fonction pour récupérer un document par ID
 const getDocumentById = async (documentId: number): Promise<{
@@ -690,12 +702,14 @@ const getDocumentById = async (documentId: number): Promise<{
     console.error("❌ Erreur récupération document:", error);
     return {
       success: false,
-      error: error.message,
+      error: error instanceof Error ? error.message : "Erreur inconnue",
     };
   }
 };
 
 // Fonction pour mettre à jour un document
+// UNUSED: Utilisée seulement dans actions.ts mais pas dans le frontend
+/*
 const updateDocument = async (
   documentId: number,
   userId: number,
@@ -742,6 +756,7 @@ const updateDocument = async (
     };
   }
 };
+*/
 
 // Fonction pour créer ou mettre à jour un document avec ID spécifique (pour l'édition)
 const createOrUpdateDocumentById = async (
@@ -805,7 +820,7 @@ const createOrUpdateDocumentById = async (
     console.error("❌ Erreur création/mise à jour document par ID:", error);
     return {
       success: false,
-      error: error.message,
+      error: error instanceof Error ? error.message : "Erreur inconnue",
     };
   }
 };
@@ -875,8 +890,8 @@ const updateUserProfile = async (userId: number, fields: {
     return { success: true, user: result.rows[0] };
   } catch (error: unknown) {
     // Gérer les violations d'unicité (email/username)
-    if (error && error.code === "23505") {
-      const detail = String(error.detail || "");
+    if (error && typeof error === 'object' && 'code' in error && error.code === "23505") {
+      const detail = String((error as any).detail || "");
       if (detail.includes("users_email_key") || detail.includes("(email)")) {
         return { success: false, error: "Cet email est déjà utilisé" };
       }
@@ -891,7 +906,7 @@ const updateUserProfile = async (userId: number, fields: {
       }
     }
     console.error("❌ Erreur mise à jour profil:", error);
-    return { success: false, error: error.message };
+    return { success: false, error: error instanceof Error ? error.message : "Erreur inconnue" };
   }
 };
 
@@ -924,7 +939,7 @@ const deleteDocument = async (documentId: number, userId: number): Promise<{
     console.error("❌ Erreur suppression document:", error);
     return {
       success: false,
-      error: error.message,
+      error: error instanceof Error ? error.message : "Erreur inconnue",
     };
   }
 };
@@ -954,7 +969,7 @@ const getAllUsers = async (limit: number = 50, offset: number = 0): Promise<{
     console.error("❌ Erreur récupération utilisateurs:", error);
     return {
       success: false,
-      error: error.message,
+      error: error instanceof Error ? error.message : "Erreur inconnue",
     };
   }
 };
@@ -999,7 +1014,7 @@ const toggleUserBan = async (userId: number, isBanned: boolean): Promise<{
     console.error("❌ Erreur bannissement utilisateur:", error);
     return {
       success: false,
-      error: error.message,
+      error: error instanceof Error ? error.message : "Erreur inconnue",
     };
   }
 };
@@ -1044,7 +1059,7 @@ const toggleUserAdmin = async (userId: number, isAdmin: boolean): Promise<{
     console.error("❌ Erreur changement statut admin:", error);
     return {
       success: false,
-      error: error.message,
+      error: error instanceof Error ? error.message : "Erreur inconnue",
     };
   }
 };
@@ -1069,17 +1084,17 @@ export {
   pool,
   query,
   initializeTables,
-  testConnection,
+  // testConnection, // UNUSED: Commenté car non utilisé
   createUser,
   verifyUserEmail,
   createDocument,
-  createOrUpdateNote,
-  createOrUpdateDocument,
+  // createOrUpdateNote, // UNUSED: Commenté car non utilisé
+  // createOrUpdateDocument, // UNUSED: Commenté car non utilisé
   createOrUpdateDocumentById,
   getUserDocuments,
-  getAllDocuments,
+  // getAllDocuments, // UNUSED: Commenté car non utilisé
   getDocumentById,
-  updateDocument,
+  // updateDocument, // UNUSED: Commenté car non utilisé
   deleteDocument,
   deleteDocumentsBulk,
   // Fonctions profil utilisateur
@@ -1092,7 +1107,10 @@ export {
 };
 
 // Anciennes fonctions pour compatibilité
+// UNUSED: Ces alias ne sont jamais utilisés dans le codebase
+/*
 export const createNote = createDocument;
 export const getUserNotes = getUserDocuments;
 export const getAllNotes = getAllDocuments;
 export const deleteNote = deleteDocument;
+*/

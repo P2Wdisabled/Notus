@@ -17,16 +17,16 @@ import {
   initializeTables,
   query,
   createDocument,
-  createOrUpdateNote,
-  createOrUpdateDocument,
+  // createOrUpdateNote, // UNUSED: Commenté car non utilisé
+  // createOrUpdateDocument, // UNUSED: Commenté car non utilisé
   createOrUpdateDocumentById,
   getUserDocuments,
-  getAllDocuments,
+  // getAllDocuments, // UNUSED: Commenté car non utilisé
   getDocumentById,
   deleteDocument,
   deleteDocumentsBulk,
   updateUserProfile,
-  deleteNote,
+  // deleteNote, // UNUSED: Commenté car non utilisé
   type Document,
   type User,
 } from "./database";
@@ -537,6 +537,8 @@ export async function getUserDocumentsAction(userId: number, limit: number = 20,
 }
 
 // Action pour récupérer tous les documents (fil d'actualité)
+// UNUSED: Utilisée seulement dans actions.ts mais pas dans le frontend
+/*
 export async function getAllDocumentsAction(limit: number = 20, offset: number = 0): Promise<ActionResult> {
   try {
     // Vérifier si la base de données est configurée
@@ -585,8 +587,11 @@ export async function getAllDocumentsAction(limit: number = 20, offset: number =
     };
   }
 }
+*/
 
 // Action pour supprimer une note
+// UNUSED: Utilisée seulement dans NoteCard.js mais pas dans le frontend principal
+/*
 export async function deleteNoteAction(prevState: unknown, formData: FormData): Promise<string> {
   try {
     const noteId = formData.get("noteId") as string;
@@ -644,6 +649,7 @@ export async function deleteNoteAction(prevState: unknown, formData: FormData): 
     return "Erreur lors de la suppression de la note. Veuillez réessayer.";
   }
 }
+*/
 
 // Action pour récupérer un document par ID
 export async function getDocumentByIdAction(documentId: number): Promise<ActionResult> {
@@ -1037,6 +1043,8 @@ export async function getUserProfileAction(userId: number): Promise<ActionResult
 }
 
 // Action pour créer une note (alias pour createDocumentAction)
+// UNUSED: Utilisée seulement dans CreateNoteForm.js mais pas dans le frontend principal
+/*
 export async function createNoteAction(prevState: unknown, formData: FormData): Promise<string> {
   try {
     const content = formData.get("content") as string;
@@ -1119,3 +1127,4 @@ export async function createNoteAction(prevState: unknown, formData: FormData): 
     return "Erreur lors de la publication de la note. Veuillez réessayer.";
   }
 }
+*/
