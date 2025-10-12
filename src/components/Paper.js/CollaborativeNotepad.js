@@ -322,7 +322,6 @@ export default function CollaborativeNotepad({
           className={`absolute inset-0 z-10`}
           style={{ pointerEvents: mode === "draw" ? "auto" : "none" }}
         >
-          {console.log("Rendering DrawingCanvas with mode:", mode)}
           <ClientOnlyDrawingCanvas
             drawings={drawings}
             setDrawings={setDrawings}

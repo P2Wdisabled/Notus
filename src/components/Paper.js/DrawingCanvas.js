@@ -116,8 +116,6 @@ export default function DrawingCanvas({
   const initializePaper = useCallback(async () => {
     if (!canvasRef.current || isInitialized || typeof window === "undefined")
       return;
-
-    console.log("Initializing Paper.js with mode:", mode);
     try {
       const paper = (await import("paper")).default;
       paperRef.current = paper;
@@ -138,13 +136,9 @@ export default function DrawingCanvas({
       const tool = new paper.Tool();
 
       tool.onMouseDown = (event) => {
-        console.log("Mouse down - mode:", modeRef.current, "event:", event);
         if (modeRef.current !== "draw") {
-          console.log("Mode is not draw, returning");
           return;
         }
-
-        console.log("Starting to draw");
         setIsDrawing(true);
         isDrawingRef.current = true;
 
@@ -165,47 +159,27 @@ export default function DrawingCanvas({
       };
 
       tool.onMouseDrag = (event) => {
-        console.log(
-          "Mouse drag - isDrawing:",
-          isDrawingRef.current,
-          "currentPath:",
-          !!currentPathRef.current,
-          "mode:",
-          modeRef.current
-        );
         if (
           !isDrawingRef.current ||
           !currentPathRef.current ||
           modeRef.current !== "draw"
         ) {
-          console.log("Not drawing, returning");
           return;
         }
 
-        console.log("Adding point to path:", event.point);
         currentPathRef.current.add(event.point);
         paper.view.draw();
       };
 
       tool.onMouseUp = (event) => {
-        console.log(
-          "Mouse up - isDrawing:",
-          isDrawingRef.current,
-          "currentPath:",
-          !!currentPathRef.current,
-          "mode:",
-          modeRef.current
-        );
         if (
           !isDrawingRef.current ||
           !currentPathRef.current ||
           modeRef.current !== "draw"
         ) {
-          console.log("Not finishing draw, returning");
           return;
         }
 
-        console.log("Finishing draw");
         setIsDrawing(false);
         isDrawingRef.current = false;
 

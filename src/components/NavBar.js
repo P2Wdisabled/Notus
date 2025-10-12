@@ -120,22 +120,8 @@ export default function NavBar() {
             </Link>
           </div>
 
-          {/* Right: search, notifications, profile (hidden on desktop) */}
+          {/* Right: profile (hidden on desktop) */}
           <div className="flex items-center gap-2 md:hidden">
-            {/* <Link
-              href="/search"
-              aria-label="Rechercher"
-              className="p-2 rounded-full hover:bg-light-gray dark:hover:bg-light-black text-black dark:text-white"
-            >
-              <SearchIcon />
-            </Link>
-            <Link
-              href="/notifications"
-              aria-label="Notifications"
-              className="p-2 rounded-full hover:bg-light-gray dark:hover:bg-light-black text-black dark:text-white"
-            >
-              <BellIcon /> 
-            </Link>*/}
             {isLoggedIn && (
               <Link
                 href="/profile"
@@ -186,6 +172,14 @@ export default function NavBar() {
                 >
                   <Logo width={160} height={46} />
                 </Link>
+              </div>
+              <div className="px-3 mb-3">
+                <Input
+                  placeholder="Rechercher..."
+                  value={searchQuery}
+                  onChange={handleSearchChange}
+                  onKeyDown={handleDesktopSearchKeyDown}
+                />
               </div>
               {/* {items
                 .filter((i) => i.href !== "/notifications")

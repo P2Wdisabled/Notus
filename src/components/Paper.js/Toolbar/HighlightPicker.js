@@ -279,28 +279,7 @@ export default function HighlightPicker({
     }
   }, []);
 
-  return (
-    <div ref={pickerRef} className="flex items-center space-x-2 relative">
-      <label className="text-sm font-medium">Highlight:</label>
-      <div className="relative">
-        <button
-          type="button"
-          onClick={() => {
-            // Hide color palette if it's open
-            document.getElementById("colorPalette")?.classList.add("hidden");
-            // Toggle highlight palette
-            document
-              .getElementById("highlightPalette")
-              .classList.toggle("hidden");
-          }}
-          className={`w-8 h-8 rounded border-2 transition-all hover:scale-110 ${
-            textFormatting.backgroundColor &&
-            textFormatting.backgroundColor !== "transparent"
-              ? "border-white shadow-lg"
-              : "border-gray-400"
-          }`}
-          style={{
-            backgroundColor: (() => {
+  const getCurrentHighlightColor = () => {
               // Get background color from selection or cursor position
               const selection = window.getSelection();
               if (selection && selection.rangeCount > 0) {
@@ -353,13 +332,36 @@ export default function HighlightPicker({
                 textFormatting.backgroundColor === "transparent" ||
                 !textFormatting.backgroundColor
               ) {
-                return "#ffffff";
+      return "#ffff00";
               }
               return textFormatting.backgroundColor;
-            })(),
+  };
+
+  return (
+    <div ref={pickerRef} className="flex items-center relative">
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => {
+            // Hide color palette if it's open
+            document.getElementById("colorPalette")?.classList.add("hidden");
+            // Toggle highlight palette
+            document
+              .getElementById("highlightPalette")
+              .classList.toggle("hidden");
           }}
+          className="p-2 rounded bg-gray-600 hover:bg-gray-500 text-gray-200 transition-all hover:shadow-md relative"
           title="Select highlight color"
-        />
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M17.75 7L14 3.25l-10 10V17h3.75l10-10zm2.96-2.96a.996.996 0 000-1.41L18.37.29a.996.996 0 00-1.41 0L15 2.25 18.75 6l1.96-1.96z"/>
+            <path fillOpacity=".36" d="M0 20h24v4H0z"/>
+          </svg>
+          <div 
+            className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-4 h-1 rounded"
+            style={{ backgroundColor: getCurrentHighlightColor() }}
+          />
+        </button>
 
         <div
           id="highlightPalette"
@@ -503,7 +505,6 @@ export default function HighlightPicker({
                         .querySelector("[contenteditable]")
                         ?.dispatchEvent(event);
                     } catch (error) {
-                      // console.log("Error highlighting content:", error);
                       // Final fallback - attempt safeWrapSelection on current selection
                       try {
                         const sel2 = window.getSelection();
@@ -659,7 +660,6 @@ export default function HighlightPicker({
                       .querySelector("[contenteditable]")
                       ?.dispatchEvent(event);
                   } catch (error) {
-                    // console.log("Error removing highlighting:", error);
                     // Fallback - try safeRemoveSelection on current selection
                     try {
                       const sel2 = window.getSelection();

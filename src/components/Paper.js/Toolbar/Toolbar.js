@@ -16,14 +16,17 @@ export default function Toolbar({
   onClearDrawings,
 }) {
   return (
-    <div className="bg-white dark:bg-black text-white p-4 gap-4 flex flex-wrap">
+    <div className="bg-white dark:bg-black text-white p-4 flex flex-wrap items-center gap-1">
       <ModeSelector
         mode={mode}
         setMode={setMode}
         onClearAllData={onClearAllData}
       />
 
-      <div className={mode === "draw" ? "block" : "hidden"}>
+      {/* Separator */}
+      <div className="h-8 w-px bg-gray-600 mx-2"></div>
+
+      <div className={mode === "draw" ? "flex items-center gap-1" : "hidden"}>
         <DrawControls
           brushColor={brushColor}
           setBrushColor={setBrushColor}
@@ -33,7 +36,7 @@ export default function Toolbar({
         />
       </div>
 
-      <div className={mode === "text" ? "block" : "hidden"}>
+      <div className={mode === "text" ? "flex items-center gap-1" : "hidden"}>
         <TextControls
           textFormatting={textFormatting}
           setTextFormatting={setTextFormatting}

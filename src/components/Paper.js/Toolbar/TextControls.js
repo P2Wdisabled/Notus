@@ -19,7 +19,7 @@ export default function TextControls({ textFormatting, setTextFormatting }) {
   } = useTextFormatting("text", textFormatting, setTextFormatting);
 
   return (
-    <div className="flex flex-wrap gap-4 space-x-4">
+    <div className="flex flex-wrap items-center gap-1">
       
       <FormatButtons
         isBold={isBold}

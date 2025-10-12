@@ -243,8 +243,8 @@ export function SearchableDocumentsList({
 
       {/* Bandeau fixe en bas de page */}
       {selectMode && (
-        <div className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-black border-t border-gray-200 dark:border-gray-700 px-4 py-3 md:ml-64">
-          <div className="max-w-4xl mx-auto flex items-center justify-between">
+        <div className={`fixed left-0 right-0 z-50 bg-white dark:bg-black px-4  md:ml-64 ${!currentUserId ? 'bottom-12' : 'bottom-0'}`}>
+          <div className="max-w-4xl mx-auto flex items-center justify-between py-3 border-t border-gray-200 dark:border-gray-700">
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-600 dark:text-gray-400">
                 {selectedIds.length} document(s) sélectionné(s)

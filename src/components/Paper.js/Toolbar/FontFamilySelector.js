@@ -1,7 +1,6 @@
 export default function FontFamilySelector({ textFormatting, setTextFormatting, applyFormat }) {
   return (
-    <div className="flex items-center space-x-2">
-      <label className="text-sm font-medium">Font:</label>
+    <div className="flex items-center">
       <select
         value={(() => {
           // Get font family from selection or cursor position

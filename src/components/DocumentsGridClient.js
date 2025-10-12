@@ -175,7 +175,7 @@ export default function DocumentsGridClient({ documents: serverDocuments = [], c
 
       {/* Bandeau fixe en bas de page */}
       {selectMode && (
-        <div className={`fixed left-0 right-0 z-10 px-0 md:px-4 ${!currentUserId ? 'bottom-12' : 'bottom-0'}`}>
+        <div className={`fixed left-0 right-0 z-10 px-0 md:px-4 ${!currentUserId ? 'bottom-20' : 'bottom-0'}`}>
           <div className="md:ml-64 md:max-w-4/5 max-w-4xl mx-auto py-3 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-lg px-4">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-2">

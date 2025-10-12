@@ -6,8 +6,7 @@ export default function FontSizeSelector({
   applyFormat 
 }) {
   return (
-    <div className="flex items-center space-x-2">
-      <label className="text-sm font-medium">Size:</label>
+    <div className="flex items-center">
       <select
         value={(() => {
           // Use detected font size or fallback to textFormatting.fontSize
@@ -159,7 +158,6 @@ export default function FontSizeSelector({
               }
               
             } catch (error) {
-              console.log("Error applying font size:", error);
               // Fallback to standard approach
               applyFormat("fontSize", e.target.value);
             }
