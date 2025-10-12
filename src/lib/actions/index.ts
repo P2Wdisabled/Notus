@@ -1,3 +1,2 @@
-// Export des actions refactorisées
-export * from "./UserActions";
-export * from "./DocumentActions";
+// Export des actions serveur uniquement
+export * from "./server-only/ServerActions";

@@ -57,6 +57,7 @@ export interface ActionResult {
   documents?: Document[];
   document?: Document;
   user?: User;
+  users?: User[];
   userId?: string;
   ok?: boolean;
   id?: number;
