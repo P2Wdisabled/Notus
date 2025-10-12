@@ -703,16 +703,6 @@ export async function updateDocumentAction(prevState, formDataOrObj) {
     }
 
     const userIdToUse = serverUserId ?? clientUserId;
-    console.log(
-      "updateDocumentAction DEBUG: documentId=",
-      documentId,
-      "serverUserId=",
-      serverUserId,
-      "clientUserId=",
-      clientUserId,
-      "userIdToUse=",
-      userIdToUse
-    );
 
     if (!userIdToUse) {
       return { ok: false, error: "Not authenticated" };
@@ -744,10 +734,6 @@ export async function updateDocumentAction(prevState, formDataOrObj) {
       return { ok: false, error: "Document not found" };
     }
 
-    console.log(
-      "updateDocumentAction DEBUG: existing document owner (raw):",
-      existingAny
-    );
     // support plusieurs noms de champs possibles pour le propriétaire
     const ownerCandidate =
       existingAny.user_id ??
@@ -758,15 +744,6 @@ export async function updateDocumentAction(prevState, formDataOrObj) {
     const ownerId = Number(ownerCandidate);
     // userIdToUse was already set above (serverUserId ?? clientUserId)
     const userIdToUseNum = Number(userIdToUse);
-
-    console.log("updateDocumentAction DEBUG:", {
-      documentId: idNum,
-      ownerCandidate,
-      ownerId,
-      userIdToUse: userIdToUseNum,
-      ownerType: typeof ownerCandidate,
-      userIdType: typeof userIdToUseNum,
-    });
 
     // parse title/content/drawings/tags and call updateRichDocument(...)
     // --- keep your existing parsing & update logic here ---
@@ -786,6 +763,8 @@ export async function updateDocumentAction(prevState, formDataOrObj) {
       rawDrawings = formDataOrObj.drawings || null;
       rawTags = formDataOrObj.tags || null;
     }
+
+    // Content received and parsed successfully
 
     let drawings = [];
     let tags = [];

@@ -1,191 +1,195 @@
 "use client";
-
-import { useActionState } from "react";
+import { useActionState, startTransition } from "react";
+import { Button } from "@/components/ui";
 import { createDocumentAction } from "@/lib/actions";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useLocalSession } from "@/hooks/useLocalSession";
-import PropTypes from "prop-types";
 import CollaborativeNotepad from "@/components/Paper.js/CollaborativeNotepad";
 
-export default function NewDocumentPageClient({ session }) {
+export default function NewDocumentPageClient(props) {
+  // -------- State management --------
   const router = useRouter();
-  const [message, formAction, isPending] = useActionState(
-    createDocumentAction,
-    undefined
-  );
   const [title, setTitle] = useState("");
   const [content, setContent] = useState({
     text: "",
     drawings: [],
     textFormatting: {},
   });
-  const [localInfo, setLocalInfo] = useState("");
-  const [lastSaved, setLastSaved] = useState({ title: "", content: "" });
+  const [canvasCtrl, setCanvasCtrl] = useState(null);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [showSavedState, setShowSavedState] = useState(false);
 
-  // Utiliser notre hook personnalisé pour gérer la session
+  // Action state
+  const [state, formAction, isPending] = useActionState(createDocumentAction, {
+    ok: false,
+  });
+
+  // Session management
   const {
     session: localSession,
-    loading,
+    loading: sessionLoading,
     isLoggedIn,
     userId,
-  } = useLocalSession(session);
+  } = useLocalSession(props.session);
 
-  // Redirection vers la page d'édition après création du document
-  useEffect(() => {
-    if (
-      message &&
-      typeof message === "object" &&
-      message.success &&
-      message.documentId
-    ) {
-      // Rediriger vers la page d'édition du document créé
-      router.push(`/documents/${message.documentId}`);
-    }
-  }, [message, router]);
+  // -------- Content normalization --------
+  const normalizeContent = (rawContent) => {
+    if (!rawContent) return { text: "", drawings: [], textFormatting: {} };
 
-  // Debounce content updates to prevent infinite loops
-  const [debouncedContent, setDebouncedContent] = useState(content);
-  const contentUpdateTimeoutRef = useRef(null);
+    let content = rawContent;
 
-  // Sync debouncedContent with content on initial load
-  useEffect(() => {
-    setDebouncedContent(content);
-  }, []);
-
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (contentUpdateTimeoutRef.current) {
-        clearTimeout(contentUpdateTimeoutRef.current);
+    // Parse if string
+    if (typeof content === "string") {
+      try {
+        content = JSON.parse(content);
+      } catch {
+        return { text: content, drawings: [], textFormatting: {} };
       }
-    };
-  }, []);
-
-  // Debounced content change handler
-  const handleContentChange = useCallback((val) => {
-    // Clear existing timeout
-    if (contentUpdateTimeoutRef.current) {
-      clearTimeout(contentUpdateTimeoutRef.current);
     }
 
-    // Set new timeout for debounced update
-    const timeout = setTimeout(() => {
-      if (typeof val === "string") {
+    // Ensure proper structure
+    return {
+      text: content.text || "",
+      drawings: Array.isArray(content.drawings) ? content.drawings : [],
+      textFormatting: content.textFormatting || {},
+      timestamp: content.timestamp || Date.now(),
+    };
+  };
+
+  // -------- Content change handling --------
+  const handleContentChange = useCallback((newContent) => {
+    const normalized = normalizeContent(newContent);
+    setContent(normalized);
+  }, []);
+
+  // -------- Success message handling --------
+  const handleSuccess = useCallback(
+    (documentId) => {
+      setShowSuccessMessage(true);
+      setShowSavedState(true);
+
+      const savedTimer = setTimeout(() => setShowSavedState(false), 1500);
+      const messageTimer = setTimeout(() => {
+        setShowSuccessMessage(false);
+        router.push(`/documents/${documentId}`);
+      }, 2000);
+
+      return () => {
+        clearTimeout(savedTimer);
+        clearTimeout(messageTimer);
+      };
+    },
+    [router]
+  );
+
+  // -------- Save handling --------
+  const handleSubmit = useCallback(
+    async (e) => {
+      e?.preventDefault?.();
+
+      const submittingUserId =
+        userId ?? localSession?.user?.id ?? props.session?.user?.id;
+      if (!submittingUserId) {
+        alert("Session invalide. Veuillez vous reconnecter.");
+        return;
+      }
+
+      // Get current drawings from canvas or content
+      let drawingsToSave = [];
+
+      if (canvasCtrl && typeof canvasCtrl.saveDrawings === "function") {
         try {
-          const parsed = JSON.parse(val);
-          setContent(parsed);
-          setDebouncedContent(parsed);
-        } catch {
-          const fallback = {
-            text: val,
-            drawings: [],
-            textFormatting: {},
-          };
-          setContent(fallback);
-          setDebouncedContent(fallback);
+          drawingsToSave = await canvasCtrl.saveDrawings({ force: true });
+        } catch (err) {
+          // Fallback to content drawings
+          drawingsToSave = content.drawings || [];
         }
       } else {
-        setContent(val);
-        setDebouncedContent(val);
+        drawingsToSave = content.drawings || [];
       }
-    }, 100); // 100ms debounce
 
-    contentUpdateTimeoutRef.current = timeout;
-  }, []);
+      // Build content object
+      const contentToSave = {
+        text: content.text || "",
+        drawings: drawingsToSave,
+        textFormatting: content.textFormatting || {},
+        timestamp: Date.now(),
+      };
 
-  if (loading) {
+      // Prepare form data
+      const formData = new FormData();
+      formData.append("userId", String(submittingUserId));
+      formData.append("title", title || "Sans titre");
+      formData.append("content", JSON.stringify(contentToSave));
+      formData.append("tags", JSON.stringify([]));
+
+      // Submit
+      startTransition(() => {
+        formAction(formData);
+      });
+    },
+    [
+      canvasCtrl,
+      content,
+      userId,
+      localSession,
+      props.session,
+      title,
+      formAction,
+    ]
+  );
+
+  // Handle successful creation
+  useEffect(() => {
+    console.log("State received:", state);
+    if (state && state.success && state.documentId) {
+      console.log("Redirecting to document:", state.documentId);
+      handleSuccess(state.documentId);
+    }
+  }, [state, handleSuccess]);
+
+  // -------- Loading states --------
+  if (sessionLoading) {
     return (
       <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange dark:border-dark-purple mx-auto mb-4"></div>
-          <p className="text-orange dark:text-dark-purple">Chargement...</p>
+          <p className="text-orange dark:text-dark-purple">
+            Chargement de la session...
+          </p>
         </div>
       </div>
     );
   }
 
-  // Helpers pour la sauvegarde locale des documents pour utilisateurs non connectés
-  const LOCAL_DOCS_KEY = "notus.local.documents";
+  if (!isLoggedIn) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+            Accès refusé
+          </h1>
+          <p className="text-gray-600 dark:text-gray-300 mb-6">
+            Vous devez être connecté pour créer un document.
+          </p>
+          <Link
+            href="/login"
+            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+          >
+            Se connecter
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
-  const loadLocalDocuments = () => {
-    try {
-      const raw = localStorage.getItem(LOCAL_DOCS_KEY);
-      return raw ? JSON.parse(raw) : [];
-    } catch (_) {
-      return [];
-    }
-  };
-
-  const saveLocalDocuments = (docs) => {
-    try {
-      localStorage.setItem(LOCAL_DOCS_KEY, JSON.stringify(docs));
-      return true;
-    } catch (_) {
-      return false;
-    }
-  };
-
-  // Track last saved note to prevent duplicates
-  let saveTimeout = null;
-
-  const handleSubmit = (formData) => {
-    if (isLoggedIn && userId) {
-      formData.append("userId", userId);
-      formData.append("title", title);
-      formData.append("content", JSON.stringify(debouncedContent));
-      formAction(formData);
-      return;
-    }
-
-    // Prevent duplicate notes: only save if content/title changed
-    if (
-      title.trim() === lastSaved.title &&
-      JSON.stringify(debouncedContent) === lastSaved.content
-    ) {
-      setLocalInfo("Ce document a déjà été enregistré.");
-      return;
-    }
-
-    // Debounce rapid submissions
-    if (saveTimeout) {
-      clearTimeout(saveTimeout);
-    }
-    saveTimeout = setTimeout(() => {
-      const nowIso = new Date().toISOString();
-      const localId =
-        typeof crypto !== "undefined" && crypto.randomUUID
-          ? `local-${crypto.randomUUID()}`
-          : `local-${Date.now()}`;
-      const newDoc = {
-        id: localId,
-        title: (title || "Sans titre").trim(),
-        content: JSON.stringify(content || {}),
-        created_at: nowIso,
-        updated_at: nowIso,
-      };
-
-      const docs = loadLocalDocuments();
-      docs.unshift(newDoc);
-      const ok = saveLocalDocuments(docs);
-      if (ok) {
-        setLocalInfo("Document enregistré localement dans ce navigateur.");
-        setLastSaved({ title: title.trim(), content: JSON.stringify(content) });
-        setTitle("Sans titre");
-        setContent({ text: "", drawings: [], textFormatting: {} });
-      } else {
-        setLocalInfo(
-          "Impossible d'enregistrer localement (quota ou permissions)."
-        );
-      }
-    }, 200);
-  };
-
+  // -------- Main render --------
   return (
     <div className="h-screen overflow-hidden bg-white dark:bg-black py-8">
       <div className="max-w-4xl mx-auto px-4">
-        {/* En-tête */}
+        {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <Link
             href="/"
@@ -203,23 +207,14 @@ export default function NewDocumentPageClient({ session }) {
                 clipRule="evenodd"
               />
             </svg>
+            Retour
           </Link>
         </div>
 
-        {/* Bandeau d'information en mode anonyme */}
-        {!isLoggedIn && (
-          <div className="mb-6 rounded-xl border border-orange bg-white text-orange dark:border-dark-purple dark:bg-black dark:text-dark-purple p-4">
-            <p className="text-md">
-              Vous n'êtes pas connecté. Votre document sera enregistré{" "}
-              <strong>localement</strong> dans ce navigateur.
-            </p>
-          </div>
-        )}
-
-        {/* Formulaire de création */}
+        {/* Create form */}
         <div className="bg-white dark:bg-black rounded-2xl border border-gray dark:border-dark-gray p-6 overflow-hidden">
-          <form action={handleSubmit} className="space-y-6">
-            {/* Titre */}
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Title */}
             <div>
               <input
                 type="text"
@@ -231,27 +226,25 @@ export default function NewDocumentPageClient({ session }) {
               />
             </div>
 
-            {/* Contenu */}
+            {/* Content */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Contenu
               </label>
               <div className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-700 min-h-[400px]">
                 <CollaborativeNotepad
-                  roomId="new-document"
-                  documentId={null}
-                  userId={session?.user?.id ?? null}
-                  initialData={{ text: "", drawings: [], textFormatting: {} }}
+                  initialData={content}
                   useLocalStorage={false}
-                  localMode={true}
+                  calMode={false}
                   onContentChange={handleContentChange}
+                  onCanvasReady={(ctrl) => setCanvasCtrl(ctrl)}
                   placeholder="Commencez à écrire votre document avec mise en forme..."
                   className="min-h-[400px]"
                 />
               </div>
             </div>
 
-            {/* Boutons */}
+            {/* Buttons */}
             <div className="flex justify-end space-x-4">
               <Link
                 href="/"
@@ -261,65 +254,43 @@ export default function NewDocumentPageClient({ session }) {
               </Link>
               <button
                 type="submit"
-                disabled={isPending || title.trim().length === 0}
-                className="bg-orange hover:bg-orange dark:bg-dark-purple dark:hover:bg-dark-purple disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+                disabled={isPending}
+                className={`${
+                  showSavedState
+                    ? "bg-green-600 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-600"
+                    : "bg-orange hover:bg-orange dark:bg-dark-purple dark:hover:bg-dark-purple"
+                } disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-lg transition-colors`}
               >
-                {isPending ? "Création..." : "Créer le document"}
+                {isPending
+                  ? "Création..."
+                  : showSavedState
+                    ? "Créé"
+                    : "Créer le document"}
               </button>
             </div>
 
-            {/* Message de succès/erreur */}
-            {((message && typeof message === "string" && message.trim()) ||
-              (typeof message === "object" && message.message) ||
-              localInfo) && (
+            {/* Success/Error messages */}
+            {(showSuccessMessage || (state && state.error)) && (
               <div
-                className={`shrink-0 rounded-lg p-4 ${
-                  (message &&
-                    typeof message === "string" &&
-                    (message.includes("succès") ||
-                      message.includes("créé") ||
-                      message.includes("mis à jour"))) ||
-                  (typeof message === "object" && message.success) ||
-                  localInfo
+                className={`shrink-0 rounded-lg p-4 mt-4 ${
+                  showSuccessMessage
                     ? "bg-white dark:bg-black border border-orange dark:border-dark-purple"
                     : "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"
                 }`}
               >
                 <p
                   className={`text-sm ${
-                    (message &&
-                      typeof message === "string" &&
-                      (message.includes("succès") ||
-                        message.includes("créé") ||
-                        message.includes("mis à jour"))) ||
-                    (typeof message === "object" && message.success) ||
-                    localInfo
-                      ? "text-orange dark:text-dark-purple text-3xl"
+                    showSuccessMessage
+                      ? "text-orange dark:text-dark-purple"
                       : "text-red-600 dark:text-red-400"
                   }`}
                 >
-                  {localInfo ||
-                    (typeof message === "object" ? message.message : message)}
+                  {showSuccessMessage
+                    ? "Document créé avec succès !"
+                    : state?.error || "Erreur lors de la création"}
                 </p>
               </div>
             )}
-
-            {/* Boutons */}
-            {/* <div className="flex justify-center space-x-4 pt-2 shrink-0">
-              <button
-                type="submit"
-                disabled={isPending}
-                className="bg-orange hover:bg-orange dark:bg-dark-purple dark:hover:bg-dark-purple disabled:bg-gray disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-lg hover:shadow-md shadow-light-gray dark:shadow-light-black transition-all duration-200 cursor-pointer"
-              >
-                {isPending ? "Sauvegarde..." : "Sauvegarder"}
-              </button>
-              <Link
-                href="/"
-                className="px-6 py-3 border border-orange dark:border-dark-purple text-orange dark:text-dark-purple rounded-lg hover:shadow-md shadow-orange dark:shadow-dark-purple transition-all duration-200 cursor-pointer"
-              >
-                Annuler
-              </Link>
-            </div> */}
           </form>
         </div>
       </div>

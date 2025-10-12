@@ -1,233 +1,277 @@
 "use client";
-
 import { useState, useEffect, useRef, useCallback } from "react";
-import dynamic from "next/dynamic";
 import RichTextEditor from "./RichTextEditor";
-import Toolbar from "./Toolbar/Toolbar.js";
-import { useSocket } from "../../lib/paper.js/socket";
-
-const DrawingCanvas = dynamic(() => import("./DrawingCanvas"), {
-  ssr: true,
-  loading: () => (
-    <div className="w-full h-full flex items-center justify-center bg-white">
-      <div className="text-gray-500">Loading drawing canvas...</div>
-    </div>
-  ),
-});
+import ClientOnlyDrawingCanvas from "./ClientOnlyDrawingCanvas";
+import Toolbar from "./Toolbar/Toolbar";
+import { useSocket } from "@/lib/paper.js/socket";
+import { useLocalSession } from "@/hooks/useLocalSession";
 
 export default function CollaborativeNotepad({
-  roomId = "default-room",
-  documentId,
-  userId,
-  initialData,
+  initialData = { text: "", drawings: [], textFormatting: {} },
+  useLocalStorage = false,
+  calMode = false,
   onContentChange,
-  localMode = false,
-  placeholder = "Start typing...",
+  onCanvasReady,
+  placeholder = "Commencez à écrire...",
   className = "",
-  initialContent = "",
+  ...props
 }) {
-  // default to text mode so users see the editor on page load
+  // -------- State management --------
+  const [text, setText] = useState(initialData.text || "");
+  const [drawings, setDrawings] = useState(initialData.drawings || []);
+  const [textFormatting, setTextFormatting] = useState(
+    initialData.textFormatting || {}
+  );
   const [mode, setMode] = useState("text");
-  const [brushColor, setBrushColor] = useState("#000000");
-  const [brushSize, setBrushSize] = useState(3);
-  const [content, setContent] = useState("");
-  const [drawings, setDrawings] = useState([]);
-  const [textFormatting, setTextFormatting] = useState({
-    color: "#000000",
-    backgroundColor: "transparent",
-    fontSize: 16,
-    fontFamily: "Inter, sans-serif",
-    fontWeight: "normal",
-    textAlign: "left",
-  });
-  const drawingsTimeoutRef = useRef(null);
   const [isInitialized, setIsInitialized] = useState(false);
-  const [canvasControls, setCanvasControls] = useState(null);
+  const [drawingState, setDrawingState] = useState({
+    color: "#000000",
+    size: 3,
+    opacity: 1,
+  });
 
-  const { socket, isConnected } = useSocket(localMode ? null : roomId);
+  // Refs
+  const drawingsTimeoutRef = useRef(null);
+  const hasLoadedInitialDrawingsRef = useRef(false);
+  const canvasCtrlRef = useRef(null);
 
-  useEffect(() => {
-    if (isInitialized) return;
+  // Session
+  const { session, isLoggedIn } = useLocalSession();
 
-    if (initialData) {
-      let dbTextContent = "";
-      let dbDrawings = [];
-      let dbTextFormatting = {};
+  // Socket
+  const { socket, localMode } = useSocket();
 
+  // -------- Content normalization --------
+  const normalizeContent = (rawContent) => {
+    if (!rawContent) return { text: "", drawings: [], textFormatting: {} };
+
+    let content = rawContent;
+
+    // Parse if string
+    if (typeof content === "string") {
       try {
-        if (typeof initialData.text === "string") {
-          dbTextContent = initialData.text;
-        } else if (initialData.text_content) {
-          dbTextContent = initialData.text_content;
-        } else if (initialData.content) {
-          try {
-            const parsed = JSON.parse(initialData.content);
-            dbTextContent = parsed.text || initialData.content;
-            dbDrawings = parsed.drawings || [];
-            dbTextFormatting = parsed.textFormatting || {};
-          } catch (e) {
-            dbTextContent = initialData.content;
+        content = JSON.parse(content);
+      } catch {
+        return { text: content, drawings: [], textFormatting: {} };
+      }
+    }
+
+    // Ensure proper structure
+    return {
+      text: content.text || "",
+      drawings: Array.isArray(content.drawings) ? content.drawings : [],
+      textFormatting: content.textFormatting || {},
+      timestamp: content.timestamp || Date.now(),
+    };
+  };
+
+  // -------- Content change handling --------
+  const handleContentChange = useCallback(
+    (newContent) => {
+      const normalized = normalizeContent(newContent);
+
+      setText(normalized.text);
+      setDrawings(normalized.drawings);
+      setTextFormatting(normalized.textFormatting);
+
+      // Notify parent
+      if (onContentChange) {
+        onContentChange(normalized);
+      }
+    },
+    [onContentChange]
+  );
+
+  // -------- Clear all data handler --------
+  const handleClearAllData = useCallback(() => {
+    setText("");
+    setDrawings([]);
+    setTextFormatting({});
+
+    // Clear the Paper.js canvas if available
+    if (canvasCtrlRef.current) {
+      canvasCtrlRef.current.clearCanvas?.();
+    }
+
+    const clearedContent = {
+      text: "",
+      drawings: [],
+      textFormatting: {},
+      timestamp: Date.now(),
+    };
+
+    onContentChange?.(clearedContent);
+  }, [onContentChange]);
+
+  // -------- Clear drawings only handler --------
+  const handleClearDrawings = useCallback(() => {
+    setDrawings([]);
+
+    // Clear the Paper.js canvas if available
+    if (canvasCtrlRef.current) {
+      canvasCtrlRef.current.clearCanvas?.();
+    }
+
+    // Update content with current text but empty drawings
+    const updatedContent = {
+      text: text,
+      drawings: [],
+      textFormatting: textFormatting,
+      timestamp: Date.now(),
+    };
+
+    onContentChange?.(updatedContent);
+  }, [text, textFormatting, onContentChange]);
+
+  // -------- Drawing handling --------
+  const handleDrawingData = useCallback(
+    (data) => {
+      setDrawings((prev) => {
+        const newDrawings = [...prev, data];
+
+        // Clear existing timeout
+        if (drawingsTimeoutRef.current) {
+          clearTimeout(drawingsTimeoutRef.current);
+        }
+
+        // Set timeout to notify parent
+        drawingsTimeoutRef.current = setTimeout(() => {
+          const updatedContent = {
+            text,
+            drawings: newDrawings,
+            textFormatting,
+            timestamp: Date.now(),
+          };
+
+          if (onContentChange) {
+            onContentChange(updatedContent);
           }
-        }
+        }, 100);
 
-        if (initialData.drawings) {
-          dbDrawings = initialData.drawings;
-        } else if (initialData.drawings_data) {
-          dbDrawings = Array.isArray(initialData.drawings_data)
-            ? initialData.drawings_data
-            : JSON.parse(initialData.drawings_data || "[]");
-        }
+        return newDrawings;
+      });
+    },
+    [text, textFormatting, onContentChange]
+  );
 
-        if (initialData.textFormatting) {
-          dbTextFormatting = initialData.textFormatting;
-        } else if (initialData.text_formatting) {
-          dbTextFormatting =
-            typeof initialData.text_formatting === "object"
-              ? initialData.text_formatting
-              : JSON.parse(initialData.text_formatting || "{}");
-        }
-      } catch (error) {
-        dbTextContent = initialData.text ?? initialData.content ?? "";
+  // -------- Text formatting handling --------
+  const handleTextFormattingChange = useCallback(
+    (newFormatting) => {
+      setTextFormatting(newFormatting);
+
+      const updatedContent = {
+        text,
+        drawings,
+        textFormatting: newFormatting,
+        timestamp: Date.now(),
+      };
+
+      if (onContentChange) {
+        onContentChange(updatedContent);
       }
+    },
+    [text, drawings, onContentChange]
+  );
 
-      setContent(dbTextContent);
-      setDrawings(dbDrawings);
-      setTextFormatting((prev) => ({ ...prev, ...dbTextFormatting }));
-    } else if (initialContent) {
-      setContent(initialContent);
-    } else {
-      // defaults already set in state initialization
-    }
+  // -------- Text change handling --------
+  const handleTextChange = useCallback(
+    (newText) => {
+      setText(newText);
 
-    setIsInitialized(true);
-  }, [initialData, initialContent, isInitialized]);
+      const updatedContent = {
+        text: newText,
+        drawings,
+        textFormatting,
+        timestamp: Date.now(),
+      };
 
-  useEffect(() => {
-    if (socket && documentId && !localMode) {
-      socket.emit("join-document", documentId);
-    }
-  }, [socket, documentId, localMode]);
-
-  useEffect(() => {
-    if (!socket || localMode) return;
-
-    const handleDocumentState = (data) => {
-      if (!isInitialized) return;
-      setContent(data.content || "");
-      setDrawings(data.drawings || []);
-      if (data.textFormatting) {
-        setTextFormatting((prev) => ({ ...prev, ...data.textFormatting }));
+      if (onContentChange) {
+        onContentChange(updatedContent);
       }
-    };
+    },
+    [drawings, textFormatting, onContentChange]
+  );
 
-    const handleDrawingData = (data) => {
-      setDrawings((prev) => [...prev, data.drawingData]);
-    };
+  // -------- Canvas ready handling --------
+  const handleCanvasReady = useCallback(
+    (canvasCtrl) => {
+      canvasCtrlRef.current = canvasCtrl;
+      if (onCanvasReady) {
+        onCanvasReady(canvasCtrl);
+      }
+    },
+    [onCanvasReady]
+  );
 
-    const handleTextUpdate = (data) => {
-      setContent(data.content);
-    };
+  // -------- Socket event handlers --------
+  const handleTextUpdate = useCallback(
+    (data) => {
+      if (data.userId !== session?.user?.id && data.text !== undefined) {
+        setText(data.text);
+      }
+    },
+    [session?.user?.id]
+  );
 
-    const handleTextFormattingUpdate = (data) => {
-      setTextFormatting((prev) => ({ ...prev, ...data.formatting }));
-    };
+  const handleDrawingUpdate = useCallback(
+    (data) => {
+      if (data.userId !== session?.user?.id && data.drawings) {
+        setDrawings(data.drawings);
+      }
+    },
+    [session?.user?.id]
+  );
 
-    const handleClearCanvas = () => {
-      setContent("");
-      setDrawings([]);
-    };
+  const handleTextFormattingUpdate = useCallback(
+    (data) => {
+      if (data.userId !== session?.user?.id && data.textFormatting) {
+        setTextFormatting(data.textFormatting);
+      }
+    },
+    [session?.user?.id]
+  );
 
-    socket.on("document-state", handleDocumentState);
-    socket.on("drawing-data", handleDrawingData);
+  const handleClearCanvas = useCallback(() => {
+    setDrawings([]);
+  }, []);
+
+  // -------- Socket setup --------
+  useEffect(() => {
+    if (!socket || localMode || !isLoggedIn) return;
+
     socket.on("text-update", handleTextUpdate);
+    socket.on("drawing-update", handleDrawingUpdate);
     socket.on("text-formatting-update", handleTextFormattingUpdate);
     socket.on("clear-canvas", handleClearCanvas);
 
     return () => {
-      socket.off("document-state", handleDocumentState);
-      socket.off("drawing-data", handleDrawingData);
       socket.off("text-update", handleTextUpdate);
+      socket.off("drawing-update", handleDrawingUpdate);
       socket.off("text-formatting-update", handleTextFormattingUpdate);
       socket.off("clear-canvas", handleClearCanvas);
     };
-  }, [socket, localMode, isInitialized]);
+  }, [
+    socket,
+    localMode,
+    isLoggedIn,
+    handleTextUpdate,
+    handleDrawingUpdate,
+    handleTextFormattingUpdate,
+    handleClearCanvas,
+  ]);
 
-  const handleDrawingData = (data) => {
-    setDrawings((prev) => [...prev, data]);
-
-    // Clear existing timeout
-    if (drawingsTimeoutRef.current) {
-      clearTimeout(drawingsTimeoutRef.current);
-    }
-
-    // Set new timeout for debounced onContentChange
-    drawingsTimeoutRef.current = setTimeout(() => {
-      if (onContentChange) {
-        onContentChange(
-          JSON.stringify({
-            text: content,
-            drawings: [...drawings, data],
-            textFormatting: textFormatting,
-            timestamp: Date.now(),
-          })
-        );
-      }
-    }, 100); // 100ms debounce
-
-    if (socket && isConnected && documentId && userId && !localMode) {
-      socket.emit("drawing-data", {
-        documentId,
-        userId,
-        drawingData: data,
-      });
-    }
-  };
-
-  const handleTextChange = (newContent) => {
-    setContent(newContent);
-
-    // immediately send current content (use newContent rather than state)
-    if (socket && isConnected && documentId && userId && !localMode) {
-      socket.emit("text-update", {
-        documentId,
-        userId,
-        content: newContent,
-      });
-    }
-
-    if (onContentChange) {
-      onContentChange(newContent);
-    }
-  };
-
-  const handleTextFormattingChange = (formatting) => {
-    const newFormatting = { ...textFormatting, ...formatting };
-    setTextFormatting(newFormatting);
-
-    if (socket && isConnected && documentId && userId && !localMode) {
-      socket.emit("text-formatting-update", {
-        documentId,
-        userId,
-        formatting: newFormatting,
-      });
-    }
-  };
-
-  // Auto-save when content or formatting changes (excluding drawings to avoid loops)
+  // -------- Initialization --------
   useEffect(() => {
-    if (onContentChange) {
-      onContentChange(
-        JSON.stringify({
-          text: content,
-          drawings: drawings,
-          textFormatting: textFormatting,
-          timestamp: Date.now(),
-        })
-      );
+    if (!isInitialized) {
+      const normalized = normalizeContent(initialData);
+      setText(normalized.text);
+      setDrawings(normalized.drawings);
+      setTextFormatting(normalized.textFormatting);
+      setIsInitialized(true);
     }
-  }, [textFormatting, content, onContentChange]);
+  }, [initialData, isInitialized]);
 
-  // Cleanup timeout on unmount
+  // -------- Cleanup --------
   useEffect(() => {
     return () => {
       if (drawingsTimeoutRef.current) {
@@ -236,144 +280,59 @@ export default function CollaborativeNotepad({
     };
   }, []);
 
-  const clearAllData = () => {
-    if (
-      confirm("Are you sure you want to clear all data? This cannot be undone.")
-    ) {
-      setContent("");
-      setDrawings([]);
-      setTextFormatting({
-        color: "#000000",
-        backgroundColor: "transparent",
-        fontSize: 16,
-        fontFamily: "Inter, sans-serif",
-        fontWeight: "normal",
-        textAlign: "left",
-      });
-
-      const editor = document.querySelector("[contenteditable]");
-      if (editor) {
-        editor.innerHTML = "";
-      }
-    }
-  };
-
-  useEffect(() => {
-    if (!canvasControls) return;
-    const ctrl = canvasControls.current ?? canvasControls;
-    try {
-      if (typeof ctrl.setMode === "function") {
-        ctrl.setMode(mode === "draw" ? "drawing" : "text");
-      }
-
-      // When switching to draw mode, render the current HTML text into the canvas as an overlay
-      if (mode === "draw") {
-        const tryRender = (attempt = 0) => {
-          try {
-            if (typeof ctrl.renderTextFromHTML === "function") {
-              // get editor padding to match appearance
-              const editorEl = document.querySelector("[contenteditable]");
-              let padding = null;
-              if (editorEl) {
-                const cs = window.getComputedStyle(editorEl);
-                const pt = cs.paddingTop || "0px";
-                const pr = cs.paddingRight || "0px";
-                const pb = cs.paddingBottom || "0px";
-                const pl = cs.paddingLeft || "0px";
-                padding = `${pt} ${pr} ${pb} ${pl}`;
-              }
-
-              // Utiliser les valeurs actuelles sans les inclure dans les dépendances
-              const currentContent = content;
-              const currentTextFormatting = textFormatting;
-              const formattingWithPadding = { ...currentTextFormatting };
-              if (padding) formattingWithPadding.padding = padding;
-
-              ctrl.renderTextFromHTML(currentContent, formattingWithPadding);
-              return true;
-            }
-          } catch (e) {
-            // fallthrough to retry
-          }
-
-          // retry once after a short delay if not yet available
-          if (attempt === 0) {
-            setTimeout(() => tryRender(1), 300);
-          }
-          return false;
-        };
-
-        tryRender(0);
-      }
-
-      // When switching to text mode, clear any text overlay so the editor shows the live content
-      if (mode === "text" && typeof ctrl.clearTextOverlay === "function") {
-        ctrl.clearTextOverlay();
-      }
-    } catch (e) {
-      // ignore
-    }
-  }, [canvasControls, mode]);
-
-  if (!isInitialized) {
-    return (
-      <div className="w-full h-full flex items-center justify-center bg-white">
-        <div className="text-gray-500">Loading editor...</div>
-      </div>
-    );
-  }
-
+  // -------- Render --------
   return (
-    <div className={`w-full flex flex-col ${className || ""}`}>
+    <div className={`flex flex-col h-full ${className}`} {...props}>
+      {/* Toolbar */}
       <Toolbar
         mode={mode}
         setMode={setMode}
-        brushColor={brushColor}
-        setBrushColor={setBrushColor}
-        brushSize={brushSize}
-        setBrushSize={setBrushSize}
         textFormatting={textFormatting}
-        setTextFormatting={setTextFormatting}
-        isConnected={isConnected}
-        onClearAllData={clearAllData}
+        setTextFormatting={handleTextFormattingChange}
+        brushColor={drawingState.color}
+        setBrushColor={(color) =>
+          setDrawingState((prev) => ({ ...prev, color }))
+        }
+        brushSize={drawingState.size}
+        setBrushSize={(size) => setDrawingState((prev) => ({ ...prev, size }))}
+        onClearAllData={handleClearAllData}
+        onClearDrawings={handleClearDrawings}
+        calMode={calMode}
       />
 
-      <div className="flex-1 relative">
+      {/* Content Area */}
+      <div className="flex-1 flex flex-col min-h-0 relative">
+        {/* Text Editor - Always visible */}
         <div
-          className={`absolute inset-0 ${mode === "draw" ? "z-10" : "z-0 pointer-events-none"}`}
-          style={{
-            backgroundColor: mode === "text" ? "white" : "transparent",
-          }}
+          className={`flex-1 ${mode === "draw" ? "opacity-30 pointer-events-none" : ""}`}
         >
-          <DrawingCanvas
-            brushColor={brushColor}
-            brushSize={brushSize}
-            onDrawingData={handleDrawingData}
-            socket={localMode ? null : socket}
-            drawings={drawings}
-            setDrawings={setDrawings}
-            onCanvasReady={setCanvasControls}
+          <RichTextEditor
+            content={text}
+            onContentChange={handleTextChange}
+            textFormatting={textFormatting}
+            onSelectionChange={handleTextFormattingChange}
+            placeholder={placeholder}
+            className="flex-1"
+            disableLocalStorageLoad={true}
           />
         </div>
 
+        {/* Drawing Canvas - Always present but hidden when not in draw mode */}
         <div
-          className={`absolute inset-0 ${mode === "text" ? "z-10" : "z-0"} ${mode === "draw" ? "pointer-events-none" : ""}`}
-          style={{
-            backgroundColor: mode === "draw" ? "white" : "transparent",
-          }}
+          className={`absolute inset-0 z-10`}
+          style={{ pointerEvents: mode === "draw" ? "auto" : "none" }}
         >
-          <RichTextEditor
-            content={content}
-            onContentChange={handleTextChange}
-            textFormatting={textFormatting}
-            socket={localMode ? null : socket}
-            placeholder={placeholder}
-            className="w-full h-fit"
-            disabled={mode === "draw"}
-            disableLocalStorageLoad={localMode && !documentId}
-            style={{
-              backgroundColor: mode === "draw" ? "white" : "transparent",
-            }}
+          {console.log("Rendering DrawingCanvas with mode:", mode)}
+          <ClientOnlyDrawingCanvas
+            drawings={drawings}
+            setDrawings={setDrawings}
+            onDrawingData={handleDrawingData}
+            onCanvasReady={handleCanvasReady}
+            className="w-full h-full"
+            hasLoadedInitialDrawingsRef={hasLoadedInitialDrawingsRef}
+            mode={mode}
+            drawingState={drawingState}
+            setDrawingState={setDrawingState}
           />
         </div>
       </div>

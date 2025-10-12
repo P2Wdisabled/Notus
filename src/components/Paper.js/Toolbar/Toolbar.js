@@ -13,6 +13,7 @@ export default function Toolbar({
   textFormatting,
   setTextFormatting,
   onClearAllData,
+  onClearDrawings,
 }) {
   return (
     <div className="bg-white dark:bg-black text-white p-4 gap-4 flex flex-wrap">
@@ -22,21 +23,22 @@ export default function Toolbar({
         onClearAllData={onClearAllData}
       />
 
-      {mode === "draw" && (
+      <div className={mode === "draw" ? "block" : "hidden"}>
         <DrawControls
           brushColor={brushColor}
           setBrushColor={setBrushColor}
           brushSize={brushSize}
           setBrushSize={setBrushSize}
+          onClearDrawings={onClearDrawings}
         />
-      )}
+      </div>
 
-      {mode === "text" && (
+      <div className={mode === "text" ? "block" : "hidden"}>
         <TextControls
           textFormatting={textFormatting}
           setTextFormatting={setTextFormatting}
         />
-      )}
+      </div>
     </div>
   );
 }

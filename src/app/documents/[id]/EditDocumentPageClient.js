@@ -9,12 +9,15 @@ import { useLocalSession } from "@/hooks/useLocalSession";
 import CollaborativeNotepad from "@/components/Paper.js/CollaborativeNotepad";
 
 export default function EditDocumentPageClient(props) {
-  // -------- ALL hooks in a stable order (top of component) --------
+  // -------- State management --------
   const router = useRouter();
-
   const [document, setDocument] = useState(null);
   const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
+  const [content, setContent] = useState({
+    text: "",
+    drawings: [],
+    textFormatting: {},
+  });
   const [tags, setTags] = useState([]);
   const [showTagInput, setShowTagInput] = useState(false);
   const [newTag, setNewTag] = useState("");
@@ -24,12 +27,12 @@ export default function EditDocumentPageClient(props) {
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [showSavedState, setShowSavedState] = useState(false);
 
-  // keep custom hook declarations here (stable order)
+  // Action state
   const [state, formAction, isPending] = useActionState(updateDocumentAction, {
     ok: false,
   });
 
-  // session hook
+  // Session management
   const {
     session: localSession,
     loading: sessionLoading,
@@ -37,119 +40,51 @@ export default function EditDocumentPageClient(props) {
     userId,
   } = useLocalSession(props.session);
 
-  // Gérer l'affichage du message de succès et l'état "Sauvegardé"
-  useEffect(() => {
-    if (state && state.ok) {
-      setShowSuccessMessage(true);
-      setShowSavedState(true);
+  // -------- Content normalization --------
+  const normalizeContent = (rawContent) => {
+    if (!rawContent) return { text: "", drawings: [], textFormatting: {} };
 
-      // Effacer l'état "Sauvegardé" après 1.5 secondes
-      const savedTimer = setTimeout(() => {
-        setShowSavedState(false);
-      }, 1500);
+    let content = rawContent;
 
-      // Effacer le message de succès après 3 secondes
-      const messageTimer = setTimeout(() => {
-        setShowSuccessMessage(false);
-      }, 3000);
-
-      return () => {
-        clearTimeout(savedTimer);
-        clearTimeout(messageTimer);
-      };
-    }
-  }, [state]);
-
-  function deepNormalizeContent(raw) {
-    let obj = raw;
-    let safety = 0;
-    while (obj && typeof obj === "string" && safety++ < 5) {
+    // Parse if string
+    if (typeof content === "string") {
       try {
-        obj = JSON.parse(obj);
+        content = JSON.parse(content);
       } catch {
-        break;
+        return { text: content, drawings: [], textFormatting: {} };
       }
     }
-    // If obj.text is a stringified object, parse it
-    if (obj && typeof obj === "object" && typeof obj.text === "string") {
-      try {
-        const parsedText = JSON.parse(obj.text);
-        if (typeof parsedText === "object" && parsedText.text) {
-          obj.text = parsedText.text;
-          obj.drawings = parsedText.drawings ?? obj.drawings ?? [];
-          obj.textFormatting =
-            parsedText.textFormatting ?? obj.textFormatting ?? {};
-          obj.timestamp = parsedText.timestamp ?? obj.timestamp ?? Date.now();
-        } else if (typeof parsedText === "string") {
-          obj.text = parsedText;
-        }
-      } catch {
-        // leave as is
-      }
-    }
-    if (!obj || typeof obj !== "object") {
-      return { text: String(obj ?? ""), drawings: [], textFormatting: {} };
-    }
+
+    // Ensure proper structure
     return {
-      text: typeof obj.text === "string" ? obj.text : "",
-      drawings: Array.isArray(obj.drawings) ? obj.drawings : [],
-      textFormatting: obj.textFormatting ?? {},
-      timestamp: obj.timestamp ?? Date.now(),
+      text: content.text || "",
+      drawings: Array.isArray(content.drawings) ? content.drawings : [],
+      textFormatting: content.textFormatting || {},
+      timestamp: content.timestamp || Date.now(),
     };
-  }
-
-  // get the deepest plain text from nested structures (avoid "[object Object]")
-  const getPlainText = (value) => {
-    try {
-      let cur = value;
-      let safety = 0;
-      while (safety++ < 50) {
-        if (typeof cur === "string") return cur;
-        if (!cur || typeof cur !== "object") return String(cur ?? "");
-        // prefer .text if present
-        if ("text" in cur) {
-          cur = cur.text;
-          continue;
-        }
-        // fallback: find first string property
-        for (const k of Object.keys(cur)) {
-          if (typeof cur[k] === "string") return cur[k];
-          if (cur[k] && typeof cur[k] === "object" && "text" in cur[k]) {
-            cur = cur[k].text;
-            break;
-          }
-        }
-        // if nothing useful, stringify whole object (last resort)
-        return JSON.stringify(cur);
-      }
-      return String(value ?? "");
-    } catch (e) {
-      return String(value ?? "");
-    }
   };
 
-  // helper: loadDocument must be declared before useEffect that calls it
+  // -------- Document loading --------
   const loadDocument = useCallback(async () => {
     try {
       setIsLoading(true);
-      const apiUrl = `/api/openDoc?id=${props.params.id}`;
-      const response = await fetch(apiUrl);
+      const response = await fetch(`/api/openDoc?id=${props.params.id}`);
       const result = await response.json();
 
       if (result.success) {
-        const normalizedContent = deepNormalizeContent(result.content);
+        const normalizedContent = normalizeContent(result.content);
 
-        const documentData = {
+        setDocument({
           id: Number(props.params.id),
           title: result.title,
           content: normalizedContent,
           tags: Array.isArray(result.tags) ? result.tags : [],
           updated_at: result.updated_at,
           user_id: Number(result.user_id ?? result.owner ?? NaN),
-        };
-        setDocument(documentData);
+        });
+
         setTitle(result.title);
-        setContent(normalizedContent); // <-- store the full object!
+        setContent(normalizedContent);
         setTags(Array.isArray(result.tags) ? result.tags : []);
       } else {
         setError(result.error || "Erreur lors du chargement du document");
@@ -161,148 +96,87 @@ export default function EditDocumentPageClient(props) {
     }
   }, [props.params.id]);
 
-  // Load document when session / user available
+  // Load document when ready
   useEffect(() => {
     if (isLoggedIn && props.params?.id && userId) {
       loadDocument();
     }
   }, [isLoggedIn, props.params?.id, userId, loadDocument]);
 
-  // reset editor state when switching documents so previous content doesn't leak
+  // Reset editor state when switching documents
   useEffect(() => {
-    setCanvasCtrl(null);
-    setTitle(document?.title ?? "");
-    setContent(document?.content ?? "");
-
-    // clear localStorage entries used by the editor (adjust prefix to match your editor)
-    try {
-      const prefix = "collab-notepad"; // change if your editor uses a different prefix/key
-      for (const key of Object.keys(localStorage || {})) {
-        if (key.startsWith(prefix) || key.includes(`notepad`)) {
-          localStorage.removeItem(key);
-        }
-      }
-    } catch (e) {
-      // ignore (SSR safety already handled by this effect running in browser)
+    if (document) {
+      setTitle(document.title);
+      setContent(document.content);
+      setCanvasCtrl(null);
     }
-  }, [document?.id, document?.content, document?.title]);
+  }, [document]);
 
-  // clear editor-related localStorage entries for this doc (optional)
-  useEffect(() => {
-    try {
-      const prefix = `collab-notepad-${document?.id ?? ""}`; // adjust to your editor key
-      for (const k of Object.keys(localStorage || {})) {
-        if (
-          k.startsWith(prefix) ||
-          k.includes("collab-notepad") ||
-          k.includes("notepad")
-        ) {
-          localStorage.removeItem(k);
-        }
-      }
-    } catch (e) {
-      /* ignore in browsers without localStorage */
-    }
-  }, [document?.id]);
-
-  // ensure handleContentChange stores normalized object:
+  // -------- Content change handling --------
   const handleContentChange = useCallback((newContent) => {
-    setContent(deepNormalizeContent(newContent));
+    const normalized = normalizeContent(newContent);
+    setContent(normalized);
   }, []);
-  // current user id to send with save: prefer hook userId then session fallbacks
-  const currentUserId =
-    userId ?? localSession?.user?.id ?? props.session?.user?.id;
 
+  // -------- Success message handling --------
+  useEffect(() => {
+    if (state && state.ok) {
+      setShowSuccessMessage(true);
+      setShowSavedState(true);
+
+      const savedTimer = setTimeout(() => setShowSavedState(false), 1500);
+      const messageTimer = setTimeout(() => setShowSuccessMessage(false), 3000);
+
+      return () => {
+        clearTimeout(savedTimer);
+        clearTimeout(messageTimer);
+      };
+    }
+  }, [state]);
+
+  // -------- Save handling --------
   const handleSubmit = useCallback(
     async (e) => {
       e?.preventDefault?.();
 
-      const submittingUserId = Number(currentUserId ?? 0);
-      if (!submittingUserId || isNaN(submittingUserId)) {
+      const submittingUserId =
+        userId ?? localSession?.user?.id ?? props.session?.user?.id;
+      if (!submittingUserId) {
         alert("Session invalide. Veuillez vous reconnecter.");
         return;
       }
 
-      // collect raw drawings (prefer canvas controller) - force serialization
-      let drawingsPayload = [];
+      // Get current drawings from canvas or content
+      let drawingsToSave = [];
+
       if (canvasCtrl && typeof canvasCtrl.saveDrawings === "function") {
         try {
-          drawingsPayload = await canvasCtrl.saveDrawings({ force: true });
+          drawingsToSave = await canvasCtrl.saveDrawings({ force: true });
         } catch (err) {
-          // ignore save failure and fallback to existing content
+          // Fallback to content drawings
+          drawingsToSave = content.drawings || [];
         }
-      }
-      if (!Array.isArray(drawingsPayload) || drawingsPayload.length === 0) {
-        drawingsPayload =
-          (content && content.drawings) ||
-          (document?.content && document.content.drawings) ||
-          [];
+      } else {
+        drawingsToSave = content.drawings || [];
       }
 
-      // Convert Paper-style serialized paths (segments[]) into simple strokes [{ points:[[x,y]...], color, size }]
-      const serializedPathsToStrokes = (arr) => {
-        if (!Array.isArray(arr)) return [];
-        return arr
-          .map((p) => {
-            if (!p || typeof p !== "object") return null;
-            // If it's already a stroke-like object
-            if (Array.isArray(p.points)) {
-              return {
-                points: p.points.map((pt) =>
-                  Array.isArray(pt) ? [pt[0], pt[1]] : pt
-                ),
-                color: p.color ?? "#000000",
-                size: p.size ?? 3,
-              };
-            }
-            // If it's Paper serialized path with segments: [{ point: [x,y], ...}, ...]
-            if (Array.isArray(p.segments)) {
-              const pts = p.segments
-                .map((s) => {
-                  if (!s) return null;
-                  if (Array.isArray(s.point))
-                    return [Number(s.point[0]) || 0, Number(s.point[1]) || 0];
-                  if (
-                    s.point &&
-                    typeof s.point.x === "number" &&
-                    typeof s.point.y === "number"
-                  )
-                    return [s.point.x, s.point.y];
-                  return null;
-                })
-                .filter(Boolean);
-              return pts.length > 0
-                ? {
-                    points: pts,
-                    color: p.color ?? "#000000",
-                    size: p.size ?? p.strokeWidth ?? 3,
-                  }
-                : null;
-            }
-            return null;
-          })
-          .filter(Boolean);
-      };
-
-      const drawingsToSave = serializedPathsToStrokes(drawingsPayload);
-
-      // Build normalized content (single source of truth) - save strokes
-      const normalizedContentObj = {
-        text: (content && content.text) || getPlainText(content) || "",
-        drawings: drawingsToSave, // <-- store strokes here
-        textFormatting: (content && content.textFormatting) || {},
+      // Build content object
+      const contentToSave = {
+        text: content.text || "",
+        drawings: drawingsToSave,
+        textFormatting: content.textFormatting || {},
         timestamp: Date.now(),
       };
 
-      // Send only content (avoid duplicate drawings field)
+      // Prepare form data
       const formData = new FormData();
       formData.append("documentId", String(props.params?.id || ""));
       formData.append("userId", String(submittingUserId));
       formData.append("title", title || "");
-      formData.append("content", JSON.stringify(normalizedContentObj));
+      formData.append("content", JSON.stringify(contentToSave));
       formData.append("tags", JSON.stringify(tags));
 
-      // Utiliser formAction dans startTransition pour déclencher isPending et gérer les messages
+      // Submit
       startTransition(() => {
         formAction(formData);
       });
@@ -310,20 +184,22 @@ export default function EditDocumentPageClient(props) {
     [
       canvasCtrl,
       content,
-      currentUserId,
+      userId,
+      localSession,
+      props.session,
       props.params.id,
       title,
-      document,
       tags,
       formAction,
     ]
   );
 
+  // -------- Tag management --------
   const persistTags = (nextTags) => {
-    if (!currentUserId) return;
+    if (!userId) return;
     const fd = new FormData();
     fd.append("documentId", String(props.params?.id || ""));
-    fd.append("userId", String(currentUserId));
+    fd.append("userId", String(userId));
     fd.append("title", title || "Sans titre");
     fd.append("content", JSON.stringify(content || ""));
     fd.append("tags", JSON.stringify(nextTags));
@@ -353,6 +229,7 @@ export default function EditDocumentPageClient(props) {
     persistTags(next);
   };
 
+  // -------- Loading states --------
   if (sessionLoading) {
     return (
       <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center">
@@ -438,7 +315,7 @@ export default function EditDocumentPageClient(props) {
     );
   }
 
-  // Verify ownership (use numeric comparison)
+  // Verify ownership
   if (Number(document.user_id) !== Number(userId)) {
     return (
       <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center p-4">
@@ -460,13 +337,11 @@ export default function EditDocumentPageClient(props) {
     );
   }
 
-  const normalizedContent = deepNormalizeContent(document.content);
-
-  // Main render (editing form)
+  // -------- Main render --------
   return (
     <div className="h-screen overflow-hidden bg-white dark:bg-black py-8">
       <div className="max-w-4xl mx-auto px-4">
-        {/* En-tête */}
+        {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <Link
             href="/"
@@ -484,13 +359,82 @@ export default function EditDocumentPageClient(props) {
                 clipRule="evenodd"
               />
             </svg>
+            Retour
           </Link>
         </div>
 
-        {/* Formulaire d'édition */}
+        {/* Edit form */}
         <div className="bg-white dark:bg-black rounded-2xl border border-gray dark:border-dark-gray p-6 overflow-hidden">
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Titre */}
+            {/* Tags */}
+            <div className="mb-1">
+              <div className="flex flex-wrap items-center gap-2">
+                {tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="inline-flex items-center font-medium rounded-full px-2 py-0.5 text-xs bg-purple/10 dark:bg-purple/20 text-purple dark:text-light-purple border border-purple/20 dark:border-purple/30 pr-1"
+                  >
+                    <span className="mr-1 max-w-[200px] truncate" title={tag}>
+                      {tag}
+                    </span>
+                    <button
+                      type="button"
+                      className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full text-purple dark:text-light-purple hover:bg-purple/20 dark:hover:bg-purple/30"
+                      aria-label={`Supprimer le tag ${tag}`}
+                      onClick={() => removeTag(tag)}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+                {!showTagInput && (
+                  <Button
+                    variant="secondary"
+                    className="px-2 py-0.5 text-sm"
+                    onClick={() => setShowTagInput(true)}
+                  >
+                    +
+                  </Button>
+                )}
+                {showTagInput && (
+                  <div className="flex items-center gap-1">
+                    <input
+                      value={newTag}
+                      onChange={(e) => setNewTag(e.target.value)}
+                      placeholder="Nouveau tag"
+                      className="h-7 text-sm px-2 py-1 rounded border border-gray dark:border-dark-gray bg-transparent text-black dark:text-white"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") addTag();
+                        if (e.key === "Escape") {
+                          setShowTagInput(false);
+                          setNewTag("");
+                        }
+                      }}
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      className="px-2 py-0.5 text-sm bg-orange dark:bg-dark-purple text-white rounded"
+                      onClick={addTag}
+                    >
+                      Ajouter
+                    </button>
+                    <button
+                      type="button"
+                      className="px-2 py-0.5 text-sm border border-gray dark:border-dark-gray rounded"
+                      onClick={() => {
+                        setShowTagInput(false);
+                        setNewTag("");
+                      }}
+                    >
+                      Annuler
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Title */}
             <div>
               <input
                 type="text"
@@ -502,7 +446,7 @@ export default function EditDocumentPageClient(props) {
               />
             </div>
 
-            {/* Contenu */}
+            {/* Content */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Contenu
@@ -510,7 +454,7 @@ export default function EditDocumentPageClient(props) {
               <div className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-700 min-h-[400px]">
                 <CollaborativeNotepad
                   key={`doc-${document.id}-${document.updated_at}`}
-                  initialData={normalizedContent}
+                  initialData={content}
                   useLocalStorage={false}
                   calMode={false}
                   onContentChange={handleContentChange}
@@ -521,7 +465,7 @@ export default function EditDocumentPageClient(props) {
               </div>
             </div>
 
-            {/* Boutons */}
+            {/* Buttons */}
             <div className="flex justify-end space-x-4">
               <Link
                 href="/"
@@ -546,7 +490,7 @@ export default function EditDocumentPageClient(props) {
               </button>
             </div>
 
-            {/* Message de succès/erreur */}
+            {/* Success/Error messages */}
             {(showSuccessMessage || (state && state.error)) && (
               <div
                 className={`shrink-0 rounded-lg p-4 mt-4 ${
