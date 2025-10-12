@@ -1,14 +1,14 @@
 import bcrypt from "bcryptjs";
-import { UserRepository } from "../repositories/UserRepository";
+import { PrismaUserRepository } from "../repositories/PrismaUserRepository";
 import { EmailService } from "./EmailService";
 import { CreateUserData, UpdateUserProfileData, User, UserRepositoryResult } from "../types";
 
-export class UserService {
-  private userRepository: UserRepository;
+export class PrismaUserService {
+  private userRepository: PrismaUserRepository;
   private emailService: EmailService;
 
   constructor() {
-    this.userRepository = new UserRepository();
+    this.userRepository = new PrismaUserRepository();
     this.emailService = new EmailService();
   }
 
@@ -52,21 +52,23 @@ export class UserService {
     }
   }
 
-  async verifyUserEmail(token: string): Promise<UserRepositoryResult<{ id: number; email: string; first_name: string }>> {
+  async verifyUserEmail(token: string): Promise<UserRepositoryResult<User>> {
     try {
-      const result = await this.userRepository.verifyUserEmail(token);
+      const result = await this.userRepository.verifyEmail(token);
 
-      if (result.success && result.data) {
+      if (result.success && result.user) {
         // Envoyer un email de bienvenue
         const emailResult = await this.emailService.sendWelcomeEmail(
-          result.data.email,
-          result.data.first_name
+          result.user.email,
+          result.user.first_name || "Utilisateur"
         );
 
         if (!emailResult.success) {
           console.error("❌ Erreur envoi email de bienvenue:", emailResult.error);
           // Ne pas faire échouer la vérification si l'email échoue
         }
+
+        return result;
       }
 
       return result;
@@ -78,7 +80,7 @@ export class UserService {
 
   async updateUserProfile(userId: number, fields: UpdateUserProfileData): Promise<UserRepositoryResult<User>> {
     try {
-      return await this.userRepository.updateUserProfile(userId, fields);
+      return await this.userRepository.updateUser(userId, fields);
     } catch (error) {
       console.error("❌ Erreur mise à jour profil:", error);
       return { success: false, error: error instanceof Error ? error.message : "Erreur inconnue" };
@@ -103,36 +105,35 @@ export class UserService {
     }
   }
 
-  async getAllUsers(limit: number = 50, offset: number = 0): Promise<UserRepositoryResult<User[]>> {
+  async getAllUsers(): Promise<UserRepositoryResult<User[]>> {
     try {
-      return await this.userRepository.getAllUsers(limit, offset);
+      return await this.userRepository.getAllUsers();
     } catch (error) {
       console.error("❌ Erreur récupération utilisateurs:", error);
       return { success: false, error: error instanceof Error ? error.message : "Erreur inconnue" };
     }
   }
 
-  async toggleUserBan(userId: number, isBanned: boolean, reason?: string): Promise<UserRepositoryResult<{ id: number; email: string; username: string; is_banned: boolean }>> {
+  async toggleUserBan(userId: number, isBanned: boolean, reason?: string): Promise<UserRepositoryResult<User>> {
     try {
-      const result = await this.userRepository.toggleUserBan(userId, isBanned);
+      const result = await this.userRepository.toggleBan(userId, isBanned);
 
-      if (result.success && result.data) {
+      if (result.success && result.user) {
         // Envoyer un email de notification
-        const user = await this.userRepository.getUserById(userId);
-        if (user.success && user.user) {
-          if (isBanned) {
-            await this.emailService.sendBanNotificationEmail(
-              user.user.email,
-              user.user.first_name || "Utilisateur",
-              reason || null
-            );
-          } else {
-            await this.emailService.sendUnbanNotificationEmail(
-              user.user.email,
-              user.user.first_name || "Utilisateur"
-            );
-          }
+        if (isBanned) {
+          await this.emailService.sendBanNotificationEmail(
+            result.user.email,
+            result.user.first_name || "Utilisateur",
+            reason || "Aucune raison spécifiée"
+          );
+        } else {
+          await this.emailService.sendUnbanNotificationEmail(
+            result.user.email,
+            result.user.first_name || "Utilisateur"
+          );
         }
+
+        return result;
       }
 
       return result;
@@ -142,9 +143,15 @@ export class UserService {
     }
   }
 
-  async toggleUserAdmin(userId: number, isAdmin: boolean): Promise<UserRepositoryResult<{ id: number; email: string; username: string; is_admin: boolean }>> {
+  async toggleUserAdmin(userId: number, isAdmin: boolean): Promise<UserRepositoryResult<User>> {
     try {
-      return await this.userRepository.toggleUserAdmin(userId, isAdmin);
+      const result = await this.userRepository.toggleAdmin(userId, isAdmin);
+
+      if (result.success && result.user) {
+        return result;
+      }
+
+      return result;
     } catch (error) {
       console.error("❌ Erreur changement statut admin:", error);
       return { success: false, error: error instanceof Error ? error.message : "Erreur inconnue" };
@@ -171,23 +178,12 @@ export class UserService {
 
       const user = userResult.user!;
 
-      // Vérifier si une demande de réinitialisation a déjà été faite récemment (dans les 5 dernières minutes)
-      // Cette logique devrait être dans le repository, mais pour simplifier on la met ici
-      const recentReset = await this.userRepository.query(
-        "SELECT reset_token_expiry FROM users WHERE email = $1 AND reset_token_expiry > NOW() - INTERVAL '5 minutes'",
-        [email]
-      );
-
-      if (recentReset.rows.length > 0) {
-        return { success: true };
-      }
-
       // Générer un token de réinitialisation
       const resetToken = this.emailService.generateVerificationToken();
       const resetTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 heures
 
       // Sauvegarder le token en base
-      await this.userRepository.updatePasswordResetToken(user.id, resetToken, resetTokenExpiry);
+      await this.userRepository.updatePasswordResetToken(email, resetToken, resetTokenExpiry);
 
       // Envoyer l'email de réinitialisation
       const emailResult = await this.emailService.sendPasswordResetEmail(
@@ -210,20 +206,11 @@ export class UserService {
 
   async resetPassword(token: string, newPassword: string): Promise<{ success: boolean; error?: string }> {
     try {
-      // Vérifier le token et sa validité
-      const userResult = await this.userRepository.getUserByResetToken(token);
-
-      if (!userResult.success) {
-        return { success: false, error: "Token invalide ou expiré" };
-      }
-
-      const user = userResult.user!;
-
       // Hasher le nouveau mot de passe
       const hashedPassword = await bcrypt.hash(newPassword, 12);
 
       // Mettre à jour le mot de passe et supprimer le token
-      const updateResult = await this.userRepository.updatePassword(user.id, hashedPassword);
+      const updateResult = await this.userRepository.updatePassword(token, hashedPassword);
 
       if (!updateResult.success) {
         return { success: false, error: updateResult.error || "Erreur lors de la mise à jour du mot de passe" };

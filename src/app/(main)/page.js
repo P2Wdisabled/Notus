@@ -12,7 +12,7 @@ export default async function Home() {
 
   // Récupérer les documents seulement si l'utilisateur est connecté
   const documentsResult = session?.user?.id
-    ? await getUserDocumentsAction(session.user.id)
+    ? await getUserDocumentsAction(parseInt(session.user.id))
     : { success: true, documents: [] };
 
   return (

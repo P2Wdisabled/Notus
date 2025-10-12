@@ -3,23 +3,23 @@
 export interface User {
   id: number;
   email: string;
-  username: string;
-  password_hash?: string;
-  first_name: string;
-  last_name: string;
+  username?: string | null;
+  password_hash?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
   email_verified: boolean;
-  email_verification_token?: string;
-  provider?: string;
-  provider_id?: string;
+  email_verification_token?: string | null;
+  provider?: string | null;
+  provider_id?: string | null;
   created_at: Date;
   updated_at: Date;
-  reset_token?: string;
-  reset_token_expiry?: Date;
+  reset_token?: string | null;
+  reset_token_expiry?: Date | null;
   is_admin: boolean;
   is_banned: boolean;
-  terms_accepted_at?: Date;
-  profile_image?: string;
-  banner_image?: string;
+  terms_accepted_at?: Date | null;
+  profile_image?: string | null;
+  banner_image?: string | null;
 }
 
 export interface Document {

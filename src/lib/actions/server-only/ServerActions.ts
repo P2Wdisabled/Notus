@@ -6,13 +6,13 @@ import { authOptions } from "../../../../lib/auth";
 
 // Import dynamique des services uniquement côté serveur
 async function getUserService() {
-  const { UserService } = await import("../../services/UserService");
-  return new UserService();
+  const { PrismaUserService } = await import("../../services/PrismaUserService");
+  return new PrismaUserService();
 }
 
 async function getDocumentService() {
-  const { DocumentService } = await import("../../services/DocumentService");
-  return new DocumentService();
+  const { PrismaDocumentService } = await import("../../services/PrismaDocumentService");
+  return new PrismaDocumentService();
 }
 
 async function getEmailService() {

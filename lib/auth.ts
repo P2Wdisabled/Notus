@@ -94,10 +94,10 @@ export const authOptions: NextAuthOptions = {
           return {
             id: user.id.toString(),
             email: user.email,
-            name: user.username,
-            username: user.username,
-            firstName: user.first_name,
-            lastName: user.last_name,
+            name: user.username || user.email,
+            username: user.username || "",
+            firstName: user.first_name || "",
+            lastName: user.last_name || "",
             isAdmin: user.is_admin,
             isVerified: user.email_verified,
           };
@@ -151,9 +151,9 @@ export const authOptions: NextAuthOptions = {
           if (userResult.success && userResult.user) {
             const user = userResult.user;
             session.user.id = user.id.toString();
-            session.user.username = user.username;
-            session.user.firstName = user.first_name;
-            session.user.lastName = user.last_name;
+            session.user.username = user.username || "";
+            session.user.firstName = user.first_name || "";
+            session.user.lastName = user.last_name || "";
             session.user.isAdmin = user.is_admin;
             session.user.isVerified = user.email_verified;
           }
