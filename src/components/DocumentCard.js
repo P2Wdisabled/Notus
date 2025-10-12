@@ -104,10 +104,18 @@ export default function DocumentCard({
     month: "2-digit",
     year: "numeric",
   });
-  const firstLine = (document.content || "").split(/\r?\n/)[0];
+  // Gérer le contenu selon le type (objet pour documents locaux, string pour documents serveur)
+  const getContentText = (content) => {
+    if (typeof content === "object" && content !== null) {
+      return content.text || "";
+    }
+    return content || "";
+  };
+
+  const firstLine = getContentText(document.content).split(/\r?\n/)[0];
 
   // ensure we always define contentIsHtml and previewText
-  const rawPreviewSource = document?.content ?? "";
+  const rawPreviewSource = getContentText(document?.content);
   const normalizedString = unwrapToString(rawPreviewSource);
   const contentIsHtml = detectHtmlInString(normalizedString);
   const previewText = contentIsHtml

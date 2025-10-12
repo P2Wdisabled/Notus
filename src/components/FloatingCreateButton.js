@@ -8,14 +8,15 @@ export default function FloatingCreateButton({ serverSession }) {
   const { loading, isLoggedIn } = useLocalSession(serverSession);
   const pathname = usePathname();
 
-  // Ne pas afficher le bouton si l'utilisateur n'est pas connecté
+  // Ne pas afficher le bouton sur certaines pages
   if (
     loading ||
     pathname === "/register" ||
     pathname === "/login" ||
     pathname === "/documents/new" ||
     pathname.startsWith("/profile") ||
-    pathname.startsWith("/documents/local/")
+    (pathname.startsWith("/documents/local/") &&
+      pathname !== "/documents/local/new")
   ) {
     return null;
   }
@@ -25,13 +26,18 @@ export default function FloatingCreateButton({ serverSession }) {
   const bottomClass =
     !isLoggedIn && pathname === "/" ? "bottom-32" : "bottom-20";
 
+  // Choisir l'URL de destination selon le statut de connexion
+  const createUrl = isLoggedIn ? "/documents/new" : "/documents/local/new";
+
   return (
     <Link
-      href="/documents/new"
+      href={createUrl}
       className={`fixed ${bottomClass} right-[5%] whitespace-nowrap bg-orange dark:bg-dark-purple dark:hover:bg-purple hover:bg-dark-orange text-black dark:text-white cursor-pointer px-4 py-2 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 z-10 group inline-flex items-center gap-3`}
-      title="Créer une note"
+      title={isLoggedIn ? "Créer une note" : "Créer une note locale"}
     >
-      <span className="font-title text-xl">Créer une note </span>
+      <span className="font-title text-xl">
+        {isLoggedIn ? "Créer une note" : "Créer une note locale"}
+      </span>
       <svg
         className="w-6 h-6"
         fill="none"

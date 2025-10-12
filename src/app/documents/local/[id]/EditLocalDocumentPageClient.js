@@ -15,17 +15,72 @@ export default function EditLocalDocumentPageClient({ params }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [title, setTitle] = useState("");
-  // If creating a new document (no id), always start with empty content and a fresh editor key
-  const isNewDoc = !params?.id;
-  const [content, setContent] = useState(() =>
-    isNewDoc
-      ? { text: "", drawings: [], textFormatting: {} }
-      : { text: "", drawings: [], textFormatting: {} }
-  );
-  const [editorKey, setEditorKey] = useState(() =>
-    isNewDoc ? `new-${Date.now()}` : ""
-  );
-  const docId = params?.id;
+  const [showSavedState, setShowSavedState] = useState(false);
+
+  // Gérer les paramètres asynchrones
+  const [docId, setDocId] = useState(null);
+  const [isNewDoc, setIsNewDoc] = useState(false);
+
+  const [content, setContent] = useState(() => ({
+    text: "",
+    drawings: [],
+    textFormatting: {},
+  }));
+  const [editorKey, setEditorKey] = useState(() => `new-${Date.now()}`);
+
+  // Gérer les paramètres asynchrones
+  useEffect(() => {
+    const initializeParams = async () => {
+      if (params) {
+        const resolvedParams = await params;
+        const id = resolvedParams?.id;
+        const isNew = !id || id === "new";
+        setDocId(id);
+        setIsNewDoc(isNew);
+
+        // Charger le document directement ici au lieu d'attendre un autre useEffect
+        if (isNew) {
+          // Nouveau document
+          setDocument(null);
+          setTitle("");
+          setContent({ text: "", drawings: [], textFormatting: {} });
+          setEditorKey(`new-${Date.now()}`);
+          setError(null);
+          setLoading(false);
+        } else {
+          // Document existant
+          const docs = loadLocalDocuments();
+          const found = docs.find((d) => d.id === id);
+          if (!found) {
+            setError("Document local introuvable");
+            setDocument(null);
+          } else {
+            setDocument(found);
+            setTitle(found.title || "Sans titre");
+            // Normalize content for editor
+            let normalized = found.content;
+            if (typeof normalized === "string") {
+              try {
+                normalized = JSON.parse(normalized);
+              } catch {
+                normalized = {
+                  text: normalized,
+                  drawings: [],
+                  textFormatting: {},
+                };
+              }
+            }
+            setContent(
+              normalized || { text: "", drawings: [], textFormatting: {} }
+            );
+            setEditorKey(`local-doc-${id}-${found.updated_at}`);
+          }
+          setLoading(false);
+        }
+      }
+    };
+    initializeParams();
+  }, [params]);
 
   const loadLocalDocuments = () => {
     try {
@@ -45,53 +100,11 @@ export default function EditLocalDocumentPageClient({ params }) {
     }
   };
 
-  const load = useCallback(() => {
-    setLoading(true);
-    try {
-      const docs = loadLocalDocuments();
-      const found = docs.find((d) => d.id === docId);
-      if (!found) {
-        setError("Document local introuvable");
-        setDocument(null);
-      } else {
-        setDocument(found);
-        setTitle(found.title || "Sans titre");
-        // Normalize content for editor
-        let normalized = found.content;
-        if (typeof normalized === "string") {
-          try {
-            normalized = JSON.parse(normalized);
-          } catch {
-            normalized = { text: normalized, drawings: [], textFormatting: {} };
-          }
-        }
-        setContent(
-          normalized || { text: "", drawings: [], textFormatting: {} }
-        );
-        setEditorKey(`local-doc-${docId}-${found.updated_at}`);
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [docId]);
-
-  useEffect(() => {
-    if (docId) {
-      load();
-    } else {
-      // New document: reset content and editor key
-      setContent({ text: "", drawings: [], textFormatting: {} });
-      setEditorKey(`new-${Date.now()}`);
-    }
-  }, [docId, load]);
+  // La logique de chargement est maintenant dans l'initialisation des paramètres
 
   const handleSave = async () => {
     const docs = loadLocalDocuments();
-    const idx = docs.findIndex((d) => d.id === docId);
-    if (idx === -1) {
-      setError("Document local introuvable");
-      return;
-    }
+
     // Get latest drawings from editor if available
     let drawingsPayload = content.drawings || [];
     // Build normalized content object
@@ -102,18 +115,57 @@ export default function EditLocalDocumentPageClient({ params }) {
       timestamp: Date.now(),
     };
     const nowIso = new Date().toISOString();
-    docs[idx] = {
-      ...docs[idx],
-      title: (title || "Sans titre").trim(),
-      content: normalizedContentObj,
-      updated_at: nowIso,
-    };
-    const ok = saveLocalDocuments(docs);
-    if (!ok) {
-      setError("Impossible d'enregistrer localement (quota ou permissions)");
-      return;
+
+    if (isNewDoc) {
+      // Créer un nouveau document
+      const newDoc = {
+        id: `local-${Date.now()}`,
+        title: (title || "Sans titre").trim(),
+        content: normalizedContentObj,
+        created_at: nowIso,
+        updated_at: nowIso,
+      };
+
+      docs.push(newDoc);
+      const ok = saveLocalDocuments(docs);
+      if (!ok) {
+        setError("Impossible d'enregistrer localement (quota ou permissions)");
+        return;
+      }
+      // Mettre à jour l'état local et rediriger vers l'URL correcte
+      setDocument(newDoc);
+      setIsNewDoc(false); // Marquer comme document existant
+      setShowSavedState(true);
+      setTimeout(() => setShowSavedState(false), 2000);
+
+      // Rediriger vers l'URL avec le nouvel ID
+      setTimeout(() => {
+        router.push(`/documents/local/${newDoc.id}`);
+      }, 100);
+    } else {
+      // Mettre à jour un document existant
+      const idx = docs.findIndex((d) => d.id === docId);
+      if (idx === -1) {
+        setError("Document local introuvable");
+        return;
+      }
+
+      docs[idx] = {
+        ...docs[idx],
+        title: (title || "Sans titre").trim(),
+        content: normalizedContentObj,
+        updated_at: nowIso,
+      };
+      const ok = saveLocalDocuments(docs);
+      if (!ok) {
+        setError("Impossible d'enregistrer localement (quota ou permissions)");
+        return;
+      }
+      // Mettre à jour l'état local et rester sur la page
+      setDocument(docs[idx]);
+      setShowSavedState(true);
+      setTimeout(() => setShowSavedState(false), 2000);
     }
-    router.push("/");
   };
 
   if (loading) {
@@ -146,19 +198,18 @@ export default function EditLocalDocumentPageClient({ params }) {
     );
   }
 
-  if (!document) {
-    return null;
-  }
+  // Supprimé la condition qui empêchait l'affichage pour les nouveaux documents
 
   // Determine the content text for the document
-  const contentText =
-    typeof document.content === "object" && document.content !== null
+  const contentText = document
+    ? typeof document.content === "object" && document.content !== null
       ? document.content.text || ""
-      : document.content || "";
+      : document.content || ""
+    : "";
 
   return (
     <div className="h-screen overflow-hidden bg-white dark:bg-black py-8">
-      <div className="mx-auto px-4 md:px-[10%] h-full flex flex-col">
+      <div className="max-w-4xl mx-auto px-4">
         {/* En-tête */}
         <div className="flex items-center justify-between mb-6">
           <Link
@@ -177,18 +228,24 @@ export default function EditLocalDocumentPageClient({ params }) {
                 clipRule="evenodd"
               />
             </svg>
+            Retour
           </Link>
-          <div className="flex items-center space-x-4">
-            <span className="text-sm text-gray-500 dark:text-gray-400">
-              Modifié le{" "}
-              {new Date(document.updated_at).toLocaleDateString("fr-FR")}
-            </span>
-          </div>
         </div>
 
+        {/* Message de sauvegarde */}
+        {showSavedState && (
+          <div className="mb-4 rounded-lg p-4 bg-white dark:bg-black border border-orange dark:border-dark-purple">
+            <p className="text-sm text-orange dark:text-dark-purple">
+              {isNewDoc
+                ? "Document créé avec succès !"
+                : "Document sauvegardé avec succès !"}
+            </p>
+          </div>
+        )}
+
         {/* Contenu */}
-        <div className="flex-1 min-h-0 bg-white dark:bg-black rounded-2xl border border-gray dark:border-dark-gray p-6 overflow-hidden">
-          <div className="space-y-6 h-full flex flex-col">
+        <div className="bg-white dark:bg-black rounded-2xl border border-gray dark:border-dark-gray p-6 overflow-hidden">
+          <div className="space-y-6">
             <div>
               <input
                 type="text"
@@ -200,7 +257,7 @@ export default function EditLocalDocumentPageClient({ params }) {
               />
             </div>
 
-            <div className="flex-1 min-h-0">
+            <div>
               <CollaborativeNotepad
                 key={editorKey}
                 initialData={content}
@@ -221,7 +278,7 @@ export default function EditLocalDocumentPageClient({ params }) {
                     setContent(val);
                   }
                 }}
-                placeholder="Commencez à écrire votre document..."
+                placeholder="Commencez à écrire votre document avec mise en forme..."
                 className="min-h-[400px]"
               />
             </div>
@@ -230,9 +287,19 @@ export default function EditLocalDocumentPageClient({ params }) {
               <button
                 type="button"
                 onClick={handleSave}
-                className="bg-orange hover:bg-orange dark:bg-dark-purple dark:hover:bg-dark-purple disabled:bg-gray disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-lg hover:shadow-md shadow-light-gray dark:shadow-light-black transition-all duration-200 cursor-pointer"
+                className={`${
+                  showSavedState
+                    ? "bg-green-600 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-600"
+                    : "bg-orange hover:bg-orange dark:bg-dark-purple dark:hover:bg-dark-purple"
+                } disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-lg transition-colors`}
               >
-                Sauvegarder
+                {showSavedState
+                  ? isNewDoc
+                    ? "Créé"
+                    : "Sauvegardé"
+                  : isNewDoc
+                    ? "Créer le document"
+                    : "Sauvegarder"}
               </button>
               <Link
                 href="/"

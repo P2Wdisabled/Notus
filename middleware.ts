@@ -13,7 +13,8 @@ export default async function middleware(req: NextRequest) {
     nextUrl.pathname === "/register" ||
     nextUrl.pathname === "/" ||
     nextUrl.pathname.startsWith("/auth") ||
-    nextUrl.pathname.startsWith("/api/auth");
+    nextUrl.pathname.startsWith("/api/auth") ||
+    nextUrl.pathname.startsWith("/documents/local");
 
   const isAdminPath = nextUrl.pathname.startsWith("/admin");
 
