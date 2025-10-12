@@ -1,8 +1,9 @@
-import { getAllUsers } from "@/lib/database";
+import { UserService } from "@/lib/services/UserService";
 import UsersTable from "@/components/UsersTable";
 
 export default async function AdminUsersPage() {
-  const usersResult = await getAllUsers(100, 0);
+  const userService = new UserService();
+  const usersResult = await userService.getAllUsers(100, 0);
   const users = usersResult.success ? usersResult.users : [];
 
   return (

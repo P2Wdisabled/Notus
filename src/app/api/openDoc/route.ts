@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { getDocumentById } from "@/lib/database";
+import { DocumentService } from "@/lib/services/DocumentService";
+
+const documentService = new DocumentService();
 
 export async function GET(request: Request) {
   try {
@@ -21,24 +23,16 @@ export async function GET(request: Request) {
       );
     }
 
-    const result = await getDocumentById(documentId);
+    const result = await documentService.getDocumentById(documentId);
 
-    if (!result || result.success !== true) {
+    if (!result.success) {
       return NextResponse.json(
-        { success: false, error: result?.error || "Document non trouvé" },
+        { success: false, error: result.error || "Document non trouvé" },
         { status: 404 }
       );
     }
 
-    // Normaliser le document (result.document peut être un objet ou un tableau)
-    let doc = result.document;
-    if (Array.isArray(doc)) doc = doc.length > 0 ? doc[0] : null;
-    if (!doc) {
-      return NextResponse.json(
-        { success: false, error: "Document non trouvé" },
-        { status: 404 }
-      );
-    }
+    const doc = result.document!;
 
     // Retourner le titre, le contenu, les tags et la date de mise à jour
     const response = {

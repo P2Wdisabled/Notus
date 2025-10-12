@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "../../../../../auth";
-import { toggleUserAdmin } from "@/lib/database";
+import { UserService } from "@/lib/services/UserService";
+
+const userService = new UserService();
 
 export async function POST() {
   try {
@@ -12,7 +14,7 @@ export async function POST() {
     }
 
     // Promouvoir l'utilisateur connecté en admin
-    const result = await toggleUserAdmin(parseInt(session.user.id), true);
+    const result = await userService.toggleUserAdmin(parseInt(session.user.id), true);
 
     if (!result.success) {
       return NextResponse.json({ error: result.error }, { status: 400 });
@@ -21,7 +23,7 @@ export async function POST() {
     return NextResponse.json({
       success: true,
       message: "Vous avez été promu administrateur avec succès",
-      user: result.user,
+      user: result.data,
     });
   } catch (error) {
     console.error("Erreur auto-promotion admin:", error);

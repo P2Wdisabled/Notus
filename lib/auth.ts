@@ -1,7 +1,7 @@
 import NextAuth, { NextAuthOptions, User } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { query } from "../src/lib/database";
+import { UserService } from "../src/lib/services/UserService";
 
 // Étendre les types NextAuth
 declare module "next-auth" {
@@ -54,6 +54,8 @@ interface DatabaseUser {
   is_admin: boolean;
 }
 
+const userService = new UserService();
+
 export const authOptions: NextAuthOptions = {
   secret: process.env.AUTH_SECRET,
   providers: [
@@ -83,23 +85,11 @@ export const authOptions: NextAuthOptions = {
 
           if (!identifier || !password) return null;
 
-          const result = await query(
-            `SELECT id, email, username, first_name, last_name, password_hash, email_verified, is_banned, is_admin
-             FROM users WHERE email = $1 OR username = $1 LIMIT 1`,
-            [identifier]
-          );
+          const result = await userService.authenticateUser(identifier, password);
 
-          if (result.rows.length === 0) return null;
+          if (!result.success || !result.user) return null;
 
-          const user: DatabaseUser = result.rows[0];
-          if (user.is_banned) return null;
-          if (!user.password_hash) return null; // Compte OAuth sans mot de passe
-
-          const bcrypt = require("bcryptjs");
-          const isValid = await bcrypt.compare(password, user.password_hash);
-          if (!isValid) return null;
-
-          if (!user.email_verified) return null;
+          const user = result.user;
 
           return {
             id: user.id.toString(),
@@ -123,26 +113,25 @@ export const authOptions: NextAuthOptions = {
       if (account?.provider === "google") {
         try {
           // Vérifier si l'utilisateur existe déjà
-          const existingUser = await query(
-            "SELECT id, email, username FROM users WHERE email = $1",
-            [user.email]
-          );
+          const existingUser = await userService.getUserByEmail(user.email!);
 
-          if (existingUser.rows.length === 0) {
+          if (!existingUser.success) {
             // Créer un nouvel utilisateur
             const username = user.email?.split("@")[0] || "user";
             const firstName =
-              (profile as Record<string, unknown>)?.given_name || user.name?.split(" ")[0] || "";
+              String((profile as Record<string, unknown>)?.given_name || user.name?.split(" ")[0] || "");
             const lastName =
-              (profile as Record<string, unknown>)?.family_name ||
+              String((profile as Record<string, unknown>)?.family_name ||
               user.name?.split(" ").slice(1).join(" ") ||
-              "";
+              "");
 
-            await query(
-              `INSERT INTO users (email, username, first_name, last_name, email_verified, created_at, updated_at) 
-               VALUES ($1, $2, $3, $4, true, NOW(), NOW())`,
-              [user.email, username, firstName, lastName]
-            );
+            await userService.createUser({
+              email: user.email!,
+              username,
+              password: "", // Pas de mot de passe pour OAuth
+              firstName: firstName || "Utilisateur",
+              lastName: lastName || "OAuth",
+            });
           }
         } catch (error) {
           console.error(
@@ -157,18 +146,16 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (session?.user) {
         try {
-          const user = await query(
-            "SELECT id, email, username, first_name, last_name, is_admin, email_verified FROM users WHERE email = $1",
-            [session.user.email]
-          );
+          const userResult = await userService.getUserByEmail(session.user.email);
 
-          if (user.rows.length > 0) {
-            session.user.id = user.rows[0].id.toString();
-            session.user.username = user.rows[0].username;
-            session.user.firstName = user.rows[0].first_name;
-            session.user.lastName = user.rows[0].last_name;
-            session.user.isAdmin = user.rows[0].is_admin;
-            session.user.isVerified = user.rows[0].email_verified;
+          if (userResult.success && userResult.user) {
+            const user = userResult.user;
+            session.user.id = user.id.toString();
+            session.user.username = user.username;
+            session.user.firstName = user.first_name;
+            session.user.lastName = user.last_name;
+            session.user.isAdmin = user.is_admin;
+            session.user.isVerified = user.email_verified;
           }
         } catch (error) {
           console.error(

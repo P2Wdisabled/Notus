@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { getAllUsers } from "@/lib/database";
+import { UserService } from "@/lib/services/UserService";
 import { Button, Card, Badge } from "@/components/ui";
 
 export default async function AdminDashboard() {
-  const usersResult = await getAllUsers(5, 0);
+  const userService = new UserService();
+  const usersResult = await userService.getAllUsers(5, 0);
   const recentUsers = usersResult.success ? usersResult.users : [];
 
   return (
@@ -213,15 +214,15 @@ export default async function AdminDashboard() {
                             user.is_banned
                               ? "destructive"
                               : user.email_verified
-                              ? "success"
-                              : "warning"
+                                ? "success"
+                                : "warning"
                           }
                         >
                           {user.is_banned
                             ? "Banni"
                             : user.email_verified
-                            ? "Actif"
-                            : "En attente"}
+                              ? "Actif"
+                              : "En attente"}
                         </Badge>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">

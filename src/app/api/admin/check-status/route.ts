@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "../../../../../auth";
-import { isUserAdmin } from "@/lib/database";
+import { UserService } from "@/lib/services/UserService";
+
+const userService = new UserService();
 
 export async function GET() {
   try {
@@ -12,7 +14,7 @@ export async function GET() {
     }
 
     // Vérifier si l'utilisateur est admin
-    const adminStatus = await isUserAdmin(parseInt(session.user.id));
+    const adminStatus = await userService.isUserAdmin(parseInt(session.user.id));
 
     return NextResponse.json({ isAdmin: adminStatus });
   } catch (error) {

@@ -1,16 +1,14 @@
 import { NextResponse } from "next/server";
 import { auth } from "../../../../../../../auth";
-import { toggleUserBan, isUserAdmin, query } from "@/lib/database";
-import {
-  sendBanNotificationEmail,
-  sendUnbanNotificationEmail,
-} from "@/lib/email";
+import { UserService } from "@/lib/services/UserService";
 
 interface RouteParams {
   params: Promise<{
     id: string;
   }>;
 }
+
+const userService = new UserService();
 
 export async function PATCH(request: Request, { params }: RouteParams) {
   try {
@@ -22,7 +20,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     }
 
     // Vérifier si l'utilisateur est admin
-    const isAdmin = await isUserAdmin(parseInt(session.user.id));
+    const isAdmin = await userService.isUserAdmin(parseInt(session.user.id));
     if (!isAdmin) {
       return NextResponse.json(
         { error: "Accès refusé - Droits administrateur requis" },
@@ -48,67 +46,16 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       );
     }
 
-    const result = await toggleUserBan(parseInt(id), isBanned);
+    const result = await userService.toggleUserBan(parseInt(id), isBanned, reason);
 
     if (!result.success) {
       return NextResponse.json({ error: result.error }, { status: 400 });
     }
 
-    // Envoyer un email de notification selon l'action
-    try {
-      // Récupérer les informations de l'utilisateur pour l'email
-      const userResult = await query(
-        "SELECT email, first_name, last_name FROM users WHERE id = $1",
-        [parseInt(id)]
-      );
-
-      if (userResult.rows.length > 0) {
-        const user = userResult.rows[0];
-        let emailResult;
-
-        if (isBanned) {
-          // Email de bannissement
-          emailResult = await sendBanNotificationEmail(
-            user.email,
-            user.first_name || "Utilisateur",
-            reason || null
-          );
-
-          if (!emailResult.success) {
-            console.error(
-              `❌ Erreur envoi email de bannissement à ${user.email}:`,
-              emailResult.error
-            );
-          }
-        } else {
-          // Email de débannissement
-          emailResult = await sendUnbanNotificationEmail(
-            user.email,
-            user.first_name || "Utilisateur"
-          );
-
-          if (!emailResult.success) {
-            console.error(
-              `❌ Erreur envoi email de débannissement à ${user.email}:`,
-              emailResult.error
-            );
-          }
-        }
-      }
-    } catch (emailError) {
-      console.error(
-        `❌ Erreur lors de l'envoi de l'email de ${
-          isBanned ? "bannissement" : "débannissement"
-        }:`,
-        emailError
-      );
-      // Ne pas faire échouer la requête si l'email ne peut pas être envoyé
-    }
-
     return NextResponse.json({
       success: true,
       message: `Utilisateur ${isBanned ? "banni" : "débanni"} avec succès`,
-      user: result.user,
+      user: result.data,
       emailSent: true,
     });
   } catch (error) {

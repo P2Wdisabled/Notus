@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { verifyUserEmail } from "../../../lib/database";
-import { sendWelcomeEmail } from "../../../lib/email";
+import { UserService } from "../../../lib/services/UserService";
+
+const userService = new UserService();
 
 export async function POST(request: Request) {
   try {
@@ -14,7 +15,7 @@ export async function POST(request: Request) {
     }
 
     // Vérifier l'email
-    const result = await verifyUserEmail(token);
+    const result = await userService.verifyUserEmail(token);
 
     if (!result.success) {
       return NextResponse.json(
@@ -23,17 +24,9 @@ export async function POST(request: Request) {
       );
     }
 
-    // Envoyer l'email de bienvenue
-    try {
-      await sendWelcomeEmail(result.user!.email, result.user!.first_name);
-    } catch (emailError) {
-      console.error("❌ Erreur envoi email de bienvenue:", emailError);
-      // On continue même si l'email de bienvenue échoue
-    }
-
     return NextResponse.json({
       success: true,
-      message: `Bienvenue ${result.user!.first_name} ! Votre compte a été activé avec succès.`,
+      message: `Bienvenue ${result.data!.first_name} ! Votre compte a été activé avec succès.`,
     });
   } catch (error) {
     console.error("❌ Erreur API vérification email:", error);

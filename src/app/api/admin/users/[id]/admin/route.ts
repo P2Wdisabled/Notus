@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { auth } from "../../../../../../../auth";
-import { toggleUserAdmin, isUserAdmin } from "@/lib/database";
+import { UserService } from "@/lib/services/UserService";
 
 interface RouteParams {
   params: Promise<{
     id: string;
   }>;
 }
+
+const userService = new UserService();
 
 export async function PATCH(request: Request, { params }: RouteParams) {
   try {
@@ -18,7 +20,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     }
 
     // Vérifier si l'utilisateur est admin
-    const isAdmin = await isUserAdmin(parseInt(session.user.id));
+    const isAdmin = await userService.isUserAdmin(parseInt(session.user.id));
     if (!isAdmin) {
       return NextResponse.json(
         { error: "Accès refusé - Droits administrateur requis" },
@@ -44,7 +46,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       );
     }
 
-    const result = await toggleUserAdmin(parseInt(id), newAdminStatus);
+    const result = await userService.toggleUserAdmin(parseInt(id), newAdminStatus);
 
     if (!result.success) {
       return NextResponse.json({ error: result.error }, { status: 400 });
@@ -55,7 +57,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       message: `Utilisateur ${
         newAdminStatus ? "promu administrateur" : "rétrogradé"
       } avec succès`,
-      user: result.user,
+      user: result.data,
     });
   } catch (error) {
     console.error("Erreur API changement statut admin:", error);

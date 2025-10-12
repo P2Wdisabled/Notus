@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
-import { query } from "./src/lib/database";
+import { UserService } from "./src/lib/services/UserService";
 import { NextRequest } from "next/server";
 
 export default async function middleware(req: NextRequest) {
@@ -38,12 +38,10 @@ export default async function middleware(req: NextRequest) {
   // Vérifier le statut banni pour les utilisateurs connectés
   if (isLoggedIn && token?.id && nextUrl.pathname !== "/banned") {
     try {
-      const userResult = await query(
-        "SELECT is_banned FROM users WHERE id = $1::bigint",
-        [token.id]
-      );
+      const userService = new UserService();
+      const userResult = await userService.getUserById(parseInt(token.id));
 
-      if (userResult.rows.length > 0 && userResult.rows[0].is_banned) {
+      if (userResult.success && userResult.user?.is_banned) {
         console.log(
           "🚫 Utilisateur banni détecté, redirection vers page banni:",
           token.id
