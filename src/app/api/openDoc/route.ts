@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDocumentById } from "@/lib/database";
 
-export async function GET(request) {
+export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
@@ -47,9 +47,7 @@ export async function GET(request) {
       content: doc.content,
       tags: doc.tags || [],
       updated_at: doc.updated_at,
-      user_id: Number(
-        doc.user_id ?? doc.userId ?? doc.owner_id ?? doc.ownerId ?? null
-      ),
+      user_id: Number(doc.user_id ?? null),
     };
     return NextResponse.json(response);
   } catch (error) {

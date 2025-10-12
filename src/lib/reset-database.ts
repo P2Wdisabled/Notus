@@ -1,7 +1,7 @@
-const { query } = require("./database");
+import { query } from "./database";
 
 // Fonction pour vider et réinitialiser la base de données
-async function resetDatabase() {
+async function resetDatabase(): Promise<boolean> {
   try {
     // Supprimer les tables dans l'ordre inverse de création (pour éviter les contraintes de clés étrangères)
     await query("DROP TABLE IF EXISTS documents CASCADE");
@@ -99,4 +99,4 @@ async function resetDatabase() {
   }
 }
 
-module.exports = { resetDatabase };
+export { resetDatabase };

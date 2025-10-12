@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { verifyUserEmail } from "../../../lib/database";
 import { sendWelcomeEmail } from "../../../lib/email";
 
-export async function POST(request) {
+export async function POST(request: Request) {
   try {
     const { token } = await request.json();
 
@@ -25,7 +25,7 @@ export async function POST(request) {
 
     // Envoyer l'email de bienvenue
     try {
-      await sendWelcomeEmail(result.user.email, result.user.first_name);
+      await sendWelcomeEmail(result.user!.email, result.user!.first_name);
     } catch (emailError) {
       console.error("❌ Erreur envoi email de bienvenue:", emailError);
       // On continue même si l'email de bienvenue échoue
@@ -33,7 +33,7 @@ export async function POST(request) {
 
     return NextResponse.json({
       success: true,
-      message: `Bienvenue ${result.user.first_name} ! Votre compte a été activé avec succès.`,
+      message: `Bienvenue ${result.user!.first_name} ! Votre compte a été activé avec succès.`,
     });
   } catch (error) {
     console.error("❌ Erreur API vérification email:", error);

@@ -1,10 +1,12 @@
+import { NextRequest } from "next/server";
+
 export const authConfig = {
   pages: {
     signIn: "/login",
     error: "/auth/error",
   },
   callbacks: {
-    authorized({ auth, request: { nextUrl } }) {
+    authorized({ auth, request: { nextUrl } }: { auth: unknown; request: { nextUrl: URL } }) {
       const isLoggedIn = !!auth?.user;
       const isOnDashboard = nextUrl.pathname.startsWith("/dashboard");
       const isOnAdmin = nextUrl.pathname.startsWith("/admin");

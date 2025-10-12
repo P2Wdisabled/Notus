@@ -1,18 +1,25 @@
-const crypto = require("crypto");
-const { Resend } = require("resend");
+import crypto from "crypto";
+import { Resend } from "resend";
 
 // Configuration Resend - initialiser seulement si la clé API est présente
 const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
   : null;
 
+// Types pour les réponses
+interface EmailResult {
+  success: boolean;
+  messageId?: string;
+  error?: string;
+}
+
 // Générer un token de vérification sécurisé
-function generateVerificationToken() {
+function generateVerificationToken(): string {
   return crypto.randomBytes(32).toString("hex");
 }
 
 // Envoyer un email de vérification avec Resend
-async function sendVerificationEmail(email, token, firstName) {
+async function sendVerificationEmail(email: string, token: string, firstName: string): Promise<EmailResult> {
   const verificationUrl = `${process.env.NEXTAUTH_URL}/verify-email?token=${token}`;
   const from = process.env.EMAIL_FROM || "Notus <noreply@notus.com>";
 
@@ -73,14 +80,14 @@ async function sendVerificationEmail(email, token, firstName) {
     }
 
     return { success: true, messageId: data.id };
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("❌ Erreur envoi email:", error);
     return { success: false, error: error.message };
   }
 }
 
 // Envoyer un email de bienvenue après vérification avec Resend
-async function sendWelcomeEmail(email, firstName) {
+async function sendWelcomeEmail(email: string, firstName: string): Promise<EmailResult> {
   const from = process.env.EMAIL_FROM || "Notus <noreply@notus.com>";
 
   // Si pas de clé API Resend, simuler l'envoi
@@ -130,14 +137,14 @@ async function sendWelcomeEmail(email, firstName) {
     }
 
     return { success: true, messageId: data.id };
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("❌ Erreur envoi email de bienvenue:", error);
     return { success: false, error: error.message };
   }
 }
 
 // Envoyer un email de notification de bannissement avec Resend
-async function sendBanNotificationEmail(email, firstName, reason = null) {
+async function sendBanNotificationEmail(email: string, firstName: string, reason: string | null = null): Promise<EmailResult> {
   const from = process.env.EMAIL_FROM || "Notus <noreply@notus.com>";
 
   // Si pas de clé API Resend, simuler l'envoi
@@ -211,14 +218,14 @@ async function sendBanNotificationEmail(email, firstName, reason = null) {
     }
 
     return { success: true, messageId: data.id };
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("❌ Erreur envoi email de bannissement:", error);
     return { success: false, error: error.message };
   }
 }
 
 // Envoyer un email de notification de débannissement avec Resend
-async function sendUnbanNotificationEmail(email, firstName) {
+async function sendUnbanNotificationEmail(email: string, firstName: string): Promise<EmailResult> {
   const from = process.env.EMAIL_FROM || "Notus <noreply@notus.com>";
 
   // Si pas de clé API Resend, simuler l'envoi
@@ -290,14 +297,14 @@ async function sendUnbanNotificationEmail(email, firstName) {
     }
 
     return { success: true, messageId: data.id };
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("❌ Erreur envoi email de débannissement:", error);
     return { success: false, error: error.message };
   }
 }
 
 // Envoyer un email de réinitialisation de mot de passe avec Resend
-async function sendPasswordResetEmail(email, token, firstName) {
+async function sendPasswordResetEmail(email: string, token: string, firstName: string): Promise<EmailResult> {
   const resetUrl = `${process.env.NEXTAUTH_URL}/reset-password?token=${token}`;
   const from = process.env.EMAIL_FROM || "Notus <noreply@notus.com>";
 
@@ -358,13 +365,13 @@ async function sendPasswordResetEmail(email, token, firstName) {
     }
 
     return { success: true, messageId: data.id };
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("❌ Erreur envoi email de réinitialisation:", error);
     return { success: false, error: error.message };
   }
 }
 
-module.exports = {
+export {
   generateVerificationToken,
   sendVerificationEmail,
   sendWelcomeEmail,

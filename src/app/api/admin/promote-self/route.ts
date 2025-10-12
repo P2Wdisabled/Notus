@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "../../../../../auth.js";
+import { auth } from "../../../../../auth";
 import { toggleUserAdmin } from "@/lib/database";
 
 export async function POST() {
@@ -12,7 +12,7 @@ export async function POST() {
     }
 
     // Promouvoir l'utilisateur connecté en admin
-    const result = await toggleUserAdmin(session.user.id, true);
+    const result = await toggleUserAdmin(parseInt(session.user.id), true);
 
     if (!result.success) {
       return NextResponse.json({ error: result.error }, { status: 400 });

@@ -1,12 +1,18 @@
 import { NextResponse } from "next/server";
-import { auth } from "../../../../../../../auth.js";
+import { auth } from "../../../../../../../auth";
 import { toggleUserBan, isUserAdmin, query } from "@/lib/database";
 import {
   sendBanNotificationEmail,
   sendUnbanNotificationEmail,
 } from "@/lib/email";
 
-export async function PATCH(request, { params }) {
+interface RouteParams {
+  params: Promise<{
+    id: string;
+  }>;
+}
+
+export async function PATCH(request: Request, { params }: RouteParams) {
   try {
     const session = await auth();
 
@@ -16,7 +22,7 @@ export async function PATCH(request, { params }) {
     }
 
     // Vérifier si l'utilisateur est admin
-    const isAdmin = await isUserAdmin(session.user.id);
+    const isAdmin = await isUserAdmin(parseInt(session.user.id));
     if (!isAdmin) {
       return NextResponse.json(
         { error: "Accès refusé - Droits administrateur requis" },
@@ -24,7 +30,7 @@ export async function PATCH(request, { params }) {
       );
     }
 
-    const { id } = params;
+    const { id } = await params;
     const { isBanned, reason } = await request.json();
 
     if (typeof isBanned !== "boolean") {
@@ -35,7 +41,7 @@ export async function PATCH(request, { params }) {
     }
 
     // Empêcher un admin de se bannir lui-même
-    if (parseInt(id) === session.user.id) {
+    if (parseInt(id) === parseInt(session.user.id)) {
       return NextResponse.json(
         { error: "Vous ne pouvez pas vous bannir vous-même" },
         { status: 400 }

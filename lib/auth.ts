@@ -1,14 +1,65 @@
-import NextAuth from "next-auth";
+import NextAuth, { NextAuthOptions, User } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { query } from "../src/lib/database";
 
-export const authOptions = {
+// Étendre les types NextAuth
+declare module "next-auth" {
+  interface Session {
+    user: {
+      id: string;
+      email: string;
+      name: string;
+      username: string;
+      firstName: string;
+      lastName: string;
+      isAdmin: boolean;
+      isVerified: boolean;
+    };
+  }
+
+  interface User {
+    id: string;
+    email: string;
+    name: string;
+    username: string;
+    firstName: string;
+    lastName: string;
+    isAdmin: boolean;
+    isVerified: boolean;
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    id: string;
+    username: string;
+    firstName: string;
+    lastName: string;
+    isAdmin: boolean;
+    isVerified: boolean;
+  }
+}
+
+
+interface DatabaseUser {
+  id: number;
+  email: string;
+  username: string;
+  first_name: string;
+  last_name: string;
+  password_hash: string | null;
+  email_verified: boolean;
+  is_banned: boolean;
+  is_admin: boolean;
+}
+
+export const authOptions: NextAuthOptions = {
   secret: process.env.AUTH_SECRET,
   providers: [
     GoogleProvider({
-      clientId: process.env.AUTH_GOOGLE_ID,
-      clientSecret: process.env.AUTH_GOOGLE_SECRET,
+      clientId: process.env.AUTH_GOOGLE_ID!,
+      clientSecret: process.env.AUTH_GOOGLE_SECRET!,
       authorization: {
         params: {
           prompt: "consent",
@@ -23,7 +74,7 @@ export const authOptions = {
         email: { label: "Email ou nom d'utilisateur", type: "text" },
         password: { label: "Mot de passe", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials): Promise<User | null> {
         try {
           if (!credentials) return null;
 
@@ -40,7 +91,7 @@ export const authOptions = {
 
           if (result.rows.length === 0) return null;
 
-          const user = result.rows[0];
+          const user: DatabaseUser = result.rows[0];
           if (user.is_banned) return null;
           if (!user.password_hash) return null; // Compte OAuth sans mot de passe
 
@@ -81,9 +132,9 @@ export const authOptions = {
             // Créer un nouvel utilisateur
             const username = user.email?.split("@")[0] || "user";
             const firstName =
-              profile?.given_name || user.name?.split(" ")[0] || "";
+              (profile as Record<string, unknown>)?.given_name || user.name?.split(" ")[0] || "";
             const lastName =
-              profile?.family_name ||
+              (profile as Record<string, unknown>)?.family_name ||
               user.name?.split(" ").slice(1).join(" ") ||
               "";
 

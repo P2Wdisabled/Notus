@@ -4,7 +4,7 @@ import { signIn } from "next-auth/react";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../lib/auth";
 import { auth } from "../../auth";
-import { AuthError } from "next-auth";
+import AuthError from "next-auth";
 import { validateRegistrationData, validateProfileData } from "./validation";
 import {
   generateVerificationToken,
@@ -26,30 +26,48 @@ import {
   deleteDocument,
   deleteDocumentsBulk,
   updateUserProfile,
+  deleteNote,
+  type Document,
+  type User,
 } from "./database";
 
+// Types pour les réponses
+interface ActionResult {
+  success?: boolean;
+  message?: string;
+  documentId?: number;
+  error?: string;
+  documents?: Document[];
+  document?: Document;
+  user?: User;
+  userId?: string;
+  ok?: boolean;
+  id?: number;
+  dbResult?: { success: boolean; error?: string; document?: Document };
+}
+
 // Try to resolve getServerSession/authOptions at runtime (optional)
-let getServerSessionFn = undefined;
-let authOptionsModule = undefined;
+let getServerSessionFn: ((options: unknown) => Promise<unknown>) | undefined = undefined;
+let authOptionsModule: unknown = undefined;
 try {
   const nextAuthNext = require("next-auth/next");
   getServerSessionFn =
     nextAuthNext?.getServerSession ?? nextAuthNext?.unstable_getServerSession;
-} catch (e) {
-  // not available or not installed — fallback will be used
-  console.warn(
-    "next-auth getServerSession not available via require()",
-    e?.message ?? e
-  );
-}
+  } catch (e: unknown) {
+    // not available or not installed — fallback will be used
+    console.warn(
+      "next-auth getServerSession not available via require()",
+      e instanceof Error ? e.message : e
+    );
+  }
 try {
   authOptionsModule = require("../../auth")?.authOptions;
-} catch (e) {
-  // file may not exist or path differs — that's fine for now
-  // console.warn('authOptions not found at "../../auth"', e?.message ?? e);
-}
+  } catch (e: unknown) {
+    // file may not exist or path differs — that's fine for now
+    // console.warn('authOptions not found at "../../auth"', e instanceof Error ? e.message : e);
+  }
 
-export async function authenticate(prevState, formData) {
+export async function authenticate(prevState: unknown, formData: FormData): Promise<string> {
   try {
     const email = formData.get("email");
 
@@ -61,7 +79,7 @@ export async function authenticate(prevState, formData) {
           [email]
         );
 
-        if (result.rows.length > 0 && result.rows[0].is_banned) {
+        if (result.rows.length > 0 && (result.rows[0] as { is_banned: boolean }).is_banned) {
           return "Ce compte a été banni. Contactez un administrateur pour plus d'informations.";
         }
       } catch (dbError) {
@@ -73,29 +91,28 @@ export async function authenticate(prevState, formData) {
       }
     }
 
-    await signIn("credentials", formData);
-  } catch (error) {
-    if (error instanceof AuthError) {
-      switch (error.type) {
-        case "CredentialsSignin":
-          return "Email ou mot de passe incorrect, ou email non vérifié.";
-        default:
-          return "Une erreur est survenue.";
-      }
+    await signIn("credentials", {
+      email: formData.get("email") as string,
+      password: formData.get("password") as string,
+    });
+    return "";
+  } catch (error: unknown) {
+    if (error && typeof error === 'object' && 'type' in error && error.type === "CredentialsSignin") {
+      return "Email ou mot de passe incorrect, ou email non vérifié.";
     }
 
-    throw error;
+    return "Une erreur est survenue.";
   }
 }
 
-export async function registerUser(prevState, formData) {
+export async function registerUser(prevState: unknown, formData: FormData): Promise<string> {
   try {
     const userData = {
-      email: formData.get("email"),
-      username: formData.get("username"),
-      password: formData.get("password"),
-      firstName: formData.get("firstName"),
-      lastName: formData.get("lastName"),
+      email: formData.get("email") as string,
+      username: formData.get("username") as string,
+      password: formData.get("password") as string,
+      firstName: formData.get("firstName") as string,
+      lastName: formData.get("lastName") as string,
     };
 
     // Vérifier l'acceptation des conditions d'utilisation
@@ -140,14 +157,15 @@ export async function registerUser(prevState, formData) {
     }
 
     return "Inscription réussie ! Un email de vérification a été envoyé. Vérifiez votre boîte de réception.";
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("❌ Erreur lors de l'inscription:", error);
 
-    if (error.message.includes("déjà utilisé")) {
+    if (error instanceof Error && error.message.includes("déjà utilisé")) {
       return error.message;
     }
 
-    if (error.code === "ECONNRESET" || error.code === "ECONNREFUSED") {
+    if (error && typeof error === 'object' && 'code' in error && 
+        (error.code === "ECONNRESET" || error.code === "ECONNREFUSED")) {
       return "Base de données non accessible. Vérifiez la configuration PostgreSQL.";
     }
 
@@ -155,9 +173,9 @@ export async function registerUser(prevState, formData) {
   }
 }
 
-export async function sendPasswordResetEmailAction(prevState, formData) {
+export async function sendPasswordResetEmailAction(prevState: unknown, formData: FormData): Promise<string> {
   try {
-    const email = formData.get("email");
+    const email = formData.get("email") as string;
 
     if (!email) {
       return "Veuillez entrer votre adresse email.";
@@ -186,7 +204,7 @@ export async function sendPasswordResetEmailAction(prevState, formData) {
       return "Si un compte existe avec cette adresse email, un lien de réinitialisation a été envoyé.";
     }
 
-    const user = result.rows[0];
+    const user = result.rows[0] as { id: number; first_name: string; reset_token: string; reset_token_expiry: Date };
 
     // Vérifier si une demande de réinitialisation a déjà été faite récemment (dans les 5 dernières minutes)
     const recentReset = await query(
@@ -221,13 +239,14 @@ export async function sendPasswordResetEmailAction(prevState, formData) {
     }
 
     return "Un email de réinitialisation a été envoyé. Vérifiez votre boîte de réception.";
-  } catch (error) {
+  } catch (error: unknown) {
     console.error(
       "❌ Erreur lors de l'envoi de l'email de réinitialisation:",
       error
     );
 
-    if (error.code === "ECONNRESET" || error.code === "ECONNREFUSED") {
+    if (error && typeof error === 'object' && 'code' in error && 
+        (error.code === "ECONNRESET" || error.code === "ECONNREFUSED")) {
       return "Base de données non accessible. Vérifiez la configuration PostgreSQL.";
     }
 
@@ -235,11 +254,11 @@ export async function sendPasswordResetEmailAction(prevState, formData) {
   }
 }
 
-export async function resetPasswordAction(prevState, formData) {
+export async function resetPasswordAction(prevState: unknown, formData: FormData): Promise<string> {
   try {
-    const token = formData.get("token");
-    const password = formData.get("password");
-    const confirmPassword = formData.get("confirmPassword");
+    const token = formData.get("token") as string;
+    const password = formData.get("password") as string;
+    const confirmPassword = formData.get("confirmPassword") as string;
 
     if (!token || !password || !confirmPassword) {
       return "Tous les champs sont requis.";
@@ -271,7 +290,7 @@ export async function resetPasswordAction(prevState, formData) {
       return "Token invalide ou expiré. Veuillez demander un nouveau lien de réinitialisation.";
     }
 
-    const user = result.rows[0];
+    const user = result.rows[0] as { id: number; first_name: string; reset_token: string; reset_token_expiry: Date };
 
     // Hasher le nouveau mot de passe
     const hashedPassword = await bcrypt.hash(password, 12);
@@ -283,13 +302,14 @@ export async function resetPasswordAction(prevState, formData) {
     );
 
     return "Mot de passe modifié avec succès. Vous pouvez maintenant vous connecter.";
-  } catch (error) {
+  } catch (error: unknown) {
     console.error(
       "❌ Erreur lors de la réinitialisation du mot de passe:",
       error
     );
 
-    if (error.code === "ECONNRESET" || error.code === "ECONNREFUSED") {
+    if (error && typeof error === 'object' && 'code' in error && 
+        (error.code === "ECONNRESET" || error.code === "ECONNREFUSED")) {
       return "Base de données non accessible. Vérifiez la configuration PostgreSQL.";
     }
 
@@ -298,7 +318,7 @@ export async function resetPasswordAction(prevState, formData) {
 }
 
 // Mettre à jour le profil utilisateur
-export async function updateUserProfileAction(prevState, formData) {
+export async function updateUserProfileAction(prevState: unknown, formData: FormData): Promise<string> {
   try {
     const session = await auth();
     const userIdRaw = session?.user?.id;
@@ -307,12 +327,12 @@ export async function updateUserProfileAction(prevState, formData) {
       return "Vous devez être connecté pour modifier votre profil.";
     }
 
-    const email = formData.get("email") || undefined;
-    const username = formData.get("username") || undefined;
-    const firstName = formData.get("firstName") || undefined;
-    const lastName = formData.get("lastName") || undefined;
-    const profileImage = formData.get("profileImage") || undefined;
-    const bannerImage = formData.get("bannerImage") || undefined;
+    const email = formData.get("email") as string || undefined;
+    const username = formData.get("username") as string || undefined;
+    const firstName = formData.get("firstName") as string || undefined;
+    const lastName = formData.get("lastName") as string || undefined;
+    const profileImage = formData.get("profileImage") as string || undefined;
+    const bannerImage = formData.get("bannerImage") as string || undefined;
 
     // Validation des données de profil (inclut les images)
     const profileData = {
@@ -329,7 +349,7 @@ export async function updateUserProfileAction(prevState, formData) {
       return Object.values(validation.errors)[0] || "Données invalides";
     }
 
-    const fields = {};
+    const fields: Record<string, string> = {};
     if (email !== undefined) fields.email = email.trim();
     if (username !== undefined) fields.username = username.trim();
     if (firstName !== undefined) fields.firstName = firstName.trim();
@@ -355,9 +375,10 @@ export async function updateUserProfileAction(prevState, formData) {
     }
 
     return "Profil mis à jour avec succès !";
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("❌ Erreur mise à jour profil:", error);
-    if (error.code === "ECONNRESET" || error.code === "ECONNREFUSED") {
+    if (error && typeof error === 'object' && 'code' in error && 
+        (error.code === "ECONNRESET" || error.code === "ECONNREFUSED")) {
       return "Base de données non accessible. Vérifiez la configuration PostgreSQL.";
     }
     return "Erreur lors de la mise à jour du profil. Veuillez réessayer.";
@@ -365,12 +386,12 @@ export async function updateUserProfileAction(prevState, formData) {
 }
 
 // Action pour créer un document
-export async function createDocumentAction(prevState, formData) {
+export async function createDocumentAction(prevState: unknown, formData: FormData): Promise<ActionResult | string> {
   try {
-    const title = formData.get("title");
-    const content = formData.get("content");
-    const userId = formData.get("userId");
-    const rawTags = formData.get("tags");
+    const title = formData.get("title") as string;
+    const content = formData.get("content") as string;
+    const userId = formData.get("userId") as string;
+    const rawTags = formData.get("tags") as string;
 
     if (!userId) {
       return "Utilisateur requis.";
@@ -379,7 +400,7 @@ export async function createDocumentAction(prevState, formData) {
     // Debug: Afficher l'ID utilisateur reçu
 
     // Gérer les différents types d'IDs utilisateur
-    let userIdNumber;
+    let userIdNumber: number;
 
     // Si l'ID utilisateur est undefined ou null
     if (
@@ -426,7 +447,7 @@ export async function createDocumentAction(prevState, formData) {
     await initializeTables();
 
     // Parser les tags
-    let tags = [];
+    let tags: string[] = [];
     try {
       if (rawTags)
         tags = typeof rawTags === "string" ? JSON.parse(rawTags) : rawTags;
@@ -451,12 +472,13 @@ export async function createDocumentAction(prevState, formData) {
     return {
       success: true,
       message: "Document créé avec succès !",
-      documentId: result.document.id,
+      documentId: result.document!.id,
     };
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("❌ Erreur lors de la création du document:", error);
 
-    if (error.code === "ECONNRESET" || error.code === "ECONNREFUSED") {
+    if (error && typeof error === 'object' && 'code' in error && 
+        (error.code === "ECONNRESET" || error.code === "ECONNREFUSED")) {
       return "Base de données non accessible. Vérifiez la configuration PostgreSQL.";
     }
 
@@ -465,7 +487,7 @@ export async function createDocumentAction(prevState, formData) {
 }
 
 // Action pour récupérer les documents d'un utilisateur
-export async function getUserDocumentsAction(userId, limit = 20, offset = 0) {
+export async function getUserDocumentsAction(userId: number, limit: number = 20, offset: number = 0): Promise<ActionResult> {
   try {
     // Vérifier si la base de données est configurée
     if (!process.env.DATABASE_URL) {
@@ -474,10 +496,12 @@ export async function getUserDocumentsAction(userId, limit = 20, offset = 0) {
         documents: [
           {
             id: 1,
+            user_id: 1,
             title: "Document de simulation",
             content: "Configurez DATABASE_URL pour la persistance.",
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
+            tags: [],
+            created_at: new Date(),
+            updated_at: new Date(),
             username: "simulation",
             first_name: "Test",
             last_name: "User",
@@ -502,7 +526,7 @@ export async function getUserDocumentsAction(userId, limit = 20, offset = 0) {
     }
 
     return result;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("❌ Erreur lors de la récupération des documents:", error);
     return {
       success: false,
@@ -513,7 +537,7 @@ export async function getUserDocumentsAction(userId, limit = 20, offset = 0) {
 }
 
 // Action pour récupérer tous les documents (fil d'actualité)
-export async function getAllDocumentsAction(limit = 20, offset = 0) {
+export async function getAllDocumentsAction(limit: number = 20, offset: number = 0): Promise<ActionResult> {
   try {
     // Vérifier si la base de données est configurée
     if (!process.env.DATABASE_URL) {
@@ -522,10 +546,12 @@ export async function getAllDocumentsAction(limit = 20, offset = 0) {
         documents: [
           {
             id: 1,
+            user_id: 1,
             title: "Document de simulation",
             content: "Configurez DATABASE_URL pour la persistance.",
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
+            tags: [],
+            created_at: new Date(),
+            updated_at: new Date(),
             username: "simulation",
             first_name: "Test",
             last_name: "User",
@@ -550,7 +576,7 @@ export async function getAllDocumentsAction(limit = 20, offset = 0) {
     }
 
     return result;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("❌ Erreur lors de la récupération des documents:", error);
     return {
       success: false,
@@ -561,10 +587,10 @@ export async function getAllDocumentsAction(limit = 20, offset = 0) {
 }
 
 // Action pour supprimer une note
-export async function deleteNoteAction(prevState, formData) {
+export async function deleteNoteAction(prevState: unknown, formData: FormData): Promise<string> {
   try {
-    const noteId = formData.get("noteId");
-    const userId = formData.get("userId");
+    const noteId = formData.get("noteId") as string;
+    const userId = formData.get("userId") as string;
 
     if (!noteId || !userId) {
       return "ID de note et utilisateur requis.";
@@ -579,7 +605,7 @@ export async function deleteNoteAction(prevState, formData) {
     await initializeTables();
 
     // Gérer les différents types d'IDs utilisateur
-    let userIdNumber;
+    let userIdNumber: number;
 
     // Si c'est un ID de simulation OAuth
     if (userId === "oauth-simulated-user") {
@@ -603,14 +629,15 @@ export async function deleteNoteAction(prevState, formData) {
 
     if (!result.success) {
       console.error("❌ Erreur suppression note:", result.error);
-      return result.error;
+      return result.error!;
     }
 
-    return result.message;
-  } catch (error) {
+    return result.message!;
+  } catch (error: unknown) {
     console.error("❌ Erreur lors de la suppression de la note:", error);
 
-    if (error.code === "ECONNRESET" || error.code === "ECONNREFUSED") {
+    if (error && typeof error === 'object' && 'code' in error && 
+        (error.code === "ECONNRESET" || error.code === "ECONNREFUSED")) {
       return "Base de données non accessible. Vérifiez la configuration PostgreSQL.";
     }
 
@@ -619,22 +646,23 @@ export async function deleteNoteAction(prevState, formData) {
 }
 
 // Action pour récupérer un document par ID
-export async function getDocumentByIdAction(documentId) {
+export async function getDocumentByIdAction(documentId: number): Promise<ActionResult> {
   try {
     // Vérifier si la base de données est configurée
     if (!process.env.DATABASE_URL) {
       return {
         success: true,
         document: {
-          id: parseInt(documentId),
+          id: parseInt(documentId.toString()),
+          user_id: 1,
           title: "Document de simulation",
           content: "Configurez DATABASE_URL pour la persistance.",
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
+          tags: [],
+          created_at: new Date(),
+          updated_at: new Date(),
           username: "simulation",
           first_name: "Test",
           last_name: "User",
-          user_id: 1,
         },
       };
     }
@@ -643,30 +671,30 @@ export async function getDocumentByIdAction(documentId) {
     await initializeTables();
 
     // Récupérer le document
-    const result = await getDocumentById(parseInt(documentId));
+    const result = await getDocumentById(parseInt(documentId.toString()));
 
     if (!result.success) {
       console.error("❌ Erreur récupération document:", result.error);
       return {
         success: false,
         error: "Erreur lors de la récupération du document.",
-        document: null,
+        document: undefined,
       };
     }
 
     return result;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("❌ Erreur lors de la récupération du document:", error);
     return {
       success: false,
       error: "Erreur lors de la récupération du document.",
-      document: null,
+      document: undefined,
     };
   }
 }
 
 // Action pour mettre à jour un document
-export async function updateDocumentAction(prevState, formDataOrObj) {
+export async function updateDocumentAction(prevState: unknown, formDataOrObj: FormData | Record<string, any>): Promise<ActionResult> {
   try {
     // Vérifier que formDataOrObj existe et est valide
     if (!formDataOrObj) {
@@ -676,30 +704,30 @@ export async function updateDocumentAction(prevState, formDataOrObj) {
     const fd = formDataOrObj.get ? formDataOrObj : null;
     const documentId = fd
       ? String(fd.get("documentId") || "")
-      : String(formDataOrObj.documentId || "");
+      : String((formDataOrObj as Record<string, any>).documentId || "");
     if (!documentId) return { ok: false, error: "Missing documentId" };
 
     // Try server session (if available)
-    let serverUserId;
+    let serverUserId: number | undefined;
     try {
       if (typeof getServerSessionFn === "function" && authOptionsModule) {
-        const session = await getServerSessionFn(authOptionsModule);
+        const session = await getServerSessionFn(authOptionsModule) as { user?: { id: string } } | null;
         serverUserId = session?.user?.id ? Number(session.user.id) : undefined;
       }
-    } catch (e) {
+    } catch (e: unknown) {
       console.warn(
         "getServerSession failed at runtime, falling back to client userId",
-        e?.message ?? e
+        e instanceof Error ? e.message : e
       );
     }
 
     // If no server session, try client-sent userId
-    let clientUserId;
+    let clientUserId: number | undefined;
     if (fd) {
       const u = fd.get("userId");
       if (u) clientUserId = Number(String(u));
-    } else if (formDataOrObj.userId) {
-      clientUserId = Number(formDataOrObj.userId);
+    } else if ((formDataOrObj as Record<string, any>).userId) {
+      clientUserId = Number((formDataOrObj as Record<string, any>).userId);
     }
 
     const userIdToUse = serverUserId ?? clientUserId;
@@ -735,12 +763,7 @@ export async function updateDocumentAction(prevState, formDataOrObj) {
     }
 
     // support plusieurs noms de champs possibles pour le propriétaire
-    const ownerCandidate =
-      existingAny.user_id ??
-      existingAny.userId ??
-      existingAny.owner_id ??
-      existingAny.ownerId ??
-      existingAny.user?.id;
+    const ownerCandidate = existingAny.user_id;
     const ownerId = Number(ownerCandidate);
     // userIdToUse was already set above (serverUserId ?? clientUserId)
     const userIdToUseNum = Number(userIdToUse);
@@ -750,24 +773,25 @@ export async function updateDocumentAction(prevState, formDataOrObj) {
     // Example (adapt to your code):
     let title = "";
     let contentStr = "";
-    let rawDrawings = null;
-    let rawTags = null;
+    let rawDrawings: unknown = null;
+    let rawTags: unknown = null;
     if (fd) {
       title = String(fd.get("title") || "");
       contentStr = String(fd.get("content") || "");
       rawDrawings = fd.get("drawings") || null;
       rawTags = fd.get("tags") || null;
     } else {
-      title = formDataOrObj.title || "";
-      contentStr = formDataOrObj.content || "";
-      rawDrawings = formDataOrObj.drawings || null;
-      rawTags = formDataOrObj.tags || null;
+      const obj = formDataOrObj as Record<string, any>;
+      title = obj.title || "";
+      contentStr = obj.content || "";
+      rawDrawings = obj.drawings || null;
+      rawTags = obj.tags || null;
     }
 
     // Content received and parsed successfully
 
-    let drawings = [];
-    let tags = [];
+    let drawings: unknown[] = [];
+    let tags: string[] = [];
     try {
       if (rawDrawings)
         drawings =
@@ -811,17 +835,17 @@ export async function updateDocumentAction(prevState, formDataOrObj) {
       id: idNum,
       dbResult: updateResult,
     };
-  } catch (err) {
+  } catch (err: unknown) {
     console.error(err);
-    return { ok: false, error: String(err?.message || err) };
+    return { ok: false, error: String(err instanceof Error ? err.message : err) };
   }
 }
 
 // Action pour supprimer un document
-export async function deleteDocumentAction(prevState, formData) {
+export async function deleteDocumentAction(prevState: unknown, formData: FormData): Promise<string> {
   try {
-    const documentId = formData.get("documentId");
-    const userId = formData.get("userId");
+    const documentId = formData.get("documentId") as string;
+    const userId = formData.get("userId") as string;
 
     if (!documentId || !userId) {
       return "ID de document et utilisateur requis.";
@@ -854,14 +878,15 @@ export async function deleteDocumentAction(prevState, formData) {
 
     if (!result.success) {
       console.error("❌ Erreur suppression document:", result.error);
-      return result.error;
+      return result.error!;
     }
 
-    return result.message;
-  } catch (error) {
+    return result.message!;
+  } catch (error: unknown) {
     console.error("❌ Erreur lors de la suppression du document:", error);
 
-    if (error.code === "ECONNRESET" || error.code === "ECONNREFUSED") {
+    if (error && typeof error === 'object' && 'code' in error && 
+        (error.code === "ECONNRESET" || error.code === "ECONNREFUSED")) {
       return "Base de données non accessible. Vérifiez la configuration PostgreSQL.";
     }
 
@@ -870,7 +895,7 @@ export async function deleteDocumentAction(prevState, formData) {
 }
 
 // Action pour récupérer l'ID utilisateur depuis la base de données
-export async function getUserIdByEmailAction(email) {
+export async function getUserIdByEmailAction(email: string): Promise<ActionResult> {
   try {
     // Vérifier si la base de données est configurée
     if (!process.env.DATABASE_URL) {
@@ -884,22 +909,20 @@ export async function getUserIdByEmailAction(email) {
     await initializeTables();
 
     // Récupérer l'ID utilisateur par email
-    const result = await query("SELECT id FROM users WHERE email = $1", [
-      email,
-    ]);
+    const result = await query("SELECT id FROM users WHERE email = $1", [email]);
 
     if (result.rows.length > 0) {
-      return {
-        success: true,
-        userId: result.rows[0].id.toString(),
-      };
+    return {
+      success: true,
+      userId: (result.rows[0] as { id: number }).id.toString(),
+    };
     }
 
     return {
       success: false,
       error: "Utilisateur non trouvé",
     };
-  } catch (error) {
+  } catch (error: unknown) {
     console.error(
       "❌ Erreur lors de la récupération de l'ID utilisateur:",
       error
@@ -910,11 +933,12 @@ export async function getUserIdByEmailAction(email) {
     };
   }
 }
+
 // Action pour supprimer plusieurs documents d'un coup
-export async function deleteMultipleDocumentsAction(prevState, formData) {
+export async function deleteMultipleDocumentsAction(prevState: unknown, formData: FormData): Promise<string> {
   try {
-    const userId = formData.get("userId");
-    const idsRaw = formData.getAll("documentIds");
+    const userId = formData.get("userId") as string;
+    const idsRaw = formData.getAll("documentIds") as string[];
 
     if (!userId) {
       return "ID utilisateur requis.";
@@ -938,17 +962,18 @@ export async function deleteMultipleDocumentsAction(prevState, formData) {
       return result.error || "Erreur lors de la suppression multiple.";
     }
 
-    return result.message;
-  } catch (error) {
+    return result.message!;
+  } catch (error: unknown) {
     console.error("❌ Erreur lors de la suppression multiple:", error);
-    if (error.code === "ECONNRESET" || error.code === "ECONNREFUSED") {
+    if (error && typeof error === 'object' && 'code' in error && 
+        (error.code === "ECONNRESET" || error.code === "ECONNREFUSED")) {
       return "Base de données non accessible. Vérifiez la configuration PostgreSQL.";
     }
     return "Erreur lors de la suppression multiple. Veuillez réessayer.";
   }
 }
 
-export async function getUserProfileAction(userId) {
+export async function getUserProfileAction(userId: number): Promise<ActionResult> {
   try {
     // Vérifier si la base de données est configurée
     if (!process.env.DATABASE_URL) {
@@ -956,13 +981,24 @@ export async function getUserProfileAction(userId) {
         success: true,
         user: {
           id: userId,
+          email: "test@example.com",
           username: "simulation",
+          password_hash: undefined,
           first_name: "Test",
           last_name: "User",
-          email: "test@example.com",
-          profile_image: null,
-          banner_image: null,
-          created_at: new Date().toISOString(),
+          email_verified: true,
+          email_verification_token: undefined,
+          provider: undefined,
+          provider_id: undefined,
+          created_at: new Date(),
+          updated_at: new Date(),
+          reset_token: undefined,
+          reset_token_expiry: undefined,
+          is_admin: false,
+          is_banned: false,
+          terms_accepted_at: new Date(),
+          profile_image: undefined,
+          banner_image: undefined,
         },
       };
     }
@@ -986,9 +1022,9 @@ export async function getUserProfileAction(userId) {
 
     return {
       success: true,
-      user: result.rows[0],
+      user: result.rows[0] as User,
     };
-  } catch (error) {
+  } catch (error: unknown) {
     console.error(
       "❌ Erreur lors de la récupération du profil utilisateur:",
       error
@@ -1001,10 +1037,10 @@ export async function getUserProfileAction(userId) {
 }
 
 // Action pour créer une note (alias pour createDocumentAction)
-export async function createNoteAction(prevState, formData) {
+export async function createNoteAction(prevState: unknown, formData: FormData): Promise<string> {
   try {
-    const content = formData.get("content");
-    const userId = formData.get("userId");
+    const content = formData.get("content") as string;
+    const userId = formData.get("userId") as string;
 
     if (!userId) {
       return "Utilisateur requis.";
@@ -1013,7 +1049,7 @@ export async function createNoteAction(prevState, formData) {
     // Debug: Afficher l'ID utilisateur reçu
 
     // Gérer les différents types d'IDs utilisateur
-    let userIdNumber;
+    let userIdNumber: number;
 
     // Si l'ID utilisateur est undefined ou null
     if (
@@ -1072,10 +1108,11 @@ export async function createNoteAction(prevState, formData) {
     } else {
       return "Note publiée avec succès !";
     }
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("❌ Erreur lors de la création de la note:", error);
 
-    if (error.code === "ECONNRESET" || error.code === "ECONNREFUSED") {
+    if (error && typeof error === 'object' && 'code' in error && 
+        (error.code === "ECONNRESET" || error.code === "ECONNREFUSED")) {
       return "Base de données non accessible. Vérifiez la configuration PostgreSQL.";
     }
 

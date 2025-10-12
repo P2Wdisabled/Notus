@@ -1,8 +1,14 @@
 import { NextResponse } from "next/server";
-import { auth } from "../../../../../../../auth.js";
+import { auth } from "../../../../../../../auth";
 import { toggleUserAdmin, isUserAdmin } from "@/lib/database";
 
-export async function PATCH(request, { params }) {
+interface RouteParams {
+  params: Promise<{
+    id: string;
+  }>;
+}
+
+export async function PATCH(request: Request, { params }: RouteParams) {
   try {
     const session = await auth();
 
@@ -12,7 +18,7 @@ export async function PATCH(request, { params }) {
     }
 
     // Vérifier si l'utilisateur est admin
-    const isAdmin = await isUserAdmin(session.user.id);
+    const isAdmin = await isUserAdmin(parseInt(session.user.id));
     if (!isAdmin) {
       return NextResponse.json(
         { error: "Accès refusé - Droits administrateur requis" },
@@ -20,7 +26,7 @@ export async function PATCH(request, { params }) {
       );
     }
 
-    const { id } = params;
+    const { id } = await params;
     const { isAdmin: newAdminStatus } = await request.json();
 
     if (typeof newAdminStatus !== "boolean") {
@@ -31,7 +37,7 @@ export async function PATCH(request, { params }) {
     }
 
     // Empêcher un admin de se rétrograder lui-même
-    if (parseInt(id) === session.user.id && !newAdminStatus) {
+    if (parseInt(id) === parseInt(session.user.id) && !newAdminStatus) {
       return NextResponse.json(
         { error: "Vous ne pouvez pas vous rétrograder vous-même" },
         { status: 400 }

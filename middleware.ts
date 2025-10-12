@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { query } from "./src/lib/database";
+import { NextRequest } from "next/server";
 
-export default async function middleware(req) {
+export default async function middleware(req: NextRequest) {
   const { nextUrl } = req;
   const token = await getToken({ req });
   const isLoggedIn = !!token;

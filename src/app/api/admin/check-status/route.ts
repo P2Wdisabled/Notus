@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "../../../../../auth.js";
+import { auth } from "../../../../../auth";
 import { isUserAdmin } from "@/lib/database";
 
 export async function GET() {
@@ -12,7 +12,7 @@ export async function GET() {
     }
 
     // Vérifier si l'utilisateur est admin
-    const adminStatus = await isUserAdmin(session.user.id);
+    const adminStatus = await isUserAdmin(parseInt(session.user.id));
 
     return NextResponse.json({ isAdmin: adminStatus });
   } catch (error) {

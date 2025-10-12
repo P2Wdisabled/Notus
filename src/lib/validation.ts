@@ -1,14 +1,29 @@
 // Validation côté serveur (même logique que le frontend)
 
+// Types pour les réponses de validation
+interface ValidationResult {
+  isValid: boolean;
+  errors: string[];
+}
+
+interface ValidationErrors {
+  [key: string]: string;
+}
+
+interface ValidationResponse {
+  isValid: boolean;
+  errors: ValidationErrors;
+}
+
 // Validation de l'email
-const validateEmail = (email) => {
+const validateEmail = (email: string): boolean => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
 };
 
 // Validation du mot de passe
-const validatePassword = (password) => {
-  const errors = [];
+const validatePassword = (password: string): ValidationResult => {
+  const errors: string[] = [];
 
   if (password.length < 8) {
     errors.push("Au moins 8 caractères");
@@ -37,8 +52,8 @@ const validatePassword = (password) => {
 };
 
 // Validation du nom d'utilisateur
-const validateUsername = (username) => {
-  const errors = [];
+const validateUsername = (username: string): ValidationResult => {
+  const errors: string[] = [];
 
   if (username.length < 3) {
     errors.push("Au moins 3 caractères");
@@ -55,8 +70,8 @@ const validateUsername = (username) => {
 };
 
 // Validation des noms (prénom/nom)
-const validateName = (name, fieldName) => {
-  const errors = [];
+const validateName = (name: string, fieldName: string): ValidationResult => {
+  const errors: string[] = [];
 
   if (name.length < 2) {
     errors.push(`${fieldName} doit contenir au moins 2 caractères`);
@@ -75,8 +90,8 @@ const validateName = (name, fieldName) => {
 };
 
 // Validation des images en base64
-const validateBase64Image = (base64, fieldName) => {
-  const errors = [];
+const validateBase64Image = (base64: string, fieldName: string): ValidationResult => {
+  const errors: string[] = [];
 
   if (base64 && base64.trim() !== "") {
     // Vérifier le format base64
@@ -114,8 +129,14 @@ const validateBase64Image = (base64, fieldName) => {
 };
 
 // Validation complète des données d'inscription
-const validateRegistrationData = (data) => {
-  const errors = {};
+const validateRegistrationData = (data: {
+  email: string;
+  username: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+}): ValidationResponse => {
+  const errors: ValidationErrors = {};
 
   // Validation email
   if (!data.email) {
@@ -171,8 +192,11 @@ const validateRegistrationData = (data) => {
 };
 
 // Validation des données de connexion
-const validateLoginData = (data) => {
-  const errors = {};
+const validateLoginData = (data: {
+  email: string;
+  password: string;
+}): ValidationResponse => {
+  const errors: ValidationErrors = {};
 
   if (!data.email) {
     errors.email = "Email requis";
@@ -191,8 +215,15 @@ const validateLoginData = (data) => {
 };
 
 // Validation des données de profil utilisateur
-const validateProfileData = (data) => {
-  const errors = {};
+const validateProfileData = (data: {
+  email?: string;
+  username?: string;
+  firstName?: string;
+  lastName?: string;
+  profileImage?: string;
+  bannerImage?: string;
+}): ValidationResponse => {
+  const errors: ValidationErrors = {};
 
   // Validation email
   if (data.email && !validateEmail(data.email)) {
