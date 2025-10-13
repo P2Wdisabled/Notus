@@ -1,3 +1,5 @@
+import { useState, useEffect } from 'react';
+
 interface TextFormatting {
   color?: string;
   [key: string]: any;
@@ -14,55 +16,83 @@ export default function TextColorPicker({
   setTextFormatting,
   applyFormat,
 }: TextColorPickerProps) {
+  const [currentColor, setCurrentColor] = useState<string>("#000000");
+
+  // Update current color when textFormatting changes
+  useEffect(() => {
+    setCurrentColor(textFormatting.color || "#000000");
+  }, [textFormatting.color]);
+
+  // Listen for selection changes to update color automatically
+  useEffect(() => {
+    const handleSelectionChange = () => {
+      const detectedColor = getCurrentColor();
+      if (detectedColor !== currentColor) {
+        setCurrentColor(detectedColor);
+      }
+    };
+
+    document.addEventListener('selectionchange', handleSelectionChange);
+    return () => {
+      document.removeEventListener('selectionchange', handleSelectionChange);
+    };
+  }, [currentColor]);
+
   const getCurrentColor = (): string => {
     // Get text color from selection or cursor position
     const selection = window.getSelection();
-    if (
-      selection &&
-      selection.rangeCount > 0 &&
-      selection.toString().length > 0
-    ) {
-      // There's a selection - check its color
-      const range = selection.getRangeAt(0);
+    let elementToCheck: Element | null = null;
 
+    if (selection && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
       const selectedNode = range.startContainer;
-      let elementToCheck: Element | null = null;
 
       if (selectedNode.nodeType === 3) {
-        // Text node
+        // Text node - get parent element
         elementToCheck = selectedNode.parentElement;
-      } else if (
-        (selectedNode as Element).childNodes.length > 0 &&
-        range.startOffset > 0
-      ) {
-        const childNode =
-          (selectedNode as Element).childNodes[range.startOffset - 1];
-        elementToCheck =
-          childNode.nodeType === 3
+      } else if (selectedNode.nodeType === 1) {
+        // Element node
+        if (range.startOffset > 0 && (selectedNode as Element).childNodes.length > 0) {
+          // Check the node before the cursor
+          const childNode = (selectedNode as Element).childNodes[range.startOffset - 1];
+          elementToCheck = childNode.nodeType === 3 
             ? (childNode.parentElement as Element)
             : (childNode as Element);
-      } else {
-        elementToCheck = selectedNode as Element;
+        } else {
+          elementToCheck = selectedNode as Element;
+        }
       }
 
+      // If we have an element, check its color
       if (elementToCheck) {
         const computedStyle = window.getComputedStyle(elementToCheck);
-        if (
-          computedStyle.color &&
-          computedStyle.color !== "rgb(0, 0, 0)"
-        ) {
+        const color = computedStyle.color;
+        
+        // Convert rgb to hex if needed
+        if (color && color !== "rgb(0, 0, 0)" && color !== "rgba(0, 0, 0, 0)") {
+          let hexColor = color;
+          if (color.startsWith('rgb')) {
+            const rgb = color.match(/\d+/g);
+            if (rgb && rgb.length >= 3) {
+              const r = parseInt(rgb[0]);
+              const g = parseInt(rgb[1]);
+              const b = parseInt(rgb[2]);
+              hexColor = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+            }
+          }
+          
           // Update state to match what we see
-          if (computedStyle.color !== textFormatting.color) {
+          if (hexColor !== textFormatting.color) {
             setTimeout(
               () =>
                 setTextFormatting((prev: any) => ({
                   ...prev,
-                  color: computedStyle.color,
+                  color: hexColor,
                 })),
               0
             );
           }
-          return computedStyle.color;
+          return hexColor;
         }
       }
     }
@@ -82,7 +112,17 @@ export default function TextColorPicker({
               .getElementById("highlightPalette")
               ?.classList.add("hidden");
             // Toggle color palette
-            document.getElementById("colorPalette")?.classList.toggle("hidden");
+            const colorPalette = document.getElementById("colorPalette");
+            colorPalette?.classList.toggle("hidden");
+            
+            // Update color picker with current color when opening
+            if (colorPalette && !colorPalette.classList.contains("hidden")) {
+              const colorInput = colorPalette.querySelector('input[type="color"]') as HTMLInputElement;
+              if (colorInput) {
+                // Use the current color from state, which should be up to date
+                colorInput.value = currentColor;
+              }
+            }
           }}
           className="p-2 rounded bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200 transition-all hover:shadow-md relative"
           title="Select text color"
@@ -92,7 +132,7 @@ export default function TextColorPicker({
           </svg>
           <div 
             className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-4 h-1 rounded"
-            style={{ backgroundColor: getCurrentColor() }}
+            style={{ backgroundColor: currentColor }}
           />
         </button>
 
@@ -101,41 +141,38 @@ export default function TextColorPicker({
           onMouseDown={(e) => {
             e.preventDefault();
           }}
-          className="absolute top-full left-0 mt-1 p-2 bg-white dark:bg-gray-700 rounded shadow-lg hidden z-50 border border-gray-200 dark:border-gray-600"
+          className="absolute top-full left-0 mt-1 p-3 bg-white dark:bg-gray-700 rounded shadow-lg hidden z-50 border border-gray-200 dark:border-gray-600"
         >
-          <div className="grid grid-cols-3 gap-1 w-24">
-            {[
-              { color: "#000000", label: "Black" },
-              { color: "#ff0000", label: "Red" },
-              { color: "#00ff00", label: "Green" },
-              { color: "#0000ff", label: "Blue" },
-              { color: "#ffff00", label: "Yellow" },
-              { color: "#ff00ff", label: "Magenta" },
-              { color: "#00ffff", label: "Cyan" },
-              { color: "#ffa500", label: "Orange" },
-              { color: "#800080", label: "Purple" },
-              { color: "#ffffff", label: "White" },
-            ].map(({ color, label }) => (
-              <button
-                type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                key={color}
-                onClick={() => {
-                  setTextFormatting({ ...textFormatting, color });
-                  applyFormat("foreColor", color);
-                  document
-                    .getElementById("colorPalette")
-                    ?.classList.add("hidden");
-                }}
-                className={`w-6 h-6 rounded border-2 transition-all hover:scale-110 ${
-                  (textFormatting.color || "#000000") === color
-                    ? "border-gray-800 dark:border-white shadow-lg"
-                    : "border-gray-400 dark:border-gray-500"
-                }`}
-                style={{ backgroundColor: color }}
-                title={`${label} text`}
-              />
-            ))}
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Choisir une couleur
+            </label>
+            <input
+              type="color"
+              value={currentColor}
+              onChange={(e) => {
+                const color = e.target.value;
+                setCurrentColor(color);
+                setTextFormatting({ ...textFormatting, color });
+                applyFormat("foreColor", color);
+              }}
+              className="w-full h-10 rounded border border-gray-300 dark:border-gray-600 cursor-pointer"
+              title="Sélectionner une couleur"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                setCurrentColor("#000000");
+                setTextFormatting({ ...textFormatting, color: "#000000" });
+                applyFormat("foreColor", "#000000");
+                document
+                  .getElementById("colorPalette")
+                  ?.classList.add("hidden");
+              }}
+              className="px-3 py-1 text-sm bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded transition-colors"
+            >
+              Réinitialiser (Noir)
+            </button>
           </div>
         </div>
       </div>

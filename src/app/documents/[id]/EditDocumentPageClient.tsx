@@ -6,7 +6,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useLocalSession } from "@/hooks/useLocalSession";
-import CollaborativeNotepad from "@/components/Paper.js/CollaborativeNotepad";
+import WysiwygNotepad from "@/components/Paper.js/WysiwygNotepad";
 
 interface EditDocumentPageClientProps {
   session?: any;
@@ -365,7 +365,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
 
   // -------- Main render --------
   return (
-    <div className="h-screen overflow-hidden bg-white dark:bg-black py-8">
+    <div className="min-h-screen bg-white dark:bg-black py-8">
       <div className="max-w-4xl mx-auto px-4">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -477,16 +477,14 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Contenu
               </label>
-              <div className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-700 min-h-[400px]">
-                <CollaborativeNotepad
+              <div className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-700">
+                <WysiwygNotepad
                   key={`doc-${document.id}-${document.updated_at}`}
                   initialData={content}
-                  useLocalStorage={false}
-                  calMode={false}
                   onContentChange={handleContentChange}
-                  onCanvasReady={(ctrl) => setCanvasCtrl(ctrl)}
-                  placeholder="Commencez à écrire votre document avec mise en forme..."
-                  className="min-h-[400px]"
+                  placeholder="Commencez à écrire votre document..."
+                  className=""
+                  showDebug={false}
                 />
               </div>
             </div>

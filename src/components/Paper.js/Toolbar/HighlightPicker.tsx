@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
 
 interface TextFormatting {
   backgroundColor?: string;
@@ -18,6 +18,7 @@ export default function HighlightPicker({
 }: HighlightPickerProps) {
   const pickerRef = useRef<HTMLDivElement>(null);
   const [computedStyle, setComputedStyle] = useState<CSSStyleDeclaration | null>(null);
+  const [currentColor, setCurrentColor] = useState<string>("transparent");
 
   // Helper: return the nearest contenteditable editor element (or null)
   const getEditorElement = (): Element | null => {
@@ -281,6 +282,89 @@ export default function HighlightPicker({
     }
   };
 
+  const getCurrentHighlightColor = useCallback((): string => {
+    // Get background color from selection or cursor position
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+
+      const selectedNode = range.startContainer;
+      let elementToCheck: Element | null = null;
+
+      if (selectedNode.nodeType === 3) {
+        elementToCheck = selectedNode.parentElement;
+      } else if (
+        selectedNode.childNodes.length > 0 &&
+        range.startOffset > 0
+      ) {
+        const childNode =
+          selectedNode.childNodes[range.startOffset - 1];
+        elementToCheck =
+          childNode.nodeType === 3
+            ? childNode.parentElement
+            : (childNode as Element);
+      } else {
+        elementToCheck = selectedNode as Element;
+      }
+
+      if (elementToCheck && elementToCheck instanceof Element) {
+        const computedStyle = window.getComputedStyle(elementToCheck);
+        if (
+          computedStyle.backgroundColor &&
+          computedStyle.backgroundColor !== "rgba(0, 0, 0, 0)" &&
+          computedStyle.backgroundColor !== "transparent"
+        ) {
+          // Convert rgb to hex if needed
+          let hexColor = computedStyle.backgroundColor;
+          if (computedStyle.backgroundColor.startsWith('rgb')) {
+            const rgb = computedStyle.backgroundColor.match(/\d+/g);
+            if (rgb && rgb.length >= 3) {
+              const r = parseInt(rgb[0]);
+              const g = parseInt(rgb[1]);
+              const b = parseInt(rgb[2]);
+              hexColor = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+            }
+          }
+          
+          if (hexColor !== textFormatting.backgroundColor) {
+            setTimeout(
+              () =>
+                setTextFormatting((prev) => ({
+                  ...prev,
+                  backgroundColor: hexColor,
+                })),
+              0
+            );
+          }
+          return hexColor;
+        }
+      }
+    }
+    
+    // Default to transparent when no selection or no color detected
+    return textFormatting.backgroundColor || "transparent";
+  }, [textFormatting.backgroundColor, setTextFormatting]);
+
+  // Update current color when textFormatting changes
+  useEffect(() => {
+    setCurrentColor(textFormatting.backgroundColor || "transparent");
+  }, [textFormatting.backgroundColor]);
+
+  // Listen for selection changes to update color automatically
+  useEffect(() => {
+    const handleSelectionChange = () => {
+      const detectedColor = getCurrentHighlightColor();
+      if (detectedColor !== currentColor) {
+        setCurrentColor(detectedColor);
+      }
+    };
+
+    document.addEventListener('selectionchange', handleSelectionChange);
+    return () => {
+      document.removeEventListener('selectionchange', handleSelectionChange);
+    };
+  }, [currentColor, getCurrentHighlightColor]);
+
   useEffect(() => {
     // Only run in browser and when ref is attached
     if (typeof window === "undefined") return;
@@ -294,64 +378,6 @@ export default function HighlightPicker({
       }
     }
   }, []);
-
-  const getCurrentHighlightColor = (): string => {
-              // Get background color from selection or cursor position
-              const selection = window.getSelection();
-              if (selection && selection.rangeCount > 0) {
-                const range = selection.getRangeAt(0);
-
-                const selectedNode = range.startContainer;
-                let elementToCheck: Element | null = null;
-
-                if (selectedNode.nodeType === 3) {
-                  elementToCheck = selectedNode.parentElement;
-                } else if (
-                  selectedNode.childNodes.length > 0 &&
-                  range.startOffset > 0
-                ) {
-                  const childNode =
-                    selectedNode.childNodes[range.startOffset - 1];
-                  elementToCheck =
-                    childNode.nodeType === 3
-                      ? childNode.parentElement
-                      : (childNode as Element);
-                } else {
-                  elementToCheck = selectedNode as Element;
-                }
-
-                if (elementToCheck && elementToCheck instanceof Element) {
-                  const computedStyle = window.getComputedStyle(elementToCheck);
-                  if (
-                    computedStyle.backgroundColor &&
-                    computedStyle.backgroundColor !== "rgba(0, 0, 0, 0)" &&
-                    computedStyle.backgroundColor !== "transparent"
-                  ) {
-                    if (
-                      computedStyle.backgroundColor !==
-                      textFormatting.backgroundColor
-                    ) {
-                      setTimeout(
-                        () =>
-                          setTextFormatting((prev) => ({
-                            ...prev,
-                            backgroundColor: computedStyle.backgroundColor,
-                          })),
-                        0
-                      );
-                    }
-                    return computedStyle.backgroundColor;
-                  }
-                }
-              }
-              if (
-                textFormatting.backgroundColor === "transparent" ||
-                !textFormatting.backgroundColor
-              ) {
-      return "#ffff00";
-              }
-              return textFormatting.backgroundColor;
-  };
 
   return (
     <div ref={pickerRef} className="flex items-center relative">
@@ -375,193 +401,170 @@ export default function HighlightPicker({
           </svg>
           <div 
             className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-4 h-1 rounded"
-            style={{ backgroundColor: getCurrentHighlightColor() }}
+            style={{ backgroundColor: currentColor === "transparent" ? "#ffff00" : currentColor }}
           />
         </button>
 
         <div
           id="highlightPalette"
-          className="absolute top-full left-0 mt-1 p-2 bg-white dark:bg-gray-700 rounded shadow-lg hidden z-50 border border-gray-200 dark:border-gray-600"
+          onMouseDown={(e) => {
+            e.preventDefault();
+          }}
+          className="absolute top-full left-0 mt-1 p-3 bg-white dark:bg-gray-700 rounded shadow-lg hidden z-50 border border-gray-200 dark:border-gray-600"
         >
-          <div className="grid grid-cols-3 gap-1 w-24">
-            {[
-              { color: "#ffff00", name: "Yellow" },
-              { color: "#ff00ff", name: "Magenta" },
-              { color: "#00ffff", name: "Cyan" },
-              { color: "#90ee90", name: "Light Green" },
-              { color: "#ffb6c1", name: "Light Pink" },
-              { color: "#ffa500", name: "Orange" },
-              { color: "#87ceeb", name: "Sky Blue" },
-              { color: "#dda0dd", name: "Plum" },
-              { color: "#f0e68c", name: "Khaki" },
-            ].map(({ color, name }) => (
-              <button
-                key={color}
-                onClick={() => {
-                  const selection = window.getSelection();
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Choisir une couleur de surlignage
+            </label>
+            <input
+              type="color"
+              value={currentColor === "transparent" ? "#ffff00" : currentColor}
+              onChange={(e) => {
+                const color = e.target.value;
+                setCurrentColor(color);
+                setTextFormatting({ ...textFormatting, backgroundColor: color });
+                
+                const selection = window.getSelection();
+                const editorEl = getEditorElement();
+                
+                if (selection && selection.isCollapsed) {
+                  // Only insert caret span when selection is inside the editor
+                  if (!editorEl) {
+                    document
+                      .getElementById("highlightPalette")
+                      ?.classList.add("hidden");
+                    return;
+                  }
+                  const span = document.createElement("span");
+                  span.style.backgroundColor = color;
+                  span.style.display = "inline";
+                  span.style.lineHeight = "1.2";
+                  span.style.paddingTop = "0.2em";
+                  span.style.paddingBottom = "0.2em";
+                  span.style.boxDecorationBreak = "clone";
+                  span.innerHTML = "&#8203;";
 
-                  // Only update the global textFormatting background when we're inserting
-                  // a caret span (collapsed selection). For selection-highlighting we
-                  // don't change the editor background to avoid coloring the whole canvas.
-                  const editorEl = getEditorElement();
-                  if (selection && selection.isCollapsed) {
-                    setTextFormatting({
-                      ...textFormatting,
-                      backgroundColor: color,
-                    });
-                    // Only insert caret span when selection is inside the editor
-                    if (!editorEl) {
+                  const range = selection.getRangeAt(0);
+                  range.insertNode(span);
+
+                  range.setStartAfter(span);
+                  range.setEndAfter(span);
+                  selection.removeAllRanges();
+                  selection.addRange(range);
+
+                  const event = new Event("input", { bubbles: true });
+                  document
+                    .querySelector("[contenteditable]")
+                    ?.dispatchEvent(event);
+                } else if (
+                  selection &&
+                  selection.rangeCount > 0 &&
+                  selection.toString().length > 0
+                ) {
+                  // Apply highlight to selection
+                  try {
+                    const range = selection.getRangeAt(0);
+
+                    // Ensure the selection is inside the editor
+                    const container = range.commonAncestorContainer;
+                    const rootElement =
+                      container.nodeType === Node.TEXT_NODE
+                        ? container.parentElement
+                        : (container as Element);
+                    if (
+                      !editorEl ||
+                      !rootElement ||
+                      !editorEl.contains(rootElement)
+                    ) {
+                      // Selection is outside the editor — do nothing
                       document
                         .getElementById("highlightPalette")
                         ?.classList.add("hidden");
                       return;
                     }
-                    const span = document.createElement("span");
-                    span.style.backgroundColor = color;
-                    span.style.display = "inline";
-                    span.style.lineHeight = "1.2";
-                    span.style.paddingTop = "0.2em";
-                    span.style.paddingBottom = "0.2em";
-                    span.style.boxDecorationBreak = "clone";
-                    span.innerHTML = "&#8203;";
 
-                    const range = selection.getRangeAt(0);
-                    range.insertNode(span);
+                    // Find all spans within the selection
+                    const allSpans = rootElement.querySelectorAll("span");
+                    const spansInSelection = Array.from(allSpans).filter(
+                      (span) => {
+                        return range.intersectsNode(span);
+                      }
+                    );
 
-                    range.setStartAfter(span);
-                    range.setEndAfter(span);
-                    selection.removeAllRanges();
-                    selection.addRange(range);
+                    let foundAndUpdatedHighlight = false;
+
+                    // Update existing highlight spans directly
+                    spansInSelection.forEach((span) => {
+                      const hasHighlight =
+                        span.style.backgroundColor &&
+                        span.style.backgroundColor !== "transparent" &&
+                        span.style.backgroundColor !== "rgba(0, 0, 0, 0)";
+                      const hasPadding =
+                        span.style.paddingTop || span.style.paddingBottom;
+
+                      if (hasHighlight || hasPadding) {
+                        foundAndUpdatedHighlight = true;
+
+                        // DIRECTLY update the existing span's properties
+                        span.style.backgroundColor = color;
+
+                        // Update padding based on font size
+                        let fontSize = 16;
+                        if (span.style.fontSize) {
+                          fontSize = parseFloat(span.style.fontSize);
+                        } else {
+                          const computedStyle = window.getComputedStyle(span);
+                          fontSize = parseFloat(computedStyle.fontSize);
+                        }
+                        const paddingRatio = Math.max(0.15, fontSize * 0.02);
+                        span.style.paddingTop = paddingRatio + "em";
+                        span.style.paddingBottom = paddingRatio + "em";
+                        span.style.boxDecorationBreak = "clone";
+                        span.style.display = "inline";
+                        span.style.lineHeight = "1.2";
+                      }
+                    });
+
+                    // If no highlight spans were found, use a safe range wrapper
+                    if (!foundAndUpdatedHighlight) {
+                      try {
+                        safeWrapSelection(range, color);
+                      } catch (e) {
+                        // ignore
+                      }
+                    }
 
                     const event = new Event("input", { bubbles: true });
                     document
                       .querySelector("[contenteditable]")
                       ?.dispatchEvent(event);
-                  } else if (
-                    selection &&
-                    selection.rangeCount > 0 &&
-                    selection.toString().length > 0
-                  ) {
-                    // COMPLETELY REWRITTEN: Use the same direct approach as "None" button
+                  } catch (error) {
+                    // Final fallback - attempt safeWrapSelection on current selection
                     try {
-                      const range = selection.getRangeAt(0);
-
-                      // Ensure the selection is inside the editor
-                      const container = range.commonAncestorContainer;
-                      const rootElement =
-                        container.nodeType === Node.TEXT_NODE
-                          ? container.parentElement
-                          : (container as Element);
-                      if (
-                        !editorEl ||
-                        !rootElement ||
-                        !editorEl.contains(rootElement)
-                      ) {
-                        // Selection is outside the editor — do nothing
-                        document
-                          .getElementById("highlightPalette")
-                          ?.classList.add("hidden");
-                        return;
+                      const sel2 = window.getSelection();
+                      if (sel2 && sel2.rangeCount > 0) {
+                        const r2 = sel2.getRangeAt(0);
+                        safeWrapSelection(r2, color);
                       }
-
-                      // Find all spans within the selection
-                      const allSpans = rootElement.querySelectorAll("span");
-                      const spansInSelection = Array.from(allSpans).filter(
-                        (span) => {
-                          return range.intersectsNode(span);
-                        }
-                      );
-
-                      let foundAndUpdatedHighlight = false;
-
-                      // Update existing highlight spans directly
-                      spansInSelection.forEach((span) => {
-                        const hasHighlight =
-                          span.style.backgroundColor &&
-                          span.style.backgroundColor !== "transparent" &&
-                          span.style.backgroundColor !== "rgba(0, 0, 0, 0)";
-                        const hasPadding =
-                          span.style.paddingTop || span.style.paddingBottom;
-
-                        if (hasHighlight || hasPadding) {
-                          foundAndUpdatedHighlight = true;
-
-                          // DIRECTLY update the existing span's properties
-                          span.style.backgroundColor = color;
-
-                          // Update padding based on font size
-                          let fontSize = 16;
-                          if (span.style.fontSize) {
-                            fontSize = parseFloat(span.style.fontSize);
-                          } else {
-                            const computedStyle = window.getComputedStyle(span);
-                            fontSize = parseFloat(computedStyle.fontSize);
-                          }
-                          const paddingRatio = Math.max(0.15, fontSize * 0.02);
-                          span.style.paddingTop = paddingRatio + "em";
-                          span.style.paddingBottom = paddingRatio + "em";
-                          span.style.boxDecorationBreak = "clone";
-                          span.style.display = "inline";
-                          span.style.lineHeight = "1.2";
-                        }
-                      });
-
-                      // If no highlight spans were found, use a safe range wrapper
-                      if (!foundAndUpdatedHighlight) {
-                        try {
-                          // Prefer safe DOM wrapping; if it fails, skip to avoid touching non-editor elements.
-                          safeWrapSelection(range, color);
-                        } catch (e) {
-                          // ignore - do not call execCommand to avoid accidental styling outside editor
-                        }
-                      }
-
-                      const event = new Event("input", { bubbles: true });
-                      document
-                        .querySelector("[contenteditable]")
-                        ?.dispatchEvent(event);
-                    } catch (error) {
-                      // Final fallback - attempt safeWrapSelection on current selection
-                      try {
-                        const sel2 = window.getSelection();
-                        if (sel2 && sel2.rangeCount > 0) {
-                          const r2 = sel2.getRangeAt(0);
-                          safeWrapSelection(r2, color);
-                        }
-                      } catch (e) {
-                        // ignore
-                      }
-                    }
-                  } else {
-                    const editorEl = getEditorElement();
-                    if (editorEl) {
-                      applyFormat("hiliteColor", color);
-                    } else {
-                      // If there's no editor context (cursor outside editor), do nothing
+                    } catch (e) {
+                      // ignore
                     }
                   }
-
-                  document
-                    .getElementById("highlightPalette")
-                    ?.classList.add("hidden");
-                }}
-                className={`w-6 h-6 rounded border-2 transition-all hover:scale-110 ${
-                  textFormatting.backgroundColor === color
-                    ? "border-gray-800 dark:border-white shadow-lg"
-                    : "border-gray-400 dark:border-gray-500"
-                }`}
-                style={{ backgroundColor: color }}
-                title={`${name} highlight`}
-              />
-            ))}
-
-            {/* Remove Highlight Button */}
+                } else {
+                  const editorEl = getEditorElement();
+                  if (editorEl) {
+                    applyFormat("hiliteColor", color);
+                  }
+                }
+              }}
+              className="w-full h-10 rounded border border-gray-300 dark:border-gray-600 cursor-pointer"
+              title="Sélectionner une couleur de surlignage"
+            />
             <button
+              type="button"
               onClick={() => {
-                setTextFormatting({
-                  ...textFormatting,
-                  backgroundColor: "transparent",
-                });
+                setCurrentColor("transparent");
+                setTextFormatting({ ...textFormatting, backgroundColor: "transparent" });
 
                 const selection = window.getSelection();
                 const editorEl = getEditorElement();
@@ -772,10 +775,9 @@ export default function HighlightPicker({
                   .getElementById("highlightPalette")
                   ?.classList.add("hidden");
               }}
-              className="col-span-3 w-full px-2 py-1 bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200 rounded text-xs mt-1"
-              title="Remove highlight"
+              className="px-3 py-1 text-sm bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded transition-colors"
             >
-              None
+              None (Supprimer)
             </button>
           </div>
         </div>
