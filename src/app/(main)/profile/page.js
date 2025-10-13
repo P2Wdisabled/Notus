@@ -142,14 +142,20 @@ export default async function ProfilePage() {
 
           {documentsResult.success && documentsResult.documents.length > 0 && (
             <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(300px,1fr))]">
-              {documentsResult.documents.map((document) => (
-                <div key={document.id} className="w-full">
-                  <DocumentCard
-                    document={document}
-                    currentUserId={session?.user?.id}
-                  />
-                </div>
-              ))}
+              {documentsResult.documents
+                .sort((a, b) => {
+                  const dateA = new Date(a.updated_at || a.created_at);
+                  const dateB = new Date(b.updated_at || b.created_at);
+                  return dateB - dateA; // Tri décroissant (plus récent en premier)
+                })
+                .map((document) => (
+                  <div key={document.id} className="w-full">
+                    <DocumentCard
+                      document={document}
+                      currentUserId={session?.user?.id}
+                    />
+                  </div>
+                ))}
             </div>
           )}
         </div>

@@ -88,7 +88,7 @@ export class PrismaDocumentRepository {
             },
           },
         },
-        orderBy: { created_at: 'desc' },
+        orderBy: { updated_at: 'desc' },
         take: limit,
         skip: offset,
       });

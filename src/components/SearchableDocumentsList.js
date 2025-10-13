@@ -62,9 +62,12 @@ export function SearchableDocumentsList({
     }
   }, [message, isPending, router]);
 
-  // Fusionner les documents locaux et serveur
-  // Les documents locaux en premier, puis les documents serveur
-  const documents = [...localDocuments, ...serverDocuments];
+  // Fusionner les documents locaux et serveur et les trier par date de mise à jour (plus récent en premier)
+  const documents = [...localDocuments, ...serverDocuments].sort((a, b) => {
+    const dateA = new Date(a.updated_at || a.created_at);
+    const dateB = new Date(b.updated_at || b.created_at);
+    return dateB - dateA; // Tri décroissant (plus récent en premier)
+  });
 
   // Fonctions de gestion de la sélection
   const toggleSelect = (id, checked) => {
@@ -243,7 +246,9 @@ export function SearchableDocumentsList({
 
       {/* Bandeau fixe en bas de page */}
       {selectMode && (
-        <div className={`fixed left-0 right-0 z-50 bg-white dark:bg-black px-4  md:ml-64 ${!currentUserId ? 'bottom-12' : 'bottom-0'}`}>
+        <div
+          className={`fixed left-0 right-0 z-50 bg-white dark:bg-black px-4  md:ml-64 ${!currentUserId ? "bottom-12" : "bottom-0"}`}
+        >
           <div className="max-w-4xl mx-auto flex items-center justify-between py-3 border-t border-gray-200 dark:border-gray-700">
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-600 dark:text-gray-400">
