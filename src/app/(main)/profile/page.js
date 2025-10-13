@@ -117,8 +117,7 @@ export default async function ProfilePage() {
           <div className="flex items-center justify-center md:justify-start gap-2 mt-2 text-sm text-dark-gray dark:text-gray">
             <CalendarIcon className="w-4 h-4" />
             <span>
-              A rejoint en{" "}
-              {joinDate.toLocaleString(undefined, { month: "long" })}{" "}
+              A rejoint en {joinDate.toLocaleString("fr-FR", { month: "long" })}{" "}
               {joinDate.getFullYear()}
             </span>
           </div>
