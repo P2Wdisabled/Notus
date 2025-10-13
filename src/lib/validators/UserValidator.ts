@@ -181,17 +181,7 @@ export class UserValidator {
     }
 
     // Valider les images si fournies
-    if (profileData.profileImage !== undefined && profileData.profileImage.length > 0) {
-      if (profileData.profileImage.length > 1000) {
-        errors.profileImage = "L'URL de l'image de profil est trop longue";
-      }
-    }
-
-    if (profileData.bannerImage !== undefined && profileData.bannerImage.length > 0) {
-      if (profileData.bannerImage.length > 1000) {
-        errors.bannerImage = "L'URL de l'image de bannière est trop longue";
-      }
-    }
+    // Limite de caractères retirée pour permettre des URLs d'images plus longues
 
     return {
       isValid: Object.keys(errors).length === 0,
