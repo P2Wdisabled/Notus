@@ -100,9 +100,9 @@ export default async function ProfilePage() {
             <Link href="/profile/edit">
               <Button className="px-4 py-2">Modifier le profil</Button>
             </Link>
-            <Button variant="secondary" className="px-4 py-2">
+            {/* <Button variant="secondary" className="px-4 py-2">
               Partager le profil
-            </Button>
+            </Button> */}
           </div>
         </div>
 
