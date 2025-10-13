@@ -1,0 +1,7 @@
+import { Suspense } from "react";
+import { HomePageSkeleton } from "@/components/ui";
+
+export default function AdminUsersLayout({ children }: { children: React.ReactNode }) {
+  return <Suspense fallback={<HomePageSkeleton />}>{children}</Suspense>;
+}
+

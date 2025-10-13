@@ -28,7 +28,7 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts"
-  ],
+, "src/contexts/SearchContext.js"  ],
   "exclude": [
     "node_modules"
   ]

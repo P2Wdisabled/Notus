@@ -1,55 +1,123 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-  --white: #FBFBFB;
-  --black: #1A1A1A;
-  --orange: #FF9500;
-  --dark-orange: #D67D00;
-  --light-orange: #FFA931;
-  --purple: #CC0891;
-  --dark-purple: #C40BAC;
-  --light-purple: #DD05C7;
-  --gray: #C4C4C4;
-  --dark-gray: #595959;
-  --light-gray: #D9D9D9;
-  --light-black: #333333;
+  /* Fonts */
+  --font-sans: "Nunito", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --font-title: "Roboto Condensed", sans-serif;
+  
+  /* Light mode - Inspired by elegant, modern design */
+  --background: oklch(0.99 0.002 264);
+  --foreground: oklch(0.15 0.01 264);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.15 0.01 264);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.15 0.01 264);
+  --primary: oklch(0.62 0.24 330);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.96 0.01 264);
+  --secondary-foreground: oklch(0.15 0.01 264);
+  --muted: oklch(0.96 0.01 264);
+  --muted-foreground: oklch(0.5 0.01 264);
+  --accent: oklch(0.62 0.24 330);
+  --accent-foreground: oklch(1 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(0.92 0.01 264);
+  --input: oklch(0.92 0.01 264);
+  --ring: oklch(0.62 0.24 330);
+  --radius: 0.75rem;
+  --sidebar: oklch(0.98 0.002 264);
+  --sidebar-foreground: oklch(0.15 0.01 264);
+  --sidebar-primary: oklch(0.62 0.24 330);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.96 0.01 264);
+  --sidebar-accent-foreground: oklch(0.15 0.01 264);
+  --sidebar-border: oklch(0.92 0.01 264);
+  --sidebar-ring: oklch(0.62 0.24 330);
+}
+
+.dark {
+  /* Dark mode - Deep, elegant dark theme */
+  --background: oklch(0.18 0.005 264);
+  --foreground: oklch(0.98 0.005 264);
+  --card: oklch(0.20 0.01 264);
+  --card-foreground: oklch(0.98 0.005 264);
+  --popover: oklch(0.20 0.01 264);
+  --popover-foreground: oklch(0.98 0.005 264);
+  --primary: oklch(0.65 0.25 330);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.22 0.01 264);
+  --secondary-foreground: oklch(0.98 0.005 264);
+  --muted: oklch(0.22 0.01 264);
+  --muted-foreground: oklch(0.6 0.01 264);
+  --accent: oklch(0.65 0.25 330);
+  --accent-foreground: oklch(1 0 0);
+  --destructive: oklch(0.55 0.25 27);
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(0.26 0.01 264);
+  --input: oklch(0.26 0.01 264);
+  --ring: oklch(0.65 0.25 330);
+  --sidebar: oklch(0.16 0.005 264);
+  --sidebar-foreground: oklch(0.98 0.005 264);
+  --sidebar-primary: oklch(0.65 0.25 330);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.22 0.01 264);
+  --sidebar-accent-foreground: oklch(0.98 0.005 264);
+  --sidebar-border: oklch(0.26 0.01 264);
+  --sidebar-ring: oklch(0.65 0.25 330);
 }
 
 @theme inline {
+  --font-sans: var(--font-sans);
+  --font-title: var(--font-title);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-white: var(--white);
-  --color-black: var(--black);
-  --color-orange: var(--orange);
-  --color-dark-orange: var(--dark-orange);
-  --color-light-orange: var(--light-orange);
-  --color-purple: var(--purple);
-  --color-dark-purple: var(--dark-purple);
-  --color-light-purple: var(--light-purple);
-  --color-gray: var(--gray);
-  --color-dark-gray: var(--dark-gray);
-  --color-light-gray: var(--light-gray);
-  --color-light-black: var(--light-black);
-  --color-purple: var(--purple);
-  --font-sans: "Nunito", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-mono: "SF Mono", "Monaco", "Inconsolata", "Roboto Mono", "Source Code Pro", monospace;
-  --font-title:"Roboto Condensed", sans-serif;
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-sans;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-title;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans);
-}
 /* Chrome / Edge / Safari */
 input:-webkit-autofill,
 textarea:-webkit-autofill,
@@ -59,21 +127,83 @@ select:-webkit-autofill {
   transition: background-color 9999s ease-out, color 9999s ease-out; /* neutralise le flash */
 }
 
-/* Thème clair (par défaut) */
-:root {
-  --autofill-bg: var(--white);
-  --autofill-fg: var(--black);
+/* Custom scrollbar styles */
+.scrollbar-thin {
+  scrollbar-width: thin;
 }
 
-/* Thème sombre */
-.dark {
-  --autofill-bg: var(--black);
-  --autofill-fg: var(--white);
+.scrollbar-thin::-webkit-scrollbar {
+  height: 4px;
 }
 
-/* Firefox */
-input:-moz-autofill,
-textarea:-moz-autofill,
-select:-moz-autofill {
-  caret-color: var(--autofill-fg, var(--black));
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--border));
+  border-radius: 2px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(var(--muted-foreground));
+}
+
+/* Custom animations */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.4s ease-out;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.3s ease-out;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out;
 }
