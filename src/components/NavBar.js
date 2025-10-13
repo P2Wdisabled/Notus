@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import AdminButton from "./AdminButton";
 import { Logo, Input } from "@/components/ui";
 import { useLocalSession } from "@/hooks/useLocalSession";
@@ -14,25 +15,32 @@ export default function NavBar() {
   const [isOpen, setIsOpen] = useState(false);
   const router = useRouter();
   const { searchQuery, startSearch, clearSearch } = useSearch();
-  const {
-    userName,
-    username,
-    logout,
-    isLoggedIn,
-    profileImage: localProfileImage,
-  } = useLocalSession();
-  const [profileImage, setProfileImage] = useState(localProfileImage);
+  const { data: session, status } = useSession();
+  const { logout } = useLocalSession();
 
-  // Récupérer l'image de profil depuis la base de données
+  // Extraire les données de session
+  const isLoggedIn = status === "authenticated" && session?.user;
+  const userName = session?.user?.name || session?.user?.firstName || null;
+  const username = session?.user?.username || null;
+  const profileImage = session?.user?.profileImage || null;
+
+  const [localProfileImage, setLocalProfileImage] = useState(profileImage);
+
+  // Mettre à jour l'image de profil locale quand la session change
+  useEffect(() => {
+    setLocalProfileImage(profileImage);
+  }, [profileImage]);
+
+  // Récupérer l'image de profil depuis la base de données si pas disponible dans la session
   useEffect(() => {
     const fetchProfileImage = async () => {
-      if (isLoggedIn && !localProfileImage) {
+      if (isLoggedIn && !profileImage) {
         try {
           const response = await fetch("/api/profile-image");
           if (response.ok) {
             const data = await response.json();
             if (data.profileImage) {
-              setProfileImage(data.profileImage);
+              setLocalProfileImage(data.profileImage);
             }
           }
         } catch (error) {
@@ -45,12 +53,7 @@ export default function NavBar() {
     };
 
     fetchProfileImage();
-  }, [isLoggedIn, localProfileImage]);
-
-  // Mettre à jour l'image de profil quand elle change dans la session locale
-  useEffect(() => {
-    setProfileImage(localProfileImage);
-  }, [localProfileImage]);
+  }, [isLoggedIn, profileImage]);
 
   const items = [
     { name: "Récent", href: "/recent", icon: ClockIcon },
@@ -129,9 +132,9 @@ export default function NavBar() {
                 className="ml-1 inline-flex items-center justify-center w-8 h-8 rounded-full overflow-hidden"
                 title={userName || "Profil"}
               >
-                {profileImage ? (
+                {localProfileImage ? (
                   <img
-                    src={profileImage}
+                    src={localProfileImage}
                     alt="Photo de profil"
                     className="w-full h-full object-cover"
                   />
@@ -210,9 +213,9 @@ export default function NavBar() {
                   className="flex items-center gap-3 p-3 bg-transparent cursor-pointer border-t border-gray dark:border-dark-gray"
                 >
                   <div className="flex items-center justify-center w-10 h-10 rounded-full overflow-hidden">
-                    {profileImage ? (
+                    {localProfileImage ? (
                       <img
-                        src={profileImage}
+                        src={localProfileImage}
                         alt="Photo de profil"
                         className="w-full h-full object-cover"
                       />
@@ -283,9 +286,9 @@ export default function NavBar() {
               className="flex items-center gap-3 p-3 bg-transparent cursor-pointer border-t border-gray dark:border-dark-gray"
             >
               <div className="flex items-center justify-center w-10 h-10 rounded-full overflow-hidden">
-                {profileImage ? (
+                {localProfileImage ? (
                   <img
-                    src={profileImage}
+                    src={localProfileImage}
                     alt="Photo de profil"
                     className="w-full h-full object-cover"
                   />
