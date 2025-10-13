@@ -94,13 +94,6 @@ export class DocumentService {
     return { isValid: true };
   }
 
-  validateDocumentContent(content: string): { isValid: boolean; error?: string } {
-    if (content.length > 10000) {
-      return { isValid: false, error: "Le contenu ne peut pas dépasser 10000 caractères" };
-    }
-
-    return { isValid: true };
-  }
 
   validateDocumentTags(tags: string[]): { isValid: boolean; error?: string } {
     if (!Array.isArray(tags)) {
@@ -134,11 +127,6 @@ export class DocumentService {
     const titleValidation = this.validateDocumentTitle(data.title);
     if (!titleValidation.isValid) {
       errors.push(titleValidation.error!);
-    }
-
-    const contentValidation = this.validateDocumentContent(data.content);
-    if (!contentValidation.isValid) {
-      errors.push(contentValidation.error!);
     }
 
     const tagsValidation = this.validateDocumentTags(data.tags);
