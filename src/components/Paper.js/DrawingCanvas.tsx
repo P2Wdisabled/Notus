@@ -25,6 +25,7 @@ interface CanvasController {
   saveDrawings: () => Promise<Drawing[]>;
   clearCanvas: () => void;
   setDrawingState: (state: Partial<DrawingState>) => void;
+  exportAsDataURL: () => string | null;
 }
 
 interface DrawingCanvasProps {
@@ -84,6 +85,29 @@ export default function DrawingCanvas({
   // Use prop drawing state if available, otherwise use local state
   const drawingState = propDrawingState || localDrawingState;
   const setDrawingState = propSetDrawingState || setLocalDrawingState;
+  const drawingStateRef = useRef<DrawingState>(drawingState);
+
+  // Keep a live ref of the current drawing state for event handlers
+  useEffect(() => {
+    drawingStateRef.current = drawingState;
+  }, [drawingState]);
+
+  // When controls (color/size/opacity) change while drawing, apply to the current path immediately
+  useEffect(() => {
+    if (!paperScope) return;
+    const current = currentPathRef.current;
+    if (current) {
+      try {
+        const ds = drawingState;
+        current.strokeColor = new paperScope.Color(ds.color);
+        current.strokeWidth = ds.size;
+        current.opacity = ds.opacity;
+        paperScope.view.update();
+      } catch (e) {
+        // no-op
+      }
+    }
+  }, [drawingState, paperScope]);
 
   // Canvas dimensions state
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
@@ -181,11 +205,12 @@ export default function DrawingCanvas({
         isDrawingRef.current = true;
 
         const path = new paper.Path();
-        path.strokeColor = new paper.Color(drawingState.color);
-        path.strokeWidth = drawingState.size;
+        const ds = drawingStateRef.current;
+        path.strokeColor = new paper.Color(ds.color);
+        path.strokeWidth = ds.size;
         path.strokeCap = "round";
         path.strokeJoin = "round";
-        path.opacity = drawingState.opacity;
+        path.opacity = ds.opacity;
 
         path.add(event.point);
         setCurrentPath(path);
@@ -206,8 +231,27 @@ export default function DrawingCanvas({
         }
 
         currentPathRef.current.add(event.point);
+        // Live update current path style in case controls changed mid-stroke
+        const ds = drawingStateRef.current;
+        currentPathRef.current.strokeColor = new paper.Color(ds.color);
+        currentPathRef.current.strokeWidth = ds.size;
+        currentPathRef.current.opacity = ds.opacity;
         paper.view.update();
       };
+
+      // Also update style if drawingState changes mid-stroke (external prop/local)
+      const observer = new MutationObserver(() => {
+        if (currentPathRef.current) {
+          const ds = drawingStateRef.current;
+          currentPathRef.current.strokeColor = new paper.Color(ds.color);
+          currentPathRef.current.strokeWidth = ds.size;
+          currentPathRef.current.opacity = ds.opacity;
+        }
+      });
+      // Observe attribute changes on canvas element as a simple hook to trigger updates
+      if (canvasRef.current) {
+        observer.observe(canvasRef.current, { attributes: true });
+      }
 
       tool.onMouseUp = (event: any) => {
         if (
@@ -305,6 +349,13 @@ export default function DrawingCanvas({
           setDrawingState: (newState: Partial<DrawingState>) => {
             setDrawingState((prev) => ({ ...prev, ...newState }));
           },
+          exportAsDataURL: () => {
+            try {
+              return canvasRef.current ? canvasRef.current.toDataURL("image/png") : null;
+            } catch (e) {
+              return null;
+            }
+          }
         });
       }
     } catch (error) {

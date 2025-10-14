@@ -459,10 +459,21 @@ export default function WysiwygEditor({
     
     editorRef.current.focus();
     
-    // Save current selection
-    const selection = window.getSelection();
+    // Ensure we have a selection; if none, place caret at the end of editor
+    let selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) {
+      const sel = window.getSelection();
+      if (sel) {
+        const newRange = document.createRange();
+        newRange.selectNodeContents(editorRef.current);
+        newRange.collapse(false);
+        sel.removeAllRanges();
+        sel.addRange(newRange);
+        selection = sel;
+      }
+    }
     if (!selection || selection.rangeCount === 0) return;
-    
+
     const range = selection.getRangeAt(0);
     const selectedText = range.toString();
     
@@ -630,10 +641,45 @@ export default function WysiwygEditor({
           }
           break;
         case 'insertImage':
-          const imageUrl = prompt('URL de l\'image:');
-          if (imageUrl) {
-            document.execCommand('insertImage', false, imageUrl);
+          if (value) {
+            // Prefer manual insertion to be robust with data URLs/base64
+            try {
+              const img = document.createElement('img');
+              img.src = value;
+              img.alt = 'image';
+              img.style.maxWidth = '100%';
+              img.style.height = 'auto';
+
+              // Insert at current range/caret
+              range.deleteContents();
+              range.insertNode(img);
+
+              // Move caret after the image by inserting a trailing space/br
+              const br = document.createElement('br');
+              img.parentNode?.insertBefore(br, img.nextSibling);
+
+              // Update selection after insertion
+              const afterRange = document.createRange();
+              afterRange.setStartAfter(br);
+              afterRange.collapse(true);
+              selection.removeAllRanges();
+              selection.addRange(afterRange);
+
+              // Sync markdown
+              setTimeout(() => {
+                handleEditorChange();
+              }, 0);
+            } catch (e) {
+              // Fallback to execCommand if manual insertion fails
+              document.execCommand('insertImage', false, value);
+            }
             restoreSelection();
+          } else {
+            const imageUrl = prompt('URL de l\'image:');
+            if (imageUrl) {
+              document.execCommand('insertImage', false, imageUrl);
+              restoreSelection();
+            }
           }
           break;
         case 'indent':
