@@ -17,17 +17,6 @@ export class DocumentValidator {
     return { isValid: true, errors: {} };
   }
 
-  static validateContent(content: string): ValidationResult {
-    const errors: Record<string, string> = {};
-
-    if (content.length > 10000) {
-      errors.content = "Le contenu ne peut pas dépasser 10000 caractères";
-      return { isValid: false, errors };
-    }
-
-    return { isValid: true, errors: {} };
-  }
-
   static validateTags(tags: string[]): ValidationResult {
     const errors: Record<string, string> = {};
 
@@ -81,12 +70,6 @@ export class DocumentValidator {
     const titleValidation = this.validateTitle(data.title);
     if (!titleValidation.isValid) {
       Object.assign(errors, titleValidation.errors);
-    }
-
-    // Valider le contenu
-    const contentValidation = this.validateContent(data.content);
-    if (!contentValidation.isValid) {
-      Object.assign(errors, contentValidation.errors);
     }
 
     // Valider les tags
