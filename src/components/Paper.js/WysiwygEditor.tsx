@@ -20,6 +20,12 @@ export default function WysiwygEditor({
   showDebug = false,
 }: WysiwygEditorProps) {
   const [markdown, setMarkdown] = useState(content);
+  const [linkPopup, setLinkPopup] = useState<{ visible: boolean; x: number; y: number; url: string }>({
+    visible: false,
+    x: 0,
+    y: 0,
+    url: ''
+  });
   const editorRef = useRef<HTMLDivElement>(null);
   const turndownService = useRef<TurndownService | null>(null);
   const isUpdatingFromMarkdown = useRef(false);
@@ -199,12 +205,13 @@ export default function WysiwygEditor({
       .replace(/<ul>/g, '<ul style="margin: 1rem 0; padding-left: 1.5rem; list-style-type: disc; display: block;">')
       .replace(/<ol>/g, '<ol style="margin: 1rem 0; padding-left: 1.5rem; list-style-type: decimal; display: block;">')
       .replace(/<li>/g, '<li style="margin: 0.25rem 0; display: list-item; list-style-position: outside;">')
+      .replace(/<a /g, '<a target="_blank" rel="noopener noreferrer" style="color: #3b82f6; text-decoration: underline; cursor: pointer;" ')
 ;
     
          return DOMPurify.sanitize(styledHtml, {
            ADD_ATTR: ['style'],
            ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 's', 'del', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'blockquote', 'a', 'img', 'div', 'span', 'hr', 'details', 'summary'],
-           ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'style', 'color', 'open']
+           ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'style', 'color', 'open', 'target', 'rel']
          });
   }, []);
 
@@ -221,6 +228,65 @@ export default function WysiwygEditor({
     if (!turndownService.current) return "";
     return turndownService.current.turndown(html);
   }, []);
+
+  // Handle link hover to show popup
+  const handleLinkHover = useCallback((e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    const link = target.closest('a');
+    if (link && editorRef.current) {
+      const linkRect = link.getBoundingClientRect();
+      const editorRect = editorRef.current.getBoundingClientRect();
+      
+      // Calculate position relative to the editor container
+      const x = linkRect.left - editorRect.left + (linkRect.width / 2);
+      const y = linkRect.top - editorRect.top - 10;
+      
+      setLinkPopup({
+        visible: true,
+        x: x,
+        y: y,
+        url: link.getAttribute('href') || ''
+      });
+    }
+  }, []);
+
+  // Handle link mouse leave to hide popup
+  const handleLinkLeave = useCallback((e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    const link = target.closest('a');
+    if (link) {
+      // Add a small delay to prevent flickering when moving between link and popup
+      setTimeout(() => {
+        setLinkPopup(prev => ({ ...prev, visible: false }));
+      }, 100);
+    }
+  }, []);
+
+  // Handle popup mouse leave to hide popup
+  const handlePopupLeave = useCallback(() => {
+    setLinkPopup(prev => ({ ...prev, visible: false }));
+  }, []);
+
+  // Open link in new tab
+  const openLink = useCallback((url: string) => {
+    window.open(url, '_blank', 'noopener,noreferrer');
+    setLinkPopup(prev => ({ ...prev, visible: false }));
+  }, []);
+
+  // Hide popup when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (linkPopup.visible) {
+        const target = e.target as HTMLElement;
+        if (!target.closest('a') && !target.closest('[data-link-popup]')) {
+          setLinkPopup(prev => ({ ...prev, visible: false }));
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [linkPopup.visible]);
 
 
 
@@ -698,10 +764,19 @@ export default function WysiwygEditor({
           display: list-item !important;
           list-style-position: outside !important;
         }
+        .wysiwyg-editor a {
+          color: #3b82f6 !important;
+          text-decoration: underline !important;
+          cursor: pointer !important;
+        }
+        .wysiwyg-editor a:hover {
+          color: #1d4ed8 !important;
+          text-decoration: underline !important;
+        }
       `}</style>
-      <div className="flex">
+      <div className="flex relative">
         {/* Editor */}
-        <div className={`flex-1 flex flex-col ${showDebug ? '' : 'w-full'}`}>
+        <div className={`flex-1 flex flex-col relative ${showDebug ? '' : 'w-full'}`}>
           {showDebug && (
             <div className="bg-gray-50 dark:bg-gray-800 px-3 py-2 border-b border-gray-200 dark:border-gray-700">
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Éditeur WYSIWYG</span>
@@ -714,7 +789,9 @@ export default function WysiwygEditor({
                  onInput={handleEditorChange}
                  onPaste={handlePaste}
                  onKeyDown={handleKeyDown}
-             className={`wysiwyg-editor ${showDebug ? 'flex-1' : 'w-full'} p-4 border-0 resize-none focus:outline-none bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 prose prose-sm max-w-none prose-h1:text-3xl prose-h1:font-bold prose-h1:text-gray-900 prose-h1:dark:text-gray-100 prose-h2:text-2xl prose-h2:font-bold prose-h2:text-gray-900 prose-h2:dark:text-gray-100 prose-h3:text-xl prose-h3:font-bold prose-h3:text-gray-900 prose-h3:dark:text-gray-100 prose-h4:text-lg prose-h4:font-bold prose-h4:text-gray-900 prose-h4:dark:text-gray-100 prose-h5:text-base prose-h5:font-bold prose-h5:text-gray-900 prose-h5:dark:text-gray-100 prose-h6:text-sm prose-h6:font-bold prose-h6:text-gray-900 prose-h6:dark:text-gray-100 prose-p:text-gray-900 prose-p:dark:text-gray-100 prose-strong:text-gray-900 prose-strong:dark:text-gray-100 prose-em:text-gray-900 prose-em:dark:text-gray-100 prose-blockquote:text-gray-700 prose-blockquote:dark:text-gray-300 prose-ul:text-gray-900 prose-ul:dark:text-gray-100 prose-ol:text-gray-900 prose-ol:dark:text-gray-100`}
+                 onMouseOver={handleLinkHover}
+                 onMouseOut={handleLinkLeave}
+             className={`wysiwyg-editor ${showDebug ? 'flex-1' : 'w-full'} p-4 border-0 resize-none focus:outline-none bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 prose prose-sm max-w-none prose-h1:text-3xl prose-h1:font-bold prose-h1:text-gray-900 prose-h1:dark:text-gray-100 prose-h2:text-2xl prose-h2:font-bold prose-h2:text-gray-900 prose-h2:dark:text-gray-100 prose-h3:text-xl prose-h3:font-bold prose-h3:text-gray-900 prose-h3:dark:text-gray-100 prose-h4:text-lg prose-h4:font-bold prose-h4:text-gray-900 prose-h4:dark:text-gray-100 prose-h5:text-base prose-h5:font-bold prose-h5:text-gray-900 prose-h5:dark:text-gray-100 prose-h6:text-sm prose-h6:font-bold prose-h6:text-gray-900 prose-h6:dark:text-gray-100 prose-p:text-gray-900 prose-p:dark:text-gray-100 prose-strong:text-gray-900 prose-strong:dark:text-gray-100 prose-em:text-gray-900 prose-em:dark:text-gray-100 prose-a:text-blue-600 prose-a:dark:text-blue-400 prose-a:underline prose-blockquote:text-gray-700 prose-blockquote:dark:text-gray-300 prose-ul:text-gray-900 prose-ul:dark:text-gray-100 prose-ol:text-gray-900 prose-ol:dark:text-gray-100`}
              style={{ 
                minHeight: '200px', 
                maxHeight: 'none',
@@ -738,6 +815,33 @@ export default function WysiwygEditor({
               <pre className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-mono leading-relaxed">
                 {markdown || '(vide)'}
               </pre>
+            </div>
+          </div>
+        )}
+        
+        {/* Link Popup */}
+        {linkPopup.visible && (
+          <div
+            data-link-popup
+            className="absolute z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg p-2 pointer-events-auto"
+            style={{
+              left: `${linkPopup.x}px`,
+              top: `${linkPopup.y}px`,
+              transform: 'translateX(-50%)',
+              minWidth: '120px'
+            }}
+            onMouseLeave={handlePopupLeave}
+          >
+            <div className="flex items-center space-x-2">
+              <span className="text-xs text-gray-600 dark:text-gray-400 truncate max-w-32">
+                {linkPopup.url}
+              </span>
+              <button
+                onClick={() => openLink(linkPopup.url)}
+                className="px-2 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+              >
+                Ouvrir
+              </button>
             </div>
           </div>
         )}
