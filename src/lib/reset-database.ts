@@ -12,7 +12,6 @@ async function resetDatabase(): Promise<boolean> {
     
     // Supprimer les tables dans l'ordre inverse de création (pour éviter les contraintes de clés étrangères)
     await pool.query("DROP TABLE IF EXISTS documents CASCADE");
-    await pool.query("DROP TABLE IF EXISTS user_sessions CASCADE");
     await pool.query("DROP TABLE IF EXISTS users CASCADE");
 
     // Supprimer la fonction si elle existe
@@ -34,15 +33,6 @@ async function resetDatabase(): Promise<boolean> {
       )
     `);
 
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS user_sessions (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-        token_hash VARCHAR(255) NOT NULL,
-        expires_at TIMESTAMP NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
 
     await pool.query(`
       CREATE TABLE IF NOT EXISTS documents (
@@ -60,9 +50,6 @@ async function resetDatabase(): Promise<boolean> {
     await pool.query("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)");
     await pool.query(
       "CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)"
-    );
-    await pool.query(
-      "CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON user_sessions(user_id)"
     );
     await pool.query(
       "CREATE INDEX IF NOT EXISTS idx_documents_user_id ON documents(user_id)"

@@ -98,7 +98,7 @@ export default function DrawingCanvas({
     const current = currentPathRef.current;
     if (current) {
       try {
-        const ds = drawingState;
+        const ds = drawingStateRef.current;
         current.strokeColor = new paperScope.Color(ds.color);
         current.strokeWidth = ds.size;
         current.opacity = ds.opacity;
@@ -107,7 +107,7 @@ export default function DrawingCanvas({
         // no-op
       }
     }
-  }, [drawingState, paperScope]);
+  }, [drawingState.color, drawingState.size, drawingState.opacity, paperScope]);
 
   // Canvas dimensions state
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
@@ -269,6 +269,7 @@ export default function DrawingCanvas({
         currentPathRef.current.simplify(2);
 
         // Convert to serializable format
+        const dsFinal = drawingStateRef.current;
         const serializedPath: Drawing = {
           segments: currentPathRef.current.segments.map((segment: any) => ({
             point: [segment.point.x, segment.point.y] as [number, number],
@@ -279,9 +280,9 @@ export default function DrawingCanvas({
               ? ([segment.handleOut.x, segment.handleOut.y] as [number, number])
               : null,
           })),
-          color: drawingState.color,
-          size: drawingState.size,
-          opacity: drawingState.opacity,
+          color: dsFinal.color,
+          size: dsFinal.size,
+          opacity: dsFinal.opacity,
           closed: currentPathRef.current.closed,
         };
 
@@ -387,11 +388,14 @@ export default function DrawingCanvas({
 
         try {
           const path = new paperScope.Path();
-          path.strokeColor = new paperScope.Color(drawing.color || "#000000");
-          path.strokeWidth = drawing.size || 3;
+          const color = drawing.color || drawingStateRef.current.color || "#000000";
+          const size = drawing.size || drawingStateRef.current.size || 3;
+          const opacity = drawing.opacity ?? drawingStateRef.current.opacity ?? 1;
+          path.strokeColor = new paperScope.Color(color);
+          path.strokeWidth = size;
           path.strokeCap = "round";
           path.strokeJoin = "round";
-          path.opacity = drawing.opacity || 1;
+          path.opacity = opacity;
 
           drawing.segments.forEach((segment) => {
             if (segment.point && Array.isArray(segment.point)) {

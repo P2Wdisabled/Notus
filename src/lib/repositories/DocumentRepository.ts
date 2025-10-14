@@ -4,16 +4,6 @@ import { Document, CreateDocumentData, UpdateDocumentData, DocumentRepositoryRes
 export class DocumentRepository extends BaseRepository {
   async initializeTables(): Promise<void> {
     try {
-      // Table des sessions (pour JWT)
-      await this.query(`
-        CREATE TABLE IF NOT EXISTS user_sessions (
-          id SERIAL PRIMARY KEY,
-          user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-          token_hash VARCHAR(255) NOT NULL,
-          expires_at TIMESTAMP NOT NULL,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
 
       // Table des documents
       await this.query(`
@@ -52,7 +42,6 @@ export class DocumentRepository extends BaseRepository {
 
   private async createIndexes(): Promise<void> {
     const indexes = [
-      "CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON user_sessions(user_id)",
       "CREATE INDEX IF NOT EXISTS idx_documents_user_id ON documents(user_id)",
       "CREATE INDEX IF NOT EXISTS idx_documents_created_at ON documents(created_at DESC)"
     ];
