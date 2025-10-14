@@ -36,6 +36,12 @@ export default function WysiwygEditor({
   const isUpdatingFromMarkdown = useRef(false);
   const lastCursorPosition = useRef<number>(0);
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
+  const [selectedImage, setSelectedImage] = useState<HTMLImageElement | null>(null);
+  const [imageOverlayRect, setImageOverlayRect] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
+  const isImageResizingRef = useRef(false);
+  const resizeStartXRef = useRef(0);
+  const resizeStartWidthPxRef = useRef(0);
+  const editorWidthPxRef = useRef(0);
 
   // Initialize turndown service
   useEffect(() => {
@@ -90,13 +96,14 @@ export default function WysiwygEditor({
     // Handle inline styles
     turndownService.current.addRule('inlineStyles', {
       filter: (node) => {
-        return node.nodeName === 'SPAN' && node.style && (
-          node.style.textDecoration?.includes('underline') ||
-          node.style.textDecoration?.includes('line-through') ||
-          node.style.fontWeight === 'bold' ||
-          node.style.fontStyle === 'italic' ||
-          node.style.color ||
-          node.style.backgroundColor
+        const el = node as HTMLElement;
+        return node.nodeName === 'SPAN' && !!el.style && (
+          !!el.style.textDecoration?.includes('underline') ||
+          !!el.style.textDecoration?.includes('line-through') ||
+          el.style.fontWeight === 'bold' ||
+          el.style.fontStyle === 'italic' ||
+          !!el.style.color ||
+          !!el.style.backgroundColor
         );
       },
       replacement: (content, node) => {
@@ -169,7 +176,8 @@ export default function WysiwygEditor({
     // Handle link alignment
     turndownService.current.addRule('linkAlignment', {
       filter: (node) => {
-        return node.nodeName === 'A' && node.style && node.style.textAlign;
+        const el = node as HTMLElement;
+        return node.nodeName === 'A' && !!el.style && !!el.style.textAlign;
       },
       replacement: (content, node) => {
         const element = node as HTMLElement;
@@ -185,9 +193,10 @@ export default function WysiwygEditor({
     // Handle elements with background color
     turndownService.current.addRule('backgroundColor', {
       filter: (node) => {
-        return node.nodeName === 'SPAN' && node.style && node.style.backgroundColor && 
-               node.style.backgroundColor !== 'rgba(0, 0, 0, 0)' && 
-               node.style.backgroundColor !== 'transparent';
+        const el = node as HTMLElement;
+        return node.nodeName === 'SPAN' && !!el.style && !!el.style.backgroundColor && 
+               el.style.backgroundColor !== 'rgba(0, 0, 0, 0)' && 
+               el.style.backgroundColor !== 'transparent';
       },
       replacement: (content, node) => {
         const element = node as HTMLElement;
@@ -205,6 +214,23 @@ export default function WysiwygEditor({
         }
         
         return `<span style="background-color: ${hexBackground}">${content}</span>`;
+      }
+    });
+
+    // Preserve image styles and attributes by outputting raw HTML for <img>
+    turndownService.current.addRule('imgWithStyle', {
+      filter: (node) => node.nodeName === 'IMG',
+      replacement: (_content, node) => {
+        const el = node as HTMLImageElement;
+        const src = el.getAttribute('src') || '';
+        const alt = (el.getAttribute('alt') || '').replace(/"/g, '&quot;');
+        const title = (el.getAttribute('title') || '').replace(/"/g, '&quot;');
+        const style = (el.getAttribute('style') || '').replace(/"/g, '&quot;');
+        let html = `<img src="${src}" alt="${alt}"`;
+        if (title) html += ` title="${title}"`;
+        if (style) html += ` style="${style}"`;
+        html += ' />';
+        return html;
       }
     });
 
@@ -346,6 +372,99 @@ export default function WysiwygEditor({
     window.open(url, '_blank', 'noopener,noreferrer');
     setLinkPopup(prev => ({ ...prev, visible: false }));
   }, []);
+
+  // Handle editor clicks to track selected image
+  const handleEditorClick = useCallback((e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    const img = target?.closest('img');
+    if (editorRef.current && img && editorRef.current.contains(img)) {
+      if (selectedImage && selectedImage !== img) {
+        selectedImage.removeAttribute('data-selected-image');
+      }
+      (img as HTMLImageElement).setAttribute('data-selected-image', 'true');
+      setSelectedImage(img as HTMLImageElement);
+      // Update overlay rect
+      requestAnimationFrame(() => {
+        if (editorRef.current) {
+          const imgRect = (img as HTMLImageElement).getBoundingClientRect();
+          const contRect = editorRef.current.getBoundingClientRect();
+          setImageOverlayRect({
+            left: imgRect.left - contRect.left,
+            top: imgRect.top - contRect.top,
+            width: imgRect.width,
+            height: imgRect.height,
+          });
+        }
+      });
+    } else {
+      if (selectedImage) {
+        selectedImage.removeAttribute('data-selected-image');
+      }
+      setSelectedImage(null);
+      setImageOverlayRect(null);
+    }
+  }, [selectedImage]);
+
+  // Handle dblclick to open image crop modal
+  const handleEditorDoubleClick = useCallback((e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    const img = target?.closest('img');
+    if (editorRef.current && img && editorRef.current.contains(img)) {
+      if (selectedImage && selectedImage !== img) {
+        selectedImage.removeAttribute('data-selected-image');
+      }
+      (img as HTMLImageElement).setAttribute('data-selected-image', 'true');
+      setSelectedImage(img as HTMLImageElement);
+      try {
+        const open = (window as any).openImageEditModal;
+        if (typeof open === 'function') open();
+      } catch (_e) {
+        // no-op
+      }
+    }
+  }, [selectedImage]);
+
+  // Keep overlay in sync on scroll/resize/content changes
+  useEffect(() => {
+    const updateOverlay = () => {
+      if (!selectedImage || !editorRef.current) return;
+      const imgRect = selectedImage.getBoundingClientRect();
+      const contRect = editorRef.current.getBoundingClientRect();
+      setImageOverlayRect({
+        left: imgRect.left - contRect.left,
+        top: imgRect.top - contRect.top,
+        width: imgRect.width,
+        height: imgRect.height,
+      });
+    };
+    updateOverlay();
+    window.addEventListener('scroll', updateOverlay, true);
+    window.addEventListener('resize', updateOverlay);
+    const interval = setInterval(updateOverlay, 250);
+    return () => {
+      window.removeEventListener('scroll', updateOverlay, true);
+      window.removeEventListener('resize', updateOverlay);
+      clearInterval(interval);
+    };
+  }, [selectedImage]);
+
+  // Helper to set image properties on a specific target
+  const setImageProperties = useCallback((img: HTMLImageElement, payload: { src?: string; widthPercent?: number; widthPx?: number }) => {
+    if (payload.src) {
+      try { img.src = payload.src; } catch {}
+    }
+    if (typeof payload.widthPercent === 'number' && !Number.isNaN(payload.widthPercent)) {
+      img.style.width = `${Math.max(1, Math.min(100, payload.widthPercent))}%`;
+      img.style.maxWidth = '';
+      img.style.height = 'auto';
+    } else if (typeof payload.widthPx === 'number' && !Number.isNaN(payload.widthPx)) {
+      img.style.width = `${Math.max(1, payload.widthPx)}px`;
+      img.style.maxWidth = '';
+      img.style.height = 'auto';
+    }
+  }, []);
+
+  
 
   // Hide popup when clicking outside
   useEffect(() => {
@@ -505,8 +624,7 @@ export default function WysiwygEditor({
             const walker = document.createTreeWalker(
               editor,
               NodeFilter.SHOW_TEXT,
-              null,
-              false
+              null
             );
             let node;
             while (node = walker.nextNode()) {
@@ -761,6 +879,55 @@ export default function WysiwygEditor({
           range.insertNode(hr);
           restoreSelection();
           break;
+        case 'replaceSelectedImage': {
+          try {
+            const data = value ? JSON.parse(value) : {};
+            const imgFromAttr = editorRef.current?.querySelector('img[data-selected-image="true"]') as HTMLImageElement | null;
+            const targetImg = imgFromAttr || selectedImage;
+            if (targetImg) {
+              setImageProperties(targetImg, {
+                src: typeof data.src === 'string' ? data.src : undefined,
+                widthPercent: typeof data.widthPercent === 'number' ? data.widthPercent : undefined,
+                widthPx: typeof data.widthPx === 'number' ? data.widthPx : undefined,
+              });
+              // sync markdown and overlay
+              setTimeout(() => {
+                handleEditorChange();
+              }, 0);
+            }
+          } catch (_e) {
+            // ignore
+          }
+          break;
+        }
+        case 'setImageWidth': {
+          // value can be a number or a JSON string { widthPercent|widthPx }
+          try {
+            if (value && value.trim().startsWith('{')) {
+              const data = JSON.parse(value);
+              const imgFromAttr = editorRef.current?.querySelector('img[data-selected-image="true"]') as HTMLImageElement | null;
+              const targetImg = imgFromAttr || selectedImage;
+              if (targetImg) {
+                setImageProperties(targetImg, {
+                  widthPercent: typeof data.widthPercent === 'number' ? data.widthPercent : undefined,
+                  widthPx: typeof data.widthPx === 'number' ? data.widthPx : undefined,
+                });
+              }
+            } else if (value) {
+              const num = Number(value);
+              if (!Number.isNaN(num)) {
+                const imgFromAttr = editorRef.current?.querySelector('img[data-selected-image="true"]') as HTMLImageElement | null;
+                const targetImg = imgFromAttr || selectedImage;
+                if (targetImg) {
+                  setImageProperties(targetImg, { widthPercent: num });
+                }
+              }
+            }
+          } catch (_e) {
+            // ignore
+          }
+          break;
+        }
       }
       
       // Immediately convert to markdown after formatting
@@ -802,6 +969,51 @@ export default function WysiwygEditor({
       }, 0);
     }
   }, [handleEditorChange]);
+
+  // Helpers to edit currently selected image (defined after handleEditorChange)
+  const applyImageEditInternal = useCallback((payload: { src?: string; widthPercent?: number; widthPx?: number }) => {
+    if (!editorRef.current || !selectedImage) return false;
+    const img = selectedImage;
+    if (payload.src) {
+      try {
+        img.src = payload.src;
+      } catch (_e) {
+        // ignore
+      }
+    }
+    if (typeof payload.widthPercent === 'number' && !Number.isNaN(payload.widthPercent)) {
+      img.style.width = `${Math.max(1, Math.min(100, payload.widthPercent))}%`;
+      img.style.maxWidth = '';
+      img.style.height = 'auto';
+    } else if (typeof payload.widthPx === 'number' && !Number.isNaN(payload.widthPx)) {
+      img.style.width = `${Math.max(1, payload.widthPx)}px`;
+      img.style.maxWidth = '';
+      img.style.height = 'auto';
+    }
+    // sync markdown
+    setTimeout(() => {
+      handleEditorChange();
+    }, 0);
+    return true;
+  }, [handleEditorChange, selectedImage]);
+
+  // Expose image helpers to toolbar
+  useEffect(() => {
+    (window as any).getCurrentImageForEditing = () => {
+      const img = selectedImage;
+      if (!img) return null;
+      return {
+        src: img.src,
+        naturalWidth: img.naturalWidth,
+        naturalHeight: img.naturalHeight,
+        styleWidth: img.style.width || '',
+        styleHeight: img.style.height || ''
+      };
+    };
+    (window as any).applyImageEdit = (payload: { src?: string; widthPercent?: number; widthPx?: number }) => {
+      return applyImageEditInternal(payload);
+    };
+  }, [applyImageEditInternal, selectedImage]);
 
   // Global undo/redo with selection preservation
   const handleUndo = useCallback(() => {
@@ -949,7 +1161,7 @@ export default function WysiwygEditor({
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Éditeur WYSIWYG</span>
             </div>
           )}
-          <div className="flex-1">
+          <div className="flex-1 relative">
                <div
                  ref={editorRef}
                  contentEditable
@@ -958,6 +1170,7 @@ export default function WysiwygEditor({
                  onKeyDown={handleKeyDown}
                  onMouseOver={handleLinkHover}
                  onMouseOut={handleLinkLeave}
+                 onDoubleClick={handleEditorDoubleClick}
              className={`wysiwyg-editor ${showDebug ? 'flex-1' : 'w-full'} p-4 border-0 resize-none focus:outline-none bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 prose prose-sm max-w-none prose-h1:text-3xl prose-h1:font-bold prose-h1:text-gray-900 prose-h1:dark:text-gray-100 prose-h2:text-2xl prose-h2:font-bold prose-h2:text-gray-900 prose-h2:dark:text-gray-100 prose-h3:text-xl prose-h3:font-bold prose-h3:text-gray-900 prose-h3:dark:text-gray-100 prose-h4:text-lg prose-h4:font-bold prose-h4:text-gray-900 prose-h4:dark:text-gray-100 prose-h5:text-base prose-h5:font-bold prose-h5:text-gray-900 prose-h5:dark:text-gray-100 prose-h6:text-sm prose-h6:font-bold prose-h6:text-gray-900 prose-h6:dark:text-gray-100 prose-p:text-gray-900 prose-p:dark:text-gray-100 prose-strong:text-gray-900 prose-strong:dark:text-gray-100 prose-em:text-gray-900 prose-em:dark:text-gray-100 prose-a:text-blue-600 prose-a:dark:text-blue-400 prose-a:underline prose-blockquote:text-gray-700 prose-blockquote:dark:text-gray-300 prose-ul:text-gray-900 prose-ul:dark:text-gray-100 prose-ol:text-gray-900 prose-ol:dark:text-gray-100`}
              style={{ 
                minHeight: '200px', 
@@ -968,7 +1181,62 @@ export default function WysiwygEditor({
                '--tw-prose-li': 'margin: 0.25rem 0; display: list-item; list-style-position: outside;'
              } as React.CSSProperties}
             data-placeholder={placeholder}
+             onClick={handleEditorClick}
           />
+          {/* Inline image resize handle overlay */}
+          {imageOverlayRect && (
+            <div
+              className="pointer-events-none"
+              style={{ position: 'absolute', left: imageOverlayRect.left, top: imageOverlayRect.top, width: imageOverlayRect.width, height: imageOverlayRect.height }}
+            >
+              {/* Right-middle resize handle */}
+              <div
+                role="button"
+                className="pointer-events-auto"
+                style={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: imageOverlayRect.width - 4,
+                  width: 8,
+                  height: 8,
+                  background: '#3b82f6',
+                  borderRadius: 2,
+                  transform: 'translateY(-50%)',
+                  cursor: 'ew-resize',
+                }}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  if (!selectedImage || !editorRef.current) return;
+                  isImageResizingRef.current = true;
+                  resizeStartXRef.current = e.clientX;
+                  resizeStartWidthPxRef.current = selectedImage.getBoundingClientRect().width;
+                  editorWidthPxRef.current = editorRef.current.getBoundingClientRect().width;
+                  const onMove = (me: MouseEvent) => {
+                    if (!isImageResizingRef.current || !selectedImage) return;
+                    const deltaX = me.clientX - resizeStartXRef.current;
+                    const newWidthPx = Math.max(10, resizeStartWidthPxRef.current + deltaX);
+                    const percent = Math.round((newWidthPx / Math.max(50, editorWidthPxRef.current)) * 100);
+                    selectedImage.style.width = `${Math.min(100, Math.max(1, percent))}%`;
+                    selectedImage.style.height = 'auto';
+                    // Update overlay to follow
+                    const imgRect = selectedImage.getBoundingClientRect();
+                    const contRect = editorRef.current!.getBoundingClientRect();
+                    setImageOverlayRect({ left: imgRect.left - contRect.left, top: imgRect.top - contRect.top, width: imgRect.width, height: imgRect.height });
+                  };
+                  const onUp = () => {
+                    if (!isImageResizingRef.current) return;
+                    isImageResizingRef.current = false;
+                    document.removeEventListener('mousemove', onMove);
+                    document.removeEventListener('mouseup', onUp);
+                    // Persist to markdown
+                    setTimeout(() => { handleEditorChange(); }, 0);
+                  };
+                  document.addEventListener('mousemove', onMove);
+                  document.addEventListener('mouseup', onUp);
+                }}
+              />
+            </div>
+          )}
           </div>
         </div>
 
@@ -1027,6 +1295,12 @@ export default function WysiwygEditor({
           </div>
         )}
       </div>
+      <style jsx>{`
+        .wysiwyg-editor img[data-selected-image="true"] {
+          outline: 2px solid #3b82f6;
+          outline-offset: 2px;
+        }
+      `}</style>
     </div>
   );
 }
