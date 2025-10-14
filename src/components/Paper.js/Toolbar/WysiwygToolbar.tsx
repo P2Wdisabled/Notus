@@ -562,29 +562,6 @@ export default function WysiwygToolbar({ onFormatChange, showDebug = false, onTo
         </svg>
       </button>
 
-      {/* Code */}
-      <button
-        type="button"
-        onClick={() => onFormatChange('insertCode')}
-        className="p-2 rounded transition-colors bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
-        title="Code inline (Ctrl+`)"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0L19.2 12l-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/>
-        </svg>
-      </button>
-
-      {/* Code Block */}
-      <button
-        type="button"
-        onClick={() => onFormatChange('insertCodeBlock')}
-        className="p-2 rounded transition-colors bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
-        title="Bloc de code (Ctrl+Shift+`)"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0L19.2 12l-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/>
-        </svg>
-      </button>
 
       {/* Quote */}
       <button
@@ -611,29 +588,6 @@ export default function WysiwygToolbar({ onFormatChange, showDebug = false, onTo
       </button>
 
 
-      {/* Checkbox */}
-      <button
-        type="button"
-        onClick={() => onFormatChange('insertCheckbox')}
-        className="p-2 rounded transition-colors bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
-        title="Case à cocher"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-        </svg>
-      </button>
-
-      {/* Checkbox Checked */}
-      <button
-        type="button"
-        onClick={() => onFormatChange('insertCheckboxChecked')}
-        className="p-2 rounded transition-colors bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
-        title="Case cochée"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-        </svg>
-      </button>
 
       {/* Separator */}
       <div className="h-8 w-px bg-gray-300 dark:bg-gray-600 mx-2"></div>

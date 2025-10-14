@@ -20,7 +20,6 @@ export default function WysiwygEditor({
   showDebug = false,
 }: WysiwygEditorProps) {
   const [markdown, setMarkdown] = useState(content);
-  const [html, setHtml] = useState("");
   const editorRef = useRef<HTMLDivElement>(null);
   const turndownService = useRef<TurndownService | null>(null);
   const isUpdatingFromMarkdown = useRef(false);
@@ -177,6 +176,7 @@ export default function WysiwygEditor({
         return `<span style="background-color: ${hexBackground}">${content}</span>`;
       }
     });
+
   }, []);
 
   // Convert markdown to HTML
@@ -195,19 +195,26 @@ export default function WysiwygEditor({
       .replace(/<h5>/g, '<h5 style="font-size: 1rem; font-weight: bold; margin: 0.5rem 0;">')
       .replace(/<h6>/g, '<h6 style="font-size: 0.875rem; font-weight: bold; margin: 0.5rem 0;">')
       .replace(/<blockquote>/g, '<blockquote style="border-left: 4px solid #e5e7eb; padding-left: 1rem; margin: 1rem 0; color: #6b7280; font-style: italic;">')
-      .replace(/<code>/g, '<code style="background-color: #f3f4f6; padding: 0.125rem 0.25rem; border-radius: 0.25rem; font-family: monospace; font-size: 0.875rem;">')
-      .replace(/<pre>/g, '<pre style="background-color: #f3f4f6; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; font-family: monospace; font-size: 0.875rem; margin: 1rem 0;">')
       .replace(/<hr>/g, '<hr style="border: none; border-top: 1px solid #e5e7eb; margin: 2rem 0;">')
       .replace(/<ul>/g, '<ul style="margin: 1rem 0; padding-left: 1.5rem; list-style-type: disc; display: block;">')
       .replace(/<ol>/g, '<ol style="margin: 1rem 0; padding-left: 1.5rem; list-style-type: decimal; display: block;">')
-      .replace(/<li>/g, '<li style="margin: 0.25rem 0; display: list-item; list-style-position: outside;">');
+      .replace(/<li>/g, '<li style="margin: 0.25rem 0; display: list-item; list-style-position: outside;">')
+;
     
          return DOMPurify.sanitize(styledHtml, {
            ADD_ATTR: ['style'],
-           ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 's', 'del', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'blockquote', 'code', 'pre', 'a', 'img', 'div', 'span', 'hr', 'details', 'summary'],
+           ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 's', 'del', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'blockquote', 'a', 'img', 'div', 'span', 'hr', 'details', 'summary'],
            ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'style', 'color', 'open']
          });
   }, []);
+
+  // Initialize editor content once on mount
+  useEffect(() => {
+    if (editorRef.current && markdown && !editorRef.current.innerHTML) {
+      const initialHtml = markdownToHtml(markdown);
+      editorRef.current.innerHTML = initialHtml;
+    }
+  }, [markdown, markdownToHtml]);
 
   // Convert HTML to markdown
   const htmlToMarkdown = useCallback((html: string) => {
@@ -215,134 +222,9 @@ export default function WysiwygEditor({
     return turndownService.current.turndown(html);
   }, []);
 
-  // Initialize HTML content
-  useEffect(() => {
-    if (markdown && !isUpdatingFromMarkdown.current) {
-      const initialHtml = markdownToHtml(markdown);
-      setHtml(prevHtml => {
-        // Only update if HTML has actually changed
-        if (prevHtml !== initialHtml) {
-          return initialHtml;
-        }
-        return prevHtml;
-      });
-    }
-  }, [markdown, markdownToHtml]);
 
-  // Set initial content in editor
-  useEffect(() => {
-    if (editorRef.current && html && !isUpdatingFromMarkdown.current) {
-      // Only set content if it's different from current content
-      if (editorRef.current.innerHTML !== html) {
-        // Save current selection before updating
-        const selection = window.getSelection();
-        const range = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
-        const savedRange = range ? range.cloneRange() : null;
-        
-        // Set flag to prevent further updates
-        isUpdatingFromMarkdown.current = true;
-        editorRef.current.innerHTML = html;
-        
-        // Restore selection after updating
-        if (savedRange && selection) {
-          try {
-            selection.removeAllRanges();
-            selection.addRange(savedRange);
-          } catch (e) {
-            // If restoration fails, place cursor at the end
-            const newRange = document.createRange();
-            newRange.selectNodeContents(editorRef.current);
-            newRange.collapse(false);
-            selection.removeAllRanges();
-            selection.addRange(newRange);
-          }
-        }
-        
-        // Reset flag after a short delay
-        setTimeout(() => {
-          isUpdatingFromMarkdown.current = false;
-        }, 100);
-      }
-    }
-  }, [html]);
 
-  // Force content update when editor is ready
-  useEffect(() => {
-    if (editorRef.current && markdown && !editorRef.current.innerHTML) {
-      const initialHtml = markdownToHtml(markdown);
-      
-      // Save current selection before updating
-      const selection = window.getSelection();
-      const range = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
-      const savedRange = range ? range.cloneRange() : null;
-      
-      // Set flag to prevent further updates
-      isUpdatingFromMarkdown.current = true;
-      editorRef.current.innerHTML = initialHtml;
-      
-      // Restore selection after updating
-      if (savedRange && selection) {
-        try {
-          selection.removeAllRanges();
-          selection.addRange(savedRange);
-        } catch (e) {
-          // If restoration fails, place cursor at the end
-          const newRange = document.createRange();
-          newRange.selectNodeContents(editorRef.current);
-          newRange.collapse(false);
-          selection.removeAllRanges();
-          selection.addRange(newRange);
-        }
-      }
-      
-      // Reset flag after a short delay
-      setTimeout(() => {
-        isUpdatingFromMarkdown.current = false;
-      }, 100);
-    }
-  }, [markdown, markdownToHtml]);
 
-  // Ensure content is loaded when switching to debug mode
-  useEffect(() => {
-    if (showDebug && editorRef.current && markdown) {
-      // Add a small delay to ensure the editor is ready
-      const timer = setTimeout(() => {
-        if (editorRef.current) {
-          // Save current selection before updating
-          const selection = window.getSelection();
-          const range = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
-          const savedRange = range ? range.cloneRange() : null;
-          
-          // Set flag to prevent further updates
-          isUpdatingFromMarkdown.current = true;
-          const initialHtml = markdownToHtml(markdown);
-          editorRef.current.innerHTML = initialHtml;
-          
-          // Restore selection after updating
-          if (savedRange && selection) {
-            try {
-              selection.removeAllRanges();
-              selection.addRange(savedRange);
-            } catch (e) {
-              // If restoration fails, place cursor at the end
-              const newRange = document.createRange();
-              newRange.selectNodeContents(editorRef.current);
-              newRange.collapse(false);
-              selection.removeAllRanges();
-              selection.addRange(newRange);
-            }
-          }
-          
-          // Reset flag after a short delay
-          setTimeout(() => {
-            isUpdatingFromMarkdown.current = false;
-          }, 100);
-        }
-      }, 50);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [showDebug, markdown, markdownToHtml]);
 
   // Update markdown when content prop changes
   useEffect(() => {
@@ -371,16 +253,18 @@ export default function WysiwygEditor({
         if (markdown !== newMarkdown) {
           // Set flag to prevent HTML update during typing
           isUpdatingFromMarkdown.current = true;
+          
+          // Update markdown state without triggering HTML update
           setMarkdown(newMarkdown);
           onContentChange(newMarkdown);
-          // Reset flag after a short delay
-          setTimeout(() => {
-            isUpdatingFromMarkdown.current = false;
-          }, 100);
+          
+          // Reset flag immediately since we're not updating HTML
+          isUpdatingFromMarkdown.current = false;
         }
       }
-    }, 500); // Increased debounce time to reduce interruptions
+    }, 300); // Reduced debounce time
   }, [htmlToMarkdown, onContentChange, markdown]);
+
 
   // Function to save current selection
   const saveSelection = useCallback(() => {
@@ -627,42 +511,6 @@ export default function WysiwygEditor({
             restoreSelection();
           }, 10);
           break;
-        case 'insertCode':
-          if (selectedText) {
-            // Check if text is already in code
-            const container = range.commonAncestorContainer;
-            const element = container.nodeType === Node.TEXT_NODE ? container.parentElement : container as Element;
-            const existingCode = element?.closest('code');
-            
-            if (existingCode) {
-              // Remove code - move content out
-              const parent = existingCode.parentNode;
-              while (existingCode.firstChild) {
-                parent?.insertBefore(existingCode.firstChild, existingCode);
-              }
-              parent?.removeChild(existingCode);
-            } else {
-              // Add code
-              const code = document.createElement('code');
-              code.textContent = selectedText;
-              range.deleteContents();
-              range.insertNode(code);
-            }
-            restoreSelection();
-          } else {
-            document.execCommand('insertText', false, '`code`');
-            restoreSelection();
-          }
-          break;
-        case 'insertCodeBlock':
-          const codeBlock = document.createElement('pre');
-          const codeElement = document.createElement('code');
-          codeElement.textContent = selectedText || '// Votre code ici';
-          codeBlock.appendChild(codeElement);
-          range.deleteContents();
-          range.insertNode(codeBlock);
-          restoreSelection();
-          break;
         case 'insertQuote':
           // Check if current selection is already in a blockquote
           const currentElement = range.commonAncestorContainer.nodeType === Node.TEXT_NODE 
@@ -694,21 +542,6 @@ export default function WysiwygEditor({
           const hr = document.createElement('hr');
           range.deleteContents();
           range.insertNode(hr);
-          restoreSelection();
-          break;
-        case 'insertCheckbox':
-          const checkbox = document.createElement('input');
-          checkbox.type = 'checkbox';
-          checkbox.style.marginRight = '0.5rem';
-          range.insertNode(checkbox);
-          restoreSelection();
-          break;
-        case 'insertCheckboxChecked':
-          const checkedCheckbox = document.createElement('input');
-          checkedCheckbox.type = 'checkbox';
-          checkedCheckbox.checked = true;
-          checkedCheckbox.style.marginRight = '0.5rem';
-          range.insertNode(checkedCheckbox);
           restoreSelection();
           break;
       }
@@ -817,16 +650,6 @@ export default function WysiwygEditor({
       e.preventDefault();
       applyFormatting('underline');
     }
-    // Handle Ctrl+` for code
-    else if (e.ctrlKey && e.key === '`') {
-      e.preventDefault();
-      applyFormatting('insertCode');
-    }
-    // Handle Ctrl+Shift+` for code block
-    else if (e.ctrlKey && e.shiftKey && e.key === '`') {
-      e.preventDefault();
-      applyFormatting('insertCodeBlock');
-    }
     // Handle Ctrl+Shift+> for quote
     else if (e.ctrlKey && e.shiftKey && e.key === '.') {
       e.preventDefault();
@@ -885,14 +708,13 @@ export default function WysiwygEditor({
             </div>
           )}
           <div className="flex-1">
-            <div
+               <div
                  ref={editorRef}
                  contentEditable
                  onInput={handleEditorChange}
                  onPaste={handlePaste}
                  onKeyDown={handleKeyDown}
-                 onKeyUp={handleEditorChange}
-             className={`wysiwyg-editor ${showDebug ? 'flex-1' : 'w-full'} p-4 border-0 resize-none focus:outline-none bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 prose prose-sm max-w-none prose-h1:text-3xl prose-h1:font-bold prose-h1:text-gray-900 prose-h1:dark:text-gray-100 prose-h2:text-2xl prose-h2:font-bold prose-h2:text-gray-900 prose-h2:dark:text-gray-100 prose-h3:text-xl prose-h3:font-bold prose-h3:text-gray-900 prose-h3:dark:text-gray-100 prose-h4:text-lg prose-h4:font-bold prose-h4:text-gray-900 prose-h4:dark:text-gray-100 prose-h5:text-base prose-h5:font-bold prose-h5:text-gray-900 prose-h5:dark:text-gray-100 prose-h6:text-sm prose-h6:font-bold prose-h6:text-gray-900 prose-h6:dark:text-gray-100 prose-p:text-gray-900 prose-p:dark:text-gray-100 prose-strong:text-gray-900 prose-strong:dark:text-gray-100 prose-em:text-gray-900 prose-em:dark:text-gray-100 prose-code:text-gray-900 prose-code:dark:text-gray-100 prose-pre:text-gray-900 prose-pre:dark:text-gray-100 prose-blockquote:text-gray-700 prose-blockquote:dark:text-gray-300 prose-ul:text-gray-900 prose-ul:dark:text-gray-100 prose-ol:text-gray-900 prose-ol:dark:text-gray-100`}
+             className={`wysiwyg-editor ${showDebug ? 'flex-1' : 'w-full'} p-4 border-0 resize-none focus:outline-none bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 prose prose-sm max-w-none prose-h1:text-3xl prose-h1:font-bold prose-h1:text-gray-900 prose-h1:dark:text-gray-100 prose-h2:text-2xl prose-h2:font-bold prose-h2:text-gray-900 prose-h2:dark:text-gray-100 prose-h3:text-xl prose-h3:font-bold prose-h3:text-gray-900 prose-h3:dark:text-gray-100 prose-h4:text-lg prose-h4:font-bold prose-h4:text-gray-900 prose-h4:dark:text-gray-100 prose-h5:text-base prose-h5:font-bold prose-h5:text-gray-900 prose-h5:dark:text-gray-100 prose-h6:text-sm prose-h6:font-bold prose-h6:text-gray-900 prose-h6:dark:text-gray-100 prose-p:text-gray-900 prose-p:dark:text-gray-100 prose-strong:text-gray-900 prose-strong:dark:text-gray-100 prose-em:text-gray-900 prose-em:dark:text-gray-100 prose-blockquote:text-gray-700 prose-blockquote:dark:text-gray-300 prose-ul:text-gray-900 prose-ul:dark:text-gray-100 prose-ol:text-gray-900 prose-ol:dark:text-gray-100`}
              style={{ 
                minHeight: '200px', 
                maxHeight: 'none',
