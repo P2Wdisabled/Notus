@@ -158,6 +158,22 @@ export default function WysiwygEditor({
       }
     });
 
+    // Handle link alignment
+    turndownService.current.addRule('linkAlignment', {
+      filter: (node) => {
+        return node.nodeName === 'A' && node.style && node.style.textAlign;
+      },
+      replacement: (content, node) => {
+        const element = node as HTMLElement;
+        const align = element.style.textAlign;
+        const href = element.getAttribute('href');
+        if (align === 'center') return `<div style="text-align: center">[${content}](${href})</div>`;
+        if (align === 'right') return `<div style="text-align: right">[${content}](${href})</div>`;
+        if (align === 'justify') return `<div style="text-align: justify">[${content}](${href})</div>`;
+        return `[${content}](${href})`;
+      }
+    });
+
     // Handle elements with background color
     turndownService.current.addRule('backgroundColor', {
       filter: (node) => {
@@ -207,6 +223,14 @@ export default function WysiwygEditor({
       .replace(/<ol>/g, '<ol style="margin: 1rem 0; padding-left: 1.5rem; list-style-type: decimal; display: block;">')
       .replace(/<li>/g, '<li style="margin: 0.25rem 0; display: list-item; list-style-position: outside;">')
       .replace(/<a /g, '<a target="_blank" rel="noopener noreferrer" style="color: #3b82f6; text-decoration: underline; cursor: pointer;" ')
+      // Handle links with alignment in divs where content is already an <a>
+      .replace(/<div style=\"text-align: center\"><a href=\"([^\"]*)\">([\s\S]*?)<\/a><\/div>/g, '<div style=\"text-align: center\"><a href=\"$1\" style=\"color: #3b82f6; text-decoration: underline; cursor: pointer;\">$2</a></div>')
+      .replace(/<div style=\"text-align: right\"><a href=\"([^\"]*)\">([\s\S]*?)<\/a><\/div>/g, '<div style=\"text-align: right\"><a href=\"$1\" style=\"color: #3b82f6; text-decoration: underline; cursor: pointer;\">$2</a></div>')
+      .replace(/<div style=\"text-align: justify\"><a href=\"([^\"]*)\">([\s\S]*?)<\/a><\/div>/g, '<div style=\"text-align: justify\"><a href=\"$1\" style=\"color: #3b82f6; text-decoration: underline; cursor: pointer;\">$2</a></div>')
+      // Handle links with alignment in divs where content is a markdown link [..](..)
+      .replace(/<div style=\"text-align: center\">\[([\s\S]*?)\]\(([^\)]*)\)<\/div>/g, '<div style=\"text-align: center\"><a href=\"$2\" style=\"color: #3b82f6; text-decoration: underline; cursor: pointer;\">$1</a></div>')
+      .replace(/<div style=\"text-align: right\">\[([\s\S]*?)\]\(([^\)]*)\)<\/div>/g, '<div style=\"text-align: right\"><a href=\"$2\" style=\"color: #3b82f6; text-decoration: underline; cursor: pointer;\">$1</a></div>')
+      .replace(/<div style=\"text-align: justify\">\[([\s\S]*?)\]\(([^\)]*)\)<\/div>/g, '<div style=\"text-align: justify\"><a href=\"$2\" style=\"color: #3b82f6; text-decoration: underline; cursor: pointer;\">$1</a></div>')
 ;
     
          return DOMPurify.sanitize(styledHtml, {
