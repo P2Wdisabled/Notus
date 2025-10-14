@@ -240,7 +240,7 @@ export default function WysiwygEditor({
       
       // Calculate position relative to the editor container
       const x = linkRect.left - editorRect.left + (linkRect.width / 2);
-      const y = linkRect.top - editorRect.top - 10;
+      const y = linkRect.top - editorRect.top - 50; // Increased offset to position above the link
       
       setLinkPopup({
         visible: true,
