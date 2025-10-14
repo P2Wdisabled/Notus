@@ -80,7 +80,7 @@ export default function TagsManager({
     <div className={`w-full ${className}`}>
       <div
         ref={scrollContainerRef}
-        className="flex items-center gap-2 px-1 overflow-x-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent pb-1"
+        className="flex items-center gap-2 px-1 overflow-x-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent pb-1 max-w-full"
         style={{
           scrollbarWidth: "thin",
           scrollbarColor: "hsl(var(--border)) transparent",

@@ -4,7 +4,7 @@ import { useActionState, startTransition } from "react";
 import { deleteDocumentAction, updateDocumentAction } from "@/lib/actions";
 import Link from "next/link";
 import DOMPurify from "dompurify";
-import { Button, Badge, Input } from "@/components/ui";
+import { Button, Input } from "@/components/ui";
 import TagsManager from "@/components/TagsManager";
 import { cn } from "@/lib/utils";
 
@@ -359,13 +359,9 @@ export default function DocumentCard({
     >
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-2">
-          {tags.length > 0 && (
-            <Badge className="bg-primary text-primary-foreground hover:bg-primary/90 transition-colors duration-200">
-              {tags[0]}
-            </Badge>
-          )}
+        <div className="flex items-center gap-2 w-full min-w-0">
           <div
+            className="flex-1 min-w-0 max-w-full"
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
