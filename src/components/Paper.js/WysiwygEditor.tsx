@@ -26,6 +26,7 @@ export default function WysiwygEditor({
     y: 0,
     url: ''
   });
+  const popupTimeout = useRef<NodeJS.Timeout | null>(null);
   const editorRef = useRef<HTMLDivElement>(null);
   const turndownService = useRef<TurndownService | null>(null);
   const isUpdatingFromMarkdown = useRef(false);
@@ -255,20 +256,61 @@ export default function WysiwygEditor({
     const target = e.target as HTMLElement;
     const link = target.closest('a');
     if (link) {
-      // Add a small delay to prevent flickering when moving between link and popup
-      setTimeout(() => {
-        setLinkPopup(prev => ({ ...prev, visible: false }));
-      }, 100);
+      const relatedTarget = e.relatedTarget as HTMLElement;
+      const isMovingToPopup = relatedTarget?.closest('[data-link-popup]');
+      const isMovingToAnotherLink = relatedTarget?.closest('a');
+      
+      // Only hide if not moving to popup or another link
+      if (!isMovingToPopup && !isMovingToAnotherLink) {
+        // Clear any existing timeout
+        if (popupTimeout.current) {
+          clearTimeout(popupTimeout.current);
+        }
+        
+        // Hide popup after 1 second
+        popupTimeout.current = setTimeout(() => {
+          setLinkPopup(prev => ({ ...prev, visible: false }));
+        }, 1000);
+      }
+    }
+  }, []);
+
+  // Handle popup mouse enter to keep it open
+  const handlePopupEnter = useCallback(() => {
+    // Clear any existing timeout to keep popup open
+    if (popupTimeout.current) {
+      clearTimeout(popupTimeout.current);
+      popupTimeout.current = null;
     }
   }, []);
 
   // Handle popup mouse leave to hide popup
-  const handlePopupLeave = useCallback(() => {
-    setLinkPopup(prev => ({ ...prev, visible: false }));
+  const handlePopupLeave = useCallback((e: React.MouseEvent) => {
+    const relatedTarget = e.relatedTarget as HTMLElement;
+    const isMovingToLink = relatedTarget?.closest('a');
+    
+    // Only hide if not moving back to a link
+    if (!isMovingToLink) {
+      // Clear any existing timeout
+      if (popupTimeout.current) {
+        clearTimeout(popupTimeout.current);
+      }
+      
+      // Hide popup after 1 second
+      popupTimeout.current = setTimeout(() => {
+        setLinkPopup(prev => ({ ...prev, visible: false }));
+      }, 1000);
+    }
   }, []);
 
   // Open link in new tab
   const openLink = useCallback((url: string) => {
+    // Clear any existing timeout
+    if (popupTimeout.current) {
+      clearTimeout(popupTimeout.current);
+      popupTimeout.current = null;
+    }
+    
     window.open(url, '_blank', 'noopener,noreferrer');
     setLinkPopup(prev => ({ ...prev, visible: false }));
   }, []);
@@ -287,6 +329,37 @@ export default function WysiwygEditor({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [linkPopup.visible]);
+
+  // Monitor cursor position to keep popup open when cursor is in link text
+  useEffect(() => {
+    const handleSelectionChange = () => {
+      if (linkPopup.visible && editorRef.current) {
+        const selection = window.getSelection();
+        if (selection && selection.rangeCount > 0) {
+          const range = selection.getRangeAt(0);
+          const link = range.commonAncestorContainer.parentElement?.closest('a') || 
+                      range.startContainer.parentElement?.closest('a');
+          
+          // If cursor is not in a link, hide popup
+          if (!link) {
+            setLinkPopup(prev => ({ ...prev, visible: false }));
+          }
+        }
+      }
+    };
+
+    document.addEventListener('selectionchange', handleSelectionChange);
+    return () => document.removeEventListener('selectionchange', handleSelectionChange);
+  }, [linkPopup.visible]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (popupTimeout.current) {
+        clearTimeout(popupTimeout.current);
+      }
+    };
+  }, []);
 
 
 
@@ -830,6 +903,7 @@ export default function WysiwygEditor({
               transform: 'translateX(-50%)',
               minWidth: '120px'
             }}
+            onMouseEnter={handlePopupEnter}
             onMouseLeave={handlePopupLeave}
           >
             <div className="flex items-center space-x-2">
