@@ -68,7 +68,11 @@ export default function WysiwygEditor({
 
     turndownService.current.addRule('textAlign', {
       filter: (node) => {
-        return node.nodeName === 'DIV' && node.style && node.style.textAlign;
+        const el = node as HTMLElement;
+        if (!el || !el.style || !el.style.textAlign) return false;
+        const tag = el.nodeName;
+        // Consider common block-level elements to wrap the entire line
+        return ['DIV', 'P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BLOCKQUOTE'].includes(tag);
       },
       replacement: (content, node) => {
         const align = (node as HTMLElement).style.textAlign;
