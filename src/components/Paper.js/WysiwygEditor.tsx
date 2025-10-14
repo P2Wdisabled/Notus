@@ -26,6 +26,10 @@ export default function WysiwygEditor({
     y: 0,
     url: ''
   });
+  // Debug split view state (editor | splitter | markdown panel)
+  const splitContainerRef = useRef<HTMLDivElement>(null);
+  const [splitRatio, setSplitRatio] = useState(0.6); // left pane ratio (0-1)
+  const [isResizing, setIsResizing] = useState(false);
   const popupTimeout = useRef<NodeJS.Timeout | null>(null);
   const editorRef = useRef<HTMLDivElement>(null);
   const turndownService = useRef<TurndownService | null>(null);
@@ -875,9 +879,25 @@ export default function WysiwygEditor({
           text-decoration: underline !important;
         }
       `}</style>
-      <div className="flex relative">
+      <div 
+        className="flex relative select-none"
+        ref={splitContainerRef}
+        onMouseMove={(e) => {
+          if (!isResizing || !splitContainerRef.current) return;
+          const rect = splitContainerRef.current.getBoundingClientRect();
+          const newRatio = (e.clientX - rect.left) / rect.width;
+          const clamped = Math.min(0.85, Math.max(0.15, newRatio));
+          setSplitRatio(clamped);
+          e.preventDefault();
+        }}
+        onMouseUp={() => setIsResizing(false)}
+        onMouseLeave={() => setIsResizing(false)}
+      >
         {/* Editor */}
-        <div className={`flex-1 flex flex-col relative ${showDebug ? '' : 'w-full'}`}>
+        <div 
+          className={`flex flex-col relative ${showDebug ? '' : 'w-full'}`}
+          style={showDebug ? { width: `${splitRatio * 100}%` } : undefined}
+        >
           {showDebug && (
             <div className="bg-gray-50 dark:bg-gray-800 px-3 py-2 border-b border-gray-200 dark:border-gray-700">
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Éditeur WYSIWYG</span>
@@ -908,7 +928,19 @@ export default function WysiwygEditor({
 
         {/* Debug Panel - Only show when debug mode is enabled */}
         {showDebug && (
-          <div className="flex-1 flex flex-col border-l border-gray-200 dark:border-gray-700">
+          <>
+          {/* Vertical splitter */}
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            className={`w-1 cursor-col-resize bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 ${isResizing ? 'opacity-100' : 'opacity-100'}`}
+            onMouseDown={() => setIsResizing(true)}
+            style={{
+              userSelect: 'none'
+            }}
+          />
+
+          <div className="flex flex-col border-l border-gray-200 dark:border-gray-700" style={{ width: `${(1 - splitRatio) * 100}%` }}>
             <div className="bg-gray-50 dark:bg-gray-800 px-3 py-2 border-b border-gray-200 dark:border-gray-700">
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Variable Markdown (Debug)</span>
             </div>
@@ -918,6 +950,7 @@ export default function WysiwygEditor({
               </pre>
             </div>
           </div>
+          </>
         )}
         
         {/* Link Popup */}
