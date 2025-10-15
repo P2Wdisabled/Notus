@@ -1,14 +1,18 @@
 import { prisma } from '../prisma';
 import { User, UserRepositoryResult, CreateUserData, UpdateUserProfileData } from '../types';
+import bcrypt from 'bcryptjs';
 
 export class PrismaUserRepository {
   async createUser(userData: CreateUserData): Promise<UserRepositoryResult<User>> {
     try {
+      // Hacher le mot de passe avec salt
+      const passwordHash = await bcrypt.hash(userData.password, 12);
+      
       const user = await prisma.user.create({
         data: {
           email: userData.email,
           username: userData.username,
-          password_hash: userData.password,
+          password_hash: passwordHash,
           first_name: userData.firstName,
           last_name: userData.lastName,
           email_verification_token: userData.verificationToken,
@@ -25,6 +29,34 @@ export class PrismaUserRepository {
       };
     } catch (error: unknown) {
       console.error('❌ Erreur création utilisateur:', error);
+      
+      // Gérer les erreurs de contrainte unique Prisma
+      if (error && typeof error === 'object' && 'code' in error) {
+        const prismaError = error as any;
+        if (prismaError.code === 'P2002') {
+          // Erreur de contrainte unique
+          const target = prismaError.meta?.target;
+          if (Array.isArray(target)) {
+            if (target.includes('email')) {
+              return {
+                success: false,
+                error: 'Un compte existe déjà avec cette adresse email',
+              };
+            }
+            if (target.includes('username')) {
+              return {
+                success: false,
+                error: 'Ce nom d\'utilisateur est déjà utilisé',
+              };
+            }
+          }
+          return {
+            success: false,
+            error: 'Cette information est déjà utilisée par un autre compte',
+          };
+        }
+      }
+      
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Erreur inconnue',
@@ -240,10 +272,13 @@ export class PrismaUserRepository {
         };
       }
 
+      // Hacher le nouveau mot de passe avec salt
+      const passwordHash = await bcrypt.hash(password, 12);
+
       const updatedUser = await prisma.user.update({
         where: { id: user.id },
         data: {
-          password_hash: password,
+          password_hash: passwordHash,
           reset_token: null,
           reset_token_expiry: null,
         },

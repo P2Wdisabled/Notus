@@ -243,12 +243,8 @@ export default function DocumentCard({
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const longPressActivatedRef = useRef(false);
 
-  const handleCheckboxClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-  };
-
   const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.stopPropagation();
     onToggleSelect(document.id, e.target.checked);
   };
 
@@ -436,26 +432,33 @@ export default function DocumentCard({
           </div>
         )} */}
           {selectMode && (
-          <div
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleSelect(document.id, !selected);
-            }}
-            className="animate-fade-in"
-          >
-             <input
-               type="checkbox"
-               checked={selected}
-               onClick={handleCheckboxClick}
-               onChange={handleCheckboxChange}
-               className="h-5 w-5 appearance-none border-2 border-input rounded transition-all duration-200 checked:border-primary checked:bg-primary checked:accent-primary"
-               style={{
-                 accentColor: selected ? 'var(--primary)' : undefined
-               }}
-               aria-label="Sélectionner ce document"
-             />
-          </div>
-        )}
+            <div className="relative">
+              <input
+                type="checkbox"
+                checked={selected}
+                onChange={handleCheckboxChange}
+                className="h-5 w-5 appearance-none border-2 rounded transition-all duration-200 animate-fade-in cursor-pointer"
+                style={{
+                  borderColor: selected ? 'var(--primary)' : 'var(--input)',
+                  backgroundColor: selected ? 'var(--primary)' : 'transparent',
+                }}
+                aria-label="Sélectionner ce document"
+              />
+              {selected && (
+                <svg
+                  className="absolute top-0 left-0 h-5 w-5 pointer-events-none text-white"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              )}
+            </div>
+          )}
       </div>
 
       {/* Message de suppression */}

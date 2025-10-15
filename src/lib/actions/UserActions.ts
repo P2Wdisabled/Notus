@@ -80,7 +80,7 @@ export async function registerUser(prevState: unknown, formData: FormData): Prom
   } catch (error: unknown) {
     console.error("❌ Erreur lors de l'inscription:", error);
 
-    if (error instanceof Error && error.message.includes("déjà utilisé")) {
+    if (error instanceof Error && (error.message.includes("déjà utilisé") || error.message.includes("existe déjà"))) {
       return error.message;
     }
 

@@ -2,6 +2,7 @@ import "./globals.css";
 import FloatingCreateButton from "@/components/FloatingCreateButton";
 import AuthSessionProvider from "@/components/SessionProvider";
 import { ThemeProvider } from "@/contexts/ThemeContext";
+import { SelectionProvider } from "@/contexts/SelectionContext";
 import ThemeToggle from "@/components/ThemeToggle";
 import PromoteAdminButton from "@/components/PromoteAdminButton";
 import { SearchProvider } from "@/contexts/SearchContext";
@@ -44,9 +45,11 @@ export default async function RootLayout({
         <ThemeProvider>
           <AuthSessionProvider session={session}>
             <SearchProvider>
-              {children}
-              <FloatingCreateButton serverSession={session} />
-              <ThemeToggle />
+              <SelectionProvider>
+                {children}
+                <FloatingCreateButton serverSession={session} />
+                <ThemeToggle />
+              </SelectionProvider>
             </SearchProvider>
           </AuthSessionProvider>
         </ThemeProvider>

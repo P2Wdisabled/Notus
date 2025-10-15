@@ -19,7 +19,7 @@ export default function LogoutPageClient() {
 
   const handleCancel = () => {
     setOpen(false);
-    router.push("/profile");
+    router.push("/");
   };
 
   return (
@@ -29,7 +29,7 @@ export default function LogoutPageClient() {
         onClose={handleCancel}
         size="sm"
         title="Se déconnecter ?"
-        className="!bg-white dark:!bg-black text-black dark:text-white border-2 border-dark-orange dark:border-dark-purple"
+        className="bg-background text-foreground border-2 border-primary text-center text-xl"
       >
         <div className="flex flex-col items-center text-center gap-5 bg-white dark:bg-black">
           <div className="w-12 h-12 rounded-full bg-orange dark:bg-dark-purple flex items-center justify-center shadow-md">
@@ -43,14 +43,14 @@ export default function LogoutPageClient() {
           <div className="flex items-center gap-4 mt-2">
             <Button
               variant="primary"
-              className="px-6 py-2 bg-orange dark:bg-dark-purple hover:bg-dark-orange dark:hover:bg-dark-purple shadow-orange dark:shadow-dark-purple"
+              className="px-6 py-2"
               onClick={handleConfirm}
             >
               Continuer
             </Button>
             <Button
-              variant="secondary"
-              className="px-6 py-2 border-orange dark:border-dark-purple text-orange dark:text-dark-purple shadow-orange dark:shadow-dark-purple"
+              variant="ghost"
+              className="px-6 py-2"
               onClick={handleCancel}
             >
               Annuler

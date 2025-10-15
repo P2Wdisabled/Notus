@@ -40,14 +40,6 @@ export default async function Home() {
           />
         </div>
       </ContentWrapper>
-      {!session?.user && (
-        <div className="fixed bottom-0 left-0 right-0 z-10">
-          <div className="md:ml-64 md:pl-4 max-w-4xl mx-auto px-4 md:px-6 lg:px-8 py-3 bg-primary text-primary-foreground text-center">
-            Vous n'êtes pas connecté. Vos notes locales ne seront pas
-            sauvegardées dans le cloud.
-          </div>
-        </div>
-      )}
     </div>
   );
 }

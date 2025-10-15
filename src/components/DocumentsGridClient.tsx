@@ -4,7 +4,9 @@ import { useState, useEffect } from "react";
 import { useActionState } from "react";
 import { deleteMultipleDocumentsAction } from "@/lib/actions";
 import DocumentCard from "@/components/DocumentCard";
-import { Button } from "@/components/ui";
+import SelectionBar from "@/components/SelectionBar";
+import ConnectionWarning from "@/components/ConnectionWarning";
+import { useSelection } from "@/contexts/SelectionContext";
 
 const LOCAL_DOCS_KEY = "notus.local.documents";
 
@@ -30,6 +32,12 @@ export default function DocumentsGridClient({ documents: serverDocuments = [], c
     undefined
   );
   const [selectMode, setSelectMode] = useState(false);
+  const { setIsSelectModeActive } = useSelection();
+
+  // Synchroniser l'état local avec le contexte global
+  useEffect(() => {
+    setIsSelectModeActive(selectMode);
+  }, [selectMode, setIsSelectModeActive]);
 
   // Charger les documents locaux (toujours, même si connecté)
   useEffect(() => {
@@ -187,65 +195,21 @@ export default function DocumentsGridClient({ documents: serverDocuments = [], c
         </div>
       </div>
 
-      {/* Bandeau fixe en bas de page */}
+      {/* Barre de sélection */}
       {selectMode && (
-        <div className={`fixed left-0 right-0 z-10 px-0 md:px-4 ${!currentUserId ? 'bottom-20' : 'bottom-0'}`}>
-          <div className="md:ml-64 md:max-w-4/5 max-w-4xl mx-auto py-3 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-lg px-4">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => { setSelectMode(false); setSelectedIds([]); }}
-                  className="text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
-                  aria-label="Annuler la sélection"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-                <span className="text-sm text-gray-700 dark:text-gray-300 font-medium hidden md:inline">
-                  {selectedIds.length} note{selectedIds.length > 1 ? 's' : ''} sélectionnée{selectedIds.length > 1 ? 's' : ''}
-                </span>
-                <span className="text-sm text-gray-700 dark:text-gray-300 font-medium md:hidden">
-                  {selectedIds.length}
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={toggleAll}
-                  className="text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
-                  aria-label={selectedIds.length === documents.length ? "Tout désélectionner" : "Tout sélectionner"}
-                  title={selectedIds.length === documents.length ? "Tout désélectionner" : "Tout sélectionner"}
-                >
-                  {selectedIds.length === documents.length ? (
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  ) : (
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                    </svg>
-                  )}
-                </button>
-
-                <form action={handleBulkDelete} className="flex items-center">
-                  <button
-                    type="submit"
-                    disabled={isPending || selectedIds.length === 0}
-                    className="flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-full font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    aria-label="Supprimer les notes sélectionnées"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                    <span className="hidden md:inline">{isPending ? "Suppression..." : "Supprimer"}</span>
-                  </button>
-                </form>
-              </div>
-            </div>
-          </div>
-        </div>
+        <SelectionBar
+          selectedCount={selectedIds.length}
+          totalCount={documents.length}
+          isPending={isPending}
+          onCancel={() => { setSelectMode(false); setSelectedIds([]); }}
+          onToggleAll={toggleAll}
+          onBulkDelete={handleBulkDelete}
+          currentUserId={currentUserId}
+        />
       )}
+      
+      {/* Avertissement de connexion - toujours affiché si nécessaire */}
+      <ConnectionWarning currentUserId={currentUserId} hasSelectionBar={selectMode} />
     </>
   );
 }
