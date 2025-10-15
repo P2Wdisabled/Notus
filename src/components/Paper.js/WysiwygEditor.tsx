@@ -62,7 +62,10 @@ export default function WysiwygEditor({
     });
 
     turndownService.current.addRule('strikethrough', {
-      filter: ['s', 'del'],
+      filter: (node) => {
+        const name = node.nodeName;
+        return name === 'S' || name === 'DEL' || name === 'STRIKE';
+      },
       replacement: (content) => `~~${content}~~`
     });
 
@@ -699,43 +702,9 @@ export default function WysiwygEditor({
           restoreSelection();
           break;
         case 'strikeThrough':
-          // Use custom implementation for strikethrough
-          if (selectedText) {
-            const container = range.commonAncestorContainer;
-            const element = container.nodeType === Node.TEXT_NODE ? container.parentElement : container as Element;
-            
-            // Check if text is already strikethrough
-            const isStrike = element?.closest('s, del, strike') !== null ||
-                            (element as HTMLElement)?.style?.textDecoration?.includes('line-through');
-            
-            if (isStrike) {
-              // Remove strikethrough
-              const strikeElement = element?.closest('s, del, strike');
-              if (strikeElement) {
-                const parent = strikeElement.parentNode;
-                while (strikeElement.firstChild) {
-                  parent?.insertBefore(strikeElement.firstChild, strikeElement);
-                }
-                parent?.removeChild(strikeElement);
-              }
-            } else {
-              // Add strikethrough
-              const span = document.createElement('s');
-              span.textContent = selectedText;
-              range.deleteContents();
-              range.insertNode(span);
-            }
-            restoreSelection();
-          } else {
-            // Toggle strikethrough for current selection
-            const isStrike = document.queryCommandState('strikeThrough');
-            if (isStrike) {
-              document.execCommand('removeFormat', false);
-            } else {
-              document.execCommand('strikeThrough', false);
-            }
-            restoreSelection();
-          }
+          // Use native toggle for reliable add/remove across selections
+          document.execCommand('strikeThrough', false);
+          restoreSelection();
           break;
         case 'insertOrderedList':
           document.execCommand('insertOrderedList', false);
@@ -950,7 +919,7 @@ export default function WysiwygEditor({
     } catch (error) {
       console.error('Error applying formatting:', error);
     }
-  }, [htmlToMarkdown, onContentChange]);
+  }, [htmlToMarkdown, onContentChange, selectedImage, setImageProperties, handleEditorChange]);
 
   // Handle paste events to clean up content
   const handlePaste = useCallback((e: React.ClipboardEvent) => {
@@ -1017,8 +986,17 @@ export default function WysiwygEditor({
 
   // Global undo/redo with selection preservation
   const handleUndo = useCallback(() => {
+    if (editorRef.current) editorRef.current.focus();
     const savedSelection = saveSelection();
     document.execCommand('undo', false);
+    // Sync markdown after undo
+    setTimeout(() => {
+      try {
+        handleEditorChange();
+      } catch (_e) {
+        // ignore
+      }
+    }, 0);
     if (savedSelection) {
       setTimeout(() => {
         try {
@@ -1032,11 +1010,20 @@ export default function WysiwygEditor({
         }
       }, 10);
     }
-  }, [saveSelection]);
+  }, [saveSelection, handleEditorChange]);
 
   const handleRedo = useCallback(() => {
+    if (editorRef.current) editorRef.current.focus();
     const savedSelection = saveSelection();
     document.execCommand('redo', false);
+    // Sync markdown after redo
+    setTimeout(() => {
+      try {
+        handleEditorChange();
+      } catch (_e) {
+        // ignore
+      }
+    }, 0);
     if (savedSelection) {
       setTimeout(() => {
         try {
@@ -1050,7 +1037,7 @@ export default function WysiwygEditor({
         }
       }, 10);
     }
-  }, [saveSelection]);
+  }, [saveSelection, handleEditorChange]);
 
   // Handle key events
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
