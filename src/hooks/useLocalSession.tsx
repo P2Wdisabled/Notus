@@ -10,9 +10,9 @@ interface UserSession {
   id: string;
   email: string;
   name: string;
-  firstName?: string;
-  lastName?: string;
-  username?: string;
+  firstName: string;
+  lastName: string;
+  username: string;
   profileImage?: string;
   bannerImage?: string;
   isAdmin?: boolean;
@@ -68,24 +68,27 @@ export function useLocalSession(serverSession: Session | null = null): UseLocalS
       try {
         // Essayer de récupérer la session depuis localStorage
         let userSession = getLocalUserSession();
-
+        // Patch: fallback to serverSession.user.email if missing
+        if (userSession && !userSession.email && serverSession?.user?.email) {
+          userSession.email = serverSession.user.email;
+        }
         if (userSession) {
           setLocalSession(userSession);
         } else if (serverSession?.user) {
           // Si pas de session localStorage mais session serveur disponible
           const userId = serverSession.user.id;
-
           const sessionData: UserSession = {
             id: userId || "unknown",
             email: serverSession.user.email || "",
             name: serverSession.user.name || "",
-            firstName: serverSession.user.firstName,
-            lastName: serverSession.user.lastName,
-            username: serverSession.user.username,
+            firstName: serverSession.user.firstName || "",
+            lastName: serverSession.user.lastName || "",
+            username: serverSession.user.username || "",
             profileImage: serverSession.user.profileImage,
             bannerImage: serverSession.user.bannerImage,
+            isAdmin: serverSession.user.isAdmin,
+            isVerified: serverSession.user.isVerified,
           };
-
           if (saveLocalUserSession(sessionData)) {
             setLocalSession(sessionData);
           }
@@ -96,7 +99,6 @@ export function useLocalSession(serverSession: Session | null = null): UseLocalS
         setLoading(false);
       }
     };
-
     loadSession();
   }, [serverSession]);
 
@@ -105,7 +107,7 @@ export function useLocalSession(serverSession: Session | null = null): UseLocalS
     setLocalSession(null);
   };
 
-  const isLoggedIn = localSession !== null && localSession.id;
+  const isLoggedIn = !!(localSession && localSession.id);
 
   return {
     session: localSession || serverSession,
@@ -114,9 +116,9 @@ export function useLocalSession(serverSession: Session | null = null): UseLocalS
     userId: localSession?.id || null,
     userName: localSession?.name || null,
     userEmail: localSession?.email || null,
-    userFirstName: localSession?.firstName || null,
-    userLastName: localSession?.lastName || null,
-    username: localSession?.username || null,
+  userFirstName: localSession?.firstName ?? null,
+  userLastName: localSession?.lastName ?? null,
+  username: localSession?.username ?? null,
     isAdmin: localSession?.isAdmin || false,
     isVerified: localSession?.isVerified || false,
     profileImage: localSession?.profileImage || null,

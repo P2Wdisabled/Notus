@@ -51,6 +51,7 @@ export class DocumentService {
   async createOrUpdateDocumentById(
     documentId: number | null,
     userId: number,
+    userEmail: string,
     title: string,
     content: string,
     tags: string[] | undefined = undefined
@@ -78,6 +79,43 @@ export class DocumentService {
     } catch (error) {
       console.error("❌ Erreur suppression multiple documents:", error);
       return { success: false, error: error instanceof Error ? error.message : "Erreur inconnue" };
+    }
+  }
+
+  // Share-related wrappers
+  async fetchSharedWithUser(email: string): Promise<DocumentRepositoryResult<Document[]>> {
+    try {
+      return await this.documentRepository.fetchSharedWithUser(email);
+    } catch (error) {
+      console.error("❌ Erreur récupération documents partagés:", error);
+      return { success: false, error: error instanceof Error ? error.message : "Erreur inconnue" };
+    }
+  }
+
+  async getSharePermission(documentId: number, email: string): Promise<DocumentRepositoryResult<{ permission: boolean }>> {
+    try {
+      return await this.documentRepository.getSharePermission(documentId, email);
+    } catch (error) {
+      console.error("❌ Erreur récupération permission de partage:", error);
+      return { success: false, error: error instanceof Error ? error.message : "Erreur inconnue" };
+    }
+  }
+
+  async addShare(documentId: number, email: string, permission: boolean): Promise<DocumentRepositoryResult<{ id: number }>> {
+    try {
+      return await this.documentRepository.addShare(documentId, email, permission);
+    } catch (error) {
+      console.error("❌ Erreur ajout partage:", error);
+      return { success: false, error: error instanceof Error ? error.message : "Erreur inconnue" };
+    }
+  }
+
+  async fetchDocumentAccessList(documentId: number): Promise<DocumentRepositoryResult<{ accessList: any[] }>> {
+    try {
+      return await this.documentRepository.getAccessList(documentId);
+    } catch (error) {
+      console.error('❌ Erreur récupération access list:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Erreur inconnue' };
     }
   }
 

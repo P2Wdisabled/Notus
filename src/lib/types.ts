@@ -127,3 +127,11 @@ export interface DocumentRepositoryResult<T = unknown> extends DatabaseResult<T>
   document?: Document;
   documents?: Document[];
 }
+
+
+export interface MenuItemProps {
+  onClick: () => void;
+  children: React.ReactNode;
+  icon?: React.ReactNode;
+  className?: string;
+}

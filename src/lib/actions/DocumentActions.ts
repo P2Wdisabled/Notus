@@ -330,9 +330,26 @@ export async function updateDocumentAction(prevState: unknown, formDataOrObj: Fo
     }
 
     // Actually update the document in the database
+    // Get user email from session or formData
+    let userEmail: string | undefined = undefined;
+    if (fd && fd.get("email")) {
+      userEmail = String(fd.get("email"));
+    } else if (typeof (formDataOrObj as any).email === "string") {
+      userEmail = (formDataOrObj as any).email;
+    } else {
+      // Try to get from server session
+      try {
+        const session = await getServerSession(authOptions);
+        userEmail = session?.user?.email || undefined;
+      } catch {}
+    }
+    if (!userEmail) {
+      return { ok: false, error: "Email utilisateur manquant pour la mise à jour." };
+    }
     const updateResult = await documentService.createOrUpdateDocumentById(
       idNum,
       userIdToUse,
+      userEmail,
       title,
       contentStr,
       tags
@@ -453,5 +470,148 @@ export async function deleteMultipleDocumentsAction(prevState: unknown, formData
       return "Base de données non accessible. Vérifiez la configuration PostgreSQL.";
     }
     return "Erreur lors de la suppression multiple. Veuillez réessayer.";
+  }
+}
+
+// --- Share-related server actions ---
+export async function fetchSharedDocumentsAction(): Promise<ActionResult> {
+  try {
+    const session = await getServerSession(authOptions);
+    const email = session?.user?.email as string | undefined;
+
+    if (!email) {
+      return { success: false, error: "Utilisateur non authentifié", documents: [] };
+    }
+
+    if (!process.env.DATABASE_URL) {
+      return { success: true, documents: [] };
+    }
+
+    await documentService.initializeTables();
+
+    const result = await documentService.fetchSharedWithUser(email);
+    if (!result.success) {
+      return { success: false, error: result.error || "Erreur lors de la récupération des documents partagés", documents: [] };
+    }
+
+    return { success: true, documents: result.documents || [] };
+  } catch (error: unknown) {
+    console.error("❌ Erreur fetchSharedDocumentsAction:", error);
+    return { success: false, error: "Erreur lors de la récupération des documents partagés", documents: [] };
+  }
+}
+
+export async function getSharePermissionAction(documentId: number): Promise<ActionResult> {
+  try {
+    const idValidation = DocumentValidator.validateDocumentId(documentId);
+    if (!idValidation.isValid) {
+      return { success: false, error: Object.values(idValidation.errors)[0] || "ID de document invalide" };
+    }
+
+    const session = await getServerSession(authOptions);
+    const email = session?.user?.email as string | undefined;
+
+    if (!email) {
+      return { success: false, error: "Utilisateur non authentifié" };
+    }
+
+    if (!process.env.DATABASE_URL) {
+      return { success: true, data: { permission: false } } as ActionResult;
+    }
+
+    await documentService.initializeTables();
+
+    const result = await documentService.getSharePermission(documentId, email);
+    if (!result.success) {
+      return { success: false, error: result.error || "Permission non trouvée" };
+    }
+
+    return { success: true, dbResult: { success: true, error: undefined, document: undefined }, data: result.data } as ActionResult;
+  } catch (error: unknown) {
+    console.error("❌ Erreur getSharePermissionAction:", error);
+    return { success: false, error: "Erreur lors de la récupération de la permission" };
+  }
+}
+
+export async function addShareAction(prevState: unknown, formData: FormData): Promise<ActionResult | string> {
+  try {
+    const documentIdRaw = formData.get("documentId") as string | null;
+    const targetEmail = formData.get("email") as string | null;
+    const permissionRaw = formData.get("permission") as string | null;
+
+    if (!documentIdRaw || !targetEmail || permissionRaw === null) {
+      return { success: false, error: "documentId, email et permission sont requis" };
+    }
+
+    const documentId = parseInt(documentIdRaw, 10);
+    const permission = permissionRaw === "true" || permissionRaw === "1";
+
+    const idValidation = DocumentValidator.validateDocumentId(documentId);
+    if (!idValidation.isValid) {
+      return { success: false, error: Object.values(idValidation.errors)[0] || "ID de document invalide" };
+    }
+
+    // Auth check and ownership/admin verification
+    const session = await getServerSession(authOptions);
+    const userId = session?.user?.id ? Number(session.user.id) : undefined;
+    const userEmail = session?.user?.email as string | undefined;
+
+    if (!userId || !userEmail) {
+      return { success: false, error: "Utilisateur non authentifié" };
+    }
+
+    // Préparer la persistance
+    if (!process.env.DATABASE_URL) {
+      return { success: true, message: "Partage simulé (DATABASE_URL non configurée)" };
+    }
+
+    await documentService.initializeTables();
+
+    // Récupérer le document pour vérifier la propriété
+    const docRes = await documentService.getDocumentById(documentId);
+    if (!docRes.success || !docRes.document) {
+      return { success: false, error: "Document introuvable" };
+    }
+
+    const isOwner = docRes.document.user_id === userId;
+    // TODO: add admin check if needed (look up user.is_admin)
+    if (!isOwner) {
+      return { success: false, error: "Vous n'êtes pas autorisé à partager ce document" };
+    }
+
+    const addRes = await documentService.addShare(documentId, targetEmail, permission);
+    if (!addRes.success) {
+      return { success: false, error: addRes.error || "Erreur lors de l'ajout du partage" };
+    }
+
+    return { success: true, message: "Partage réussi.", id: addRes.data?.id };
+  } catch (error: unknown) {
+    console.error("❌ Erreur addShareAction:", error);
+    return { success: false, error: "Erreur lors du partage" };
+  }
+}
+
+export async function fetchDocumentAccessListAction(documentId: number): Promise<ActionResult> {
+  try {
+    const idValidation = DocumentValidator.validateDocumentId(documentId);
+    if (!idValidation.isValid) {
+      return { success: false, error: Object.values(idValidation.errors)[0] || 'ID de document invalide' };
+    }
+
+    if (!process.env.DATABASE_URL) {
+      return { success: true, data: { accessList: [] } } as ActionResult;
+    }
+
+    await documentService.initializeTables();
+
+    const res = await documentService.fetchDocumentAccessList(documentId);
+    if (!res.success) {
+      return { success: false, error: res.error || 'Erreur lors de la récupération de la liste d\'accès' };
+    }
+
+    return { success: true, data: res.data } as ActionResult;
+  } catch (error: unknown) {
+    console.error('❌ Erreur fetchDocumentAccessListAction:', error);
+    return { success: false, error: 'Erreur lors de la récupération de la liste d\'accès' };
   }
 }
