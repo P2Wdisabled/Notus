@@ -104,8 +104,6 @@ export default function DocumentCard({
     month: "2-digit",
     year: "numeric",
   });
-  const firstLine = (document.content || "").split(/\r?\n/)[0];
-
   // ensure we always define contentIsHtml and previewText
   const rawPreviewSource = document?.content ?? "";
   const normalizedString = unwrapToString(rawPreviewSource);
