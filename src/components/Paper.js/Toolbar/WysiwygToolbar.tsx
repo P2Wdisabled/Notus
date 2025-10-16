@@ -584,17 +584,6 @@ export default function WysiwygToolbar({ onFormatChange, showDebug = false, onTo
         )}
       </div>
 
-      {/* Quote */}
-      <button
-        type="button"
-        onClick={() => onFormatChange('formatBlock', 'blockquote')}
-        className="p-2 rounded transition-colors bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
-        title="Citation"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M6 17h3l2-4V7H5v6h3zm8 0h3l2-4V7h-6v6h3z"/>
-        </svg>
-      </button>
 
       {/* Separator */}
       <div className="h-8 w-px bg-gray-300 dark:bg-gray-600 mx-2"></div>
@@ -711,22 +700,6 @@ export default function WysiwygToolbar({ onFormatChange, showDebug = false, onTo
         </svg>
       </button>
 
-      {/* Edit Selected Image */}
-      <button
-        type="button"
-        onClick={() => setShowImageEditModal(true)}
-        disabled={!canEditImage}
-        className={`p-2 rounded transition-colors ${
-          canEditImage
-            ? "bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
-            : "bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
-        }`}
-        title="Modifier l'image (crop/redimensionner)"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M6 2v2H2v2h2v8a2 2 0 002 2h8v2h2v-4h2v-2h-2V6a2 2 0 00-2-2H8V2H6zm2 4h6v6H8V6z"/>
-        </svg>
-      </button>
 
       {/* Draw (Canvas) */}
       <button
