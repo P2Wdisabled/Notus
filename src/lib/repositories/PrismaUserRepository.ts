@@ -1,18 +1,16 @@
+import bcrypt from 'bcryptjs';
 import { prisma } from '../prisma';
 import { User, UserRepositoryResult, CreateUserData, UpdateUserProfileData } from '../types';
-import bcrypt from 'bcryptjs';
 
 export class PrismaUserRepository {
   async createUser(userData: CreateUserData): Promise<UserRepositoryResult<User>> {
     try {
-      // Hacher le mot de passe avec salt
-      const passwordHash = await bcrypt.hash(userData.password, 12);
-      
+      const hashedPassword = await bcrypt.hash(userData.password, 12);
       const user = await prisma.user.create({
         data: {
           email: userData.email,
           username: userData.username,
-          password_hash: passwordHash,
+          password_hash: hashedPassword,
           first_name: userData.firstName,
           last_name: userData.lastName,
           email_verification_token: userData.verificationToken,
@@ -226,7 +224,7 @@ export class PrismaUserRepository {
     }
   }
 
-  async updatePassword(token: string, password: string): Promise<UserRepositoryResult<User>> {
+  async updatePassword(token: string, hashedPassword: string): Promise<UserRepositoryResult<User>> {
     try {
       const user = await prisma.user.findFirst({
         where: {
@@ -244,13 +242,10 @@ export class PrismaUserRepository {
         };
       }
 
-      // Hacher le nouveau mot de passe avec salt
-      const passwordHash = await bcrypt.hash(password, 12);
-
       const updatedUser = await prisma.user.update({
         where: { id: user.id },
         data: {
-          password_hash: passwordHash,
+          password_hash: hashedPassword,
           reset_token: null,
           reset_token_expiry: null,
         },
