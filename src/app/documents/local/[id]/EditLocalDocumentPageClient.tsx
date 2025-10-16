@@ -77,17 +77,19 @@ export default function EditLocalDocumentPageClient({ params }: EditLocalDocumen
             setDocument(found);
             setTitle(found.title || "Sans titre");
             // Normalize content for editor
-            let normalized: NotepadContent = found.content as NotepadContent;
-            if (typeof normalized === "string") {
+            let normalized: NotepadContent;
+            if (typeof found.content === "string") {
               try {
-                normalized = JSON.parse(normalized);
+                normalized = JSON.parse(found.content);
               } catch {
                 normalized = {
-                  text: normalized,
+                  text: found.content,
                   drawings: [],
                   textFormatting: {},
                 };
               }
+            } else {
+              normalized = found.content as NotepadContent;
             }
             setContent(
               normalized || { text: "", drawings: [], textFormatting: {} }
@@ -306,11 +308,10 @@ export default function EditLocalDocumentPageClient({ params }: EditLocalDocumen
               <button
                 type="button"
                 onClick={handleSave}
-                className={`${
-                  showSavedState
-                    ? "bg-green-600 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-600"
-                    : "bg-primary hover:bg-primary/90 text-primary-foreground"
-                } disabled:bg-gray-400 disabled:cursor-not-allowed font-semibold py-3 px-6 rounded-lg transition-colors`}
+                className={`${showSavedState
+                  ? "bg-green-600 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-600"
+                  : "bg-primary hover:bg-primary/90 text-primary-foreground"
+                  } disabled:bg-gray-400 disabled:cursor-not-allowed font-semibold py-3 px-6 rounded-lg transition-colors`}
               >
                 {showSavedState
                   ? isNewDoc

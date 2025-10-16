@@ -91,8 +91,9 @@ export default function EditProfilePageClient({ user }: EditProfilePageClientPro
           firstName,
           lastName,
           username,
-          profileImage,
-          bannerImage,
+          profileImage: profileImage || undefined,
+          bannerImage: bannerImage || undefined,
+          timestamp: Date.now(),
         });
       } catch (e) {
         console.error(
@@ -139,8 +140,8 @@ export default function EditProfilePageClient({ user }: EditProfilePageClientPro
   const handleSubmit = (formData: FormData) => {
     // Validation des images avant soumission
     const profileData = {
-      profileImage,
-      bannerImage,
+      profileImage: profileImage || undefined,
+      bannerImage: bannerImage || undefined,
     };
 
     const validation = validateProfileImages(profileData);
@@ -282,7 +283,7 @@ export default function EditProfilePageClient({ user }: EditProfilePageClientPro
                 label="Image de profil"
                 value={profileImage}
                 onChange={(value) => handleImageChange("profile", value)}
-                error={errors.profileImage}
+                error={errors.profileImage || undefined}
                 className="mt-6"
                 accept="image/jpeg,image/jpg,image/png,image/gif"
                 maxSize={10 * 1024 * 1024} // 10MB
@@ -293,7 +294,7 @@ export default function EditProfilePageClient({ user }: EditProfilePageClientPro
                 label="Image de bannière"
                 value={bannerImage}
                 onChange={(value) => handleImageChange("banner", value)}
-                error={errors.bannerImage}
+                error={errors.bannerImage || undefined}
                 className="mt-6"
                 accept="image/jpeg,image/jpg,image/png,image/gif"
                 maxSize={10 * 1024 * 1024} // 10MB
@@ -304,11 +305,10 @@ export default function EditProfilePageClient({ user }: EditProfilePageClientPro
 
             {message && (
               <p
-                className={`text-sm ${
-                  message.toLowerCase().includes("succès")
-                    ? "text-green-600 dark:text-green-400"
-                    : "text-red-600 dark:text-red-400"
-                }`}
+                className={`text-sm ${message.toLowerCase().includes("succès")
+                  ? "text-green-600 dark:text-green-400"
+                  : "text-red-600 dark:text-red-400"
+                  }`}
               >
                 {message}
               </p>

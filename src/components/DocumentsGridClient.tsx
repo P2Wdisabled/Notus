@@ -7,17 +7,9 @@ import DocumentCard from "@/components/DocumentCard";
 import SelectionBar from "@/components/SelectionBar";
 import ConnectionWarning from "@/components/ConnectionWarning";
 import { useSelection } from "@/contexts/SelectionContext";
+import { Document, LocalDocument, AnyDocument } from "@/lib/types";
 
 const LOCAL_DOCS_KEY = "notus.local.documents";
-
-interface Document {
-  id: string | number;
-  title: string;
-  content: any;
-  updated_at: string;
-  user_id?: string | number;
-  tags?: string[];
-}
 
 interface DocumentsGridClientProps {
   documents?: Document[];
@@ -25,8 +17,8 @@ interface DocumentsGridClientProps {
 }
 
 export default function DocumentsGridClient({ documents: serverDocuments = [], currentUserId }: DocumentsGridClientProps) {
-  const [localDocuments, setLocalDocuments] = useState<Document[]>([]);
-  const [selectedIds, setSelectedIds] = useState<(string | number)[]>([]);
+  const [localDocuments, setLocalDocuments] = useState<LocalDocument[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [message, formAction, isPending] = useActionState(
     deleteMultipleDocumentsAction,
     undefined
@@ -67,13 +59,14 @@ export default function DocumentsGridClient({ documents: serverDocuments = [], c
 
   // Fusionner les documents locaux et serveur
   // Les documents locaux en premier, puis les documents serveur
-  const documents = [...localDocuments, ...serverDocuments];
+  const documents: AnyDocument[] = [...localDocuments, ...serverDocuments];
 
   const toggleSelect = (id: string | number, checked: boolean) => {
+    const idStr = String(id);
     setSelectedIds((prev) => {
       const set = new Set(prev);
-      if (checked) set.add(id);
-      else set.delete(id);
+      if (checked) set.add(idStr);
+      else set.delete(idStr);
       return Array.from(set);
     });
   };
@@ -82,7 +75,7 @@ export default function DocumentsGridClient({ documents: serverDocuments = [], c
     if (selectedIds.length === documents.length) {
       setSelectedIds([]);
     } else {
-      setSelectedIds(documents.map((d) => d.id));
+      setSelectedIds(documents.map((d) => String(d.id)));
     }
   };
 
@@ -90,12 +83,12 @@ export default function DocumentsGridClient({ documents: serverDocuments = [], c
     if (selectedIds.length === 0) return;
 
     // Séparer les documents locaux et serveur
-    const localIdsToDelete: (string | number)[] = [];
-    const serverIdsToDelete: (string | number)[] = [];
+    const localIdsToDelete: string[] = [];
+    const serverIdsToDelete: string[] = [];
 
     selectedIds.forEach((id) => {
-      const doc = documents.find((d) => d.id === id);
-      if (doc && !doc.user_id) {
+      const doc = documents.find((d) => String(d.id) === id);
+      if (doc && !('user_id' in doc) || (doc as LocalDocument).user_id === undefined) {
         // Document local
         localIdsToDelete.push(id);
       } else {
@@ -109,7 +102,7 @@ export default function DocumentsGridClient({ documents: serverDocuments = [], c
       try {
         const raw = localStorage.getItem(LOCAL_DOCS_KEY);
         const parsed = raw ? JSON.parse(raw) : [];
-        const updated = parsed.filter((doc: Document) => !localIdsToDelete.includes(doc.id));
+        const updated = parsed.filter((doc: LocalDocument) => !localIdsToDelete.includes(doc.id));
         localStorage.setItem(LOCAL_DOCS_KEY, JSON.stringify(updated));
         setLocalDocuments(updated);
       } catch (e) {
@@ -172,20 +165,20 @@ export default function DocumentsGridClient({ documents: serverDocuments = [], c
         <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(300px,1fr))]">
           {documents.map((document) => {
             // Un document est local s'il n'a pas de user_id (vient du localStorage)
-            const isLocal = !document.user_id;
+            const isLocal = !('user_id' in document) || (document as LocalDocument).user_id === undefined;
             return (
-              <div key={document.id} className="w-full">
+              <div key={String(document.id)} className="w-full">
                 <DocumentCard
                   document={document}
                   currentUserId={currentUserId}
                   isLocal={isLocal}
                   selectMode={selectMode}
-                  selected={selectedIds.includes(document.id)}
+                  selected={selectedIds.includes(String(document.id))}
                   onToggleSelect={toggleSelect}
                   onEnterSelectMode={(firstId) => {
                     if (!selectMode) {
                       setSelectMode(true);
-                      setSelectedIds([firstId]);
+                      setSelectedIds([String(firstId)]);
                     }
                   }}
                 />
@@ -207,7 +200,7 @@ export default function DocumentsGridClient({ documents: serverDocuments = [], c
           currentUserId={currentUserId}
         />
       )}
-      
+
       {/* Avertissement de connexion - toujours affiché si nécessaire */}
       <ConnectionWarning currentUserId={currentUserId} hasSelectionBar={selectMode} />
     </>

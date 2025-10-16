@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useLocalSession } from "@/hooks/useLocalSession";
 import CollaborativeNotepad from "@/components/Paper.js/CollaborativeNotepad";
+import { Document } from "@/lib/types";
 
 interface EditDocumentPageClientProps {
   session?: any;
@@ -18,15 +19,6 @@ interface NotepadContent {
   drawings: any[];
   textFormatting: Record<string, any>;
   timestamp?: number;
-}
-
-interface Document {
-  id: number;
-  title: string;
-  content: NotepadContent;
-  tags: string[];
-  updated_at: string;
-  user_id: number;
 }
 
 interface CanvasController {
@@ -56,6 +48,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   // Action state
   const [state, formAction, isPending] = useActionState(updateDocumentAction, {
     ok: false,
+    error: "",
   });
 
   // Session management
@@ -103,9 +96,10 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
         setDocument({
           id: Number(props.params.id),
           title: result.title,
-          content: normalizedContent,
+          content: JSON.stringify(normalizedContent),
           tags: Array.isArray(result.tags) ? result.tags : [],
-          updated_at: result.updated_at,
+          created_at: new Date(result.created_at || result.updated_at),
+          updated_at: new Date(result.updated_at),
           user_id: Number(result.user_id ?? result.owner ?? NaN),
         });
 
@@ -133,7 +127,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   useEffect(() => {
     if (document) {
       setTitle(document.title);
-      setContent(document.content);
+      setContent(normalizeContent(document.content));
       setCanvasCtrl(null);
     }
   }, [document]);
@@ -166,7 +160,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
       e?.preventDefault?.();
 
       const submittingUserId =
-        userId ?? localSession?.user?.id ?? props.session?.user?.id;
+        userId ?? (localSession as any)?.id ?? props.session?.user?.id;
       if (!submittingUserId) {
         alert("Session invalide. Veuillez vous reconnecter.");
         return;
@@ -502,11 +496,10 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
               <button
                 type="submit"
                 disabled={isPending}
-                className={`${
-                  showSavedState
-                    ? "bg-green-600 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-600"
-                    : "bg-primary hover:bg-primary/90 text-primary-foreground"
-                } disabled:bg-gray-400 disabled:cursor-not-allowed font-semibold py-3 px-6 rounded-lg transition-colors`}
+                className={`${showSavedState
+                  ? "bg-green-600 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-600"
+                  : "bg-primary hover:bg-primary/90 text-primary-foreground"
+                  } disabled:bg-gray-400 disabled:cursor-not-allowed font-semibold py-3 px-6 rounded-lg transition-colors`}
               >
                 {isPending
                   ? "Sauvegarde..."
@@ -519,18 +512,16 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
             {/* Success/Error messages */}
             {(showSuccessMessage || (state && (state as any).error)) && (
               <div
-                className={`shrink-0 rounded-lg p-4 mt-4 ${
-                  showSuccessMessage
-                    ? "bg-white dark:bg-black border border-orange dark:border-dark-purple"
-                    : "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"
-                }`}
+                className={`shrink-0 rounded-lg p-4 mt-4 ${showSuccessMessage
+                  ? "bg-white dark:bg-black border border-orange dark:border-dark-purple"
+                  : "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"
+                  }`}
               >
                 <p
-                  className={`text-sm ${
-                    showSuccessMessage
-                      ? "text-orange dark:text-dark-purple"
-                      : "text-red-600 dark:text-red-400"
-                  }`}
+                  className={`text-sm ${showSuccessMessage
+                    ? "text-orange dark:text-dark-purple"
+                    : "text-red-600 dark:text-red-400"
+                    }`}
                 >
                   {showSuccessMessage
                     ? "Document sauvegardé avec succès !"

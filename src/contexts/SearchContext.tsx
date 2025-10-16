@@ -1,12 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, ReactNode } from "react";
-
-interface Document {
-  id: string;
-  title: string;
-  [key: string]: any;
-}
+import { Document } from "@/lib/types";
 
 interface SearchContextType {
   searchQuery: string;

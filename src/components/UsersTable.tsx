@@ -1,28 +1,15 @@
 "use client";
 
 import { useState } from "react";
-
-interface User {
-  id: string;
-  first_name: string;
-  last_name: string;
-  username: string;
-  email: string;
-  is_banned: boolean;
-  email_verified: boolean;
-  is_admin: boolean;
-  created_at: string;
-  terms_accepted_at?: string;
-  provider?: string;
-}
+import { User } from "@/lib/types";
 
 interface UsersTableProps {
   users: User[];
 }
 
 export default function UsersTable({ users }: UsersTableProps) {
-  const [banningUsers, setBanningUsers] = useState(new Set<string>());
-  const [adminUsers, setAdminUsers] = useState(new Set<string>());
+  const [banningUsers, setBanningUsers] = useState(new Set<string | number>());
+  const [adminUsers, setAdminUsers] = useState(new Set<string | number>());
   const [showBanModal, setShowBanModal] = useState(false);
   const [banReason, setBanReason] = useState("");
   const [userToBan, setUserToBan] = useState<User | null>(null);
@@ -39,7 +26,7 @@ export default function UsersTable({ users }: UsersTableProps) {
     }
   };
 
-  const handleBanUser = async (userId: string, isBanned: boolean, reason: string | null = null) => {
+  const handleBanUser = async (userId: string | number, isBanned: boolean, reason: string | null = null) => {
     setBanningUsers((prev) => new Set(prev).add(userId));
 
     try {
@@ -55,8 +42,7 @@ export default function UsersTable({ users }: UsersTableProps) {
         const result = await response.json();
         if (result.emailSent) {
           alert(
-            `Utilisateur ${
-              isBanned ? "banni" : "débanni"
+            `Utilisateur ${isBanned ? "banni" : "débanni"
             } avec succès. Email de notification envoyé.`
           );
         } else {
@@ -88,7 +74,7 @@ export default function UsersTable({ users }: UsersTableProps) {
     }
   };
 
-  const handleToggleAdmin = async (userId: string, isAdmin: boolean) => {
+  const handleToggleAdmin = async (userId: string | number, isAdmin: boolean) => {
     setAdminUsers((prev) => new Set(prev).add(userId));
 
     try {
@@ -191,8 +177,8 @@ export default function UsersTable({ users }: UsersTableProps) {
                   <div className="flex-shrink-0 h-10 w-10">
                     <div className="h-10 w-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
                       <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {user.first_name.charAt(0)}
-                        {user.last_name.charAt(0)}
+                        {user.first_name?.charAt(0) || ''}
+                        {user.last_name?.charAt(0) || ''}
                       </span>
                     </div>
                   </div>
@@ -210,7 +196,7 @@ export default function UsersTable({ users }: UsersTableProps) {
                 <div className="text-sm text-gray-900 dark:text-white">
                   {user.email}
                 </div>
-                {getProviderBadge(user.provider)}
+                {getProviderBadge(user.provider || undefined)}
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
                 {getStatusBadge(user)}
@@ -250,11 +236,10 @@ export default function UsersTable({ users }: UsersTableProps) {
                   <button
                     onClick={() => handleBanClick(user)}
                     disabled={banningUsers.has(user.id)}
-                    className={`inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded ${
-                      user.is_banned
-                        ? "text-green-700 bg-green-100 hover:bg-green-200 dark:bg-green-900 dark:text-green-200 dark:hover:bg-green-800"
-                        : "text-red-700 bg-red-100 hover:bg-red-200 dark:bg-red-900 dark:text-red-200 dark:hover:bg-red-800"
-                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                    className={`inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded ${user.is_banned
+                      ? "text-green-700 bg-green-100 hover:bg-green-200 dark:bg-green-900 dark:text-green-200 dark:hover:bg-green-800"
+                      : "text-red-700 bg-red-100 hover:bg-red-200 dark:bg-red-900 dark:text-red-200 dark:hover:bg-red-800"
+                      } disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
                     {banningUsers.has(user.id) ? (
                       <svg

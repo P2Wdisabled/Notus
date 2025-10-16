@@ -7,18 +7,10 @@ import DOMPurify from "dompurify";
 import { Button, Input } from "@/components/ui";
 import TagsManager from "@/components/TagsManager";
 import { cn } from "@/lib/utils";
-
-interface Document {
-  id: string | number;
-  title: string;
-  content: any;
-  updated_at: string;
-  user_id?: string | number;
-  tags?: string[];
-}
+import { Document, LocalDocument, AnyDocument } from "@/lib/types";
 
 interface DocumentCardProps {
-  document: Document;
+  document: AnyDocument;
   currentUserId?: string | number | null;
   onDelete?: (id: string | number) => void;
   selectMode?: boolean;
@@ -107,8 +99,8 @@ export default function DocumentCard({
   onDelete,
   selectMode = false,
   selected = false,
-  onToggleSelect = () => {},
-  onEnterSelectMode = () => {},
+  onToggleSelect = () => { },
+  onEnterSelectMode = () => { },
   isLocal = false,
   index = 0,
 }: DocumentCardProps) {
@@ -123,8 +115,8 @@ export default function DocumentCard({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
-  const isOwner = document.user_id === currentUserId;
-  const updatedDate = new Date(document.updated_at);
+  const isOwner = ('user_id' in document) ? document.user_id === currentUserId : false;
+  const updatedDate = new Date(document.updated_at || new Date());
   const formattedDate = updatedDate.toLocaleDateString("fr-FR", {
     day: "2-digit",
     month: "2-digit",
@@ -328,7 +320,7 @@ export default function DocumentCard({
 
   // Définir l'URL en fonction du type de document (local ou serveur)
   const documentUrl = isLocal
-    ? `/documents/local/${encodeURIComponent(document.id)}`
+    ? `/documents/local/${encodeURIComponent(String(document.id))}`
     : `/documents/${document.id}`;
 
   return (
@@ -421,7 +413,7 @@ export default function DocumentCard({
       {/* Footer */}
       <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
         <time
-          dateTime={document.updated_at}
+          dateTime={typeof document.updated_at === 'string' ? document.updated_at : (document.updated_at || new Date()).toISOString()}
           className="text-xs text-muted-foreground"
         >
           {formattedDate}
@@ -431,34 +423,34 @@ export default function DocumentCard({
             <span className="text-xs text-muted-foreground">Propriétaire</span>
           </div>
         )} */}
-          {selectMode && (
-            <div className="relative">
-              <input
-                type="checkbox"
-                checked={selected}
-                onChange={handleCheckboxChange}
-                className="h-5 w-5 appearance-none border-2 rounded transition-all duration-200 animate-fade-in cursor-pointer"
-                style={{
-                  borderColor: selected ? 'var(--primary)' : 'var(--input)',
-                  backgroundColor: selected ? 'var(--primary)' : 'transparent',
-                }}
-                aria-label="Sélectionner ce document"
-              />
-              {selected && (
-                <svg
-                  className="absolute top-0 left-0 h-5 w-5 pointer-events-none text-white"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              )}
-            </div>
-          )}
+        {selectMode && (
+          <div className="relative">
+            <input
+              type="checkbox"
+              checked={selected}
+              onChange={handleCheckboxChange}
+              className="h-5 w-5 appearance-none border-2 rounded transition-all duration-200 animate-fade-in cursor-pointer"
+              style={{
+                borderColor: selected ? 'var(--primary)' : 'var(--input)',
+                backgroundColor: selected ? 'var(--primary)' : 'transparent',
+              }}
+              aria-label="Sélectionner ce document"
+            />
+            {selected && (
+              <svg
+                className="absolute top-0 left-0 h-5 w-5 pointer-events-none text-white"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Message de suppression */}

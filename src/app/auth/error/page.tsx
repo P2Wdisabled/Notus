@@ -28,26 +28,26 @@ export default function AuthErrorPage() {
             Erreur d'authentification
           </Card.Title>
         </Card.Header>
-        
+
         <Card.Content className="space-y-4">
-          <Alert variant="destructive">
+          <Alert variant="error">
             {getErrorMessage(error)}
           </Alert>
-          
+
           <div className="text-center space-y-2">
             <p className="text-dark-gray dark:text-gray">
               Veuillez réessayer ou contacter le support si le problème persiste.
             </p>
           </div>
         </Card.Content>
-        
+
         <Card.Footer className="flex flex-col space-y-2">
           <Button asChild className="w-full">
             <Link href="/login">
               Retour à la connexion
             </Link>
           </Button>
-          
+
           <Button variant="outline" asChild className="w-full">
             <Link href="/">
               Retour à l'accueil

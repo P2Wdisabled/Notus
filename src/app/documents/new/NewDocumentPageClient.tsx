@@ -39,7 +39,9 @@ export default function NewDocumentPageClient(props: NewDocumentPageClientProps)
 
   // Action state
   const [state, formAction, isPending] = useActionState(createDocumentAction, {
-    ok: false,
+    success: false,
+    message: "",
+    documentId: 0,
   });
 
   // Session management
@@ -106,7 +108,7 @@ export default function NewDocumentPageClient(props: NewDocumentPageClientProps)
       e?.preventDefault?.();
 
       const submittingUserId =
-        userId ?? localSession?.user?.id ?? props.session?.user?.id;
+        userId ?? (localSession as any)?.id ?? props.session?.user?.id;
       if (!submittingUserId) {
         alert("Session invalide. Veuillez vous reconnecter.");
         return;
@@ -271,11 +273,10 @@ export default function NewDocumentPageClient(props: NewDocumentPageClientProps)
               <button
                 type="submit"
                 disabled={isPending}
-                className={`${
-                  showSavedState
-                    ? "bg-green-600 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-600"
-                    : "bg-orange hover:bg-orange dark:bg-dark-purple dark:hover:bg-dark-purple"
-                } disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-lg transition-colors`}
+                className={`${showSavedState
+                  ? "bg-green-600 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-600"
+                  : "bg-orange hover:bg-orange dark:bg-dark-purple dark:hover:bg-dark-purple"
+                  } disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-lg transition-colors`}
               >
                 {isPending
                   ? "Création..."
@@ -288,18 +289,16 @@ export default function NewDocumentPageClient(props: NewDocumentPageClientProps)
             {/* Success/Error messages */}
             {(showSuccessMessage || (state && (state as any).error)) && (
               <div
-                className={`shrink-0 rounded-lg p-4 mt-4 ${
-                  showSuccessMessage
-                    ? "bg-white dark:bg-black border border-orange dark:border-dark-purple"
-                    : "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"
-                }`}
+                className={`shrink-0 rounded-lg p-4 mt-4 ${showSuccessMessage
+                  ? "bg-white dark:bg-black border border-orange dark:border-dark-purple"
+                  : "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"
+                  }`}
               >
                 <p
-                  className={`text-sm ${
-                    showSuccessMessage
-                      ? "text-orange dark:text-dark-purple"
-                      : "text-red-600 dark:text-red-400"
-                  }`}
+                  className={`text-sm ${showSuccessMessage
+                    ? "text-orange dark:text-dark-purple"
+                    : "text-red-600 dark:text-red-400"
+                    }`}
                 >
                   {showSuccessMessage
                     ? "Document créé avec succès !"

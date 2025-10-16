@@ -155,7 +155,7 @@ export default function useTextFormatting(
                     "propAlign=",
                     textFormatting.textAlign
                   );
-                } catch (e) {}
+                } catch (e) { }
 
                 if (alignValue !== textFormatting.textAlign) {
                   setTimeout(() => {
@@ -194,7 +194,7 @@ export default function useTextFormatting(
 
   // Apply format function
   const applyFormat = useCallback((command: string, value: string | null = null): void => {
-    if (window.applyRichTextFormat) {
+    if ((window as any).applyRichTextFormat) {
       (window as any).applyRichTextFormat(command, value);
     }
   }, []);

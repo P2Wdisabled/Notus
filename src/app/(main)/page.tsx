@@ -36,7 +36,7 @@ export default async function Home() {
           <SearchableDocumentsList
             documents={documentsResult.success ? documentsResult.documents : []}
             currentUserId={session?.user?.id}
-            error={!documentsResult.success ? documentsResult.error : null}
+            error={!documentsResult.success ? documentsResult.error : undefined}
           />
         </div>
       </ContentWrapper>

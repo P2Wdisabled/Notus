@@ -10,18 +10,9 @@ import DocumentCard from "@/components/DocumentCard";
 import SelectionBar from "@/components/SelectionBar";
 import ConnectionWarning from "@/components/ConnectionWarning";
 import { Card, Alert } from "@/components/ui";
+import { Document, LocalDocument, AnyDocument } from "@/lib/types";
 
 const LOCAL_DOCS_KEY = "notus.local.documents";
-
-interface Document {
-  id: string;
-  title?: string;
-  content?: string;
-  user_id?: string;
-  created_at: string;
-  updated_at?: string;
-  [key: string]: any;
-}
 
 interface SearchableDocumentsListProps {
   documents?: Document[];
@@ -36,7 +27,7 @@ export function SearchableDocumentsList({
 }: SearchableDocumentsListProps) {
   const { filterDocuments, filterLocalDocuments, isSearching } = useSearch();
   const router = useRouter();
-  const [localDocuments, setLocalDocuments] = useState<Document[]>([]);
+  const [localDocuments, setLocalDocuments] = useState<LocalDocument[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [message, formAction, isPending] = useActionState(
     deleteMultipleDocumentsAction,
@@ -95,11 +86,12 @@ export function SearchableDocumentsList({
   });
 
   // Fonctions de gestion de la sélection
-  const toggleSelect = (id: string, checked: boolean) => {
+  const toggleSelect = (id: string | number, checked: boolean) => {
+    const idStr = String(id);
     setSelectedIds((prev) => {
       const set = new Set(prev);
-      if (checked) set.add(id);
-      else set.delete(id);
+      if (checked) set.add(idStr);
+      else set.delete(idStr);
       return Array.from(set);
     });
   };
@@ -108,7 +100,7 @@ export function SearchableDocumentsList({
     if (selectedIds.length === filteredDocuments.length) {
       setSelectedIds([]);
     } else {
-      setSelectedIds(filteredDocuments.map((d) => d.id));
+      setSelectedIds(filteredDocuments.map((d) => String(d.id)));
     }
   };
 
@@ -120,8 +112,8 @@ export function SearchableDocumentsList({
     const serverIdsToDelete: string[] = [];
 
     selectedIds.forEach((id) => {
-      const doc = documents.find((d) => d.id === id);
-      if (doc && !doc.user_id) {
+      const doc = documents.find((d) => String(d.id) === id);
+      if (doc && !('user_id' in doc) || (doc as LocalDocument).user_id === undefined) {
         // Document local
         localIdsToDelete.push(id);
       } else {
@@ -136,7 +128,7 @@ export function SearchableDocumentsList({
         const raw = localStorage.getItem(LOCAL_DOCS_KEY);
         const parsed = raw ? JSON.parse(raw) : [];
         const updated = parsed.filter(
-          (doc: Document) => !localIdsToDelete.includes(doc.id)
+          (doc: LocalDocument) => !localIdsToDelete.includes(doc.id)
         );
         localStorage.setItem(LOCAL_DOCS_KEY, JSON.stringify(updated));
         setLocalDocuments(updated);
@@ -170,11 +162,11 @@ export function SearchableDocumentsList({
   }
 
   // Filtrer les documents en fonction du type (local ou serveur)
-  const filteredDocuments = isSearching
+  const filteredDocuments: AnyDocument[] = isSearching
     ? [
-        ...filterLocalDocuments(localDocuments),
-        ...filterDocuments(serverDocuments),
-      ]
+      ...filterLocalDocuments(localDocuments as any),
+      ...filterDocuments(serverDocuments),
+    ]
     : documents;
 
   if (documents.length === 0) {
@@ -246,20 +238,20 @@ export function SearchableDocumentsList({
           {filteredDocuments.map((document) => {
             // Un document est local s'il provient du localStorage (pas de user_id)
             // Un document est serveur s'il provient de la base de données (a un user_id)
-            const isLocal = !document.user_id;
+            const isLocal = !('user_id' in document) || (document as LocalDocument).user_id === undefined;
             return (
-              <div key={document.id} className="w-full">
+              <div key={String(document.id)} className="w-full">
                 <DocumentCard
                   document={document}
                   currentUserId={currentUserId}
                   isLocal={isLocal}
                   selectMode={selectMode}
-                  selected={selectedIds.includes(document.id)}
+                  selected={selectedIds.includes(String(document.id))}
                   onToggleSelect={toggleSelect}
-                  onEnterSelectMode={(firstId: string) => {
+                  onEnterSelectMode={(firstId: string | number) => {
                     if (!selectMode) {
                       setSelectMode(true);
-                      setSelectedIds([firstId]);
+                      setSelectedIds([String(firstId)]);
                     }
                   }}
                 />
@@ -284,7 +276,7 @@ export function SearchableDocumentsList({
           currentUserId={currentUserId}
         />
       )}
-      
+
       {/* Avertissement de connexion - toujours affiché si nécessaire */}
       <ConnectionWarning currentUserId={currentUserId} hasSelectionBar={selectMode} />
     </>

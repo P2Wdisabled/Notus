@@ -4,7 +4,7 @@ import UsersTable from "@/components/UsersTable";
 export default async function AdminUsersPage() {
   const userService = new UserService();
   const usersResult = await userService.getAllUsers(100, 0);
-  const users = usersResult.success ? usersResult.users : [];
+  const users = usersResult.success ? (usersResult.users || []) : [];
 
   return (
     <div className="space-y-6">

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { useSession as useNextAuthSession, Session } from "next-auth/react";
+import { useSession as useNextAuthSession } from "next-auth/react";
+import { Session } from "next-auth";
 import {
   clearUserSession as clearSessionUtils,
   getUserSession as getSessionUtils,
@@ -82,8 +83,8 @@ export function useLocalSession(serverSession: Session | null = null): UseLocalS
             firstName: serverSession.user.firstName,
             lastName: serverSession.user.lastName,
             username: serverSession.user.username,
-            profileImage: serverSession.user.profileImage,
-            bannerImage: serverSession.user.bannerImage,
+            profileImage: (serverSession.user as any).profileImage,
+            bannerImage: (serverSession.user as any).bannerImage,
           };
 
           if (saveLocalUserSession(sessionData)) {
@@ -105,7 +106,7 @@ export function useLocalSession(serverSession: Session | null = null): UseLocalS
     setLocalSession(null);
   };
 
-  const isLoggedIn = localSession !== null && localSession.id;
+  const isLoggedIn = Boolean(localSession !== null && localSession.id);
 
   return {
     session: localSession || serverSession,
