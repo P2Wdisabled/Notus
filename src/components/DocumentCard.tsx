@@ -5,6 +5,7 @@ import { deleteDocumentAction, updateDocumentAction } from "@/lib/actions";
 import Link from "next/link";
 import DOMPurify from "dompurify";
 import { Button, Input } from "@/components/ui";
+import Modal from "@/components/ui/modal";
 import TagsManager from "@/components/TagsManager";
 import { cn } from "@/lib/utils";
 import { Document, LocalDocument, AnyDocument } from "@/lib/types";
@@ -114,6 +115,7 @@ export default function DocumentCard({
   );
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
   const isOwner = ('user_id' in document) ? document.user_id === currentUserId : false;
   const updatedDate = new Date(document.updated_at || new Date());
@@ -218,6 +220,12 @@ export default function DocumentCard({
   const handleTagsChange = (newTags: string[]) => {
     setTags(newTags);
     persistTags(newTags);
+  };
+
+  const handleTagsClick = () => {
+    if (!currentUserId) {
+      setShowLoginModal(true);
+    }
   };
 
   const handleDelete = (formData: FormData) => {
@@ -326,7 +334,7 @@ export default function DocumentCard({
   return (
     <div
       className={cn(
-        "group relative bg-card border rounded-xl p-5 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-1 cursor-pointer animate-fade-in-up",
+        "group relative bg-card border rounded-xl p-5 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-1 animate-fade-in-up",
         selected && "border-primary ring-2 ring-primary/20 bg-primary/5",
       )}
       style={{ animationDelay: `${index * 50}ms` }}
@@ -335,7 +343,6 @@ export default function DocumentCard({
         setIsHovered(false);
         clearLongPressTimer();
       }}
-      onClick={handleCardClick}
       onContextMenu={(e) => {
         e.preventDefault();
         handleLongPress();
@@ -345,7 +352,7 @@ export default function DocumentCard({
       onTouchStart={startLongPressTimer}
       onTouchEnd={clearLongPressTimer}
     >
-      {/* Header */}
+      {/* Header - Zone des tags (non cliquable) */}
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2 w-full min-w-0">
           <div
@@ -353,6 +360,7 @@ export default function DocumentCard({
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
+              handleTagsClick();
             }}
           >
             <TagsManager
@@ -360,98 +368,102 @@ export default function DocumentCard({
               onTagsChange={handleTagsChange}
               placeholder="Nouveau tag..."
               maxTags={10}
+              disabled={!currentUserId}
             />
           </div>
         </div>
       </div>
 
-      {/* Content */}
-      <div className="space-y-2">
-        <Link
-          href={documentUrl}
-          className="block"
-          onClick={(e) => {
-            if (selectMode || longPressActivatedRef.current) {
-              e.preventDefault();
-            }
-          }}
-        >
+      {/* Zone cliquable pour rediriger vers le document */}
+      <Link
+        href={documentUrl}
+        className="block cursor-pointer"
+        onClick={(e) => {
+          if (selectMode || longPressActivatedRef.current) {
+            e.preventDefault();
+            onToggleSelect(document.id, !selected);
+            longPressActivatedRef.current = false;
+          }
+        }}
+      >
+        {/* Content */}
+        <div className="space-y-2">
           <h3 className="text-lg font-semibold text-card-foreground group-hover:text-primary transition-colors duration-200">
             {document.title}
           </h3>
-        </Link>
-        <div
-          ref={previewRef}
-          className="text-sm text-muted-foreground line-clamp-2 leading-relaxed"
-        >
-          {contentIsHtml ? (
-            // only render sanitized HTML when previewHtml available
-            previewHtml ? (
-              <div
-                className="prose max-w-full"
-                dangerouslySetInnerHTML={{ __html: previewHtml }}
-              />
-            ) : (
-              <p className="text-muted-foreground/70 italic">
-                Chargement...
-              </p>
-            )
-          ) : previewText ? (
-            <p>
-              {previewText.length > 200
-                ? `${previewText.substring(0, 200)}...`
-                : previewText}
-            </p>
-          ) : (
-            <p className="text-gray-400 dark:text-gray-500 italic">
-              Document vide
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* Footer */}
-      <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
-        <time
-          dateTime={typeof document.updated_at === 'string' ? document.updated_at : (document.updated_at || new Date()).toISOString()}
-          className="text-xs text-muted-foreground"
-        >
-          {formattedDate}
-        </time>
-        {/* {isOwner && (
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">Propriétaire</span>
-          </div>
-        )} */}
-        {selectMode && (
-          <div className="relative">
-            <input
-              type="checkbox"
-              checked={selected}
-              onChange={handleCheckboxChange}
-              className="h-5 w-5 appearance-none border-2 rounded transition-all duration-200 animate-fade-in cursor-pointer"
-              style={{
-                borderColor: selected ? 'var(--primary)' : 'var(--input)',
-                backgroundColor: selected ? 'var(--primary)' : 'transparent',
-              }}
-              aria-label="Sélectionner ce document"
-            />
-            {selected && (
-              <svg
-                className="absolute top-0 left-0 h-5 w-5 pointer-events-none text-white"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                  clipRule="evenodd"
+          <div
+            ref={previewRef}
+            className="text-sm text-muted-foreground line-clamp-2 leading-relaxed"
+          >
+            {contentIsHtml ? (
+              // only render sanitized HTML when previewHtml available
+              previewHtml ? (
+                <div
+                  className="prose max-w-full"
+                  dangerouslySetInnerHTML={{ __html: previewHtml }}
                 />
-              </svg>
+              ) : (
+                <p className="text-muted-foreground/70 italic">
+                  Chargement...
+                </p>
+              )
+            ) : previewText ? (
+              <p>
+                {previewText.length > 200
+                  ? `${previewText.substring(0, 200)}...`
+                  : previewText}
+              </p>
+            ) : (
+              <p className="text-gray-400 dark:text-gray-500 italic">
+                Document vide
+              </p>
             )}
           </div>
-        )}
-      </div>
+        </div>
+
+        {/* Footer */}
+        <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
+          <time
+            dateTime={typeof document.updated_at === 'string' ? document.updated_at : (document.updated_at || new Date()).toISOString()}
+            className="text-xs text-muted-foreground"
+          >
+            {formattedDate}
+          </time>
+          {/* {isOwner && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Propriétaire</span>
+            </div>
+          )} */}
+          {selectMode && (
+            <div className="relative">
+              <input
+                type="checkbox"
+                checked={selected}
+                onChange={handleCheckboxChange}
+                className="h-5 w-5 appearance-none border-2 rounded transition-all duration-200 animate-fade-in cursor-pointer"
+                style={{
+                  borderColor: selected ? 'var(--primary)' : 'var(--input)',
+                  backgroundColor: selected ? 'var(--primary)' : 'transparent',
+                }}
+                aria-label="Sélectionner ce document"
+              />
+              {selected && (
+                <svg
+                  className="absolute top-0 left-0 h-5 w-5 pointer-events-none text-white"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              )}
+            </div>
+          )}
+        </div>
+      </Link>
 
       {/* Message de suppression */}
       {message && (
@@ -459,6 +471,57 @@ export default function DocumentCard({
           <p className="text-sm text-destructive">{message}</p>
         </div>
       )}
+
+      {/* Modal de connexion */}
+      <Modal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        title="Connexion requise"
+        size="md"
+      >
+        <Modal.Content>
+          <div className="text-center space-y-4">
+            <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+              <svg
+                className="w-6 h-6 text-primary"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-foreground mb-2">
+                Accès restreint
+              </h3>
+              <p className="text-muted-foreground">
+                Vous devez être connecté pour gérer les tags de ce document.
+              </p>
+            </div>
+          </div>
+        </Modal.Content>
+        <Modal.Footer>
+          <Button
+            variant="ghost"
+            className="cursor-pointer px-6 py-2"
+            onClick={() => setShowLoginModal(false)}
+          >
+            Fermer
+          </Button>
+          <Button asChild 
+            className="cursor-pointer px-6 py-2">
+            <Link href="/login">
+              Se connecter
+            </Link>
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 }

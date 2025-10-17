@@ -5,6 +5,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useLocalSession } from "@/hooks/useLocalSession";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
 
 const LOCAL_DOCS_KEY = "notus.local.documents";
 
@@ -305,7 +306,7 @@ export default function EditLocalDocumentPageClient({ params }: EditLocalDocumen
             </div>
 
             <div className="flex justify-center space-x-4 pt-2 shrink-0">
-              <button
+              <Button
                 type="button"
                 onClick={handleSave}
                 className={`${showSavedState
@@ -320,10 +321,10 @@ export default function EditLocalDocumentPageClient({ params }: EditLocalDocumen
                   : isNewDoc
                     ? "Créer le document"
                     : "Sauvegarder"}
-              </button>
+              </Button>
               <Link
                 href="/"
-                className="px-6 py-3 border border-orange dark:border-dark-purple text-orange dark:text-dark-purple rounded-lg hover:shadow-md shadow-orange dark:shadow-dark-purple transition-all duration-200 cursor-pointer"
+                className="px-6 py-3 rounded-lg text-foreground hover:shadow-md hover:border-primary hover:bg-foreground/5 border border-primary cursor-pointer"
               >
                 Annuler
               </Link>

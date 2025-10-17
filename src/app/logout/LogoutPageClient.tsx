@@ -31,9 +31,9 @@ export default function LogoutPageClient() {
         title="Se déconnecter ?"
         className="bg-background text-foreground border-2 border-primary text-center text-xl"
       >
-        <div className="flex flex-col items-center text-center gap-5 bg-white dark:bg-black">
-          <div className="w-12 h-12 rounded-full bg-orange dark:bg-dark-purple flex items-center justify-center shadow-md">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-black dark:text-white">
+        <div className="flex flex-col items-center text-center gap-5 bg-background">
+          <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center shadow-md">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-foreground">
               <path d="M16 17l5-5-5-5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
               <path d="M21 12H9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
               <path d="M13 21H6a2 2 0 01-2-2V5a2 2 0 012-2h7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />

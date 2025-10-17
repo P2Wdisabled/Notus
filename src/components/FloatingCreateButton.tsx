@@ -18,11 +18,7 @@ export default function FloatingCreateButton({ serverSession }: FloatingCreateBu
   // Ne pas afficher le bouton sur certaines pages
   if (
     loading ||
-    pathname === "/register" ||
-    pathname === "/login" ||
-    pathname === "/documents/new" ||
-    pathname?.startsWith("/profile") ||
-    pathname?.startsWith("/documents")
+    pathname !== "/"
   ) {
     return null;
   }

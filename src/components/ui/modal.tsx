@@ -103,7 +103,7 @@ const ModalContent: React.FC<React.ComponentProps<"div">> = ({ children, classNa
 );
 
 const ModalFooter: React.FC<React.ComponentProps<"div">> = ({ children, className = "", ...props }) => (
-  <div className={`mt-6 flex justify-end space-x-3 ${className}`} {...props}>
+  <div className={`mt-6 flex justify-center space-x-3 ${className}`} {...props}>
     {children}
   </div>
 );

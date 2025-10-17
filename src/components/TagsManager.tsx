@@ -11,6 +11,7 @@ interface TagsManagerProps {
   placeholder?: string;
   maxTags?: number;
   className?: string;
+  disabled?: boolean;
 }
 
 export default function TagsManager({
@@ -19,6 +20,7 @@ export default function TagsManager({
   placeholder = "Ajouter un tag...",
   maxTags = 20,
   className = "",
+  disabled = false,
 }: TagsManagerProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [newTag, setNewTag] = useState("");
@@ -45,6 +47,7 @@ export default function TagsManager({
   }, [newTag, tags, maxTags]);
 
   const addTag = () => {
+    if (disabled) return;
     const trimmedTag = newTag.trim();
     if (isValid && trimmedTag) {
       onTagsChange([...tags, trimmedTag]);
@@ -54,6 +57,7 @@ export default function TagsManager({
   };
 
   const removeTag = (tagToRemove: string) => {
+    if (disabled) return;
     onTagsChange(tags.filter(tag => tag !== tagToRemove));
   };
 
@@ -68,6 +72,7 @@ export default function TagsManager({
   };
 
   const startAdding = () => {
+    if (disabled) return;
     setIsAdding(true);
   };
 
@@ -77,7 +82,7 @@ export default function TagsManager({
   };
 
   return (
-    <div className={`w-full ${className}`}>
+    <div className={`w-full ${className} ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
       <div
         ref={scrollContainerRef}
         className="flex items-center gap-2 px-1 overflow-x-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent pb-1 max-w-full"

@@ -66,7 +66,7 @@ export default async function ProfilePage() {
       <div className="md:ml-64 md:pl-4">
         <div className="max-w-4xl mx-auto px-4 md:px-6 lg:px-8">
           <div
-            className="h-40 md:h-52 w-full relative rounded-2xl overflow-hidden"
+            className="h-40 md:h-52 w-full relative rounded-2xl overflow-hidden bg-primary"
             style={{
               backgroundImage: userProfile?.banner_image
                 ? `url(${userProfile.banner_image})`
@@ -74,11 +74,9 @@ export default async function ProfilePage() {
               backgroundColor: userProfile?.banner_image
                 ? "transparent"
                 : undefined,
-              background: userProfile?.banner_image
-                ? `url(${userProfile.banner_image})`
-                : "linear-gradient(135deg, #f97316, #ea580c)",
-              backgroundSize: "cover",
-              backgroundPosition: "center",
+              background: userProfile?.banner_image 
+                ? `url(${userProfile.banner_image}) cover center`
+                : undefined,
             }}
           />
         </div>

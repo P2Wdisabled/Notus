@@ -263,42 +263,42 @@ export default function NewDocumentPageClient(props: NewDocumentPageClientProps)
             </div>
 
             {/* Buttons */}
-            <div className="flex justify-end space-x-4">
-              <Link
-                href="/"
-                className="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-              >
+            <div className="flex justify-center space-x-4">
+              <Button variant="ghost" className="px-6 py-3" onClick={() => router.back()}>
                 Annuler
-              </Link>
-              <button
+              </Button>
+              <Button
                 type="submit"
                 disabled={isPending}
-                className={`${showSavedState
-                  ? "bg-green-600 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-600"
-                  : "bg-orange hover:bg-orange dark:bg-dark-purple dark:hover:bg-dark-purple"
-                  } disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-lg transition-colors`}
+                className={`${
+                  showSavedState
+                    ? "bg-green-600 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-600"
+                    : "bg-primary hover:bg-primary/90 text-primary-foreground"
+                } disabled:bg-gray-400 disabled:cursor-not-allowed font-semibold py-3 px-6 rounded-lg transition-colors`}
               >
                 {isPending
-                  ? "Création..."
+                  ? "Sauvegarde..."
                   : showSavedState
-                    ? "Créé"
-                    : "Créer le document"}
-              </button>
+                    ? "Sauvegardé"
+                    : "Sauvegarder"}
+              </Button>
             </div>
 
             {/* Success/Error messages */}
             {(showSuccessMessage || (state && (state as any).error)) && (
               <div
-                className={`shrink-0 rounded-lg p-4 mt-4 ${showSuccessMessage
-                  ? "bg-white dark:bg-black border border-orange dark:border-dark-purple"
-                  : "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"
-                  }`}
+                className={`shrink-0 rounded-lg p-4 mt-4 ${
+                  showSuccessMessage
+                    ? "bg-white dark:bg-black border border-orange dark:border-dark-purple"
+                    : "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"
+                }`}
               >
                 <p
-                  className={`text-sm ${showSuccessMessage
-                    ? "text-orange dark:text-dark-purple"
-                    : "text-red-600 dark:text-red-400"
-                    }`}
+                  className={`text-sm ${
+                    showSuccessMessage
+                      ? "text-orange dark:text-dark-purple"
+                      : "text-red-600 dark:text-red-400"
+                  }`}
                 >
                   {showSuccessMessage
                     ? "Document créé avec succès !"
