@@ -344,12 +344,12 @@ export class DocumentRepository extends BaseRepository {
     try {
       // Single query: owner UNION shared users, deduped by email
       const result = await this.query(
-        `SELECT u.id, u.username, u.email, u.profile_image, TRUE as is_owner
+        `SELECT u.id, u.username, u.email, u.profile_image, TRUE as is_owner, NULL::boolean as permission
         FROM documents d
         JOIN users u ON d.user_id = u.id
         WHERE d.id = $1
         UNION ALL
-        SELECT u.id, u.username, s.email, u.profile_image, FALSE as is_owner
+        SELECT u.id, u.username, s.email, u.profile_image, FALSE as is_owner, s.permission as permission
         FROM shares s
         LEFT JOIN users u ON lower(trim(u.email)) = lower(trim(s.email))
         WHERE s.id_doc = $1`,
@@ -372,7 +372,7 @@ export class DocumentRepository extends BaseRepository {
           first_name: row.first_name || undefined,
           last_name: row.last_name || undefined,
           profile_image: row.profile_image || undefined,
-          permission: !!row.permission,
+          permission: row.permission === null || row.permission === undefined ? undefined : !!row.permission,
           is_owner: !!row.is_owner,
         });
       }

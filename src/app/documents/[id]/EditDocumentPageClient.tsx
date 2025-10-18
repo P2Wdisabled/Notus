@@ -16,6 +16,7 @@ import Link from "next/link";
 import { useLocalSession } from "@/hooks/useLocalSession";
 import CollaborativeNotepad from "@/components/Paper.js/CollaborativeNotepad";
 import { addShareAction } from "@/lib/actions/DocumentActions";
+import UserListButton from "@/components/ui/UserList/UserListButton";
 
 interface EditDocumentPageClientProps {
   session?: any;
@@ -49,7 +50,7 @@ type UpdateDocState =
 
 export default function EditDocumentPageClient(props: EditDocumentPageClientProps) {
   // -------- All Hooks must be called unconditionally first --------
-  
+
   const {
     session: localSession,
     loading: sessionLoading,
@@ -95,6 +96,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   const [shareError, setShareError] = useState<string | null>(null);
   const [shareSuccess, setShareSuccess] = useState<string | null>(null);
   const [hasEditAccess, setHasEditAccess] = useState<boolean | null>(null);
+  const [users, setUsers] = useState([]);
 
   // -------- Content normalization --------
   const normalizeContent = (rawContent: any): NotepadContent => {
@@ -160,6 +162,22 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
       setTitle(document.title);
       setContent(document.content);
       setCanvasCtrl(null);
+      fetch(`/api/openDoc/accessList?id=${document.id}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && Array.isArray(data.accessList)) {
+            setUsers(
+              data.accessList.map((user: any) => ({
+                ...user,
+                avatarUrl: user.profile_image || "",
+                name: user.username || user.email || "Utilisateur",
+              }))
+            );
+          } else {
+            setUsers([]);
+          }
+        })
+        .catch(() => setUsers([]));
     }
   }, [document]);
 
@@ -306,8 +324,8 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
           setError('Accès refusé: liste d\'accès non trouvée');
         }
       } catch (err) {
-  setHasEditAccess(false);
-  setError('Erreur lors de la récupération de la liste d\'accès');
+        setHasEditAccess(false);
+        setError('Erreur lors de la récupération de la liste d\'accès');
       }
     }
     checkAccess();
@@ -490,43 +508,46 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
             </svg>
             Retour
           </Link>
-          <div className="relative inline-block">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleMenu}
-              className="md:mr-0 mr-8"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6"
-                viewBox="0 0 24 24"
-                fill="none"
+          <div className="flex flex-row justify-center items-center">
+            <UserListButton users={users} className="self-center" />
+            <div className="relative inline-block">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleMenu}
+                className="md:mr-0 mr-8"
               >
-                <circle cx="12" cy="5" r="2" className="fill-black dark:fill-white" />
-                <circle cx="12" cy="12" r="2" className="fill-black dark:fill-white" />
-                <circle cx="12" cy="19" r="2" className="fill-black dark:fill-white" />
-              </svg>
-            </Button>
-            {isMenuOpen && (
-              <div
-                className="absolute right-0 top-full z-40 rounded-lg shadow-lg p-4 min-w-[13rem] bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700"
-              >
-                <MenuItem
-                  onClick={() => {
-                    handleShareButtonClick();
-                    setIsMenuOpen(false);
-                  }}
-                  icon={
-                    <svg width="18" height="16" viewBox="0 0 18 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M16.59 7.5L12 2.91V5.37L11.14 5.5C6.83 6.11 3.91 8.37 2.24 11.83C4.56 10.19 7.44 9.4 11 9.4H12V12.09M10 10.42C5.53 10.63 2.33 12.24 0 15.5C1 10.5 4 5.5 11 4.5V0.5L18 7.5L11 14.5V10.4C10.67 10.4 10.34 10.41 10 10.42Z" fill="#DD05C7" />
-                    </svg>
-                  }
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-6 w-6"
+                  viewBox="0 0 24 24"
+                  fill="none"
                 >
-                  Partager
-                </MenuItem>
-              </div>
-            )}
+                  <circle cx="12" cy="5" r="2" className="fill-black dark:fill-white" />
+                  <circle cx="12" cy="12" r="2" className="fill-black dark:fill-white" />
+                  <circle cx="12" cy="19" r="2" className="fill-black dark:fill-white" />
+                </svg>
+              </Button>
+              {isMenuOpen && (
+                <div
+                  className="absolute right-0 top-full z-40 rounded-lg shadow-lg p-4 min-w-[13rem] bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700"
+                >
+                  <MenuItem
+                    onClick={() => {
+                      handleShareButtonClick();
+                      setIsMenuOpen(false);
+                    }}
+                    icon={
+                      <svg width="18" height="16" viewBox="0 0 18 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M16.59 7.5L12 2.91V5.37L11.14 5.5C6.83 6.11 3.91 8.37 2.24 11.83C4.56 10.19 7.44 9.4 11 9.4H12V12.09M10 10.42C5.53 10.63 2.33 12.24 0 15.5C1 10.5 4 5.5 11 4.5V0.5L18 7.5L11 14.5V10.4C10.67 10.4 10.34 10.41 10 10.42Z" fill="#DD05C7" />
+                      </svg>
+                    }
+                  >
+                    Partager
+                  </MenuItem>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

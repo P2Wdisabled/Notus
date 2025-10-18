@@ -574,8 +574,9 @@ export async function addShareAction(prevState: unknown, formData: FormData): Pr
     }
 
     const isOwner = docRes.document.user_id === userId;
-    // TODO: add admin check if needed (look up user.is_admin)
-    if (!isOwner) {
+    const isAdmin = session?.user?.isAdmin === true;
+  // Debug logging removed
+    if (!isOwner && !isAdmin) {
       return { success: false, error: "Vous n'êtes pas autorisé à partager ce document" };
     }
 
