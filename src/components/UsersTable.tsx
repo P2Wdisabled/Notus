@@ -122,7 +122,7 @@ export default function UsersTable({ users }: UsersTableProps) {
     }
 
     return (
-      <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+      <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-primary/10 text-primary">
         Actif
       </span>
     );
@@ -139,61 +139,61 @@ export default function UsersTable({ users }: UsersTableProps) {
   };
 
   return (
-    <div className="overflow-hidden">
-      <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-        <thead className="bg-gray-50 dark:bg-gray-700">
+    <div className="overflow-x-auto scroller">
+      <table className="min-w-full divide-y divide-border">
+        <thead className="bg-background">
           <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-foreground uppercase tracking-wider">
               Utilisateur
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-foreground uppercase tracking-wider">
               Email
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-foreground uppercase tracking-wider">
               Statut
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-foreground uppercase tracking-wider">
               Rôle
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-foreground uppercase tracking-wider">
               Inscription
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-foreground uppercase tracking-wider">
               Conditions acceptées
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-foreground uppercase tracking-wider">
               Actions
             </th>
           </tr>
         </thead>
-        <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+        <tbody className="bg-background divide-y divide-border">
           {users.map((user) => (
             <tr
               key={user.id}
-              className="hover:bg-gray-50 dark:hover:bg-gray-700"
+              className="hover:bg-muted/50 transition-colors"
             >
               <td className="px-6 py-4 whitespace-nowrap">
                 <div className="flex items-center">
                   <div className="flex-shrink-0 h-10 w-10">
-                    <div className="h-10 w-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <span className="text-sm font-medium text-foreground">
                         {user.first_name?.charAt(0) || ''}
                         {user.last_name?.charAt(0) || ''}
                       </span>
                     </div>
                   </div>
                   <div className="ml-4">
-                    <div className="text-sm font-medium text-gray-900 dark:text-white">
+                    <div className="text-sm font-medium text-foreground">
                       {user.first_name} {user.last_name}
                     </div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">
+                    <div className="text-sm text-muted-foreground">
                       @{user.username}
                     </div>
                   </div>
                 </div>
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
-                <div className="text-sm text-gray-900 dark:text-white">
+                <div className="text-sm text-foreground">
                   {user.email}
                 </div>
                 {getProviderBadge(user.provider || undefined)}
@@ -203,25 +203,25 @@ export default function UsersTable({ users }: UsersTableProps) {
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
                 {user.is_admin ? (
-                  <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                  <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-primary/10 text-primary">
                     Admin
                   </span>
                 ) : (
-                  <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200">
+                  <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-foreground/10 text-foreground">
                     Utilisateur
                   </span>
                 )}
               </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                 {new Date(user.created_at).toLocaleDateString("fr-FR")}
               </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                 {user.terms_accepted_at ? (
                   <div>
-                    <div className="text-green-600 dark:text-green-400 font-medium">
+                    <div className="text-primary font-medium">
                       ✓ Acceptées
                     </div>
-                    <div className="text-xs text-gray-400 dark:text-gray-500">
+                    <div className="text-xs text-muted-foreground">
                       {new Date(user.terms_accepted_at).toLocaleString("fr-FR")}
                     </div>
                   </div>
@@ -269,7 +269,7 @@ export default function UsersTable({ users }: UsersTableProps) {
                     <button
                       onClick={() => handleToggleAdmin(user.id, true)}
                       disabled={adminUsers.has(user.id)}
-                      className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-purple-700 bg-purple-100 hover:bg-purple-200 dark:bg-purple-900 dark:text-purple-200 dark:hover:bg-purple-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-primary bg-primary/10 hover:bg-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {adminUsers.has(user.id) ? (
                         <svg
@@ -300,7 +300,7 @@ export default function UsersTable({ users }: UsersTableProps) {
                     <button
                       onClick={() => handleToggleAdmin(user.id, false)}
                       disabled={adminUsers.has(user.id)}
-                      className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-gray-700 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-foreground bg-foreground/10 hover:bg-foreground/20 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {adminUsers.has(user.id) ? (
                         <svg
@@ -348,10 +348,10 @@ export default function UsersTable({ users }: UsersTableProps) {
               d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"
             />
           </svg>
-          <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
+          <h3 className="mt-2 text-sm font-medium text-foreground">
             Aucun utilisateur
           </h3>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          <p className="mt-1 text-sm text-muted-foreground">
             Aucun utilisateur trouvé dans la base de données.
           </p>
         </div>

@@ -155,7 +155,7 @@ export default function RGPDPage() {
                           </li>
                           <li className="flex flex-col sm:flex-row sm:items-start">
                             <strong className="text-primary min-w-[140px]">Hébergeur :</strong>
-                            <span className="text-foreground">OVH – 2, rue Kellermann 59100
+                            <span className="text-foreground break-words break-all">OVH – 2, rue Kellermann 59100
                             Roubaix
                             https://help.ovhcloud.com/csm?id=contact_us_ovh&_gl=1*1vxqtla*_gcl_au*NzQ5MTIwMjM4LjE3NTU3MDE2NzA.</span>
                           </li>

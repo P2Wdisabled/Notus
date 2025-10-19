@@ -17,7 +17,7 @@ export default function ResetPasswordPage() {
 
   if (!token) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="max-w-md w-full text-center">
           <Card.Header>
             <Card.Title className="text-3xl mb-4">Token invalide</Card.Title>
@@ -26,7 +26,7 @@ export default function ResetPasswordPage() {
             </Card.Description>
           </Card.Header>
           <Card.Footer>
-            <Button asChild>
+            <Button asChild className="py-2 px-4 text-lg">
               <Link href="/forgot-password">Demander un nouveau lien</Link>
             </Button>
           </Card.Footer>
@@ -36,7 +36,7 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="max-w-md w-full">
         <Card.Header className="text-center">
           <Card.Title className="text-3xl mb-2">Nouveau mot de passe</Card.Title>
@@ -98,7 +98,7 @@ export default function ResetPasswordPage() {
         </Card.Content>
 
         <Card.Footer className="text-center">
-          <p className="text-gray-600 dark:text-gray-300">
+          <p className="text-foreground">
             Vous vous souvenez de votre mot de passe ?{" "}
             <Button variant="link" asChild>
               <Link href="/login">Se connecter</Link>
