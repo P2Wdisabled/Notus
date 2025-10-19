@@ -11,32 +11,28 @@ datasource db {
 }
 
 model User {
-  id                      Int      @id @default(autoincrement())
-  email                   String   @unique
-  username                String?  @unique
-  password_hash           String?
-  first_name              String?
-  last_name               String?
-  email_verified          Boolean  @default(false)
+  id                       Int       @id @default(autoincrement())
+  email                    String    @unique
+  username                 String?   @unique
+  password_hash            String?
+  first_name               String?
+  last_name                String?
+  email_verified           Boolean   @default(false)
   email_verification_token String?
-  provider                String?
-  provider_id             String?
-  created_at              DateTime @default(now())
-  updated_at              DateTime @updatedAt
-  reset_token             String?
-  reset_token_expiry      DateTime?
-  is_admin                Boolean  @default(false)
-  is_banned               Boolean  @default(false)
-  terms_accepted_at       DateTime?
-  profile_image           String?
-  banner_image            String?
+  provider                 String?
+  provider_id              String?
+  created_at               DateTime  @default(now())
+  updated_at               DateTime  @updatedAt
+  reset_token              String?
+  reset_token_expiry       DateTime?
+  is_admin                 Boolean   @default(false)
+  is_banned                Boolean   @default(false)
+  terms_accepted_at        DateTime?
+  profile_image            String?
+  banner_image             String?
 
-  // Relations NextAuth
-  accounts                Account[]
-  sessions                Session[]
-  
   // Relations personnalisées
-  documents               Document[]
+  documents Document[]
 
   @@map("users")
 }
@@ -51,40 +47,10 @@ model Document {
   updated_at DateTime @updatedAt
 
   // Relations
-  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user  User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  Share Share[]
 
   @@map("documents")
-}
-
-// Modèles NextAuth
-model Account {
-  id                String  @id @default(cuid())
-  userId            Int
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String? @db.Text
-  session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([provider, providerAccountId])
-  @@map("accounts")
-}
-
-model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       Int
-  expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("sessions")
 }
 
 model VerificationToken {
@@ -94,4 +60,15 @@ model VerificationToken {
 
   @@unique([identifier, token])
   @@map("verification_tokens")
+}
+
+model Share {
+  id         Int     @id @default(autoincrement())
+  id_doc     Int
+  email      String
+  permission Boolean @default(false)
+
+  document Document @relation(fields: [id_doc], references: [id], onDelete: Cascade)
+
+  @@map("shares")
 }

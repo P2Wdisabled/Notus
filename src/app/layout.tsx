@@ -4,6 +4,7 @@ import AuthSessionProvider from "@/components/SessionProvider";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import ThemeToggle from "@/components/ThemeToggle";
 import PromoteAdminButton from "@/components/PromoteAdminButton";
+import OfflinePopin from "@/components/OfflinePopin";
 import { SearchProvider } from "@/contexts/SearchContext";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../lib/auth";
@@ -47,6 +48,7 @@ export default async function RootLayout({
               {children}
               <FloatingCreateButton serverSession={session} />
               <ThemeToggle />
+              <OfflinePopin />
             </SearchProvider>
           </AuthSessionProvider>
         </ThemeProvider>

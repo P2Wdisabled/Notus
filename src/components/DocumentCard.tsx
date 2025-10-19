@@ -5,6 +5,7 @@ import { deleteDocumentAction, updateDocumentAction } from "@/lib/actions";
 import Link from "next/link";
 import DOMPurify from "dompurify";
 import { Button, Input } from "@/components/ui";
+import { useGuardedNavigate } from "@/hooks/useGuardedNavigate";
 import TagsManager from "@/components/TagsManager";
 import { cn } from "@/lib/utils";
 
@@ -122,6 +123,7 @@ export default function DocumentCard({
   );
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const { checkConnectivity } = useGuardedNavigate();
 
   const isOwner = document.user_id === currentUserId;
   const updatedDate = new Date(document.updated_at);
@@ -223,9 +225,64 @@ export default function DocumentCard({
     });
   };
 
-  const handleTagsChange = (newTags: string[]) => {
-    setTags(newTags);
-    persistTags(newTags);
+  const handleTagsChange = async (newTags: string[]) => {
+    const prevTags = tags || [];
+    const isAddition = newTags.length > prevTags.length;
+    const isRemoval = newTags.length < prevTags.length;
+
+    // Création d'un tag: ne créer que si connecté
+    if (isAddition) {
+      if (!currentUserId) {
+        window.dispatchEvent(
+          new CustomEvent("notus:offline-popin", {
+            detail: {
+              message: "Vous pourrez accéder à cette fonctionnalité une fois la connexion rétablie.",
+              durationMs: 5000,
+            },
+          })
+        );
+        return;
+      }
+      const online = await checkConnectivity();
+      if (!online) {
+        console.log(`[DocumentCard] Ajout de tag bloqué (offline)`);
+        window.dispatchEvent(
+          new CustomEvent("notus:offline-popin", {
+            detail: {
+              message: "Vous pourrez accéder à cette fonctionnalité une fois la connexion rétablie.",
+              durationMs: 5000,
+            },
+          })
+        );
+        return;
+      }
+      // en ligne: on applique côté front et on persiste
+      setTags(newTags);
+      persistTags(newTags);
+      return;
+    }
+
+    // Suppression: appliquer côté front; tenter de persister si connecté
+    if (isRemoval) {
+      setTags(newTags);
+      if (!currentUserId) return;
+      const online = await checkConnectivity();
+      if (online) {
+        persistTags(newTags);
+      } else {
+        window.dispatchEvent(
+          new CustomEvent("notus:offline-popin", {
+            detail: {
+              message: "Vous pourrez accéder à cette fonctionnalité une fois la connexion rétablie.",
+              durationMs: 5000,
+            },
+          })
+        );
+      }
+      return;
+    }
+
+    // Aucun changement détecté (sécurité)
   };
 
   const handleDelete = (formData: FormData) => {
@@ -379,19 +436,62 @@ export default function DocumentCard({
 
       {/* Content */}
       <div className="space-y-2">
-        <Link
+        <a
           href={documentUrl}
           className="block"
-          onClick={(e) => {
+          onClick={async (e) => {
             if (selectMode || longPressActivatedRef.current) {
               e.preventDefault();
+              return;
+            }
+            e.preventDefault();
+            console.log(`[DocumentCard] Tentative d'ouverture du document ${document.id} (${document.title})`);
+            try {
+              const controller = new AbortController();
+              const timeoutId = window.setTimeout(() => controller.abort(), 5000);
+              console.log(`[DocumentCard] Vérification de connexion (check-status) avant navigation...`);
+              const resp = await fetch("/api/admin/check-status", {
+                method: "GET",
+                cache: "no-store",
+                credentials: "include",
+                headers: { "cache-control": "no-cache" },
+                signal: controller.signal,
+              });
+              window.clearTimeout(timeoutId);
+              console.log(`[DocumentCard] Réponse de vérification: ${resp.status} ${resp.ok ? "OK" : "FAIL"}`);
+              if (resp.ok) {
+                console.log(`[DocumentCard] Connexion OK, redirection vers ${documentUrl}`);
+                window.location.href = documentUrl;
+              } else {
+                console.log(`[DocumentCard] Connexion échouée, affichage popin offline`);
+                window.dispatchEvent(
+                  new CustomEvent("notus:offline-popin", {
+                    detail: {
+                      message:
+                        "Vous pourrez accéder à cette fonctionnalité une fois la connexion rétablie.",
+                      durationMs: 5000,
+                    },
+                  })
+                );
+              }
+            } catch (error) {
+              console.log(`[DocumentCard] Erreur de vérification de connexion:`, error);
+              window.dispatchEvent(
+                new CustomEvent("notus:offline-popin", {
+                  detail: {
+                    message:
+                      "Vous pourrez accéder à cette fonctionnalité une fois la connexion rétablie.",
+                    durationMs: 5000,
+                  },
+                })
+              );
             }
           }}
         >
           <h3 className="text-lg font-semibold text-card-foreground group-hover:text-primary transition-colors duration-200">
             {document.title}
           </h3>
-        </Link>
+        </a>
         <div
           ref={previewRef}
           className="text-sm text-muted-foreground line-clamp-2 leading-relaxed"

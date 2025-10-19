@@ -5,6 +5,7 @@ import { Card, Button } from "@/components/ui";
 import DocumentCard from "@/components/DocumentCard";
 import { getUserDocumentsAction, getUserProfileAction } from "@/lib/actions";
 import Link from "next/link";
+import ProfileEditButton from "./ProfileEditButton";
 
 export default async function ProfilePage() {
   const session = await auth();
@@ -105,9 +106,8 @@ export default async function ProfilePage() {
           </div>
           <div className="flex-1" />
           <div className="flex items-center gap-3 justify-center md:justify-start w-full md:w-auto">
-            <Link href="/profile/edit">
-              <Button className="px-4 py-2">Modifier le profil</Button>
-            </Link>
+            {/* Bouton client avec vérification de connexion via check-status */}
+            <ProfileEditButton />
             {/* <Button variant="secondary" className="px-4 py-2">
               Partager le profil
             </Button> */}
