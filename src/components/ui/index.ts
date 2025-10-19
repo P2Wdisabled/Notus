@@ -46,6 +46,7 @@ export {
   RegisterPageSkeleton,
   VerifyEmailPageSkeleton,
   ProfilePageSkeleton,
+  DeleteAccountSkeleton,
 } from "./skeleton";
 export type { SkeletonProps, SkeletonTextProps } from "./skeleton";
 
