@@ -26,7 +26,7 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
-      # 1) Install
+      # 1) Install deps
       - name: npm i
         run: npm i
 
@@ -39,6 +39,13 @@ jobs:
         run: npm run lint --if-present
 
       # 4) Build
+      - name: Cache Next build
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: next-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('**/*.[jt]s', '**/*.[jt]sx', '**/*.css') }}
+          restore-keys: |
+            next-${{ runner.os }}-
       - name: npm run build
         run: npm run build
 
@@ -48,44 +55,71 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y sshpass rsync
 
+      # Vérifs & port par défaut
+      - name: Check secrets & set defaults
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
+          REMOTE_PATH: ${{ secrets.REMOTE_PATH }}
+          PM2_APP: ${{ secrets.PM2_APP }}
+        run: |
+          set -e
+          for v in SSH_HOST SSH_USER SSH_PASSWORD REMOTE_PATH PM2_APP; do
+            if [ -z "${!v}" ]; then
+              echo "::error ::Missing required secret: $v"
+              exit 1
+            fi
+          done
+          echo "PORT=${SSH_PORT:-22}" >> "$GITHUB_ENV"
+
       - name: rsync to server
         env:
           SSHPASS: ${{ secrets.SSH_PASSWORD }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          REMOTE_PATH: ${{ secrets.REMOTE_PATH }}
         run: |
           sshpass -e rsync -az --delete \
             --exclude ".git" --exclude ".github" --exclude "node_modules" --exclude ".next" \
-            -e "ssh -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=no" \
-            ./ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.REMOTE_PATH }}/
+            -e "ssh -p ${PORT} -o StrictHostKeyChecking=no" \
+            ./ "${SSH_USER}@${SSH_HOST}:${REMOTE_PATH}/"
 
-      # 6) Prisma (generate + migrate) + 7) Restart PM2
+      # 6) Prisma + 7) PM2 reload (sur serveur)
       - name: prisma deploy + pm2 reload (remote)
         env:
           SSHPASS: ${{ secrets.SSH_PASSWORD }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          REMOTE_PATH: ${{ secrets.REMOTE_PATH }}
+          PM2_APP: ${{ secrets.PM2_APP }}
+          ENV_VARS: ${{ secrets.ENV_VARS }}
+          ENV_FILE_PROD: ${{ secrets.ENV_FILE_PROD }}
         run: |
-          sshpass -e ssh -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=no \
-            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
-              set -e
-              cd "${{ secrets.REMOTE_PATH }}"
+          sshpass -e ssh -p "${PORT}" -o StrictHostKeyChecking=no "${SSH_USER}@${SSH_HOST}" "
+            set -e
+            cd '${REMOTE_PATH}'
 
-              # Vars d'env optionnelles
-              if [ -n "${{ secrets.ENV_VARS }}" ]; then export ${{ secrets.ENV_VARS }}; fi
-              # [ -n "${{ secrets.ENV_FILE_PROD }}" ] && echo "${{ secrets.ENV_FILE_PROD }}" > .env.production
+            # Vars d'env optionnelles
+            if [ -n '${ENV_VARS}' ]; then export ${ENV_VARS}; fi
+            if [ -n '${ENV_FILE_PROD}' ]; then printf '%s\n' '${ENV_FILE_PROD}' > .env.production; fi
 
-              # Déps prod (au cas où des diffs de lock)
-              npm i --omit=dev
+            # Déps prod (au cas où diffs lock/prod)
+            npm i --omit=dev
 
-              # Prisma
-              npx prisma generate
-              npx prisma migrate deploy
+            # Prisma
+            npx prisma generate
+            npx prisma migrate deploy
 
-              # Rebuild côté serveur (cohérence env/arch Next 15)
-              npm run build
+            # Rebuild côté serveur (cohérence env/arch)
+            npm run build
 
-              # PM2
-              if pm2 describe "${{ secrets.PM2_APP }}" >/dev/null 2>&1; then
-                pm2 reload "${{ secrets.PM2_APP }}"
-              else
-                pm2 start ecosystem.config.cjs --only "${{ secrets.PM2_APP }}"
-              fi
-              pm2 save
-          EOF
+            # PM2 (ecosystem.config.cjs attendu à la racine)
+            if pm2 describe '${PM2_APP}' >/dev/null 2>&1; then
+              pm2 reload '${PM2_APP}'
+            else
+              pm2 start ecosystem.config.cjs --only '${PM2_APP}'
+            fi
+            pm2 save
+          "
