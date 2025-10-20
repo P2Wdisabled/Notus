@@ -1,4 +1,4 @@
-name: Notus CI/CD
+name: Notus CI/CD (stages)
 
 on:
   push:
@@ -12,33 +12,80 @@ env:
   CI: true
 
 jobs:
-  pipeline:
-    name: install → test → lint → build → deploy → prisma → restart
+  install:
+    name: 1) install
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
-
       - name: Use Node.js 22.x
         uses: actions/setup-node@v4
         with:
           node-version: 22.x
           cache: npm
           cache-dependency-path: package-lock.json
-
-      # 1) Install deps
       - name: npm i
         run: npm i
+      # Option: on exporte node_modules pour éviter de réinstaller aux étapes suivantes
+      - name: Pack deps
+        run: tar czf deps.tgz node_modules package-lock.json
+      - name: Upload deps artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: deps
+          path: deps.tgz
+          retention-days: 1
 
-      # 2) Tests (si présents)
-      - name: npm test
+  test:
+    name: 2) test
+    runs-on: ubuntu-latest
+    needs: install
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+      - name: Download deps
+        uses: actions/download-artifact@v4
+        with:
+          name: deps
+      - name: Unpack deps
+        run: tar xzf deps.tgz
+      - name: npm test (if present)
         run: npm test --if-present -- --ci
 
-      # 3) Lint (si présent)
-      - name: npm run lint
+  lint:
+    name: 3) lint
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+      - name: Download deps
+        uses: actions/download-artifact@v4
+        with:
+          name: deps
+      - name: Unpack deps
+        run: tar xzf deps.tgz
+      - name: npm run lint (if present)
         run: npm run lint --if-present
 
-      # 4) Build
+  build:
+    name: 4) build
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+      - name: Download deps
+        uses: actions/download-artifact@v4
+        with:
+          name: deps
+      - name: Unpack deps
+        run: tar xzf deps.tgz
       - name: Cache Next build
         uses: actions/cache@v4
         with:
@@ -48,14 +95,32 @@ jobs:
             next-${{ runner.os }}-
       - name: npm run build
         run: npm run build
+      - name: Upload build logs (utile en debug)
+        if: always()
+        run: |
+          mkdir -p artifacts
+          [ -f .next/trace ] && cp -r .next/trace artifacts/ || true
+          tar czf build-logs.tgz artifacts || true
+      - name: Save build artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: build-logs.tgz
+          retention-days: 1
 
-      # 5) Déploiement (ssh + rsync)
+  deploy:
+    name: 5) deploy (rsync)
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
       - name: Install sshpass & rsync
         run: |
           sudo apt-get update -y
           sudo apt-get install -y sshpass rsync
 
-      # Vérifs & port par défaut
       - name: Check secrets & set defaults
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
@@ -68,13 +133,12 @@ jobs:
           set -e
           for v in SSH_HOST SSH_USER SSH_PASSWORD REMOTE_PATH PM2_APP; do
             if [ -z "${!v}" ]; then
-              echo "::error ::Missing required secret: $v"
-              exit 1
+              echo "::error ::Missing required secret: $v"; exit 1
             fi
           done
           echo "PORT=${SSH_PORT:-22}" >> "$GITHUB_ENV"
 
-      - name: rsync to server
+      - name: Rsync source to server
         env:
           SSHPASS: ${{ secrets.SSH_PASSWORD }}
           SSH_HOST: ${{ secrets.SSH_HOST }}
@@ -86,36 +150,55 @@ jobs:
             -e "ssh -p ${PORT} -o StrictHostKeyChecking=no" \
             ./ "${SSH_USER}@${SSH_HOST}:${REMOTE_PATH}/"
 
-      # 6) Prisma + 7) PM2 reload (sur serveur)
-      - name: prisma deploy + pm2 reload (remote)
+  prisma:
+    name: 6) prisma (generate + migrate + build)
+    runs-on: ubuntu-latest
+    needs: deploy
+    steps:
+      - name: prisma + build on server
         env:
           SSHPASS: ${{ secrets.SSH_PASSWORD }}
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
           REMOTE_PATH: ${{ secrets.REMOTE_PATH }}
-          PM2_APP: ${{ secrets.PM2_APP }}
           ENV_VARS: ${{ secrets.ENV_VARS }}
           ENV_FILE_PROD: ${{ secrets.ENV_FILE_PROD }}
         run: |
+          PORT="${SSH_PORT:-22}"
           sshpass -e ssh -p "${PORT}" -o StrictHostKeyChecking=no "${SSH_USER}@${SSH_HOST}" "
             set -e
             cd '${REMOTE_PATH}'
-
-            # Vars d'env optionnelles
+            # Env (optionnel)
             if [ -n '${ENV_VARS}' ]; then export ${ENV_VARS}; fi
             if [ -n '${ENV_FILE_PROD}' ]; then printf '%s\n' '${ENV_FILE_PROD}' > .env.production; fi
-
-            # Déps prod (au cas où diffs lock/prod)
+            # Déps prod (sécurité)
             npm i --omit=dev
-
             # Prisma
             npx prisma generate
             npx prisma migrate deploy
-
-            # Rebuild côté serveur (cohérence env/arch)
+            # Rebuild côté serveur (cohérence arch/env Next)
             npm run build
+          "
 
-            # PM2 (ecosystem.config.cjs attendu à la racine)
+  restart:
+    name: 7) restart (PM2 reload)
+    runs-on: ubuntu-latest
+    needs: prisma
+    steps:
+      - name: pm2 reload
+        env:
+          SSHPASS: ${{ secrets.SSH_PASSWORD }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          REMOTE_PATH: ${{ secrets.REMOTE_PATH }}
+          PM2_APP: ${{ secrets.PM2_APP }}
+        run: |
+          PORT="${SSH_PORT:-22}"
+          sshpass -e ssh -p "${PORT}" -o StrictHostKeyChecking=no "${SSH_USER}@${SSH_HOST}" "
+            set -e
+            cd '${REMOTE_PATH}'
             if pm2 describe '${PM2_APP}' >/dev/null 2>&1; then
               pm2 reload '${PM2_APP}'
             else
