@@ -1,4 +1,4 @@
-name: Node.js CI/CD (TS + React + PM2)
+name: Notus CI/CD
 
 on:
   push:
@@ -27,8 +27,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: [18.x, 20.x, 22.x]
-
+        node: [20.x, 22.x] # 22 pour coller à ta prod, 20 LTS en filet de sécu
     steps:
       - uses: actions/checkout@v4
 
@@ -57,109 +56,87 @@ jobs:
         run: npm test --if-present -- --ci
 
   build:
-    name: Build (Node 20 LTS)
+    name: Build check (Next + Turbopack / Node 22)
     runs-on: ubuntu-latest
     needs: quality
-
     steps:
       - uses: actions/checkout@v4
 
-      - name: Use Node.js 20.x
+      - name: Use Node.js 22.x
         uses: actions/setup-node@v4
         with:
-          node-version: 20.x
+          node-version: 22.x
           cache: npm
           cache-dependency-path: package-lock.json
 
       - name: Install deps
         run: npm ci
 
-      - name: Build
+      - name: Cache Next build
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: next-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('**/*.[jt]s', '**/*.[jt]sx', '**/*.css') }}
+          restore-keys: |
+            next-${{ runner.os }}-
+
+      - name: Build (Next + Turbopack)
         run: npm run build
 
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: web-build
-          path: |
-            build/**
-            dist/**
-            out/**
-          if-no-files-found: warn
-
-      - name: Upload project (without node_modules)
-        uses: actions/upload-artifact@v4
-        with:
-          name: project-src
-          path: |
-            .
-            !node_modules/**
-            !**/*.log
-            !.git/**
-            !.github/**
-          if-no-files-found: error
-
   deploy:
-    name: Deploy via SSH + PM2
+    name: Deploy via SSH (password) + PM2
     runs-on: ubuntu-latest
     needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     environment:
       name: production
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-
     steps:
-      - name: Download project
-        uses: actions/download-artifact@v4
-        with:
-          name: project-src
-          path: project
+      - uses: actions/checkout@v4
 
-      - name: Download web build
-        uses: actions/download-artifact@v4
-        with:
-          name: web-build
-          path: project/.build_artifacts
-
-      - name: Prepare SSH key
+      - name: Install sshpass
         run: |
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > key.pem
-          chmod 600 key.pem
+          sudo apt-get update
+          sudo apt-get install -y sshpass rsync
 
-      - name: Rsync project to server
+      - name: Rsync project to server (sans node_modules/.git/.github/.next)
+        env:
+          SSHPASS: ${{ secrets.SSH_PASSWORD }}
         run: |
-          rsync -az --delete \
-            -e "ssh -i key.pem -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=no" \
-            project/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.REMOTE_PATH }}/
+          sshpass -e rsync -az --delete \
+            --exclude ".git" --exclude ".github" --exclude "node_modules" --exclude ".next" \
+            -e "ssh -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=no" \
+            ./ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.REMOTE_PATH }}/
 
-      - name: Install server deps + build if nécessaire + PM2 reload
+      - name: Remote install + prisma migrate + build + PM2 reload
+        env:
+          SSHPASS: ${{ secrets.SSH_PASSWORD }}
         run: |
-          ssh -i key.pem -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=no \
+          sshpass -e ssh -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=no \
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
               set -e
               cd "${{ secrets.REMOTE_PATH }}"
-              # Variables d'env optionnelles (format: KEY=VAL KEY2=VAL2)
+
+              # Variables d'env optionnelles (ex: NODE_ENV=production NEXTAUTH_URL=...)
               if [ -n "${{ secrets.ENV_VARS }}" ]; then export ${{ secrets.ENV_VARS }}; fi
 
-              # Install prod deps
+              # Si tu stockes tout un .env en secret:
+              # [ -n "${{ secrets.ENV_FILE_PROD }}" ] && echo "${{ secrets.ENV_FILE_PROD }}" > .env.production
+
+              # Déps prod
               npm ci --omit=dev
 
-              # Si build côté serveur requis (SSR, Next, etc.), décommente:
-              # npm run build
+              # Prisma
+              npx prisma generate
+              npx prisma migrate deploy
 
-              # Si ton front est purement statique et déjà buildé par le job:
-              # on place le build livré dans un dossier public si utile.
-              # mkdir -p public && rsync -a .build_artifacts/ public/
+              # Build sur le serveur (alignement arch/env)
+              npm run build
 
-              # PM2: utilise un ecosystem.config.(js|cjs|json) à la racine
+              # PM2
               if pm2 describe "${{ secrets.PM2_APP }}" >/dev/null 2>&1; then
                 pm2 reload "${{ secrets.PM2_APP }}"
               else
-                # Démarrage initial si pas encore existant
-                # - Soit via script direct:
-                # pm2 start "npm" --name "${{ secrets.PM2_APP }}" -- start
-                # - Soit via ecosystem:
                 pm2 start ecosystem.config.cjs --only "${{ secrets.PM2_APP }}"
               fi
-
               pm2 save
-            EOF
+          EOF
