@@ -91,7 +91,7 @@ jobs:
     name: 5) deploy (rsync)
     runs-on: ubuntu-latest
     needs: build
-    environment: prod   # nom de l'environnement GitHub où sont les secrets
+    environment: prod   # nom EXACT de l’environnement GitHub contenant les secrets
     steps:
       - uses: actions/checkout@v4
       - name: Install sshpass & rsync
@@ -162,9 +162,9 @@ jobs:
               echo 'Exported ENV_VARS'
             fi
 
-            # 2) On veut TOUTES les deps pour le build (tailwind/postcss inclus)
-            npm config set production false
-            npm i
+            # 2) Installer AVEC devDeps (tailwind/postcss nécessaires au build)
+            unset npm_config_production || true
+            npm ci --include=dev
 
             # 3) Prisma
             if [ -z \"\${DATABASE_URL:-}\" ]; then
@@ -176,7 +176,7 @@ jobs:
             # 4) Build Next
             npm run build
 
-            # 5) Optionnel: alléger après build (garde que deps prod)
+            # 5) Optionnel: alléger après build (ne garder que deps prod)
             npm prune --omit=dev || true
           "
 
