@@ -82,7 +82,7 @@ export default function TagsManager({
   };
 
   return (
-    <div className={`w-full ${className} ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
+    <div className={`w-full scroller ${className} ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
       <div
         ref={scrollContainerRef}
         className="flex items-center gap-2 px-1 overflow-x-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent pb-1 max-w-full"

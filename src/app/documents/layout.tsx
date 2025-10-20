@@ -1,7 +1,7 @@
 import { Suspense } from "react";
-import { HomePageSkeleton } from "@/components/ui";
+import { DocumentPageSkeleton } from "@/components/ui/skeleton";
 
 export default function DocumentsLayout({ children }: { children: React.ReactNode }) {
-  return <Suspense fallback={<HomePageSkeleton />}>{children}</Suspense>;
+  return <Suspense fallback={<DocumentPageSkeleton />}>{children}</Suspense>;
 }
 
