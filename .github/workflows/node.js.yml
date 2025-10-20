@@ -1,0 +1,165 @@
+name: Node.js CI/CD (TS + React + PM2)
+
+on:
+  push:
+    branches: ["main"]
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - ".github/ISSUE_TEMPLATE/**"
+  pull_request:
+    branches: ["main"]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CI: true
+
+jobs:
+  quality:
+    name: Lint / Typecheck / Tests (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [18.x, 20.x, 22.x]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Lint (if present)
+        run: npm run lint --if-present
+
+      - name: Typecheck (tsc)
+        run: |
+          if npm run -s typecheck >/dev/null 2>&1; then
+            npm run typecheck
+          else
+            npx tsc --noEmit
+          fi
+
+      - name: Unit tests (if present)
+        run: npm test --if-present -- --ci
+
+  build:
+    name: Build (Node 20 LTS)
+    runs-on: ubuntu-latest
+    needs: quality
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-build
+          path: |
+            build/**
+            dist/**
+            out/**
+          if-no-files-found: warn
+
+      - name: Upload project (without node_modules)
+        uses: actions/upload-artifact@v4
+        with:
+          name: project-src
+          path: |
+            .
+            !node_modules/**
+            !**/*.log
+            !.git/**
+            !.github/**
+          if-no-files-found: error
+
+  deploy:
+    name: Deploy via SSH + PM2
+    runs-on: ubuntu-latest
+    needs: build
+    environment:
+      name: production
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Download project
+        uses: actions/download-artifact@v4
+        with:
+          name: project-src
+          path: project
+
+      - name: Download web build
+        uses: actions/download-artifact@v4
+        with:
+          name: web-build
+          path: project/.build_artifacts
+
+      - name: Prepare SSH key
+        run: |
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > key.pem
+          chmod 600 key.pem
+
+      - name: Rsync project to server
+        run: |
+          rsync -az --delete \
+            -e "ssh -i key.pem -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=no" \
+            project/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.REMOTE_PATH }}/
+
+      - name: Install server deps + build if nécessaire + PM2 reload
+        run: |
+          ssh -i key.pem -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=no \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
+              set -e
+              cd "${{ secrets.REMOTE_PATH }}"
+              # Variables d'env optionnelles (format: KEY=VAL KEY2=VAL2)
+              if [ -n "${{ secrets.ENV_VARS }}" ]; then export ${{ secrets.ENV_VARS }}; fi
+
+              # Install prod deps
+              npm ci --omit=dev
+
+              # Si build côté serveur requis (SSR, Next, etc.), décommente:
+              # npm run build
+
+              # Si ton front est purement statique et déjà buildé par le job:
+              # on place le build livré dans un dossier public si utile.
+              # mkdir -p public && rsync -a .build_artifacts/ public/
+
+              # PM2: utilise un ecosystem.config.(js|cjs|json) à la racine
+              if pm2 describe "${{ secrets.PM2_APP }}" >/dev/null 2>&1; then
+                pm2 reload "${{ secrets.PM2_APP }}"
+              else
+                # Démarrage initial si pas encore existant
+                # - Soit via script direct:
+                # pm2 start "npm" --name "${{ secrets.PM2_APP }}" -- start
+                # - Soit via ecosystem:
+                pm2 start ecosystem.config.cjs --only "${{ secrets.PM2_APP }}"
+              fi
+
+              pm2 save
+            EOF
