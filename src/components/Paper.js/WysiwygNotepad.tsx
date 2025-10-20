@@ -9,6 +9,7 @@ interface WysiwygNotepadProps {
   placeholder?: string;
   className?: string;
   showDebug?: boolean;
+  readOnly?: boolean;
 }
 
 export default function WysiwygNotepad({
@@ -17,6 +18,7 @@ export default function WysiwygNotepad({
   placeholder = "Commencez à écrire votre document...",
   className = "",
   showDebug = false,
+  readOnly = false,
 }: WysiwygNotepadProps) {
   const [markdown, setMarkdown] = useState(initialData.text || "");
   const [debugMode, setDebugMode] = useState(showDebug);
@@ -51,21 +53,24 @@ export default function WysiwygNotepad({
 
   return (
     <div className={`flex flex-col h-full ${className}`}>
-      {/* Toolbar */}
-      <WysiwygToolbar
-        onFormatChange={handleFormatChange}
-        showDebug={debugMode}
-        onToggleDebug={handleToggleDebug}
-      />
+      {/* Toolbar - only show if not read-only */}
+      {!readOnly && (
+        <WysiwygToolbar
+          onFormatChange={handleFormatChange}
+          showDebug={debugMode}
+          onToggleDebug={handleToggleDebug}
+        />
+      )}
 
       {/* Editor */}
       <div className="flex-1 min-h-0">
         <WysiwygEditor
           content={markdown}
-          onContentChange={handleMarkdownChange}
+          onContentChange={readOnly ? () => {} : handleMarkdownChange}
           placeholder={placeholder}
           className="h-full"
           showDebug={debugMode}
+          readOnly={readOnly}
         />
       </div>
     </div>

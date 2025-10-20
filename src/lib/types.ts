@@ -148,4 +148,5 @@ export interface MenuItemProps {
   children: React.ReactNode;
   icon?: React.ReactNode;
   className?: string;
+  disabled?: boolean;
 }

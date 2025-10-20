@@ -93,6 +93,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   const [shareError, setShareError] = useState<string | null>(null);
   const [shareSuccess, setShareSuccess] = useState<string | null>(null);
   const [hasEditAccess, setHasEditAccess] = useState<boolean | null>(null);
+  const [hasReadAccess, setHasReadAccess] = useState<boolean | null>(null);
   const [users, setUsers] = useState([]);
 
   const normalizeContent = (rawContent: any): NotepadContent => {
@@ -483,27 +484,50 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     async function checkAccess() {
       if (!userEmail) {
         setHasEditAccess(false);
+        setHasReadAccess(false);
         setError('Accès refusé: email utilisateur manquant');
         return;
       }
       try {
         if (!document) {
           setHasEditAccess(false);
+          setHasReadAccess(false);
           setError('Accès refusé: document introuvable');
           return;
         }
         const res = await fetch(`/api/openDoc/accessList?id=${document.id}`);
         const result = await res.json();
         if (result.success && Array.isArray(result.accessList)) {
-          const emails = result.accessList.map((u: any) => (u.email || "").trim().toLowerCase());
           const myEmail = String(userEmail).trim().toLowerCase();
-          setHasEditAccess(emails.includes(myEmail));
+          
+          // Check if user is owner
+          const isOwner = Number(document.user_id) === Number(userId);
+          
+          // Check if user has any access (read or edit)
+          const userAccess = result.accessList.find((u: any) => 
+            (u.email || "").trim().toLowerCase() === myEmail
+          );
+          
+          if (isOwner) {
+            setHasEditAccess(true);
+            setHasReadAccess(true);
+          } else if (userAccess) {
+            // User has shared access - check permission level
+            setHasReadAccess(true);
+            setHasEditAccess(userAccess.permission === true);
+          } else {
+            setHasEditAccess(false);
+            setHasReadAccess(false);
+            setError('Accès refusé: vous n\'avez pas accès à ce document');
+          }
         } else {
           setHasEditAccess(false);
+          setHasReadAccess(false);
           setError('Accès refusé: liste d\'accès non trouvée');
         }
       } catch (err) {
         setHasEditAccess(false);
+        setHasReadAccess(false);
         setError('Erreur lors de la récupération de la liste d\'accès');
       }
     }
@@ -643,7 +667,8 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     );
   }
 
-  if (Number(document.user_id) !== Number(userId) || hasEditAccess === false) {
+  // Check if user has any access (read or edit)
+  if (hasReadAccess === false) {
     return (
       <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center p-4">
         <div className="bg-white dark:bg-black rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
@@ -651,7 +676,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
             Accès refusé
           </h1>
           <p className="text-gray-600 dark:text-gray-300 mb-6">
-            Vous n'êtes pas autorisé à modifier ce document.
+            Vous n'êtes pas autorisé à accéder à ce document.
           </p>
           <Link
             href="/"
@@ -689,6 +714,11 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
           </Link>
           <div className="flex flex-row justify-center items-center">
             <UserListButton users={users} className="self-center" />
+            {hasEditAccess === false && (
+              <div className="ml-4 px-3 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 text-sm font-medium rounded-full border border-yellow-200 dark:border-yellow-700">
+                Mode lecture seule
+              </div>
+            )}
             <div className="relative inline-block">
               <Button
                 variant="ghost"
@@ -713,16 +743,19 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
                 >
                   <MenuItem
                     onClick={() => {
-                      handleShareButtonClick();
-                      setIsMenuOpen(false);
+                      if (hasEditAccess !== false) {
+                        handleShareButtonClick();
+                        setIsMenuOpen(false);
+                      }
                     }}
+                    disabled={hasEditAccess === false}
                     icon={
                       <svg width="18" height="16" viewBox="0 0 18 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M16.59 7.5L12 2.91V5.37L11.14 5.5C6.83 6.11 3.91 8.37 2.24 11.83C4.56 10.19 7.44 9.4 11 9.4H12V12.09M10 10.42C5.53 10.63 2.33 12.24 0 15.5C1 10.5 4 5.5 11 4.5V0.5L18 7.5L11 14.5V10.4C10.67 10.4 10.34 10.41 10 10.42Z" fill="#DD05C7" />
+                        <path d="M16.59 7.5L12 2.91V5.37L11.14 5.5C6.83 6.11 3.91 8.37 2.24 11.83C4.56 10.19 7.44 9.4 11 9.4H12V12.09M10 10.42C5.53 10.63 2.33 12.24 0 15.5C1 10.5 4 5.5 11 4.5V0.5L18 7.5L11 14.5V10.4C10.67 10.4 10.34 10.41 10 10.42Z" fill={hasEditAccess === false ? "#999" : "#DD05C7"} />
                       </svg>
                     }
                   >
-                    Partager
+                    {hasEditAccess === false ? "Lecture seule" : "Partager"}
                   </MenuItem>
                 </div>
               )}
@@ -824,6 +857,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
                 placeholder="Ajouter un tag..."
                 maxTags={20}
                 className="w-full"
+                disabled={hasEditAccess === false}
               />
             </div>
 
@@ -832,8 +866,9 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
               <input
                 type="text"
                 value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange dark:focus:ring-primary bg-transparent text-foreground text-xl font-semibold"
+                onChange={hasEditAccess === false ? undefined : (e) => setTitle(e.target.value)}
+                readOnly={hasEditAccess === false}
+                className={`w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange dark:focus:ring-primary bg-transparent text-foreground text-xl font-semibold ${hasEditAccess === false ? 'cursor-default opacity-75' : ''}`}
                 placeholder="Titre du document"
                 maxLength={255}
               />
@@ -852,6 +887,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
                   placeholder="Commencez à écrire votre document..."
                   className=""
                   showDebug={false}
+                  readOnly={hasEditAccess === false}
                 />
               </div>
             </div>
@@ -866,7 +902,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
               </Link>
               <Button
                 type="submit"
-                disabled={isPending}
+                disabled={isPending || hasEditAccess === false}
                 className={`${showSavedState
                   ? "bg-green-600 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-600"
                   : "bg-primary hover:bg-primary/90 text-primary-foreground"
@@ -876,7 +912,9 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
                   ? "Sauvegarde..."
                   : showSavedState
                     ? "Sauvegardé"
-                    : "Sauvegarder"}
+                    : hasEditAccess === false
+                      ? "Lecture seule"
+                      : "Sauvegarder"}
               </Button>
             </div>
             
