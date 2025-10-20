@@ -68,8 +68,8 @@ export default function WysiwygToolbar({ onFormatChange, showDebug = false, onTo
         isStrike = true;
       } else {
         // Check if element or any parent has strikethrough
-        let currentElement = element;
-        while (currentElement && currentElement !== document.body) {
+        let currentElement: HTMLElement | null = element as HTMLElement | null;
+        while (currentElement && currentElement !== (document.body as unknown as HTMLElement)) {
           if (currentElement.nodeName === 'S' || 
               currentElement.nodeName === 'DEL' || 
               currentElement.nodeName === 'STRIKE' ||
@@ -77,7 +77,7 @@ export default function WysiwygToolbar({ onFormatChange, showDebug = false, onTo
             isStrike = true;
             break;
           }
-          currentElement = currentElement.parentElement;
+          currentElement = currentElement.parentElement as HTMLElement | null;
         }
       }
       
@@ -741,10 +741,10 @@ export default function WysiwygToolbar({ onFormatChange, showDebug = false, onTo
 
 
       {/* Separator */}
-      <div className="h-8 w-px bg-gray-300 dark:bg-gray-600 mx-2"></div>
+      {/* <div className="h-8 w-px bg-gray-300 dark:bg-gray-600 mx-2"></div> */}
 
       {/* Debug Toggle */}
-      {onToggleDebug && (
+      {false && onToggleDebug && (
         <button
           type="button"
           onClick={onToggleDebug}

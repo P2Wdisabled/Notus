@@ -164,70 +164,9 @@ export default async function ProfilePage() {
             )}
           </div>
           <div className="flex-1" />
-          <div className="flex items-center gap-3 justify-center md:justify-start w-full md:w-auto">
-            {/* Bouton client avec vérification de connexion via check-status */}
-            <ProfileEditButton />
-            {/* <Button variant="secondary" className="px-4 py-2">
-              Partager le profil
-            </Button> */}
-          </div>
-        </div>
-
-        {/* Identity */}
-        <div className="mt-4 text-center md:text-left">
-          <h1 className="text-2xl md:text-3xl font-bold text-foreground">
-            {displayName}
-          </h1>
-          <p className="text-muted-foreground">
-            @{username || "pseudo"}
-          </p>
-          <div className="flex items-center justify-center md:justify-start gap-2 mt-2 text-sm text-muted-foreground">
-            <CalendarIcon className="w-4 h-4" />
-            <span>
-              A rejoint en {joinDate.toLocaleString("fr-FR", { month: "long" })}{" "}
-              {joinDate.getFullYear()}
-            </span>
-          </div>
-        </div>
-
-        {/* Notes section */}
-        <div className="mt-8">
-          <h2 className="text-xl font-semibold text-foreground mb-3">
-            Mes notes
-          </h2>
-
-          {documentsResult.success &&
-            documentsResult.documents.length === 0 && (
-              <Card className="p-6">
-                <Card.Title>Aucune note</Card.Title>
-                <Card.Description>
-                  Créez votre première note depuis la page d'accueil.
-                </Card.Description>
-              </Card>
-            )}
-
-          {documentsResult.success && documentsResult.documents.length > 0 && (
-            <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(300px,1fr))]">
-              {documentsResult.documents
-                .sort((a: any, b: any) => {
-                  const dateA = new Date(a.updated_at || a.created_at);
-                  const dateB = new Date(b.updated_at || b.created_at);
-                  return dateB.getTime() - dateA.getTime(); // Tri décroissant (plus récent en premier)
-                })
-                .map((document: any) => (
-                  <div key={document.id} className="w-full">
-                    <DocumentCard
-                      document={document}
-                      currentUserId={session?.user?.id}
-                    />
-                  </div>
-                ))}
-            </div>
-          )}
         </div>
         </div>
       </div>
-    </div>
   );
 }
 

@@ -1,15 +1,15 @@
 "use client";
 
 import { createContext, useContext, useState, ReactNode } from "react";
-import { Document } from "@/lib/types";
+import { AnyDocument } from "@/lib/types";
 
 interface SearchContextType {
   searchQuery: string;
   isSearching: boolean;
   startSearch: (query: string) => void;
   clearSearch: () => void;
-  filterDocuments: (documents: Document[]) => Document[];
-  filterLocalDocuments: (documents: Document[]) => Document[];
+  filterDocuments: (documents: AnyDocument[]) => AnyDocument[];
+  filterLocalDocuments: (documents: AnyDocument[]) => AnyDocument[];
 }
 
 interface SearchProviderProps {
@@ -32,7 +32,7 @@ export function SearchProvider({ children }: SearchProviderProps) {
     setIsSearching(false);
   };
 
-  const filterDocuments = (documents: Document[]): Document[] => {
+  const filterDocuments = (documents: AnyDocument[]): AnyDocument[] => {
     if (!isSearching || !searchQuery) {
       return documents;
     }
@@ -46,7 +46,7 @@ export function SearchProvider({ children }: SearchProviderProps) {
     });
   };
 
-  const filterLocalDocuments = (documents: Document[]): Document[] => {
+  const filterLocalDocuments = (documents: AnyDocument[]): AnyDocument[] => {
     if (!isSearching || !searchQuery) {
       return documents;
     }

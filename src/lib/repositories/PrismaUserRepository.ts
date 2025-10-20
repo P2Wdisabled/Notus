@@ -1,7 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { prisma } from '../prisma';
 import { User, UserRepositoryResult, CreateUserData, UpdateUserProfileData } from '../types';
-import bcrypt from 'bcryptjs';
 
 export class PrismaUserRepository {
   async createUser(userData: CreateUserData): Promise<UserRepositoryResult<User>> {

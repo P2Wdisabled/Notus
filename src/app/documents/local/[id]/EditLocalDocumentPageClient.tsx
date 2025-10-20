@@ -1,11 +1,12 @@
 "use client";
-import CollaborativeNotepad from "@/components/Paper.js/CollaborativeNotepad";
+import WysiwygNotepad from "@/components/Paper.js/WysiwygNotepad";
 
 import { useEffect, useState, useCallback } from "react";
 import { useLocalSession } from "@/hooks/useLocalSession";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import TagsManager from "@/components/TagsManager";
 
 const LOCAL_DOCS_KEY = "notus.local.documents";
 
@@ -22,6 +23,7 @@ interface LocalDocument {
   content: NotepadContent | string;
   created_at: string;
   updated_at: string;
+  tags?: string[];
 }
 
 interface EditLocalDocumentPageClientProps {
@@ -36,6 +38,7 @@ export default function EditLocalDocumentPageClient({ params }: EditLocalDocumen
   const [error, setError] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [showSavedState, setShowSavedState] = useState(false);
+  const [tags, setTags] = useState<string[]>([]);
 
   // Gérer les paramètres asynchrones
   const [docId, setDocId] = useState<string | null>(null);
@@ -77,6 +80,19 @@ export default function EditLocalDocumentPageClient({ params }: EditLocalDocumen
           } else {
             setDocument(found);
             setTitle(found.title || "Sans titre");
+            // Charger les tags depuis le doc ou localStorage
+            try {
+              const rawTags = localStorage.getItem("notus.tags");
+              const tagsMap = rawTags ? JSON.parse(rawTags) : {};
+              const existing = Array.isArray(found.tags)
+                ? found.tags
+                : Array.isArray(tagsMap[String(found.id)])
+                ? tagsMap[String(found.id)]
+                : [];
+              setTags(existing);
+            } catch (_) {
+              setTags([]);
+            }
             // Normalize content for editor
             let normalized: NotepadContent;
             if (typeof found.content === "string") {
@@ -146,6 +162,7 @@ export default function EditLocalDocumentPageClient({ params }: EditLocalDocumen
         content: normalizedContentObj,
         created_at: nowIso,
         updated_at: nowIso,
+        tags: tags,
       };
 
       docs.push(newDoc);
@@ -154,6 +171,13 @@ export default function EditLocalDocumentPageClient({ params }: EditLocalDocumen
         setError("Impossible d'enregistrer localement (quota ou permissions)");
         return;
       }
+      // Persister les tags pour ce document dans notus.tags
+      try {
+        const raw = localStorage.getItem("notus.tags");
+        const tagsMap = raw ? JSON.parse(raw) : {};
+        tagsMap[String(newDoc.id)] = tags;
+        localStorage.setItem("notus.tags", JSON.stringify(tagsMap));
+      } catch (_) {}
       // Mettre à jour l'état local et rediriger vers l'URL correcte
       setDocument(newDoc);
       setIsNewDoc(false); // Marquer comme document existant
@@ -177,12 +201,20 @@ export default function EditLocalDocumentPageClient({ params }: EditLocalDocumen
         title: (title || "Sans titre").trim(),
         content: normalizedContentObj,
         updated_at: nowIso,
+        tags: tags,
       };
       const ok = saveLocalDocuments(docs);
       if (!ok) {
         setError("Impossible d'enregistrer localement (quota ou permissions)");
         return;
       }
+      // Persister les tags pour ce document dans notus.tags
+      try {
+        const raw = localStorage.getItem("notus.tags");
+        const tagsMap = raw ? JSON.parse(raw) : {};
+        tagsMap[String(docs[idx].id)] = tags;
+        localStorage.setItem("notus.tags", JSON.stringify(tagsMap));
+      } catch (_) {}
       // Mettre à jour l'état local et rester sur la page
       setDocument(docs[idx]);
       setShowSavedState(true);
@@ -268,41 +300,58 @@ export default function EditLocalDocumentPageClient({ params }: EditLocalDocumen
         {/* Contenu */}
         <div className="bg-white dark:bg-black rounded-2xl border border-gray dark:border-dark-gray p-6 overflow-hidden">
           <div className="space-y-6">
+            {/* Tags */}
+            <div className="mb-1">
+              <TagsManager
+                tags={tags}
+                onTagsChange={setTags}
+                placeholder="Ajouter un tag..."
+                maxTags={20}
+                className="w-full"
+              />
+            </div>
+
+            {/* Title */}
             <div>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange dark:focus:ring-dark-purple bg-transparent text-black dark:text-white text-xl font-semibold"
+                className="w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange dark:focus:ring-primary bg-transparent text-foreground text-xl font-semibold"
                 placeholder="Titre du document"
                 maxLength={255}
               />
             </div>
 
+            {/* Editor */}
             <div>
-              <CollaborativeNotepad
-                key={editorKey}
-                initialData={content}
-                useLocalStorage={false}
-                calMode={false}
-                onContentChange={(val: any) => {
-                  if (typeof val === "string") {
-                    try {
-                      setContent(JSON.parse(val));
-                    } catch {
-                      setContent({
-                        text: val,
-                        drawings: [],
-                        textFormatting: {},
-                      });
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Contenu
+              </label>
+              <div className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-700">
+                <WysiwygNotepad
+                  key={editorKey}
+                  initialData={content}
+                  onContentChange={(val: any) => {
+                    if (typeof val === "string") {
+                      try {
+                        setContent(JSON.parse(val));
+                      } catch {
+                        setContent({
+                          text: val,
+                          drawings: [],
+                          textFormatting: {},
+                        });
+                      }
+                    } else {
+                      setContent(val);
                     }
-                  } else {
-                    setContent(val);
-                  }
-                }}
-                placeholder="Commencez à écrire votre document avec mise en forme..."
-                className="min-h-[400px]"
-              />
+                  }}
+                  placeholder="Commencez à écrire votre document..."
+                  className=""
+                  showDebug={false}
+                />
+              </div>
             </div>
 
             <div className="flex justify-center space-x-4 pt-2 shrink-0">

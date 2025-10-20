@@ -336,6 +336,7 @@ export class DocumentManagementService {
       const updateResult = await this.documentService.createOrUpdateDocumentById(
         idNum,
         userIdToUse,
+        "", // no email available in this path
         title,
         contentStr,
         tags

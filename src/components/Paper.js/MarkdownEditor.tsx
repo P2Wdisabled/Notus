@@ -59,11 +59,27 @@ export default function MarkdownEditor({
     mangle: false,
   };
 
-  // Update preview when markdown changes
+  // Update preview when markdown changes (supports async marked)
   useEffect(() => {
-    const html = marked(markdown, markedOptions);
-    const sanitized = DOMPurify.sanitize(html);
-    setPreview(sanitized);
+    let isCancelled = false;
+    (async () => {
+      try {
+        const htmlMaybe = marked(markdown, markedOptions as any);
+        let html: string;
+        if (htmlMaybe && typeof (htmlMaybe as any).then === "function") {
+          html = await (htmlMaybe as Promise<string>);
+        } else {
+          html = String(htmlMaybe as unknown);
+        }
+        const sanitized = DOMPurify.sanitize(html || "");
+        if (!isCancelled) setPreview(String(sanitized));
+      } catch (_) {
+        if (!isCancelled) setPreview("");
+      }
+    })();
+    return () => {
+      isCancelled = true;
+    };
   }, [markdown]);
 
   // Update markdown when content prop changes
@@ -332,5 +348,4 @@ export default function MarkdownEditor({
   );
 }
 
-// Export the formatting functions for use in toolbar
-export { applyMarkdownFormat };
+// Note: formatting function is internal; exposed via window for toolbar integration

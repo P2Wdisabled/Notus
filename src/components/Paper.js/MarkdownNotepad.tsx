@@ -13,11 +13,14 @@ interface MarkdownNotepadProps {
 interface MarkdownFormatting {
   bold: boolean;
   italic: boolean;
+  underline: boolean;
   strikethrough: boolean;
   code: boolean;
   heading: number;
   list: 'none' | 'bullet' | 'number';
   quote: boolean;
+  link: boolean;
+  image: boolean;
 }
 
 export default function MarkdownNotepad({
@@ -30,11 +33,14 @@ export default function MarkdownNotepad({
   const [formatting, setFormatting] = useState<MarkdownFormatting>({
     bold: false,
     italic: false,
+    underline: false,
     strikethrough: false,
     code: false,
     heading: 0,
     list: 'none',
     quote: false,
+    link: false,
+    image: false,
   });
 
   // Handle markdown content change

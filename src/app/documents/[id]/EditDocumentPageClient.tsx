@@ -50,6 +50,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     loading: sessionLoading,
     isLoggedIn,
     userId,
+    userEmail,
   } = useLocalSession(props.session);
 
   // Router
@@ -83,17 +84,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [showSavedState, setShowSavedState] = useState(false);
 
-  const [state, formAction, isPending] = useActionState(
-    updateDocumentAction as unknown as (state: any, payload: FormData | Record<string, any>) => Promise<any>,
-    { ok: false } as any
-  );
-
-  const {
-    session: localSession,
-    loading: sessionLoading,
-    isLoggedIn,
-    userId,
-  } = useLocalSession(props.session);
+  
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [permission, setPermission] = useState("read");
@@ -172,9 +163,10 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
               setDocument({
                 id: Number(c.id),
                 title: c.title,
-                content: normalizeContent(c.content),
+                content: JSON.stringify(normalizeContent(c.content)),
                 tags: Array.isArray(c.tags) ? c.tags : [],
-                updated_at: c.updated_at,
+                created_at: new Date(c.created_at || c.updated_at),
+                updated_at: new Date(c.updated_at),
                 user_id: Number(c.user_id ?? NaN),
               });
               setTitle(c.title);
@@ -196,9 +188,10 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
             setDocument({
               id: Number(c.id),
               title: c.title,
-              content: normalizeContent(c.content),
+              content: JSON.stringify(normalizeContent(c.content)),
               tags: Array.isArray(c.tags) ? c.tags : [],
-              updated_at: c.updated_at,
+              created_at: new Date(c.created_at || c.updated_at),
+              updated_at: new Date(c.updated_at),
               user_id: Number(c.user_id ?? NaN),
             });
             setTitle(c.title);
@@ -343,7 +336,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
       formData.append("title", title || "");
       formData.append("content", JSON.stringify(contentToSave));
       formData.append("tags", JSON.stringify(tags));
-      const submittingUserEmail = localSession?.email || props.session?.user?.email || "";
+      const submittingUserEmail = userEmail || props.session?.user?.email || "";
       formData.append("email", submittingUserEmail);
 
       if (typeof navigator !== "undefined" && !navigator.onLine) {
@@ -408,6 +401,13 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
       startTransition(() => {
         (updateDocumentAction as unknown as (s: any, p: any) => any)(undefined as any, fd as any);
       });
+    }
+  };
+
+  const handleTagsChange = (nextTags: string[]) => {
+    setTags(nextTags);
+    if (typeof navigator !== "undefined" && navigator.onLine) {
+      persistTags(nextTags);
     }
   };
 
@@ -481,7 +481,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     }
 
     async function checkAccess() {
-      if (!localSession?.email) {
+      if (!userEmail) {
         setHasEditAccess(false);
         setError('Accès refusé: email utilisateur manquant');
         return;
@@ -496,7 +496,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
         const result = await res.json();
         if (result.success && Array.isArray(result.accessList)) {
           const emails = result.accessList.map((u: any) => (u.email || "").trim().toLowerCase());
-          const myEmail = String(localSession.email).trim().toLowerCase();
+          const myEmail = String(userEmail).trim().toLowerCase();
           setHasEditAccess(emails.includes(myEmail));
         } else {
           setHasEditAccess(false);
@@ -508,7 +508,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
       }
     }
     checkAccess();
-  }, [document, localSession?.email]);
+  }, [document, userEmail]);
 
   // -------- Share functionality --------
   const handleShareButtonClick = () => {

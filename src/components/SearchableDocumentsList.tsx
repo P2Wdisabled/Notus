@@ -14,18 +14,8 @@ import { Document, LocalDocument, AnyDocument } from "@/lib/types";
 
 const LOCAL_DOCS_KEY = "notus.local.documents";
 
-interface Document {
-  id: string | number;
-  title?: string;
-  content?: string;
-  user_id?: string | number;
-  created_at: string;
-  updated_at?: string;
-  [key: string]: any;
-}
-
 interface SearchableDocumentsListProps {
-  documents?: Document[];
+  documents?: AnyDocument[];
   currentUserId?: string;
   error?: string;
 }
@@ -85,13 +75,13 @@ export function SearchableDocumentsList({
     }
   }, [message, isPending, router]);
 
-  const documents = currentUserId 
-    ? serverDocuments.sort((a, b) => {
+  const documents: AnyDocument[] = currentUserId 
+    ? [...serverDocuments].sort((a, b) => {
         const dateA = new Date(a.updated_at || a.created_at);
         const dateB = new Date(b.updated_at || b.created_at);
         return dateB.getTime() - dateA.getTime();
       })
-    : [...localDocuments, ...serverDocuments].sort((a, b) => {
+    : ([...localDocuments, ...serverDocuments] as AnyDocument[]).sort((a, b) => {
         const dateA = new Date(a.updated_at || a.created_at);
         const dateB = new Date(b.updated_at || b.created_at);
         return dateB.getTime() - dateA.getTime();
@@ -170,10 +160,10 @@ export function SearchableDocumentsList({
 
   // Filtrer les documents en fonction du type (local ou serveur)
   const filteredDocuments: AnyDocument[] = isSearching
-    ? [
-      ...filterLocalDocuments(localDocuments as any),
-      ...filterDocuments(serverDocuments),
-    ]
+    ? ([
+      ...filterLocalDocuments(localDocuments as unknown as AnyDocument[]),
+      ...filterDocuments(serverDocuments as unknown as AnyDocument[]),
+    ] as AnyDocument[])
     : documents;
 
   if (documents.length === 0) {

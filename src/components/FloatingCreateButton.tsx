@@ -18,8 +18,11 @@ export default function FloatingCreateButton({ serverSession }: FloatingCreateBu
 
   // Ne pas afficher le bouton sur certaines pages
   if (
-    loading ||
-    pathname !== "/"
+    loading || (
+      pathname !== "/" &&
+      pathname !== "/notes" &&
+      pathname !== "/shared"
+    )
   ) {
     return null;
   }

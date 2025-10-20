@@ -131,6 +131,11 @@ export default function DocumentCard({
     month: "2-digit",
     year: "numeric",
   });
+  const updatedAtIso = (
+    typeof document.updated_at === 'string'
+      ? document.updated_at
+      : new Date(document.updated_at || Date.now()).toISOString()
+  );
 
   // Gérer le contenu selon le type (objet pour documents locaux, string pour documents serveur)
   const getContentText = (content: any): string => {
@@ -515,64 +520,16 @@ export default function DocumentCard({
           className="text-sm text-muted-foreground line-clamp-2 leading-relaxed"
         >
           {contentIsHtml ? (
-            // only render sanitized HTML when previewHtml available
             previewHtml ? (
               <div
                 className="prose max-w-full"
                 dangerouslySetInnerHTML={{ __html: previewHtml }}
               />
             ) : (
-              <p className="text-muted-foreground/70 italic">
-                Chargement...
-              </p>
-            ) : (
-              <p className="text-gray-400 dark:text-gray-500 italic">
-                Document vide
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
-          <time
-            dateTime={typeof document.updated_at === 'string' ? document.updated_at : (document.updated_at || new Date()).toISOString()}
-            className="text-xs text-muted-foreground"
-          >
-            {formattedDate}
-          </time>
-          {/* {isOwner && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">Propriétaire</span>
-            </div>
-          )} */}
-          {selectMode && (
-            <div className="relative">
-              <input
-                type="checkbox"
-                checked={selected}
-                onChange={handleCheckboxChange}
-                className="h-5 w-5 appearance-none border-2 rounded transition-all duration-200 animate-fade-in cursor-pointer"
-                style={{
-                  borderColor: selected ? 'var(--primary)' : 'var(--input)',
-                  backgroundColor: selected ? 'var(--primary)' : 'transparent',
-                }}
-                aria-label="Sélectionner ce document"
-              />
-              {selected && (
-                <svg
-                  className="absolute top-0 left-0 h-5 w-5 pointer-events-none text-white"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              )}
-            </div>
+              <p className="text-muted-foreground/70 italic">Chargement...</p>
+            )
+          ) : (
+            <p className="text-gray-400 dark:text-gray-500 italic">Document vide</p>
           )}
         </div>
       </div>
@@ -580,7 +537,7 @@ export default function DocumentCard({
       {/* Footer */}
       <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
         <time
-          dateTime={document.updated_at}
+          dateTime={updatedAtIso}
           className="text-xs text-muted-foreground"
         >
           {formattedDate}
@@ -623,7 +580,6 @@ export default function DocumentCard({
             <input
               type="checkbox"
               checked={selected}
-              onClick={handleCheckboxClick}
               onChange={handleCheckboxChange}
               className="h-5 w-5 appearance-none border-2 border-input rounded transition-all duration-200 checked:border-primary checked:bg-primary checked:accent-primary"
               style={{
