@@ -91,7 +91,7 @@ jobs:
     name: 5) deploy (rsync)
     runs-on: ubuntu-latest
     needs: build
-    environment: prod
+    environment: prod   # nom de l'environnement GitHub où sont les secrets
     steps:
       - uses: actions/checkout@v4
       - name: Install sshpass & rsync
@@ -127,58 +127,58 @@ jobs:
             ./ "${SSH_USER}@${SSH_HOST}:${REMOTE_PATH}/"
 
   prisma:
-  name: 6) prisma (generate + migrate + build)
-  runs-on: ubuntu-latest
-  needs: deploy
-  environment: prod
-  steps:
-    - name: prisma + build on server
-      env:
-        SSHPASS: ${{ secrets.SSH_PASSWORD }}
-        SSH_HOST: ${{ secrets.SSH_HOST }}
-        SSH_USER: ${{ secrets.SSH_USER }}
-        SSH_PORT: ${{ secrets.SSH_PORT }}
-        REMOTE_PATH: ${{ secrets.REMOTE_PATH }}
-        ENV_VARS: ${{ secrets.ENV_VARS }}
-        ENV_FILE_PROD: ${{ secrets.ENV_FILE_PROD }}
-      run: |
-        PORT="${SSH_PORT:-22}"
-        sshpass -e ssh -p "${PORT}" -o StrictHostKeyChecking=no "${SSH_USER}@${SSH_HOST}" "
-          set -e
-          cd '${REMOTE_PATH}'
+    name: 6) prisma (generate + migrate + build)
+    runs-on: ubuntu-latest
+    needs: deploy
+    environment: prod
+    steps:
+      - name: prisma + build on server
+        env:
+          SSHPASS: ${{ secrets.SSH_PASSWORD }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          REMOTE_PATH: ${{ secrets.REMOTE_PATH }}
+          ENV_VARS: ${{ secrets.ENV_VARS }}
+          ENV_FILE_PROD: ${{ secrets.ENV_FILE_PROD }}
+        run: |
+          PORT="${SSH_PORT:-22}"
+          sshpass -e ssh -p "${PORT}" -o StrictHostKeyChecking=no "${SSH_USER}@${SSH_HOST}" "
+            set -e
+            cd '${REMOTE_PATH}'
 
-          # 1) Écrire + charger .env
-          if [ -n '${ENV_FILE_PROD}' ]; then
-            printf '%s\n' '${ENV_FILE_PROD}' > .env
-            sed -i 's/\r$//' .env
-            echo 'Created .env from ENV_FILE_PROD'
-          fi
-          if [ -f .env ]; then
-            set -a; . ./.env; set +a
-            echo '.env loaded into environment'
-          fi
-          if [ -n '${ENV_VARS}' ]; then
-            export ${ENV_VARS}
-            echo 'Exported ENV_VARS'
-          fi
+            # 1) Ecrire + charger .env
+            if [ -n '${ENV_FILE_PROD}' ]; then
+              printf '%s\n' '${ENV_FILE_PROD}' > .env
+              sed -i 's/\r$//' .env
+              echo 'Created .env from ENV_FILE_PROD'
+            fi
+            if [ -f .env ]; then
+              set -a; . ./.env; set +a
+              echo '.env loaded into environment'
+            fi
+            if [ -n '${ENV_VARS}' ]; then
+              export ${ENV_VARS}
+              echo 'Exported ENV_VARS'
+            fi
 
-          # 2) S'assurer qu'on a AUSSI les devDeps (tailwind/postcss)
-          npm config set production false
-          npm i  # <-- installe TOUT, y compris devDependencies
+            # 2) On veut TOUTES les deps pour le build (tailwind/postcss inclus)
+            npm config set production false
+            npm i
 
-          # 3) Prisma
-          if [ -z \"\${DATABASE_URL:-}\" ]; then
-            echo 'ERROR: DATABASE_URL manquante.' >&2; exit 1
-          fi
-          npx prisma generate
-          npx prisma migrate deploy
+            # 3) Prisma
+            if [ -z \"\${DATABASE_URL:-}\" ]; then
+              echo 'ERROR: DATABASE_URL manquante.' >&2; exit 1
+            fi
+            npx prisma generate
+            npx prisma migrate deploy
 
-          # 4) Build Next
-          npm run build
+            # 4) Build Next
+            npm run build
 
-          # 5) (Optionnel) alléger après build
-          npm prune --omit=dev || true
-        "
+            # 5) Optionnel: alléger après build (garde que deps prod)
+            npm prune --omit=dev || true
+          "
 
   restart:
     name: 7) restart (PM2 reload)
