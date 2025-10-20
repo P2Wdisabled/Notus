@@ -25,10 +25,8 @@ export default async function EditProfilePage() {
     firstName: userProfile?.first_name ?? session?.user?.firstName ?? "",
     lastName: userProfile?.last_name ?? session?.user?.lastName ?? "",
     name: session?.user?.name ?? "",
-    profileImage:
-      userProfile?.profile_image ?? session?.user?.profileImage ?? null,
-    bannerImage:
-      userProfile?.banner_image ?? session?.user?.bannerImage ?? null,
+    profileImage: userProfile?.profile_image ?? null,
+    bannerImage: userProfile?.banner_image ?? null,
   };
 
   return (
@@ -67,15 +65,13 @@ export default async function EditProfilePage() {
             style={{
               backgroundImage: userProfile?.banner_image
                 ? `url(${userProfile.banner_image})`
-                : undefined,
+                : "linear-gradient(135deg, var(--primary),var(--primary))",
               backgroundColor: userProfile?.banner_image
                 ? "transparent"
                 : undefined,
-              background: userProfile?.banner_image
-                ? `url(${userProfile.banner_image})`
-                : "linear-gradient(135deg, #f97316, #ea580c)",
               backgroundSize: "cover",
               backgroundPosition: "center",
+              backgroundRepeat: "no-repeat",
             }}
           />
         </div>

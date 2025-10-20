@@ -1,43 +1,33 @@
 import Link from "next/link";
 import { UserService } from "@/lib/services/UserService";
 import { Button, Card, Badge } from "@/components/ui";
-
-interface User {
-  id: string;
-  first_name: string;
-  last_name: string;
-  username: string;
-  email: string;
-  is_banned: boolean;
-  email_verified: Date | null;
-  created_at: Date;
-}
+import { User } from "@/lib/types";
 
 export default async function AdminDashboard() {
   const userService = new UserService();
   const usersResult = await userService.getAllUsers(5, 0);
-  const recentUsers: User[] = usersResult.success ? usersResult.users : [];
+  const recentUsers: User[] = usersResult.success ? (usersResult.users || []) : [];
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+      <div className="text-center pt-10">
+        <h1 className="text-3xl font-bold text-foreground">
           Tableau de bord administrateur
         </h1>
-        <p className="mt-2 text-gray-600 dark:text-gray-400">
+        <p className="mt-2 text-muted-foreground">
           Gérez votre application Notus depuis cette interface.
         </p>
       </div>
 
       {/* Statistiques rapides */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
-          <div className="p-5">
+      {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card className="overflow-hidden">
+          <div className="p-6">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-blue-500 rounded-md flex items-center justify-center">
+                <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
                   <svg
-                    className="w-5 h-5 text-white"
+                    className="w-5 h-5 text-primary-foreground"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -51,25 +41,25 @@ export default async function AdminDashboard() {
                   </svg>
                 </div>
               </div>
-              <div className="ml-5 w-0 flex-1">
+              <div className="ml-4 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
+                  <dt className="text-sm font-medium text-muted-foreground truncate">
                     Utilisateurs récents
                   </dt>
-                  <dd className="text-lg font-medium text-gray-900 dark:text-white">
+                  <dd className="text-2xl font-bold text-foreground">
                     {recentUsers.length}
                   </dd>
                 </dl>
               </div>
             </div>
           </div>
-        </div>
+        </Card>
 
-        <div className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
-          <div className="p-5">
+        <Card className="overflow-hidden">
+          <div className="p-6">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-green-500 rounded-md flex items-center justify-center">
+                <div className="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center">
                   <svg
                     className="w-5 h-5 text-white"
                     fill="none"
@@ -85,25 +75,25 @@ export default async function AdminDashboard() {
                   </svg>
                 </div>
               </div>
-              <div className="ml-5 w-0 flex-1">
+              <div className="ml-4 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
+                  <dt className="text-sm font-medium text-muted-foreground truncate">
                     Système opérationnel
                   </dt>
-                  <dd className="text-lg font-medium text-green-600 dark:text-green-400">
+                  <dd className="text-2xl font-bold text-green-600 dark:text-green-400">
                     En ligne
                   </dd>
                 </dl>
               </div>
             </div>
           </div>
-        </div>
+        </Card>
 
-        <div className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
-          <div className="p-5">
+        <Card className="overflow-hidden">
+          <div className="p-6">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-yellow-500 rounded-md flex items-center justify-center">
+                <div className="w-10 h-10 bg-yellow-500 rounded-lg flex items-center justify-center">
                   <svg
                     className="w-5 h-5 text-white"
                     fill="none"
@@ -119,29 +109,29 @@ export default async function AdminDashboard() {
                   </svg>
                 </div>
               </div>
-              <div className="ml-5 w-0 flex-1">
+              <div className="ml-4 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
+                  <dt className="text-sm font-medium text-muted-foreground truncate">
                     Actions requises
                   </dt>
-                  <dd className="text-lg font-medium text-gray-900 dark:text-white">
+                  <dd className="text-2xl font-bold text-foreground">
                     0
                   </dd>
                 </dl>
               </div>
             </div>
           </div>
-        </div>
-      </div>
+        </Card>
+      </div> */}
 
       {/* Actions rapides */}
-      <Card>
+      <Card className="max-w-4xl mx-auto bg-background">
         <Card.Header>
-          <Card.Title>Actions rapides</Card.Title>
+          <Card.Title className="text-foreground text-center">Actions rapides</Card.Title>
         </Card.Header>
-        <Card.Content>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1">
-            <Button asChild className="w-full">
+        <Card.Content className="flex justify-center items-center">
+          <div>
+            <Button asChild className="bg-primary hover:bg-primary/90 text-primary-foreground py-2 px-4">
               <Link href="/admin/users">
                 <svg
                   className="w-4 h-4 mr-2"
@@ -164,59 +154,59 @@ export default async function AdminDashboard() {
       </Card>
 
       {/* Utilisateurs récents */}
-      <Card>
+      <Card className="max-w-4xl mx-auto bg-background">
         <Card.Header>
           <div className="flex items-center justify-between">
-            <Card.Title>Utilisateurs récents</Card.Title>
-            <Button variant="link" asChild>
+            <Card.Title className="text-foreground text-2xl font-semibold">Utilisateurs récents</Card.Title>
+            <Button variant="link" asChild className="text-primary hover:text-primary/80">
               <Link href="/admin/users">Voir tous</Link>
             </Button>
           </div>
         </Card.Header>
-        <Card.Content>
+        <Card.Content className="scroll-smooth">
           {recentUsers.length > 0 ? (
-            <div className="overflow-hidden">
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-700">
+            <div className="overflow-x-auto scroller">
+              <table className="min-w-full divide-y divide-border">
+                <thead className="bg-background">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-foreground uppercase tracking-wider">
                       Utilisateur
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-foreground uppercase tracking-wider">
                       Email
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-foreground uppercase tracking-wider">
                       Statut
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-foreground uppercase tracking-wider">
                       Inscription
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                <tbody className="bg-background divide-y divide-border">
                   {recentUsers.map((user) => (
-                    <tr key={user.id}>
+                    <tr key={user.id} className="hover:bg-muted/50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="flex-shrink-0 h-10 w-10">
-                            <div className="h-10 w-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
-                              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                {user.first_name.charAt(0)}
-                                {user.last_name.charAt(0)}
+                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                              <span className="text-sm font-medium text-primary">
+                                {user.first_name?.charAt(0) || ''}
+                                {user.last_name?.charAt(0) || ''}
                               </span>
                             </div>
                           </div>
                           <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900 dark:text-white">
-                              {user.first_name} {user.last_name}
+                            <div className="text-sm font-medium text-foreground">
+                              {user.first_name || ''} {user.last_name || ''}
                             </div>
-                            <div className="text-sm text-gray-500 dark:text-gray-400">
+                            <div className="text-sm text-muted-foreground">
                               @{user.username}
                             </div>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
                         {user.email}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -236,7 +226,7 @@ export default async function AdminDashboard() {
                               : "En attente"}
                         </Badge>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                         {new Date(user.created_at).toLocaleDateString("fr-FR")}
                       </td>
                     </tr>
@@ -245,9 +235,26 @@ export default async function AdminDashboard() {
               </table>
             </div>
           ) : (
-            <p className="text-gray-500 dark:text-gray-400">
-              Aucun utilisateur trouvé.
-            </p>
+            <div className="text-center py-8">
+              <div className="w-16 h-16 mx-auto mb-4 bg-muted rounded-full flex items-center justify-center">
+                <svg
+                  className="w-8 h-8 text-muted-foreground"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"
+                  />
+                </svg>
+              </div>
+              <p className="text-muted-foreground">
+                Aucun utilisateur trouvé.
+              </p>
+            </div>
           )}
         </Card.Content>
       </Card>

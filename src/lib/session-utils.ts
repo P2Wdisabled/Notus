@@ -8,6 +8,8 @@ interface UserSessionData {
   firstName: string;
   lastName: string;
   username: string;
+  profileImage?: string;
+  bannerImage?: string;
   timestamp: number;
 }
 
@@ -22,6 +24,8 @@ export function saveUserSession(userData: UserSessionData): boolean {
       firstName: userData.firstName,
       lastName: userData.lastName,
       username: userData.username,
+      profileImage: userData.profileImage,
+      bannerImage: userData.bannerImage,
       timestamp: Date.now(),
     };
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(sessionData));

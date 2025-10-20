@@ -127,3 +127,18 @@ export interface DocumentRepositoryResult<T = unknown> extends DatabaseResult<T>
   document?: Document;
   documents?: Document[];
 }
+
+// Interface pour les documents locaux (localStorage) qui ont des types différents
+export interface LocalDocument {
+  id: string;
+  title?: string;
+  content?: string;
+  user_id?: string;
+  created_at: string;
+  updated_at?: string;
+  tags?: string[];
+  [key: string]: any;
+}
+
+// Union type pour gérer les deux types de documents
+export type AnyDocument = Document | LocalDocument;

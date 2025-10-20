@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { createNoteAction } from "@/lib/actions";
+import { createDocumentAction } from "@/lib/actions";
 import { useState } from "react";
 
 interface CreateNoteFormProps {
@@ -10,8 +10,12 @@ interface CreateNoteFormProps {
 
 export default function CreateNoteForm({ userId }: CreateNoteFormProps) {
   const [message, formAction, isPending] = useActionState(
-    createNoteAction,
-    undefined
+    createDocumentAction,
+    {
+      success: false,
+      message: "",
+      documentId: 0,
+    }
   );
   const [content, setContent] = useState("");
 
@@ -54,29 +58,30 @@ export default function CreateNoteForm({ userId }: CreateNoteFormProps) {
         </div>
 
         {/* Message de succès/erreur */}
-        {message && (
-          <div
-            className={`rounded-lg p-4 ${
-              message.includes("succès") ||
-              message.includes("publiée") ||
-              message.includes("mise à jour")
+        {message && (() => {
+          const messageText = typeof message === 'string' ? message : message.message;
+          const isSuccess = messageText.includes("succès") ||
+            messageText.includes("publiée") ||
+            messageText.includes("mise à jour");
+
+          return (
+            <div
+              className={`rounded-lg p-4 ${isSuccess
                 ? "bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800"
                 : "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"
-            }`}
-          >
-            <p
-              className={`text-sm ${
-                message.includes("succès") ||
-                message.includes("publiée") ||
-                message.includes("mise à jour")
+                }`}
+            >
+              <p
+                className={`text-sm ${isSuccess
                   ? "text-green-600 dark:text-green-400"
                   : "text-red-600 dark:text-red-400"
-              }`}
-            >
-              {message}
-            </p>
-          </div>
-        )}
+                  }`}
+              >
+                {messageText}
+              </p>
+            </div>
+          );
+        })()}
       </form>
     </div>
   );

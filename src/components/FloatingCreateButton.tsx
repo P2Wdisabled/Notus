@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useLocalSession } from "@/hooks/useLocalSession";
 import { usePathname, useRouter } from "next/navigation";
+import { useSelection } from "@/contexts/SelectionContext";
 import type { Session } from "next-auth";
 
 interface FloatingCreateButtonProps {
@@ -11,26 +12,33 @@ interface FloatingCreateButtonProps {
 
 export default function FloatingCreateButton({ serverSession }: FloatingCreateButtonProps) {
   const { loading, isLoggedIn } = useLocalSession(serverSession);
+  const { isSelectModeActive } = useSelection();
   const pathname = usePathname();
   const router = useRouter();
 
   // Ne pas afficher le bouton sur certaines pages
   if (
     loading ||
-    pathname === "/register" ||
-    pathname === "/login" ||
-    pathname === "/documents/new" ||
-    pathname?.startsWith("/profile") ||
-    (pathname?.startsWith("/documents/local/") &&
-      pathname !== "/documents/local/new")
+    pathname !== "/"
   ) {
     return null;
   }
 
-  // Remonter le bouton si l'utilisateur n'est pas connecté sur la page d'accueil
-  // bottom-32 pour laisser de la place à la barre de non-connexion ET à la barre de sélection
-  const bottomClass =
-    !isLoggedIn && pathname === "/" ? "bottom-32" : "bottom-20";
+  // Calculer la position du bouton en fonction de l'état de connexion et du mode sélection
+  const getBottomClass = () => {
+    const isHomePage = pathname === "/";
+    const hasConnectionWarning = !isLoggedIn && isHomePage;
+    
+    if (isSelectModeActive && hasConnectionWarning) {
+      // Mode sélection + avertissement de connexion : remonter pour éviter l'empilement
+      return "bottom-32";
+    } else {
+      // Position fixe pour tous les autres cas (évite les mouvements)
+      return "bottom-20";
+    }
+  };
+
+  const bottomClass = getBottomClass();
 
   // Choisir l'URL de destination selon le statut de connexion
   const createUrl = isLoggedIn ? "/documents/new" : "/documents/local/new";

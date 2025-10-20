@@ -83,9 +83,9 @@ export class AuthService {
     } catch (error: unknown) {
       console.error("❌ Erreur lors de l'inscription:", error);
 
-      if (error instanceof Error && error.message.includes("déjà utilisé")) {
-        return error.message;
-      }
+    if (error instanceof Error && (error.message.includes("déjà utilisé") || error.message.includes("existe déjà"))) {
+      return error.message;
+    }
 
       if (error && typeof error === 'object' && 'code' in error && 
           (error.code === "ECONNRESET" || error.code === "ECONNREFUSED")) {

@@ -4,18 +4,12 @@ import { useState, useEffect } from "react";
 import { useActionState } from "react";
 import { deleteMultipleDocumentsAction } from "@/lib/actions";
 import DocumentCard from "@/components/DocumentCard";
-import { Button } from "@/components/ui";
+import SelectionBar from "@/components/SelectionBar";
+import ConnectionWarning from "@/components/ConnectionWarning";
+import { useSelection } from "@/contexts/SelectionContext";
+import { Document, LocalDocument, AnyDocument } from "@/lib/types";
 
 const LOCAL_DOCS_KEY = "notus.local.documents";
-
-interface Document {
-  id: string | number;
-  title: string;
-  content: any;
-  updated_at: string;
-  user_id?: string | number;
-  tags?: string[];
-}
 
 interface DocumentsGridClientProps {
   documents?: Document[];
@@ -23,13 +17,19 @@ interface DocumentsGridClientProps {
 }
 
 export default function DocumentsGridClient({ documents: serverDocuments = [], currentUserId }: DocumentsGridClientProps) {
-  const [localDocuments, setLocalDocuments] = useState<Document[]>([]);
-  const [selectedIds, setSelectedIds] = useState<(string | number)[]>([]);
+  const [localDocuments, setLocalDocuments] = useState<LocalDocument[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [message, formAction, isPending] = useActionState(
     deleteMultipleDocumentsAction,
     undefined
   );
   const [selectMode, setSelectMode] = useState(false);
+  const { setIsSelectModeActive } = useSelection();
+
+  // Synchroniser l'état local avec le contexte global
+  useEffect(() => {
+    setIsSelectModeActive(selectMode);
+  }, [selectMode, setIsSelectModeActive]);
 
   useEffect(() => {
     const loadLocalDocs = () => {
@@ -61,10 +61,11 @@ export default function DocumentsGridClient({ documents: serverDocuments = [], c
     : [...localDocuments, ...serverDocuments];
 
   const toggleSelect = (id: string | number, checked: boolean) => {
+    const idStr = String(id);
     setSelectedIds((prev) => {
       const set = new Set(prev);
-      if (checked) set.add(id);
-      else set.delete(id);
+      if (checked) set.add(idStr);
+      else set.delete(idStr);
       return Array.from(set);
     });
   };
@@ -73,19 +74,21 @@ export default function DocumentsGridClient({ documents: serverDocuments = [], c
     if (selectedIds.length === documents.length) {
       setSelectedIds([]);
     } else {
-      setSelectedIds(documents.map((d) => d.id));
+      setSelectedIds(documents.map((d) => String(d.id)));
     }
   };
 
   const handleBulkDelete = (formData: FormData) => {
     if (selectedIds.length === 0) return;
 
-    const localIdsToDelete: (string | number)[] = [];
-    const serverIdsToDelete: (string | number)[] = [];
+    // Séparer les documents locaux et serveur
+    const localIdsToDelete: string[] = [];
+    const serverIdsToDelete: string[] = [];
 
     selectedIds.forEach((id) => {
-      const doc = documents.find((d) => d.id === id);
-      if (doc && !doc.user_id) {
+      const doc = documents.find((d) => String(d.id) === id);
+      if (doc && !('user_id' in doc) || (doc as LocalDocument).user_id === undefined) {
+        // Document local
         localIdsToDelete.push(id);
       } else {
         serverIdsToDelete.push(id);
@@ -96,7 +99,7 @@ export default function DocumentsGridClient({ documents: serverDocuments = [], c
       try {
         const raw = localStorage.getItem(LOCAL_DOCS_KEY);
         const parsed = raw ? JSON.parse(raw) : [];
-        const updated = parsed.filter((doc: Document) => !localIdsToDelete.includes(doc.id));
+        const updated = parsed.filter((doc: LocalDocument) => !localIdsToDelete.includes(doc.id));
         localStorage.setItem(LOCAL_DOCS_KEY, JSON.stringify(updated));
         setLocalDocuments(updated);
       } catch (e) {
@@ -155,20 +158,21 @@ export default function DocumentsGridClient({ documents: serverDocuments = [], c
 
         <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(300px,1fr))]">
           {documents.map((document) => {
-            const isLocal = !document.user_id;
+            // Un document est local s'il n'a pas de user_id (vient du localStorage)
+            const isLocal = !('user_id' in document) || (document as LocalDocument).user_id === undefined;
             return (
-              <div key={document.id} className="w-full">
+              <div key={String(document.id)} className="w-full">
                 <DocumentCard
                   document={document}
                   currentUserId={currentUserId}
                   isLocal={isLocal}
                   selectMode={selectMode}
-                  selected={selectedIds.includes(document.id)}
+                  selected={selectedIds.includes(String(document.id))}
                   onToggleSelect={toggleSelect}
                   onEnterSelectMode={(firstId) => {
                     if (!selectMode) {
                       setSelectMode(true);
-                      setSelectedIds([firstId]);
+                      setSelectedIds([String(firstId)]);
                     }
                   }}
                 />
@@ -178,65 +182,21 @@ export default function DocumentsGridClient({ documents: serverDocuments = [], c
         </div>
       </div>
 
-      {/* Bandeau fixe en bas de page */}
+      {/* Barre de sélection */}
       {selectMode && (
-        <div className={`fixed left-0 right-0 z-10 px-0 md:px-4 ${!currentUserId ? 'bottom-20' : 'bottom-0'}`}>
-          <div className="md:ml-64 md:max-w-4/5 max-w-4xl mx-auto py-3 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-lg px-4">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => { setSelectMode(false); setSelectedIds([]); }}
-                  className="text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
-                  aria-label="Annuler la sélection"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-                <span className="text-sm text-gray-700 dark:text-gray-300 font-medium hidden md:inline">
-                  {selectedIds.length} note{selectedIds.length > 1 ? 's' : ''} sélectionnée{selectedIds.length > 1 ? 's' : ''}
-                </span>
-                <span className="text-sm text-gray-700 dark:text-gray-300 font-medium md:hidden">
-                  {selectedIds.length}
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={toggleAll}
-                  className="text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
-                  aria-label={selectedIds.length === documents.length ? "Tout désélectionner" : "Tout sélectionner"}
-                  title={selectedIds.length === documents.length ? "Tout désélectionner" : "Tout sélectionner"}
-                >
-                  {selectedIds.length === documents.length ? (
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  ) : (
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                    </svg>
-                  )}
-                </button>
-
-                <form action={handleBulkDelete} className="flex items-center">
-                  <button
-                    type="submit"
-                    disabled={isPending || selectedIds.length === 0}
-                    className="flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-full font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    aria-label="Supprimer les notes sélectionnées"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                    <span className="hidden md:inline">{isPending ? "Suppression..." : "Supprimer"}</span>
-                  </button>
-                </form>
-              </div>
-            </div>
-          </div>
-        </div>
+        <SelectionBar
+          selectedCount={selectedIds.length}
+          totalCount={documents.length}
+          isPending={isPending}
+          onCancel={() => { setSelectMode(false); setSelectedIds([]); }}
+          onToggleAll={toggleAll}
+          onBulkDelete={handleBulkDelete}
+          currentUserId={currentUserId}
+        />
       )}
+
+      {/* Avertissement de connexion - toujours affiché si nécessaire */}
+      <ConnectionWarning currentUserId={currentUserId} hasSelectionBar={selectMode} />
     </>
   );
 }

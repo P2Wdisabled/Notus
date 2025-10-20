@@ -29,6 +29,34 @@ export class PrismaUserRepository {
       };
     } catch (error: unknown) {
       console.error('❌ Erreur création utilisateur:', error);
+      
+      // Gérer les erreurs de contrainte unique Prisma
+      if (error && typeof error === 'object' && 'code' in error) {
+        const prismaError = error as any;
+        if (prismaError.code === 'P2002') {
+          // Erreur de contrainte unique
+          const target = prismaError.meta?.target;
+          if (Array.isArray(target)) {
+            if (target.includes('email')) {
+              return {
+                success: false,
+                error: 'Un compte existe déjà avec cette adresse email',
+              };
+            }
+            if (target.includes('username')) {
+              return {
+                success: false,
+                error: 'Ce nom d\'utilisateur est déjà utilisé',
+              };
+            }
+          }
+          return {
+            success: false,
+            error: 'Cette information est déjà utilisée par un autre compte',
+          };
+        }
+      }
+      
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Erreur inconnue',

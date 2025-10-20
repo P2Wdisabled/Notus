@@ -218,3 +218,10 @@ select:-webkit-autofill {
 .animate-fade-in {
   animation: fade-in 0.2s ease-out;
 }
+
+.scroller {
+  scrollbar-color: var(--primary) var(--background);
+}
+.scroller::-webkit-scrollbar-thumb {
+  background: var(--primary);
+}

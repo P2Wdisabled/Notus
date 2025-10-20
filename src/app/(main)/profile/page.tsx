@@ -25,13 +25,11 @@ export default async function ProfilePage() {
     "MonCompte";
   const displayName = userProfile
     ? `${userProfile.first_name} ${userProfile.last_name}`.trim() ||
-      userProfile.username
+    userProfile.username
     : session?.user?.name || username || "MonCompte";
   const joinDate = userProfile?.created_at
     ? new Date(userProfile.created_at)
-    : session?.user?.createdAt
-      ? new Date(session.user.createdAt)
-      : new Date();
+    : new Date();
 
   const documentsResult = userId
     ? await getUserDocumentsAction(userId)
@@ -69,7 +67,7 @@ export default async function ProfilePage() {
       <div className="md:ml-64 md:pl-4">
         <div className="max-w-4xl mx-auto px-4 md:px-6 lg:px-8">
           <div
-            className="h-40 md:h-52 w-full relative rounded-2xl overflow-hidden"
+            className="h-40 md:h-52 w-full relative rounded-2xl overflow-hidden bg-primary"
             style={{
               backgroundImage: userProfile?.banner_image
                 ? `url(${userProfile.banner_image})`
@@ -77,11 +75,9 @@ export default async function ProfilePage() {
               backgroundColor: userProfile?.banner_image
                 ? "transparent"
                 : undefined,
-              background: userProfile?.banner_image
-                ? `url(${userProfile.banner_image})`
-                : "linear-gradient(135deg, #f97316, #ea580c)",
-              backgroundSize: "cover",
-              backgroundPosition: "center",
+              background: userProfile?.banner_image 
+                ? `url(${userProfile.banner_image}) cover center`
+                : undefined,
             }}
           />
         </div>
@@ -89,18 +85,81 @@ export default async function ProfilePage() {
 
       <div className="md:ml-64 md:pl-4">
         <div className="max-w-4xl mx-auto px-4 md:px-6 lg:px-8 -mt-12 md:-mt-16 pb-10">
-        {/* Header */}
-        <div className="flex flex-col items-center md:flex-row md:items-end gap-4 relative z-10">
+          {/* Header */}
+          <div className="flex flex-col items-center md:flex-row md:items-end gap-4 relative z-10">
             <div className="w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-background overflow-hidden bg-muted ring-2 ring-border/30 shadow-lg">
-            {userProfile?.profile_image ? (
-              <img
-                src={userProfile.profile_image}
-                alt="Photo de profil"
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="w-full h-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-xl">
-                {getInitials(displayName)}
+              {userProfile?.profile_image ? (
+                <img
+                  src={userProfile.profile_image}
+                  alt="Photo de profil"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-xl">
+                  {getInitials(displayName || null)}
+                </div>
+              )}
+            </div>
+            <div className="flex-1" />
+            <div className="flex items-center gap-3 justify-center md:justify-start w-full md:w-auto">
+              <Link href="/profile/edit">
+                <Button className="px-4 py-2">Modifier le profil</Button>
+              </Link>
+              {/* <Button variant="secondary" className="px-4 py-2">
+              Partager le profil
+            </Button> */}
+            </div>
+          </div>
+
+          {/* Identity */}
+          <div className="mt-4 text-center md:text-left">
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground">
+              {displayName}
+            </h1>
+            <p className="text-muted-foreground">
+              @{username || "pseudo"}
+            </p>
+            <div className="flex items-center justify-center md:justify-start gap-2 mt-2 text-sm text-muted-foreground">
+              <CalendarIcon className="w-4 h-4" />
+              <span>
+                A rejoint en {joinDate.toLocaleString("fr-FR", { month: "long" })}{" "}
+                {joinDate.getFullYear()}
+              </span>
+            </div>
+          </div>
+
+          {/* Notes section */}
+          <div className="mt-8">
+            <h2 className="text-xl font-semibold text-foreground mb-3">
+              Mes notes
+            </h2>
+
+            {documentsResult.success &&
+              documentsResult.documents.length === 0 && (
+                <Card className="p-6">
+                  <Card.Title>Aucune note</Card.Title>
+                  <Card.Description>
+                    Créez votre première note depuis la page d'accueil.
+                  </Card.Description>
+                </Card>
+              )}
+
+            {documentsResult.success && documentsResult.documents.length > 0 && (
+              <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(300px,1fr))]">
+                {documentsResult.documents
+                  .sort((a: any, b: any) => {
+                    const dateA = new Date(a.updated_at || a.created_at);
+                    const dateB = new Date(b.updated_at || b.created_at);
+                    return dateB.getTime() - dateA.getTime(); // Tri décroissant (plus récent en premier)
+                  })
+                  .map((document: any) => (
+                    <div key={document.id} className="w-full">
+                      <DocumentCard
+                        document={document}
+                        currentUserId={session?.user?.id}
+                      />
+                    </div>
+                  ))}
               </div>
             )}
           </div>

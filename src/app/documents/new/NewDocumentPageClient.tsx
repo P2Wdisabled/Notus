@@ -39,7 +39,9 @@ export default function NewDocumentPageClient(props: NewDocumentPageClientProps)
 
   // Action state
   const [state, formAction, isPending] = useActionState(createDocumentAction, {
-    ok: false,
+    success: false,
+    message: "",
+    documentId: 0,
   });
 
   // Session management
@@ -106,7 +108,7 @@ export default function NewDocumentPageClient(props: NewDocumentPageClientProps)
       e?.preventDefault?.();
 
       const submittingUserId =
-        userId ?? localSession?.user?.id ?? props.session?.user?.id;
+        userId ?? (localSession as any)?.id ?? props.session?.user?.id;
       if (!submittingUserId) {
         alert("Session invalide. Veuillez vous reconnecter.");
         return;
@@ -259,28 +261,25 @@ export default function NewDocumentPageClient(props: NewDocumentPageClientProps)
             </div>
 
             {/* Buttons */}
-            <div className="flex justify-end space-x-4">
-              <Link
-                href="/"
-                className="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-              >
+            <div className="flex justify-center space-x-4">
+              <Button variant="ghost" className="px-6 py-3" onClick={() => router.back()}>
                 Annuler
-              </Link>
-              <button
+              </Button>
+              <Button
                 type="submit"
                 disabled={isPending}
                 className={`${
                   showSavedState
                     ? "bg-green-600 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-600"
-                    : "bg-orange hover:bg-orange dark:bg-dark-purple dark:hover:bg-dark-purple"
-                } disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-lg transition-colors`}
+                    : "bg-primary hover:bg-primary/90 text-primary-foreground"
+                } disabled:bg-gray-400 disabled:cursor-not-allowed font-semibold py-3 px-6 rounded-lg transition-colors`}
               >
                 {isPending
-                  ? "Création..."
+                  ? "Sauvegarde..."
                   : showSavedState
-                    ? "Créé"
-                    : "Créer le document"}
-              </button>
+                    ? "Sauvegardé"
+                    : "Sauvegarder"}
+              </Button>
             </div>
 
             {/* Success/Error messages */}

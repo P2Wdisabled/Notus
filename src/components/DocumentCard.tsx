@@ -6,20 +6,13 @@ import Link from "next/link";
 import DOMPurify from "dompurify";
 import { Button, Input } from "@/components/ui";
 import { useGuardedNavigate } from "@/hooks/useGuardedNavigate";
+import Modal from "@/components/ui/modal";
 import TagsManager from "@/components/TagsManager";
 import { cn } from "@/lib/utils";
-
-interface Document {
-  id: string | number;
-  title: string;
-  content: any;
-  updated_at: string;
-  user_id?: string | number;
-  tags?: string[];
-}
+import { Document, LocalDocument, AnyDocument } from "@/lib/types";
 
 interface DocumentCardProps {
-  document: Document;
+  document: AnyDocument;
   currentUserId?: string | number | null;
   onDelete?: (id: string | number) => void;
   selectMode?: boolean;
@@ -108,8 +101,8 @@ export default function DocumentCard({
   onDelete,
   selectMode = false,
   selected = false,
-  onToggleSelect = () => {},
-  onEnterSelectMode = () => {},
+  onToggleSelect = () => { },
+  onEnterSelectMode = () => { },
   isLocal = false,
   index = 0,
 }: DocumentCardProps) {
@@ -124,9 +117,10 @@ export default function DocumentCard({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const { checkConnectivity } = useGuardedNavigate();
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
-  const isOwner = document.user_id === currentUserId;
-  const updatedDate = new Date(document.updated_at);
+  const isOwner = ('user_id' in document) ? document.user_id === currentUserId : false;
+  const updatedDate = new Date(document.updated_at || new Date());
   const formattedDate = updatedDate.toLocaleDateString("fr-FR", {
     day: "2-digit",
     month: "2-digit",
@@ -285,6 +279,12 @@ export default function DocumentCard({
     // Aucun changement détecté (sécurité)
   };
 
+  const handleTagsClick = () => {
+    if (!currentUserId) {
+      setShowLoginModal(true);
+    }
+  };
+
   const handleDelete = (formData: FormData) => {
     if (!currentUserId) return;
     formData.append("documentId", String(document.id));
@@ -300,12 +300,8 @@ export default function DocumentCard({
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const longPressActivatedRef = useRef(false);
 
-  const handleCheckboxClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-  };
-
   const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.stopPropagation();
     onToggleSelect(document.id, e.target.checked);
   };
 
@@ -389,13 +385,13 @@ export default function DocumentCard({
 
   // Définir l'URL en fonction du type de document (local ou serveur)
   const documentUrl = isLocal
-    ? `/documents/local/${encodeURIComponent(document.id)}`
+    ? `/documents/local/${encodeURIComponent(String(document.id))}`
     : `/documents/${document.id}`;
 
   return (
     <div
       className={cn(
-        "group relative bg-card border rounded-xl p-5 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-1 cursor-pointer animate-fade-in-up",
+        "group relative bg-card border rounded-xl p-5 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-1 animate-fade-in-up",
         selected && "border-primary ring-2 ring-primary/20 bg-primary/5",
       )}
       style={{ animationDelay: `${index * 50}ms` }}
@@ -404,7 +400,6 @@ export default function DocumentCard({
         setIsHovered(false);
         clearLongPressTimer();
       }}
-      onClick={handleCardClick}
       onContextMenu={(e) => {
         e.preventDefault();
         handleLongPress();
@@ -414,7 +409,7 @@ export default function DocumentCard({
       onTouchStart={startLongPressTimer}
       onTouchEnd={clearLongPressTimer}
     >
-      {/* Header */}
+      {/* Header - Zone des tags (non cliquable) */}
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2 w-full min-w-0">
           <div
@@ -422,6 +417,7 @@ export default function DocumentCard({
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
+              handleTagsClick();
             }}
           >
             <TagsManager
@@ -429,6 +425,7 @@ export default function DocumentCard({
               onTagsChange={handleTagsChange}
               placeholder="Nouveau tag..."
               maxTags={10}
+              disabled={!currentUserId}
             />
           </div>
         </div>
@@ -507,56 +504,57 @@ export default function DocumentCard({
               <p className="text-muted-foreground/70 italic">
                 Chargement...
               </p>
-            )
-          ) : previewText ? (
-            <p>
-              {previewText.length > 200
-                ? `${previewText.substring(0, 200)}...`
-                : previewText}
-            </p>
-          ) : (
-            <p className="text-gray-400 dark:text-gray-500 italic">
-              Document vide
-            </p>
+            ) : (
+              <p className="text-gray-400 dark:text-gray-500 italic">
+                Document vide
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
+          <time
+            dateTime={typeof document.updated_at === 'string' ? document.updated_at : (document.updated_at || new Date()).toISOString()}
+            className="text-xs text-muted-foreground"
+          >
+            {formattedDate}
+          </time>
+          {/* {isOwner && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Propriétaire</span>
+            </div>
+          )} */}
+          {selectMode && (
+            <div className="relative">
+              <input
+                type="checkbox"
+                checked={selected}
+                onChange={handleCheckboxChange}
+                className="h-5 w-5 appearance-none border-2 rounded transition-all duration-200 animate-fade-in cursor-pointer"
+                style={{
+                  borderColor: selected ? 'var(--primary)' : 'var(--input)',
+                  backgroundColor: selected ? 'var(--primary)' : 'transparent',
+                }}
+                aria-label="Sélectionner ce document"
+              />
+              {selected && (
+                <svg
+                  className="absolute top-0 left-0 h-5 w-5 pointer-events-none text-white"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              )}
+            </div>
           )}
         </div>
-      </div>
-
-      {/* Footer */}
-      <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
-        <time
-          dateTime={document.updated_at}
-          className="text-xs text-muted-foreground"
-        >
-          {formattedDate}
-        </time>
-        {/* {isOwner && (
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">Propriétaire</span>
-          </div>
-        )} */}
-          {selectMode && (
-          <div
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleSelect(document.id, !selected);
-            }}
-            className="animate-fade-in"
-          >
-             <input
-               type="checkbox"
-               checked={selected}
-               onClick={handleCheckboxClick}
-               onChange={handleCheckboxChange}
-               className="h-5 w-5 appearance-none border-2 border-input rounded transition-all duration-200 checked:border-primary checked:bg-primary checked:accent-primary"
-               style={{
-                 accentColor: selected ? 'var(--primary)' : undefined
-               }}
-               aria-label="Sélectionner ce document"
-             />
-          </div>
-        )}
-      </div>
+      </Link>
 
       {/* Message de suppression */}
       {message && (
@@ -564,6 +562,57 @@ export default function DocumentCard({
           <p className="text-sm text-destructive">{message}</p>
         </div>
       )}
+
+      {/* Modal de connexion */}
+      <Modal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        title="Connexion requise"
+        size="md"
+      >
+        <Modal.Content>
+          <div className="text-center space-y-4">
+            <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+              <svg
+                className="w-6 h-6 text-primary"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-foreground mb-2">
+                Accès restreint
+              </h3>
+              <p className="text-muted-foreground">
+                Vous devez être connecté pour gérer les tags de ce document.
+              </p>
+            </div>
+          </div>
+        </Modal.Content>
+        <Modal.Footer>
+          <Button
+            variant="ghost"
+            className="cursor-pointer px-6 py-2"
+            onClick={() => setShowLoginModal(false)}
+          >
+            Fermer
+          </Button>
+          <Button asChild 
+            className="cursor-pointer px-6 py-2">
+            <Link href="/login">
+              Se connecter
+            </Link>
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 }

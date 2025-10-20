@@ -12,7 +12,7 @@ export default function ForgotPasswordPage() {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="max-w-md w-full">
         <Card.Header className="text-center">
           <Card.Title className="text-3xl mb-2">Mot de passe oublié</Card.Title>
@@ -62,7 +62,7 @@ export default function ForgotPasswordPage() {
         </Card.Content>
 
         <Card.Footer className="text-center">
-          <p className="text-gray-600 dark:text-gray-300">
+          <p className="text-foreground py-3">
             Vous vous souvenez de votre mot de passe ?{" "}
             <Button variant="link" asChild>
               <Link href="/login">Se connecter</Link>

@@ -590,13 +590,13 @@ export default function DrawingCanvas({
   // -------- Socket event handlers --------
   const handleDrawingUpdate = useCallback(
     (data: any) => {
-      if (data.userId === session?.user?.id || localMode) return;
+      if (data.userId === (session as any)?.user?.id || localMode) return;
 
       if (data.drawings && Array.isArray(data.drawings)) {
         setDrawings(data.drawings);
       }
     },
-    [session?.user?.id, localMode, setDrawings]
+    [(session as any)?.user?.id, localMode, setDrawings]
   );
 
   const handleClearCanvas = useCallback(() => {

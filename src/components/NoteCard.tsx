@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { deleteNoteAction } from "@/lib/actions";
+import { deleteDocumentAction } from "@/lib/actions";
 import { useState } from "react";
 
 interface Note {
@@ -22,7 +22,7 @@ interface NoteCardProps {
 
 export default function NoteCard({ note, currentUserId, onDelete }: NoteCardProps) {
   const [message, formAction, isPending] = useActionState(
-    deleteNoteAction,
+    deleteDocumentAction,
     undefined
   );
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);

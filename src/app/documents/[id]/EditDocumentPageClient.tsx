@@ -7,6 +7,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useLocalSession } from "@/hooks/useLocalSession";
 import WysiwygNotepad from "@/components/Paper.js/WysiwygNotepad";
+import CollaborativeNotepad from "@/components/Paper.js/CollaborativeNotepad";
+import { Document } from "@/lib/types";
+import TagsManager from "@/components/TagsManager";
 
 interface EditDocumentPageClientProps {
   session?: any;
@@ -18,15 +21,6 @@ interface NotepadContent {
   drawings: any[];
   textFormatting: Record<string, any>;
   timestamp?: number;
-}
-
-interface Document {
-  id: number;
-  title: string;
-  content: NotepadContent;
-  tags: string[];
-  updated_at: string;
-  user_id: number;
 }
 
 interface CanvasController {
@@ -97,9 +91,10 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
         setDocument({
           id: Number(props.params.id),
           title: result.title,
-          content: normalizedContent,
+          content: JSON.stringify(normalizedContent),
           tags: Array.isArray(result.tags) ? result.tags : [],
-          updated_at: result.updated_at,
+          created_at: new Date(result.created_at || result.updated_at),
+          updated_at: new Date(result.updated_at),
           user_id: Number(result.user_id ?? result.owner ?? NaN),
         });
 
@@ -184,7 +179,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   useEffect(() => {
     if (document) {
       setTitle(document.title);
-      setContent(document.content);
+      setContent(normalizeContent(document.content));
       setCanvasCtrl(null);
     }
   }, [document]);
@@ -552,70 +547,13 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Tags */}
             <div className="mb-1">
-              <div className="flex flex-wrap items-center gap-2">
-                {tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="inline-flex items-center font-medium rounded-full px-2 py-0.5 text-xs bg-purple/10 dark:bg-purple/20 text-purple dark:text-light-purple border border-purple/20 dark:border-purple/30 pr-1"
-                  >
-                    <span className="mr-1 max-w-[200px] truncate" title={tag}>
-                      {tag}
-                    </span>
-                    <button
-                      type="button"
-                      className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full text-purple dark:text-light-purple hover:bg-purple/20 dark:hover:bg-purple/30"
-                      aria-label={`Supprimer le tag ${tag}`}
-                      onClick={() => removeTag(tag)}
-                    >
-                      ×
-                    </button>
-                  </span>
-                ))}
-                {!showTagInput && (
-                  <Button
-                    variant="secondary"
-                    className="px-2 py-0.5 text-sm"
-                    onClick={() => setShowTagInput(true)}
-                  >
-                    +
-                  </Button>
-                )}
-                {showTagInput && (
-                  <div className="flex items-center gap-1">
-                    <input
-                      value={newTag}
-                      onChange={(e) => setNewTag(e.target.value)}
-                      placeholder="Nouveau tag"
-                      className="h-7 text-sm px-2 py-1 rounded border border-gray dark:border-dark-gray bg-transparent text-black dark:text-white"
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") addTag();
-                        if (e.key === "Escape") {
-                          setShowTagInput(false);
-                          setNewTag("");
-                        }
-                      }}
-                      autoFocus
-                    />
-                    <button
-                      type="button"
-                      className="px-2 py-0.5 text-sm bg-orange dark:bg-dark-purple text-white rounded"
-                      onClick={addTag}
-                    >
-                      Ajouter
-                    </button>
-                    <button
-                      type="button"
-                      className="px-2 py-0.5 text-sm border border-gray dark:border-dark-gray rounded"
-                      onClick={() => {
-                        setShowTagInput(false);
-                        setNewTag("");
-                      }}
-                    >
-                      Annuler
-                    </button>
-                  </div>
-                )}
-              </div>
+              <TagsManager
+                tags={tags}
+                onTagsChange={handleTagsChange}
+                placeholder="Ajouter un tag..."
+                maxTags={20}
+                className="w-full"
+              />
             </div>
 
             {/* Title */}
@@ -624,7 +562,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange dark:focus:ring-dark-purple bg-transparent text-black dark:text-white text-xl font-semibold"
+                className="w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange dark:focus:ring-primary bg-transparent text-foreground text-xl font-semibold"
                 placeholder="Titre du document"
                 maxLength={255}
               />
@@ -648,14 +586,14 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
             </div>
 
             {/* Buttons */}
-            <div className="flex justify-end space-x-4">
-              <Link
+            <div className="flex justify-center space-x-4">
+            <Link
                 href="/"
-                className="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                className="px-6 py-3 rounded-lg text-foreground hover:shadow-md hover:border-primary hover:bg-foreground/5 border border-primary cursor-pointer"
               >
                 Annuler
               </Link>
-              <button
+              <Button
                 type="submit"
                 disabled={isPending}
                 className={`${
@@ -669,24 +607,22 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
                   : showSavedState
                     ? "Sauvegardé"
                     : "Sauvegarder"}
-              </button>
+              </Button>
             </div>
-
+            
             {/* Success/Error messages */}
             {(showSuccessMessage || (state && (state as any).error)) && (
               <div
-                className={`shrink-0 rounded-lg p-4 mt-4 ${
-                  showSuccessMessage
-                    ? "bg-white dark:bg-black border border-orange dark:border-dark-purple"
-                    : "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"
-                }`}
+                className={`shrink-0 rounded-lg p-4 mt-4 ${showSuccessMessage
+                  ? "bg-white dark:bg-black border border-orange dark:border-dark-purple"
+                  : "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"
+                  }`}
               >
                 <p
-                  className={`text-sm ${
-                    showSuccessMessage
-                      ? "text-orange dark:text-dark-purple"
-                      : "text-red-600 dark:text-red-400"
-                  }`}
+                  className={`text-sm ${showSuccessMessage
+                    ? "text-orange dark:text-dark-purple"
+                    : "text-red-600 dark:text-red-400"
+                    }`}
                 >
                   {showSuccessMessage
                     ? "Document sauvegardé avec succès !"

@@ -62,7 +62,7 @@ const Modal: React.FC<ModalProps> & {
           </DialogTitle>
         </DialogHeader>
         {title && (
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+          <h2 className="text-2xl font-title font-bold text-center text-foreground mb-4">
             {title}
           </h2>
         )}
@@ -103,7 +103,7 @@ const ModalContent: React.FC<React.ComponentProps<"div">> = ({ children, classNa
 );
 
 const ModalFooter: React.FC<React.ComponentProps<"div">> = ({ children, className = "", ...props }) => (
-  <div className={`mt-6 flex justify-end space-x-3 ${className}`} {...props}>
+  <div className={`mt-6 flex justify-center space-x-3 ${className}`} {...props}>
     {children}
   </div>
 );

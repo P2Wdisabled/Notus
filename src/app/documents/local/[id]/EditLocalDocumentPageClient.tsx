@@ -5,6 +5,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useLocalSession } from "@/hooks/useLocalSession";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
 
 const LOCAL_DOCS_KEY = "notus.local.documents";
 
@@ -77,17 +78,19 @@ export default function EditLocalDocumentPageClient({ params }: EditLocalDocumen
             setDocument(found);
             setTitle(found.title || "Sans titre");
             // Normalize content for editor
-            let normalized: NotepadContent = found.content as NotepadContent;
-            if (typeof normalized === "string") {
+            let normalized: NotepadContent;
+            if (typeof found.content === "string") {
               try {
-                normalized = JSON.parse(normalized);
+                normalized = JSON.parse(found.content);
               } catch {
                 normalized = {
-                  text: normalized,
+                  text: found.content,
                   drawings: [],
                   textFormatting: {},
                 };
               }
+            } else {
+              normalized = found.content as NotepadContent;
             }
             setContent(
               normalized || { text: "", drawings: [], textFormatting: {} }
@@ -303,14 +306,13 @@ export default function EditLocalDocumentPageClient({ params }: EditLocalDocumen
             </div>
 
             <div className="flex justify-center space-x-4 pt-2 shrink-0">
-              <button
+              <Button
                 type="button"
                 onClick={handleSave}
-                className={`${
-                  showSavedState
-                    ? "bg-green-600 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-600"
-                    : "bg-primary hover:bg-primary/90 text-primary-foreground"
-                } disabled:bg-gray-400 disabled:cursor-not-allowed font-semibold py-3 px-6 rounded-lg transition-colors`}
+                className={`${showSavedState
+                  ? "bg-green-600 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-600"
+                  : "bg-primary hover:bg-primary/90 text-primary-foreground"
+                  } disabled:bg-gray-400 disabled:cursor-not-allowed font-semibold py-3 px-6 rounded-lg transition-colors`}
               >
                 {showSavedState
                   ? isNewDoc
@@ -319,10 +321,10 @@ export default function EditLocalDocumentPageClient({ params }: EditLocalDocumen
                   : isNewDoc
                     ? "Créer le document"
                     : "Sauvegarder"}
-              </button>
+              </Button>
               <Link
                 href="/"
-                className="px-6 py-3 border border-orange dark:border-dark-purple text-orange dark:text-dark-purple rounded-lg hover:shadow-md shadow-orange dark:shadow-dark-purple transition-all duration-200 cursor-pointer"
+                className="px-6 py-3 rounded-lg text-foreground hover:shadow-md hover:border-primary hover:bg-foreground/5 border border-primary cursor-pointer"
               >
                 Annuler
               </Link>

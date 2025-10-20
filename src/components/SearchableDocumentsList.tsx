@@ -4,9 +4,13 @@ import { useState, useEffect } from "react";
 import { useActionState } from "react";
 import { useRouter } from "next/navigation";
 import { useSearch } from "@/contexts/SearchContext";
+import { useSelection } from "@/contexts/SelectionContext";
 import { deleteMultipleDocumentsAction } from "@/lib/actions";
 import DocumentCard from "@/components/DocumentCard";
-import { Card, Alert, Button } from "@/components/ui";
+import SelectionBar from "@/components/SelectionBar";
+import ConnectionWarning from "@/components/ConnectionWarning";
+import { Card, Alert } from "@/components/ui";
+import { Document, LocalDocument, AnyDocument } from "@/lib/types";
 
 const LOCAL_DOCS_KEY = "notus.local.documents";
 
@@ -33,13 +37,19 @@ export function SearchableDocumentsList({
 }: SearchableDocumentsListProps) {
   const { filterDocuments, filterLocalDocuments, isSearching } = useSearch();
   const router = useRouter();
-  const [localDocuments, setLocalDocuments] = useState<Document[]>([]);
+  const [localDocuments, setLocalDocuments] = useState<LocalDocument[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [message, formAction, isPending] = useActionState(
     deleteMultipleDocumentsAction,
     undefined
   );
   const [selectMode, setSelectMode] = useState(false);
+  const { setIsSelectModeActive } = useSelection();
+
+  // Synchroniser l'état local avec le contexte global
+  useEffect(() => {
+    setIsSelectModeActive(selectMode);
+  }, [selectMode, setIsSelectModeActive]);
 
   useEffect(() => {
     const loadLocalDocs = () => {
@@ -87,11 +97,13 @@ export function SearchableDocumentsList({
         return dateB.getTime() - dateA.getTime();
       });
 
+  // Fonctions de gestion de la sélection
   const toggleSelect = (id: string | number, checked: boolean) => {
+    const idStr = String(id);
     setSelectedIds((prev) => {
       const set = new Set(prev);
-      if (checked) set.add(String(id));
-      else set.delete(String(id));
+      if (checked) set.add(idStr);
+      else set.delete(idStr);
       return Array.from(set);
     });
   };
@@ -111,8 +123,9 @@ export function SearchableDocumentsList({
     const serverIdsToDelete: string[] = [];
 
     selectedIds.forEach((id) => {
-      const doc = documents.find((d) => d.id === id);
-      if (doc && !doc.user_id) {
+      const doc = documents.find((d) => String(d.id) === id);
+      if (doc && !('user_id' in doc) || (doc as LocalDocument).user_id === undefined) {
+        // Document local
         localIdsToDelete.push(id);
       } else {
         serverIdsToDelete.push(id);
@@ -124,7 +137,7 @@ export function SearchableDocumentsList({
         const raw = localStorage.getItem(LOCAL_DOCS_KEY);
         const parsed = raw ? JSON.parse(raw) : [];
         const updated = parsed.filter(
-          (doc: Document) => !localIdsToDelete.includes(String(doc.id))
+          (doc: LocalDocument) => !localIdsToDelete.includes(doc.id)
         );
         localStorage.setItem(LOCAL_DOCS_KEY, JSON.stringify(updated));
         setLocalDocuments(updated);
@@ -155,11 +168,12 @@ export function SearchableDocumentsList({
     );
   }
 
-  const filteredDocuments = isSearching
+  // Filtrer les documents en fonction du type (local ou serveur)
+  const filteredDocuments: AnyDocument[] = isSearching
     ? [
-        ...filterLocalDocuments(localDocuments as any),
-        ...filterDocuments(serverDocuments as any),
-      ]
+      ...filterLocalDocuments(localDocuments as any),
+      ...filterDocuments(serverDocuments),
+    ]
     : documents;
 
   if (documents.length === 0) {
@@ -229,9 +243,11 @@ export function SearchableDocumentsList({
 
         <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(300px,1fr))]">
           {filteredDocuments.map((document) => {
-            const isLocal = !document.user_id;
+            // Un document est local s'il provient du localStorage (pas de user_id)
+            // Un document est serveur s'il provient de la base de données (a un user_id)
+            const isLocal = !('user_id' in document) || (document as LocalDocument).user_id === undefined;
             return (
-              <div key={document.id} className="w-full">
+              <div key={String(document.id)} className="w-full">
                 <DocumentCard
                   document={document as any}
                   currentUserId={currentUserId}
@@ -252,55 +268,24 @@ export function SearchableDocumentsList({
         </div>
       </div>
 
-      {/* Bandeau fixe en bas de page */}
+      {/* Barre de sélection */}
       {selectMode && (
-        <div
-          className={`fixed left-0 right-0 z-50 bg-background px-4  md:ml-64 ${!currentUserId ? "bottom-12" : "bottom-0"}`}
-        >
-          <div className="max-w-4xl mx-auto flex items-center justify-between py-3 border-t border-gray-200 dark:border-gray-700">
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600 dark:text-gray-400">
-                {selectedIds.length} document(s) sélectionné(s)
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={toggleAll}
-                className="text-blue-600 dark:text-blue-400"
-              >
-                {selectedIds.length === filteredDocuments.length
-                  ? "Tout désélectionner"
-                  : "Tout sélectionner"}
-              </Button>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setSelectMode(false);
-                  setSelectedIds([]);
-                }}
-                className="text-gray-600 dark:text-gray-400"
-              >
-                Annuler
-              </Button>
-              <form action={handleBulkDelete}>
-                <Button
-                  type="submit"
-                  variant="destructive"
-                  size="sm"
-                  disabled={selectedIds.length === 0 || isPending}
-                >
-                  {isPending
-                    ? "Suppression..."
-                    : `Supprimer (${selectedIds.length})`}
-                </Button>
-              </form>
-            </div>
-          </div>
-        </div>
+        <SelectionBar
+          selectedCount={selectedIds.length}
+          totalCount={filteredDocuments.length}
+          isPending={isPending}
+          onCancel={() => {
+            setSelectMode(false);
+            setSelectedIds([]);
+          }}
+          onToggleAll={toggleAll}
+          onBulkDelete={handleBulkDelete}
+          currentUserId={currentUserId}
+        />
       )}
+
+      {/* Avertissement de connexion - toujours affiché si nécessaire */}
+      <ConnectionWarning currentUserId={currentUserId} hasSelectionBar={selectMode} />
     </>
   );
 }
