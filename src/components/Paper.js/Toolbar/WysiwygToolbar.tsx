@@ -170,6 +170,27 @@ export default function WysiwygToolbar({ onFormatChange, showDebug = false, onTo
     };
   }, [checkFormatting]);
 
+  // Handle clicks outside color pickers to close them
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      
+      // Check if click is outside color picker containers
+      if (showColorPicker && !target.closest('[data-color-picker]')) {
+        setShowColorPicker(false);
+      }
+      
+      if (showHighlightPicker && !target.closest('[data-highlight-picker]')) {
+        setShowHighlightPicker(false);
+      }
+    };
+
+    if (showColorPicker || showHighlightPicker) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showColorPicker, showHighlightPicker]);
+
   // Expose a global opener so double-click from the editor can open this modal
   useEffect(() => {
     (window as any).openImageEditModal = () => {
@@ -394,7 +415,7 @@ export default function WysiwygToolbar({ onFormatChange, showDebug = false, onTo
       </button>
 
       {/* Text Color */}
-      <div className="relative">
+      <div className="relative" data-color-picker>
         <button
           type="button"
           onClick={() => setShowColorPicker(!showColorPicker)}
@@ -423,7 +444,6 @@ export default function WysiwygToolbar({ onFormatChange, showDebug = false, onTo
                   const color = e.target.value;
                   setCurrentColor(color);
                   onFormatChange('foreColor', color);
-                  setShowColorPicker(false);
                 }}
                 className="w-full h-10 rounded border border-gray-300 dark:border-gray-600 cursor-pointer"
                 title="Sélectionner une couleur"
@@ -445,7 +465,7 @@ export default function WysiwygToolbar({ onFormatChange, showDebug = false, onTo
       </div>
 
       {/* Highlight Color */}
-      <div className="relative">
+      <div className="relative" data-highlight-picker>
         <button
           type="button"
           onClick={() => setShowHighlightPicker(!showHighlightPicker)}
@@ -475,7 +495,6 @@ export default function WysiwygToolbar({ onFormatChange, showDebug = false, onTo
                   const color = e.target.value;
                   setCurrentHighlight(color);
                   onFormatChange('backColor', color);
-                  setShowHighlightPicker(false);
                 }}
                 className="w-full h-10 rounded border border-gray-300 dark:border-gray-600 cursor-pointer"
                 title="Sélectionner une couleur de surlignage"

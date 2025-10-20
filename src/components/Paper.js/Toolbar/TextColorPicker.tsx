@@ -38,6 +38,22 @@ export default function TextColorPicker({
     };
   }, [currentColor]);
 
+  // Handle clicks outside color picker to close it
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      const colorPalette = document.getElementById("colorPalette");
+      
+      // Check if click is outside color picker container
+      if (colorPalette && !colorPalette.classList.contains("hidden") && !target.closest('[data-text-color-picker]')) {
+        colorPalette.classList.add("hidden");
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const getCurrentColor = (): string => {
     // Get text color from selection or cursor position
     const selection = window.getSelection();
@@ -103,7 +119,7 @@ export default function TextColorPicker({
 
   return (
     <div className="flex items-center relative">
-      <div className="relative">
+      <div className="relative" data-text-color-picker>
         <button
           type="button"
           onClick={() => {
