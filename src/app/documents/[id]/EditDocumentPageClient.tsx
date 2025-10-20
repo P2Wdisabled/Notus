@@ -348,23 +348,25 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     setShareSuccess(null);
 
     try {
-      const fd = new FormData();
-      fd.append("documentId", String(document.id));
-      fd.append("email", shareEmail.trim());
-      fd.append("permission", permission === "write" ? "true" : "false");
+      const res = await fetch("/api/invite-share", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          documentId: document.id,
+          email: shareEmail.trim(),
+          permission: permission === "write",
+          docTitle: document.title,     // if available
+        }),
+      });
 
-      const res = await addShareAction(null, fd);
+      const data = await res.json();
 
-      if (typeof res === "string") {
-        setShareSuccess(res);
-        setIsShareModalOpen(false);
-        router.refresh();
-      } else if ((res as any)?.success) {
-        setShareSuccess((res as any).message || "Partage enregistré.");
+      if (res.ok) {
+        setShareSuccess(data.message || "Partage enregistré.");
         setIsShareModalOpen(false);
         router.refresh();
       } else {
-        setShareError((res as any)?.error || "Erreur lors du partage.");
+        setShareError(data.error || "Erreur lors du partage.");
       }
     } catch (err) {
       console.error(err);
