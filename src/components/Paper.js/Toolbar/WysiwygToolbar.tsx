@@ -356,7 +356,7 @@ export default function WysiwygToolbar({ onFormatChange, showDebug = false, onTo
         onClick={() => onFormatChange('bold')}
         className={`p-2 rounded transition-colors ${
           isBold
-            ? "bg-orange hover:bg-orange dark:bg-dark-purple dark:hover:bg-dark-purple text-white"
+            ? "bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white"
             : "bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
         }`}
         title="Gras (Ctrl+B)"
@@ -372,7 +372,7 @@ export default function WysiwygToolbar({ onFormatChange, showDebug = false, onTo
         onClick={() => onFormatChange('italic')}
         className={`p-2 rounded transition-colors ${
           isItalic
-            ? "bg-orange hover:bg-orange dark:bg-dark-purple dark:hover:bg-dark-purple text-white"
+            ? "bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white"
             : "bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
         }`}
         title="Italique (Ctrl+I)"
@@ -388,7 +388,7 @@ export default function WysiwygToolbar({ onFormatChange, showDebug = false, onTo
         onClick={() => onFormatChange('underline')}
         className={`p-2 rounded transition-colors ${
           isUnderline
-            ? "bg-orange hover:bg-orange dark:bg-dark-purple dark:hover:bg-dark-purple text-white"
+            ? "bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white"
             : "bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
         }`}
         title="Souligné (Ctrl+U)"
@@ -404,7 +404,7 @@ export default function WysiwygToolbar({ onFormatChange, showDebug = false, onTo
         onClick={() => onFormatChange('strikeThrough')}
         className={`p-2 rounded transition-colors ${
           isStrikethrough
-            ? "bg-orange hover:bg-orange dark:bg-dark-purple dark:hover:bg-dark-purple text-white"
+            ? "bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white"
             : "bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
         }`}
         title="Barré"
@@ -769,7 +769,7 @@ export default function WysiwygToolbar({ onFormatChange, showDebug = false, onTo
           onClick={onToggleDebug}
           className={`p-2 rounded transition-colors ${
             showDebug
-              ? "bg-orange hover:bg-orange dark:bg-dark-purple dark:hover:bg-dark-purple text-white"
+              ? "bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white"
               : "bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
           }`}
           title="Afficher/Masquer le debug Markdown"

@@ -18,7 +18,7 @@ export default function FormatButtons({
         onClick={() => applyFormat("bold")}
         className={`p-2 rounded transition-colors ${
           isBold
-            ? "bg-primary hover:bg-primary text-primary-foreground rounded-lg hover:shadow-md shadow-light-gray dark:shadow-light-black transition-all duration-200 cursor-pointer"
+            ? "bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white rounded-lg hover:shadow-md shadow-light-gray dark:shadow-light-black transition-all duration-200 cursor-pointer"
             : "bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200 rounded-lg hover:shadow-md shadow-light-gray dark:shadow-light-black transition-all duration-200 cursor-pointer"
         }`}
         title="Bold (Ctrl+B)"
@@ -32,7 +32,7 @@ export default function FormatButtons({
         onClick={() => applyFormat("italic")}
         className={`p-2 rounded transition-colors ${
           isItalic
-            ? "bg-primary hover:bg-primary text-primary-foreground rounded-lg hover:shadow-md shadow-light-gray dark:shadow-light-black transition-all duration-200 cursor-pointer"
+            ? "bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white rounded-lg hover:shadow-md shadow-light-gray dark:shadow-light-black transition-all duration-200 cursor-pointer"
             : "bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200 rounded-lg hover:shadow-md shadow-light-gray dark:shadow-light-black transition-all duration-200 cursor-pointer"
         }`}
         title="Italic (Ctrl+I)"
@@ -46,7 +46,7 @@ export default function FormatButtons({
         onClick={() => applyFormat("underline")}
         className={`p-2 rounded transition-colors ${
           isUnderline
-            ? "bg-primary hover:bg-primary text-primary-foreground rounded-lg hover:shadow-md shadow-light-gray dark:shadow-light-black transition-all duration-200 cursor-pointer"
+            ? "bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white rounded-lg hover:shadow-md shadow-light-gray dark:shadow-light-black transition-all duration-200 cursor-pointer"
             : "bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200 rounded-lg hover:shadow-md shadow-light-gray dark:shadow-light-black transition-all duration-200 cursor-pointer"
         }`}
         title="Underline (Ctrl+U)"
