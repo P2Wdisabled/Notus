@@ -91,7 +91,7 @@ jobs:
     name: 5) deploy (rsync)
     runs-on: ubuntu-latest
     needs: build
-    environment: prod   # <= nom exact de ton Environnement GitHub contenant les secrets
+    environment: prod
     steps:
       - uses: actions/checkout@v4
       - name: Install sshpass & rsync
@@ -147,23 +147,34 @@ jobs:
             set -e
             cd '${REMOTE_PATH}'
 
-            # 1) Injecter les variables d'env
+            # 1) Crée le .env à partir du secret
             if [ -n '${ENV_FILE_PROD}' ]; then
-              printf '%s\n' '${ENV_FILE_PROD}' > .env.production
-              echo 'Created .env.production from ENV_FILE_PROD'
+              printf '%s\n' '${ENV_FILE_PROD}' > .env
+              sed -i 's/\r$//' .env
+              echo 'Created .env from ENV_FILE_PROD'
             fi
+
+            # 2) Charge le .env dans le shell
+            if [ -f .env ]; then
+              set -a
+              . ./.env
+              set +a
+              echo '.env loaded into environment'
+            fi
+
+            # 3) Ajoute aussi ENV_VARS s’il existe (KEY=VAL ...)
             if [ -n '${ENV_VARS}' ]; then
               export ${ENV_VARS}
               echo 'Exported ENV_VARS'
             fi
 
-            # 2) Vérifier la présence de DATABASE_URL (exigée par Prisma)
+            # 4) Vérifie que DATABASE_URL existe
             if [ -z \"\${DATABASE_URL:-}\" ]; then
               echo 'ERROR: DATABASE_URL manquante. Fournis-la via ENV_FILE_PROD ou ENV_VARS.' >&2
               exit 1
             fi
 
-            # 3) Dépendances prod + Prisma + Build côté serveur
+            # 5) Déps prod + Prisma + build
             npm i --omit=dev
             npx prisma generate
             npx prisma migrate deploy
