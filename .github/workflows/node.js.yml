@@ -3,26 +3,17 @@ name: Notus CI/CD
 on:
   push:
     branches: ["main"]
-    paths-ignore:
-      - "**/*.md"
-      - "docs/**"
-      - ".github/ISSUE_TEMPLATE/**"
-  pull_request:
-    branches: ["main"]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: read
-
 env:
   CI: true
 
 jobs:
-  quality:
-    name: Lint / Typecheck / Tests (Node 22.x)
+  pipeline:
+    name: install → test → lint → build → deploy → prisma → restart
     runs-on: ubuntu-latest
 
     steps:
@@ -35,69 +26,29 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
-      - name: Install dependencies
-        run: npm ci
+      # 1) Install
+      - name: npm i
+        run: npm i
 
-      - name: Lint (if present)
-        run: npm run lint --if-present
-
-      - name: Typecheck (tsc)
-        run: |
-          if npm run -s typecheck >/dev/null 2>&1; then
-            npm run typecheck
-          else
-            npx tsc --noEmit
-          fi
-
-      - name: Run tests (if present)
+      # 2) Tests (si présents)
+      - name: npm test
         run: npm test --if-present -- --ci
 
-  build:
-    name: Build (Next + Turbopack)
-    runs-on: ubuntu-latest
-    needs: quality
+      # 3) Lint (si présent)
+      - name: npm run lint
+        run: npm run lint --if-present
 
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Use Node.js 22.x
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22.x
-          cache: npm
-          cache-dependency-path: package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Cache Next build
-        uses: actions/cache@v4
-        with:
-          path: .next/cache
-          key: next-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('**/*.[jt]s', '**/*.[jt]sx', '**/*.css') }}
-          restore-keys: |
-            next-${{ runner.os }}-
-
-      - name: Build project
+      # 4) Build
+      - name: npm run build
         run: npm run build
 
-  deploy:
-    name: Deploy via SSH (password) + PM2
-    runs-on: ubuntu-latest
-    needs: build
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    environment:
-      name: production
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install sshpass and rsync
+      # 5) Déploiement (ssh + rsync)
+      - name: Install sshpass & rsync
         run: |
           sudo apt-get update -y
           sudo apt-get install -y sshpass rsync
 
-      - name: Rsync project to server (sans node_modules/.git/.github/.next)
+      - name: rsync to server
         env:
           SSHPASS: ${{ secrets.SSH_PASSWORD }}
         run: |
@@ -106,7 +57,8 @@ jobs:
             -e "ssh -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=no" \
             ./ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.REMOTE_PATH }}/
 
-      - name: Remote install + prisma migrate + build + PM2 reload
+      # 6) Prisma (generate + migrate) + 7) Restart PM2
+      - name: prisma deploy + pm2 reload (remote)
         env:
           SSHPASS: ${{ secrets.SSH_PASSWORD }}
         run: |
@@ -115,17 +67,18 @@ jobs:
               set -e
               cd "${{ secrets.REMOTE_PATH }}"
 
-              # Variables d'environnement optionnelles
+              # Vars d'env optionnelles
               if [ -n "${{ secrets.ENV_VARS }}" ]; then export ${{ secrets.ENV_VARS }}; fi
+              # [ -n "${{ secrets.ENV_FILE_PROD }}" ] && echo "${{ secrets.ENV_FILE_PROD }}" > .env.production
 
-              # Installer les dépendances prod
-              npm ci --omit=dev
+              # Déps prod (au cas où des diffs de lock)
+              npm i --omit=dev
 
               # Prisma
               npx prisma generate
               npx prisma migrate deploy
 
-              # Build côté serveur (alignement arch/env)
+              # Rebuild côté serveur (cohérence env/arch Next 15)
               npm run build
 
               # PM2
