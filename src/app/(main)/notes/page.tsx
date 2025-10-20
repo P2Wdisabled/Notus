@@ -1,48 +1,18 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/../lib/auth";
-import Link from "next/link";
 import { getUserDocumentsAction } from "@/lib/actions";
-import { fetchSharedDocumentsAction } from "@/lib/actions/DocumentActions";
-import Navigation from "@/components/Navigation";
 import NavBar from "@/components/NavBar";
 import ContentWrapper from "@/components/ContentWrapper";
-import { Button, Card, Alert, LoadingSpinner, Logo } from "@/components/ui";
+import { Alert} from "@/components/ui";
 import { SearchableDocumentsList } from "@/components/SearchableDocumentsList";
 
 export default async function Home() {
   const session = await getServerSession(authOptions);
 
   // Récupérer les documents seulement si l'utilisateur est connecté
-  const userDocumentsResult = session?.user?.id
+  const documentsResult = session?.user?.id
     ? await getUserDocumentsAction(parseInt(session.user.id))
     : { success: true, documents: [] };
-
-  const sharedDocumentsResult = session?.user?.email
-    ? await fetchSharedDocumentsAction()
-    : { success: true, documents: [] };
-
-  const allDocuments = [
-    ...(userDocumentsResult.success && Array.isArray(userDocumentsResult.documents)
-      ? userDocumentsResult.documents
-      : []),
-    ...(sharedDocumentsResult.success && Array.isArray(sharedDocumentsResult.documents)
-      ? sharedDocumentsResult.documents
-      : []),
-  ].map((d: any) => ({
-    ...d,
-    id: String(d.id),
-    user_id: d.user_id != null ? String(d.user_id) : undefined,
-  }));
-
-  const documentsResult = {
-    success: userDocumentsResult.success && sharedDocumentsResult.success,
-    documents: allDocuments,
-    error: !userDocumentsResult.success
-      ? userDocumentsResult.error
-      : !sharedDocumentsResult.success
-      ? sharedDocumentsResult.error
-      : undefined,
-  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -50,7 +20,7 @@ export default async function Home() {
       <ContentWrapper maxWidth="lg">
         <div className="space-y-6">
           <h2 className="font-title text-4xl font-regular text-foreground hidden md:block">
-            Mes notes
+            Mes notes personnelles
           </h2>
 
           {!documentsResult.success && session?.user && (
@@ -76,6 +46,14 @@ export default async function Home() {
           />
         </div>
       </ContentWrapper>
+      {!session?.user && (
+        <div className="fixed bottom-0 left-0 right-0 z-10">
+          <div className="md:ml-64 md:pl-4 max-w-4xl mx-auto px-4 md:px-6 lg:px-8 py-3 bg-primary text-primary-foreground text-center">
+            Vous n'êtes pas connecté. Vos notes locales ne seront pas
+            sauvegardées dans le cloud.
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -10,6 +10,8 @@ interface UserSessionData {
   username: string;
   profileImage?: string;
   bannerImage?: string;
+  isAdmin?: boolean;
+  isVerified?: boolean;
   timestamp: number;
 }
 
@@ -26,6 +28,8 @@ export function saveUserSession(userData: UserSessionData): boolean {
       username: userData.username,
       profileImage: userData.profileImage,
       bannerImage: userData.bannerImage,
+      isAdmin: userData.isAdmin,
+      isVerified: userData.isVerified,
       timestamp: Date.now(),
     };
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(sessionData));
@@ -42,11 +46,15 @@ export function getUserSession(): UserSessionData | null {
     if (!sessionData) {
       return null;
     }
-
     const parsed = JSON.parse(sessionData) as UserSessionData;
-
-    // sessionStorage expire automatiquement à la fermeture du navigateur
-    // Pas besoin de vérifier l'âge de la session
+    // Patch: fallback to email in localStorage if missing
+    if (!parsed.email && typeof window !== 'undefined') {
+      const local = localStorage.getItem('userSession');
+      if (local) {
+        const localParsed = JSON.parse(local);
+        if (localParsed.email) parsed.email = localParsed.email;
+      }
+    }
     return parsed;
   } catch (error) {
     console.error("❌ Erreur lors de la récupération de la session:", error);

@@ -154,6 +154,48 @@ export class EmailService {
     }
   }
 
+  async sendShareInviteEmail(
+    email: string,
+    link: string,
+    inviterName: string,
+    docTitle: string
+  ): Promise<EmailResult> {
+    const from = process.env.EMAIL_FROM || "Notus <noreply@notus.com>";
+
+        // Debug: log environment and parameters
+    console.log("[EmailService] RESEND_API_KEY:", process.env.RESEND_API_KEY ? "set" : "NOT SET");
+    console.log("[EmailService] EMAIL_FROM:", process.env.EMAIL_FROM);
+    console.log("[EmailService] To:", email);
+    console.log("[EmailService] Subject:", `${inviterName} vous a invité à collaborer sur "${docTitle}"`);
+    console.log("[EmailService] Link:", link);
+
+    // Simuler si pas de clé API Resend
+    if (!process.env.RESEND_API_KEY || !resend) {
+      console.warn("[EmailService] Simulation mode: email not actually sent.");
+      return { success: true, messageId: `sim-share-invite-${Date.now()}` };
+    }
+
+    try {
+      const { data, error } = await resend.emails.send({
+        from: from,
+        to: [email],
+        subject: `${inviterName} vous a invité à collaborer sur "${docTitle}"`,
+        html: this.getShareInviteEmailTemplate(link, inviterName, docTitle),
+      });
+
+      if (error) {
+        console.error("❌ Erreur Resend:", error);
+        return { success: false, error: error.message };
+      }
+
+      console.log("[EmailService] Email sent successfully. Message ID:", data.id);
+      return { success: true, messageId: data.id };
+    } catch (error: unknown) {
+      console.error("❌ Erreur envoi email d'invitation de partage:", error);
+      return { success: false, error: error instanceof Error ? error.message : "Erreur inconnue" };
+    }
+  }
+
   private getVerificationEmailTemplate(verificationUrl: string, firstName: string): string {
     return `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -369,6 +411,37 @@ export class EmailService {
           </p>
         </div>
         
+        <div style="background: #333; color: white; padding: 20px; text-align: center; font-size: 12px;">
+          <p style="margin: 0;">© 2025 Notus. Tous droits réservés.</p>
+        </div>
+      </div>
+    `;
+  }
+
+  private getShareInviteEmailTemplate(link: string, inviterName: string, docTitle: string): string {
+    return `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center;">
+          <h1 style="color: white; margin: 0; font-size: 28px;">Invitation à collaborer</h1>
+        </div>
+        <div style="padding: 30px; background: #f8f9fa;">
+          <h2 style="color: #333; margin-bottom: 20px;">Bonjour !</h2>
+          <p style="color: #666; line-height: 1.6; margin-bottom: 25px;">
+            ${inviterName} vous a invité à collaborer sur le document <b>${docTitle}</b> sur Notus.
+          </p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${link}" 
+               style="background: #667eea; color: white; padding: 15px 30px; 
+                      text-decoration: none; border-radius: 5px; font-weight: bold; 
+                      display: inline-block; font-size: 16px;">
+              Accepter l'invitation
+            </a>
+          </div>
+          <p style="color: #999; font-size: 14px; margin-top: 30px;">
+            Si le bouton ne fonctionne pas, copiez et collez ce lien dans votre navigateur :<br>
+            <a href="${link}" style="color: #667eea; word-break: break-all;">${link}</a>
+          </p>
+        </div>
         <div style="background: #333; color: white; padding: 20px; text-align: center; font-size: 12px;">
           <p style="margin: 0;">© 2025 Notus. Tous droits réservés.</p>
         </div>

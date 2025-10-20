@@ -12,9 +12,9 @@ interface UserSession {
   id: string;
   email: string;
   name: string;
-  firstName?: string;
-  lastName?: string;
-  username?: string;
+  firstName: string;
+  lastName: string;
+  username: string;
   profileImage?: string;
   bannerImage?: string;
   isAdmin?: boolean;
@@ -85,8 +85,9 @@ export function useLocalSession(serverSession: Session | null = null): UseLocalS
             username: (activeSession.user as any).username,
             profileImage: (activeSession.user as any).profileImage,
             bannerImage: (activeSession.user as any).bannerImage,
+            isAdmin: (activeSession.user as any).isAdmin,
+            isVerified: (activeSession.user as any).isVerified,
           };
-
           if (saveLocalUserSession(sessionData)) {
             setLocalSession(sessionData);
           }
@@ -101,7 +102,6 @@ export function useLocalSession(serverSession: Session | null = null): UseLocalS
         setLoading(false);
       }
     };
-
     loadSession();
   }, [serverSession, nextAuthSession, status]);
 
@@ -208,7 +208,7 @@ export function useLocalSession(serverSession: Session | null = null): UseLocalS
     setLocalSession(null);
   };
 
-  const isLoggedIn = Boolean(localSession !== null && localSession.id);
+  const isLoggedIn = !!(localSession && localSession.id);
 
   return {
     session: localSession || serverSession,
@@ -217,9 +217,9 @@ export function useLocalSession(serverSession: Session | null = null): UseLocalS
     userId: localSession?.id || null,
     userName: localSession?.name || null,
     userEmail: localSession?.email || null,
-    userFirstName: localSession?.firstName || null,
-    userLastName: localSession?.lastName || null,
-    username: localSession?.username || null,
+  userFirstName: localSession?.firstName ?? null,
+  userLastName: localSession?.lastName ?? null,
+  username: localSession?.username ?? null,
     isAdmin: localSession?.isAdmin || false,
     isVerified: localSession?.isVerified || false,
     profileImage: localSession?.profileImage || null,

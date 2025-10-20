@@ -63,13 +63,13 @@ export default function NavBar() {
   }, [isLoggedIn, profileImage]);
 
   const items: NavItem[] = [
-    { name: "Récent", href: "/recent", icon: ClockIcon },
+    // { name: "Récent", href: "/recent", icon: ClockIcon },
     { name: "Notes personnelles", href: "/notes", icon: NoteIcon },
     { name: "Notes partagées", href: "/shared", icon: ShareIcon },
-    { name: "Favoris", href: "/favorites", icon: StarIcon },
-    { name: "Dossiers", href: "/folders", icon: FolderIcon },
-    { name: "Notifications", href: "/notifications", icon: BellIcon },
-    { name: "Corbeille", href: "/trash", icon: TrashIcon },
+    //{ name: "Favoris", href: "/favorites", icon: StarIcon },
+    //{ name: "Dossiers", href: "/folders", icon: FolderIcon },
+    //{ name: "Notifications", href: "/notifications", icon: BellIcon },
+    //{ name: "Corbeille", href: "/trash", icon: TrashIcon },
   ];
 
   const pageTitle = getPageTitle(pathname, items);
@@ -204,6 +204,20 @@ export default function NavBar() {
                 />
               </div>
               <div className="pt-3">{/* <AdminButton /> */}</div>
+              {/* Navigation items (mobile) */}
+              <div className="px-2">
+                {items.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setIsOpen(false)}
+                    className={`flex items-center gap-3 p-3 rounded-md hover:bg-accent text-foreground ${pathname === item.href ? 'bg-accent/70' : ''}`}
+                  >
+                    <item.icon />
+                    <span className="font-medium">{item.name}</span>
+                  </Link>
+                ))}
+              </div>
             </nav>
             <div className="pt-4 space-y-3">
               {isLoggedIn && (
@@ -264,6 +278,19 @@ export default function NavBar() {
               onChange={handleSearchChange}
               onKeyDown={handleDesktopSearchKeyDown}
             />
+          </div>
+          {/* Navigation items (desktop) */}
+          <div className="mt-4 space-y-1">
+            {items.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex items-center gap-3 p-3 rounded-md hover:bg-accent text-foreground ${pathname === item.href ? 'bg-accent/70' : ''}`}
+              >
+                <item.icon />
+                <span className="font-medium">{item.name}</span>
+              </Link>
+            ))}
           </div>
         </nav>
         <div className="p-4 space-y-3">

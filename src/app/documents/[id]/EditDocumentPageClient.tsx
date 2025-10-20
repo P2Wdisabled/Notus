@@ -1,7 +1,15 @@
 "use client";
 import { useActionState, startTransition } from "react";
-import { Button } from "@/components/ui";
+import { Button, Modal } from "@/components/ui";
+import MenuItem from "@/components/ui/overlay-menu-item";
+import { Input } from "@/components/ui/input";
 import { updateDocumentAction } from "@/lib/actions";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -10,6 +18,8 @@ import WysiwygNotepad from "@/components/Paper.js/WysiwygNotepad";
 import CollaborativeNotepad from "@/components/Paper.js/CollaborativeNotepad";
 import { Document } from "@/lib/types";
 import TagsManager from "@/components/TagsManager";
+import { addShareAction } from "@/lib/actions/DocumentActions";
+import UserListButton from "@/components/ui/UserList/UserListButton";
 
 interface EditDocumentPageClientProps {
   session?: any;
@@ -28,8 +38,35 @@ interface CanvasController {
   clearCanvas?: () => void;
 }
 
+type UpdateDocState =
+  | { ok: boolean; error: string }
+  | { ok: boolean; id: number; dbResult: unknown };
+
 export default function EditDocumentPageClient(props: EditDocumentPageClientProps) {
+  // -------- All Hooks must be called unconditionally first --------
+
+  const {
+    session: localSession,
+    loading: sessionLoading,
+    isLoggedIn,
+    userId,
+  } = useLocalSession(props.session);
+
+  // Router
   const router = useRouter();
+
+  // Action state (must be before any conditional returns)
+  const typedUpdateAction =
+    updateDocumentAction as unknown as (
+      prevState: UpdateDocState,
+      payload: FormData | Record<string, any>
+    ) => Promise<UpdateDocState>;
+
+  const [state, formAction, isPending] = useActionState<
+    UpdateDocState,
+    FormData | Record<string, any>
+  >(typedUpdateAction, { ok: false, error: "" });
+
   const [document, setDocument] = useState<Document | null>(null);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState<NotepadContent>({
@@ -57,6 +94,15 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     isLoggedIn,
     userId,
   } = useLocalSession(props.session);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [permission, setPermission] = useState("read");
+  const [shareEmail, setShareEmail] = useState("");
+  const [shareLoading, setShareLoading] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
+  const [shareSuccess, setShareSuccess] = useState<string | null>(null);
+  const [hasEditAccess, setHasEditAccess] = useState<boolean | null>(null);
+  const [users, setUsers] = useState([]);
 
   const normalizeContent = (rawContent: any): NotepadContent => {
     if (!rawContent) return { text: "", drawings: [], textFormatting: {} };
@@ -87,8 +133,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
 
       if (result.success) {
         const normalizedContent = normalizeContent(result.content);
-
-        setDocument({
+        const docObj = {
           id: Number(props.params.id),
           title: result.title,
           content: JSON.stringify(normalizedContent),
@@ -96,8 +141,8 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
           created_at: new Date(result.created_at || result.updated_at),
           updated_at: new Date(result.updated_at),
           user_id: Number(result.user_id ?? result.owner ?? NaN),
-        });
-
+        };
+        setDocument(docObj);
         setTitle(result.title);
         setContent(normalizedContent);
         setTags(Array.isArray(result.tags) ? result.tags : []);
@@ -181,6 +226,22 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
       setTitle(document.title);
       setContent(normalizeContent(document.content));
       setCanvasCtrl(null);
+      fetch(`/api/openDoc/accessList?id=${document.id}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && Array.isArray(data.accessList)) {
+            setUsers(
+              data.accessList.map((user: any) => ({
+                ...user,
+                avatarUrl: user.profile_image || "",
+                name: user.username || user.email || "Utilisateur",
+              }))
+            );
+          } else {
+            setUsers([]);
+          }
+        })
+        .catch(() => setUsers([]));
     }
   }, [document]);
 
@@ -282,6 +343,8 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
       formData.append("title", title || "");
       formData.append("content", JSON.stringify(contentToSave));
       formData.append("tags", JSON.stringify(tags));
+      const submittingUserEmail = localSession?.email || props.session?.user?.email || "";
+      formData.append("email", submittingUserEmail);
 
       if (typeof navigator !== "undefined" && !navigator.onLine) {
         try {
@@ -411,6 +474,90 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     }
   };
 
+  // -------- Access control --------
+  useEffect(() => {
+    if (!document) {
+      return;
+    }
+
+    async function checkAccess() {
+      if (!localSession?.email) {
+        setHasEditAccess(false);
+        setError('Accès refusé: email utilisateur manquant');
+        return;
+      }
+      try {
+        if (!document) {
+          setHasEditAccess(false);
+          setError('Accès refusé: document introuvable');
+          return;
+        }
+        const res = await fetch(`/api/openDoc/accessList?id=${document.id}`);
+        const result = await res.json();
+        if (result.success && Array.isArray(result.accessList)) {
+          const emails = result.accessList.map((u: any) => (u.email || "").trim().toLowerCase());
+          const myEmail = String(localSession.email).trim().toLowerCase();
+          setHasEditAccess(emails.includes(myEmail));
+        } else {
+          setHasEditAccess(false);
+          setError('Accès refusé: liste d\'accès non trouvée');
+        }
+      } catch (err) {
+        setHasEditAccess(false);
+        setError('Erreur lors de la récupération de la liste d\'accès');
+      }
+    }
+    checkAccess();
+  }, [document, localSession?.email]);
+
+  // -------- Share functionality --------
+  const handleShareButtonClick = () => {
+    setIsShareModalOpen(true);
+  };
+
+  const handleShareSubmit = async () => {
+    if (!document) return;
+    if (!shareEmail || shareEmail.trim().length === 0) {
+      setShareError("Email requis");
+      return;
+    }
+
+    setShareLoading(true);
+    setShareError(null);
+    setShareSuccess(null);
+
+    try {
+      const res = await fetch("/api/invite-share", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          documentId: document.id,
+          email: shareEmail.trim(),
+          permission: permission === "write",
+          docTitle: document.title,     // if available
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setShareSuccess(data.message || "Partage enregistré.");
+        setIsShareModalOpen(false);
+        router.refresh();
+      } else {
+        setShareError(data.error || "Erreur lors du partage.");
+      }
+    } catch (err) {
+      console.error(err);
+      setShareError("Erreur lors du partage.");
+    } finally {
+      setShareLoading(false);
+    }
+  };
+
+  const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
+
+  // -------- Conditional rendering (after all Hooks) --------
   if (sessionLoading) {
     return (
       <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center">
@@ -496,7 +643,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     );
   }
 
-  if (Number(document.user_id) !== Number(userId)) {
+  if (Number(document.user_id) !== Number(userId) || hasEditAccess === false) {
     return (
       <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center p-4">
         <div className="bg-white dark:bg-black rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
@@ -540,7 +687,131 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
             </svg>
             Retour
           </Link>
+          <div className="flex flex-row justify-center items-center">
+            <UserListButton users={users} className="self-center" />
+            <div className="relative inline-block">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleMenu}
+                className="md:mr-0 mr-8"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-6 w-6"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                >
+                  <circle cx="12" cy="5" r="2" className="fill-black dark:fill-white" />
+                  <circle cx="12" cy="12" r="2" className="fill-black dark:fill-white" />
+                  <circle cx="12" cy="19" r="2" className="fill-black dark:fill-white" />
+                </svg>
+              </Button>
+              {isMenuOpen && (
+                <div
+                  className="absolute right-0 top-full z-40 rounded-lg shadow-lg p-4 min-w-[13rem] bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700"
+                >
+                  <MenuItem
+                    onClick={() => {
+                      handleShareButtonClick();
+                      setIsMenuOpen(false);
+                    }}
+                    icon={
+                      <svg width="18" height="16" viewBox="0 0 18 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M16.59 7.5L12 2.91V5.37L11.14 5.5C6.83 6.11 3.91 8.37 2.24 11.83C4.56 10.19 7.44 9.4 11 9.4H12V12.09M10 10.42C5.53 10.63 2.33 12.24 0 15.5C1 10.5 4 5.5 11 4.5V0.5L18 7.5L11 14.5V10.4C10.67 10.4 10.34 10.41 10 10.42Z" fill="#DD05C7" />
+                      </svg>
+                    }
+                  >
+                    Partager
+                  </MenuItem>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
+
+        {/* Share Modal */}
+        <Modal
+          isOpen={isShareModalOpen}
+          onClose={() => setIsShareModalOpen(false)}
+          title="Partager la note"
+          size="md"
+          className="flex flex-col justify-center"
+        >
+          <Modal.Content>
+            <div className="flex flex-col gap-4">
+              <Input
+                label="Email"
+                type="email"
+                id="email"
+                name="email"
+                required
+                placeholder="email@email.com"
+                value={shareEmail}
+                onChange={(e) => setShareEmail(e.target.value)}
+              />
+
+              <div>
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Permissions
+                </label>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="w-full justify-between">
+                      {permission === "write" ? "Peut modifier" : "Peut lire"}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem
+                      onClick={() => setPermission("read")}
+                      className={permission === "read" ? "bg-gray-100 dark:bg-gray-700" : ""}
+                    >
+                      Peut lire
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => setPermission("write")}
+                      className={permission === "write" ? "bg-gray-100 dark:bg-gray-700" : ""}
+                    >
+                      Peut modifier
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+
+              <div className="flex items-center justify-center gap-3">
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="default"
+                  onClick={handleShareSubmit}
+                  disabled={shareLoading}
+                >
+                  {shareLoading ? "Envoi..." : "Envoyer"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    setShareEmail("");
+                    setShareError(null);
+                    setIsShareModalOpen(false);
+                  }}
+                >
+                  Annuler
+                </Button>
+              </div>
+
+              {shareError && (
+                <p className="text-sm text-red-600 dark:text-red-400 mt-2">{shareError}</p>
+              )}
+              {shareSuccess && (
+                <p className="text-sm text-green-600 dark:text-green-400 mt-2">{shareSuccess}</p>
+              )}
+            </div>
+          </Modal.Content>
+          <Modal.Footer>
+          </Modal.Footer>
+        </Modal>
 
         {/* Edit form */}
         <div className="bg-white dark:bg-black rounded-2xl border border-gray dark:border-dark-gray p-6 overflow-hidden">
@@ -596,11 +867,10 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
               <Button
                 type="submit"
                 disabled={isPending}
-                className={`${
-                  showSavedState
-                    ? "bg-green-600 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-600"
-                    : "bg-primary hover:bg-primary/90 text-primary-foreground"
-                } disabled:bg-gray-400 disabled:cursor-not-allowed font-semibold py-3 px-6 rounded-lg transition-colors`}
+                className={`${showSavedState
+                  ? "bg-green-600 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-600"
+                  : "bg-primary hover:bg-primary/90 text-primary-foreground"
+                  } disabled:bg-gray-400 disabled:cursor-not-allowed font-semibold py-3 px-6 rounded-lg transition-colors`}
               >
                 {isPending
                   ? "Sauvegarde..."
@@ -636,4 +906,3 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     </div>
   );
 }
-

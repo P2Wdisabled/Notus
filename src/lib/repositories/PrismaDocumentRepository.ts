@@ -378,4 +378,5 @@ export class PrismaDocumentRepository {
     // Cette méthode est conservée pour la compatibilité
     return Promise.resolve();
   }
+
 }

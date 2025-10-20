@@ -10,6 +10,7 @@ import Modal from "@/components/ui/modal";
 import TagsManager from "@/components/TagsManager";
 import { cn } from "@/lib/utils";
 import { Document, LocalDocument, AnyDocument } from "@/lib/types";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui";
 
 interface DocumentCardProps {
   document: AnyDocument;
@@ -95,6 +96,9 @@ function stripHtml(str: string): string {
   return str.replace(/<\/?[^>]+(>|$)/g, "");
 }
 
+// Removed getListOfUsersWithAccess; will use API route fetch
+
+
 export default function DocumentCard({
   document,
   currentUserId,
@@ -121,6 +125,7 @@ export default function DocumentCard({
 
   const isOwner = ('user_id' in document) ? document.user_id === currentUserId : false;
   const updatedDate = new Date(document.updated_at || new Date());
+  const [accessList, setAccessList] = useState<any[]>([]);
   const formattedDate = updatedDate.toLocaleDateString("fr-FR", {
     day: "2-digit",
     month: "2-digit",
@@ -175,6 +180,22 @@ export default function DocumentCard({
       mounted = false;
     };
   }, [document?.content, contentIsHtml]);
+
+  // Fetch access list (owner + shared users) via API route
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await fetch(`/api/openDoc/accessList?id=${document.id}`);
+        const data = await res.json();
+        const list = data?.accessList || [];
+        if (data?.success && mounted) setAccessList(list);
+      } catch (e) {
+        // ignore
+      }
+    })();
+    return () => { mounted = false; };
+  }, [document.id]);
 
   // --- Tags (stockés localement par document) ---
   const [tags, setTags] = useState<string[]>([]);
@@ -554,7 +575,65 @@ export default function DocumentCard({
             </div>
           )}
         </div>
-      </Link>
+      </div>
+
+      {/* Footer */}
+      <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
+        <time
+          dateTime={document.updated_at}
+          className="text-xs text-muted-foreground"
+        >
+          {formattedDate}
+        </time>
+
+        {/* Avatars des personnes ayant accès */}
+        {currentUserId && (
+          <div className="flex items-center ml-3">
+            <div className="flex -space-x-2">
+              {accessList.map((u, i) => (
+                <div key={u.email || u.id || i} className="inline-block">
+                  <Avatar title={u.username || (u.first_name ?? "")}>
+                    <AvatarImage
+                      src={u.profile_image ?? undefined}
+                      alt={`${u.first_name ?? ""} ${u.last_name ?? ""}`}
+                      loading="lazy"
+                    />
+                    <AvatarFallback className="text-xs">
+                      {((u.first_name || u.username || "U") as string).charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {/* {isOwner && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Propriétaire</span>
+          </div>
+        )} */}
+        {selectMode && (
+          <div
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleSelect(document.id, !selected);
+            }}
+            className="animate-fade-in"
+          >
+            <input
+              type="checkbox"
+              checked={selected}
+              onClick={handleCheckboxClick}
+              onChange={handleCheckboxChange}
+              className="h-5 w-5 appearance-none border-2 border-input rounded transition-all duration-200 checked:border-primary checked:bg-primary checked:accent-primary"
+              style={{
+                accentColor: selected ? 'var(--primary)' : undefined
+              }}
+              aria-label="Sélectionner ce document"
+            />
+          </div>
+        )}
+      </div>
 
       {/* Message de suppression */}
       {message && (

@@ -142,3 +142,10 @@ export interface LocalDocument {
 
 // Union type pour gérer les deux types de documents
 export type AnyDocument = Document | LocalDocument;
+
+export interface MenuItemProps {
+  onClick: () => void;
+  children: React.ReactNode;
+  icon?: React.ReactNode;
+  className?: string;
+}
