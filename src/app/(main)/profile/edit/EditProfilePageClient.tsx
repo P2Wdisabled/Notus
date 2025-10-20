@@ -4,6 +4,7 @@ import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { Button, Card, Form, Input, Modal, ImageUpload } from "@/components/ui";
 import { updateUserProfileAction } from "@/lib/actions";
 import { useRouter } from "next/navigation";
+import { useGuardedNavigate } from "@/hooks/useGuardedNavigate";
 import { useSession } from "next-auth/react";
 import { saveUserSession } from "@/lib/session-utils";
 import { useImageValidation } from "@/hooks/useImageValidation";
@@ -25,6 +26,7 @@ interface EditProfilePageClientProps {
 
 export default function EditProfilePageClient({ user }: EditProfilePageClientProps) {
   const router = useRouter();
+  const { checkConnectivity, guardedNavigate } = useGuardedNavigate();
   const { update } = useSession();
   const [message, formAction, isPending] = useActionState(
     updateUserProfileAction,
@@ -136,7 +138,13 @@ export default function EditProfilePageClient({ user }: EditProfilePageClientPro
     }
   };
 
-  const handleSubmit = (formData: FormData) => {
+  const handleSubmit = async (formData: FormData) => {
+    // Vérification de connexion
+    const online = await checkConnectivity();
+    if (!online) {
+      console.log(`[EditProfile] Soumission bloquée (offline)`);
+      return;
+    }
     // Validation des images avant soumission
     const profileData = {
       profileImage,
@@ -327,7 +335,7 @@ export default function EditProfilePageClient({ user }: EditProfilePageClientPro
                 type="button"
                 variant="secondary"
                 className="px-6 py-2"
-                onClick={() => router.push("/profile")}
+                onClick={() => guardedNavigate("/profile")}
               >
                 Annuler
               </Button>
@@ -368,7 +376,7 @@ export default function EditProfilePageClient({ user }: EditProfilePageClientPro
             <Button
               variant="primary"
               className="px-6 py-2 bg-primary hover:bg-primary/90"
-              onClick={() => router.push("/profile")}
+              onClick={() => guardedNavigate("/profile")}
             >
               Continuer
             </Button>

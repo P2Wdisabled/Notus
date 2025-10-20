@@ -56,10 +56,15 @@ const Modal: React.FC<ModalProps> & {
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className={`${sizes[size]} ${className}`}>
+        <DialogHeader>
+          <DialogTitle className="sr-only">
+            {title || "Modal"}
+          </DialogTitle>
+        </DialogHeader>
         {title && (
-          <DialogHeader>
-            <DialogTitle>{title}</DialogTitle>
-          </DialogHeader>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            {title}
+          </h2>
         )}
         {children}
       </DialogContent>

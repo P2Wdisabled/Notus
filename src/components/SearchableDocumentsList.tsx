@@ -11,10 +11,10 @@ import { Card, Alert, Button } from "@/components/ui";
 const LOCAL_DOCS_KEY = "notus.local.documents";
 
 interface Document {
-  id: string;
+  id: string | number;
   title?: string;
   content?: string;
-  user_id?: string;
+  user_id?: string | number;
   created_at: string;
   updated_at?: string;
   [key: string]: any;
@@ -41,7 +41,6 @@ export function SearchableDocumentsList({
   );
   const [selectMode, setSelectMode] = useState(false);
 
-  // Charger les documents locaux (toujours, même si connecté)
   useEffect(() => {
     const loadLocalDocs = () => {
       try {
@@ -67,10 +66,8 @@ export function SearchableDocumentsList({
     return () => window.removeEventListener("storage", onStorage);
   }, []);
 
-  // Recharger la page après une suppression réussie
   useEffect(() => {
     if (message && !isPending && !message.includes("Erreur")) {
-      // Attendre un peu pour que l'utilisateur voie le message de succès
       const timer = setTimeout(() => {
         router.refresh();
       }, 1000);
@@ -78,19 +75,23 @@ export function SearchableDocumentsList({
     }
   }, [message, isPending, router]);
 
-  // Fusionner les documents locaux et serveur et les trier par date de mise à jour (plus récent en premier)
-  const documents = [...localDocuments, ...serverDocuments].sort((a, b) => {
-    const dateA = new Date(a.updated_at || a.created_at);
-    const dateB = new Date(b.updated_at || b.created_at);
-    return dateB.getTime() - dateA.getTime(); // Tri décroissant (plus récent en premier)
-  });
+  const documents = currentUserId 
+    ? serverDocuments.sort((a, b) => {
+        const dateA = new Date(a.updated_at || a.created_at);
+        const dateB = new Date(b.updated_at || b.created_at);
+        return dateB.getTime() - dateA.getTime();
+      })
+    : [...localDocuments, ...serverDocuments].sort((a, b) => {
+        const dateA = new Date(a.updated_at || a.created_at);
+        const dateB = new Date(b.updated_at || b.created_at);
+        return dateB.getTime() - dateA.getTime();
+      });
 
-  // Fonctions de gestion de la sélection
-  const toggleSelect = (id: string, checked: boolean) => {
+  const toggleSelect = (id: string | number, checked: boolean) => {
     setSelectedIds((prev) => {
       const set = new Set(prev);
-      if (checked) set.add(id);
-      else set.delete(id);
+      if (checked) set.add(String(id));
+      else set.delete(String(id));
       return Array.from(set);
     });
   };
@@ -99,35 +100,31 @@ export function SearchableDocumentsList({
     if (selectedIds.length === filteredDocuments.length) {
       setSelectedIds([]);
     } else {
-      setSelectedIds(filteredDocuments.map((d) => d.id));
+      setSelectedIds(filteredDocuments.map((d) => String(d.id)));
     }
   };
 
   const handleBulkDelete = (formData: FormData) => {
     if (selectedIds.length === 0) return;
 
-    // Séparer les documents locaux et serveur
     const localIdsToDelete: string[] = [];
     const serverIdsToDelete: string[] = [];
 
     selectedIds.forEach((id) => {
       const doc = documents.find((d) => d.id === id);
       if (doc && !doc.user_id) {
-        // Document local
         localIdsToDelete.push(id);
       } else {
-        // Document serveur
         serverIdsToDelete.push(id);
       }
     });
 
-    // Supprimer les documents locaux du localStorage
     if (localIdsToDelete.length > 0) {
       try {
         const raw = localStorage.getItem(LOCAL_DOCS_KEY);
         const parsed = raw ? JSON.parse(raw) : [];
         const updated = parsed.filter(
-          (doc: Document) => !localIdsToDelete.includes(doc.id)
+          (doc: Document) => !localIdsToDelete.includes(String(doc.id))
         );
         localStorage.setItem(LOCAL_DOCS_KEY, JSON.stringify(updated));
         setLocalDocuments(updated);
@@ -136,7 +133,6 @@ export function SearchableDocumentsList({
       }
     }
 
-    // Supprimer les documents serveur via l'action
     if (currentUserId && serverIdsToDelete.length > 0) {
       formData.append("userId", String(currentUserId));
       serverIdsToDelete.forEach((id) =>
@@ -145,7 +141,6 @@ export function SearchableDocumentsList({
       formAction(formData);
     }
 
-    // Optimistic UI
     setSelectedIds([]);
     setSelectMode(false);
   };
@@ -160,11 +155,10 @@ export function SearchableDocumentsList({
     );
   }
 
-  // Filtrer les documents en fonction du type (local ou serveur)
   const filteredDocuments = isSearching
     ? [
-        ...filterLocalDocuments(localDocuments),
-        ...filterDocuments(serverDocuments),
+        ...filterLocalDocuments(localDocuments as any),
+        ...filterDocuments(serverDocuments as any),
       ]
     : documents;
 
@@ -235,22 +229,20 @@ export function SearchableDocumentsList({
 
         <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(300px,1fr))]">
           {filteredDocuments.map((document) => {
-            // Un document est local s'il provient du localStorage (pas de user_id)
-            // Un document est serveur s'il provient de la base de données (a un user_id)
             const isLocal = !document.user_id;
             return (
               <div key={document.id} className="w-full">
                 <DocumentCard
-                  document={document}
+                  document={document as any}
                   currentUserId={currentUserId}
                   isLocal={isLocal}
                   selectMode={selectMode}
-                  selected={selectedIds.includes(document.id)}
+                  selected={selectedIds.includes(String(document.id))}
                   onToggleSelect={toggleSelect}
-                  onEnterSelectMode={(firstId: string) => {
+                  onEnterSelectMode={(firstId: string | number) => {
                     if (!selectMode) {
                       setSelectMode(true);
-                      setSelectedIds([firstId]);
+                      setSelectedIds([String(firstId)]);
                     }
                   }}
                 />

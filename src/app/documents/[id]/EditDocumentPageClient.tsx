@@ -35,7 +35,6 @@ interface CanvasController {
 }
 
 export default function EditDocumentPageClient(props: EditDocumentPageClientProps) {
-  // -------- State management --------
   const router = useRouter();
   const [document, setDocument] = useState<Document | null>(null);
   const [title, setTitle] = useState("");
@@ -53,12 +52,11 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [showSavedState, setShowSavedState] = useState(false);
 
-  // Action state
-  const [state, formAction, isPending] = useActionState(updateDocumentAction, {
-    ok: false,
-  });
+  const [state, formAction, isPending] = useActionState(
+    updateDocumentAction as unknown as (state: any, payload: FormData | Record<string, any>) => Promise<any>,
+    { ok: false } as any
+  );
 
-  // Session management
   const {
     session: localSession,
     loading: sessionLoading,
@@ -66,13 +64,11 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     userId,
   } = useLocalSession(props.session);
 
-  // -------- Content normalization --------
   const normalizeContent = (rawContent: any): NotepadContent => {
     if (!rawContent) return { text: "", drawings: [], textFormatting: {} };
 
     let content = rawContent;
 
-    // Parse if string
     if (typeof content === "string") {
       try {
         content = JSON.parse(content);
@@ -81,7 +77,6 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
       }
     }
 
-    // Ensure proper structure
     return {
       text: content.text || "",
       drawings: Array.isArray(content.drawings) ? content.drawings : [],
@@ -90,11 +85,10 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     };
   };
 
-  // -------- Document loading --------
   const loadDocument = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await fetch(`/api/openDoc?id=${props.params.id}`);
+      const response = await fetch(`/api/openDoc?id=${props.params.id}`, { cache: "no-store" });
       const result = await response.json();
 
       if (result.success) {
@@ -112,24 +106,81 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
         setTitle(result.title);
         setContent(normalizedContent);
         setTags(Array.isArray(result.tags) ? result.tags : []);
+
+        try {
+          const cachePayload = {
+            id: Number(props.params.id),
+            title: result.title,
+            content: normalizedContent,
+            tags: Array.isArray(result.tags) ? result.tags : [],
+            updated_at: result.updated_at,
+            user_id: Number(result.user_id ?? result.owner ?? NaN),
+            cachedAt: Date.now(),
+          };
+          if (typeof window !== "undefined") {
+            localStorage.setItem(`notus:doc:${props.params.id}`,
+              JSON.stringify(cachePayload)
+            );
+          }
+        } catch {}
       } else {
+        try {
+          if (typeof window !== "undefined") {
+            const cached = localStorage.getItem(`notus:doc:${props.params.id}`);
+            if (cached) {
+              const c = JSON.parse(cached);
+              setDocument({
+                id: Number(c.id),
+                title: c.title,
+                content: normalizeContent(c.content),
+                tags: Array.isArray(c.tags) ? c.tags : [],
+                updated_at: c.updated_at,
+                user_id: Number(c.user_id ?? NaN),
+              });
+              setTitle(c.title);
+              setContent(normalizeContent(c.content));
+              setTags(Array.isArray(c.tags) ? c.tags : []);
+              setError(null);
+              return;
+            }
+          }
+        } catch {}
         setError(result.error || "Erreur lors du chargement du document");
       }
     } catch (err) {
+      try {
+        if (typeof window !== "undefined") {
+          const cached = localStorage.getItem(`notus:doc:${props.params.id}`);
+          if (cached) {
+            const c = JSON.parse(cached);
+            setDocument({
+              id: Number(c.id),
+              title: c.title,
+              content: normalizeContent(c.content),
+              tags: Array.isArray(c.tags) ? c.tags : [],
+              updated_at: c.updated_at,
+              user_id: Number(c.user_id ?? NaN),
+            });
+            setTitle(c.title);
+            setContent(normalizeContent(c.content));
+            setTags(Array.isArray(c.tags) ? c.tags : []);
+            setError(null);
+            return;
+          }
+        }
+      } catch {}
       setError("Erreur lors du chargement du document");
     } finally {
       setIsLoading(false);
     }
   }, [props.params.id]);
 
-  // Load document when ready
   useEffect(() => {
     if (isLoggedIn && props.params?.id && userId) {
       loadDocument();
     }
   }, [isLoggedIn, props.params?.id, userId, loadDocument]);
 
-  // Reset editor state when switching documents
   useEffect(() => {
     if (document) {
       setTitle(document.title);
@@ -138,13 +189,52 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     }
   }, [document]);
 
-  // -------- Content change handling --------
+  useEffect(() => {
+    const key = `notus:doc:${props.params.id}`;
+    const handleBeforeUnload = () => {
+      try {
+        localStorage.removeItem(key);
+      } catch {}
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("beforeunload", handleBeforeUnload);
+    }
+
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("beforeunload", handleBeforeUnload);
+        try {
+          localStorage.removeItem(key);
+        } catch {}
+      }
+    };
+  }, [props.params.id]);
+
   const handleContentChange = useCallback((newContent: any) => {
     const normalized = normalizeContent(newContent);
     setContent(normalized);
+
+    try {
+      if (typeof window !== "undefined") {
+        const key = `notus:doc:${props.params.id}`;
+        const cachedRaw = localStorage.getItem(key);
+        const cached = cachedRaw ? JSON.parse(cachedRaw) : {};
+        const payload = {
+          ...(cached || {}),
+          id: Number(props.params.id),
+          title: title,
+          content: normalized,
+          tags: tags,
+          updated_at: new Date().toISOString(),
+        user_id: cached?.user_id ?? Number(userId ?? ((props.session as any)?.user?.id ?? 0)),
+          cachedAt: Date.now(),
+        };
+        localStorage.setItem(key, JSON.stringify(payload));
+      }
+    } catch {}
   }, []);
 
-  // -------- Success message handling --------
   useEffect(() => {
     if (state && (state as any).ok) {
       setShowSuccessMessage(true);
@@ -160,33 +250,30 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     }
   }, [state]);
 
-  // -------- Save handling --------
   const handleSubmit = useCallback(
     async (e?: React.FormEvent) => {
       e?.preventDefault?.();
 
-      const submittingUserId =
-        userId ?? localSession?.user?.id ?? props.session?.user?.id;
+      const submittingUserId = String(
+        userId ?? (localSession as any)?.id ?? ((props.session as any)?.user?.id ?? "")
+      );
       if (!submittingUserId) {
         alert("Session invalide. Veuillez vous reconnecter.");
         return;
       }
 
-      // Get current drawings from canvas or content
       let drawingsToSave: any[] = [];
 
       if (canvasCtrl && typeof canvasCtrl.saveDrawings === "function") {
         try {
           drawingsToSave = await canvasCtrl.saveDrawings({ force: true });
         } catch (err) {
-          // Fallback to content drawings
           drawingsToSave = content.drawings || [];
         }
       } else {
         drawingsToSave = content.drawings || [];
       }
 
-      // Build content object
       const contentToSave = {
         text: content.text || "",
         drawings: drawingsToSave,
@@ -194,7 +281,6 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
         timestamp: Date.now(),
       };
 
-      // Prepare form data
       const formData = new FormData();
       formData.append("documentId", String(props.params?.id || ""));
       formData.append("userId", String(submittingUserId));
@@ -202,7 +288,32 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
       formData.append("content", JSON.stringify(contentToSave));
       formData.append("tags", JSON.stringify(tags));
 
-      // Submit
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        try {
+          const key = `notus:doc:${props.params.id}`;
+          const cachedRaw = typeof window !== "undefined" ? localStorage.getItem(key) : null;
+          const cached = cachedRaw ? JSON.parse(cachedRaw) : {};
+          const payload = {
+            ...(cached || {}),
+            id: Number(props.params.id),
+            title: title || "",
+            content: contentToSave,
+            tags: tags,
+            updated_at: new Date().toISOString(),
+            user_id: cached?.user_id ?? Number(userId ?? (props.session as any)?.user?.id ?? 0),
+            cachedAt: Date.now(),
+          };
+          if (typeof window !== "undefined") {
+            localStorage.setItem(key, JSON.stringify(payload));
+          }
+          setShowSuccessMessage(true);
+          setShowSavedState(true);
+          setTimeout(() => setShowSavedState(false), 1500);
+          setTimeout(() => setShowSuccessMessage(false), 3000);
+        } catch {}
+        return;
+      }
+
       startTransition(() => {
         formAction(formData);
       });
@@ -217,10 +328,11 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
       title,
       tags,
       formAction,
+      setShowSavedState,
+      setShowSuccessMessage,
     ]
   );
 
-  // -------- Tag management --------
   const persistTags = (nextTags: string[]) => {
     if (!userId) return;
     const fd = new FormData();
@@ -229,9 +341,16 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     fd.append("title", title || "Sans titre");
     fd.append("content", JSON.stringify(content || ""));
     fd.append("tags", JSON.stringify(nextTags));
-    startTransition(() => {
-      updateDocumentAction({ ok: false }, fd);
-    });
+    if (typeof navigator !== "undefined" && navigator.onLine) {
+      startTransition(() => {
+        (updateDocumentAction as unknown as (s: any, p: any) => any)(undefined as any, fd as any);
+      });
+    }
+    if (typeof navigator !== "undefined" && navigator.onLine) {
+      startTransition(() => {
+        (updateDocumentAction as unknown as (s: any, p: any) => any)(undefined as any, fd as any);
+      });
+    }
   };
 
   const addTag = () => {
@@ -244,7 +363,28 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     }
     const next = [...tags, value];
     setTags(next);
-    persistTags(next);
+    try {
+      const key = `notus:doc:${props.params.id}`;
+      const cachedRaw = typeof window !== "undefined" ? localStorage.getItem(key) : null;
+      const cached = cachedRaw ? JSON.parse(cachedRaw) : {};
+      const payload = {
+        ...(cached || {}),
+        id: Number(props.params.id),
+        title: title,
+        content: content,
+        tags: next,
+        updated_at: new Date().toISOString(),
+            user_id: cached?.user_id ?? Number(userId ?? ((props.session as any)?.user?.id ?? 0)),
+        cachedAt: Date.now(),
+      };
+      if (typeof window !== "undefined") {
+        localStorage.setItem(key, JSON.stringify(payload));
+      }
+    } catch {}
+
+    if (typeof navigator !== "undefined" && navigator.onLine) {
+      persistTags(next);
+    }
     setNewTag("");
     setShowTagInput(false);
   };
@@ -252,10 +392,30 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   const removeTag = (value: string) => {
     const next = tags.filter((t) => t !== value);
     setTags(next);
-    persistTags(next);
+    try {
+      const key = `notus:doc:${props.params.id}`;
+      const cachedRaw = typeof window !== "undefined" ? localStorage.getItem(key) : null;
+      const cached = cachedRaw ? JSON.parse(cachedRaw) : {};
+      const payload = {
+        ...(cached || {}),
+        id: Number(props.params.id),
+        title: title,
+        content: content,
+        tags: next,
+        updated_at: new Date().toISOString(),
+        user_id: cached?.user_id ?? Number(userId ?? ((props.session as any)?.user?.id ?? 0)),
+        cachedAt: Date.now(),
+      };
+      if (typeof window !== "undefined") {
+        localStorage.setItem(key, JSON.stringify(payload));
+      }
+    } catch {}
+
+    if (typeof navigator !== "undefined" && navigator.onLine) {
+      persistTags(next);
+    }
   };
 
-  // -------- Loading states --------
   if (sessionLoading) {
     return (
       <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center">
@@ -341,7 +501,6 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     );
   }
 
-  // Verify ownership
   if (Number(document.user_id) !== Number(userId)) {
     return (
       <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center p-4">
@@ -363,7 +522,6 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     );
   }
 
-  // -------- Main render --------
   return (
     <div className="min-h-screen bg-white dark:bg-black py-8">
       <div className="max-w-4xl mx-auto px-4">

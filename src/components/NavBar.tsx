@@ -8,6 +8,7 @@ import AdminButton from "./AdminButton";
 import { Logo, Input, Button } from "@/components/ui";
 import { useLocalSession } from "@/hooks/useLocalSession";
 import { useSearch } from "@/contexts/SearchContext";
+import { useGuardedNavigate } from "@/hooks/useGuardedNavigate";
 
 interface NavItem {
   name: string;
@@ -22,6 +23,7 @@ export default function NavBar() {
   const { searchQuery, startSearch, clearSearch } = useSearch();
   const { data: session, status } = useSession();
   const { logout } = useLocalSession();
+  const { guardedNavigate } = useGuardedNavigate();
 
   // Extraire les données de session
   const isLoggedIn = status === "authenticated" && session?.user;
@@ -77,13 +79,15 @@ export default function NavBar() {
       if (isLoggedIn) {
         router.push("/logout");
       } else {
-        router.push("/login");
+        await guardedNavigate("/login");
       }
     } catch (_) {
     } finally {
       setIsOpen(false);
     }
   };
+
+  // Navigation protégée centralisée via hook
 
   const handleDesktopSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
@@ -123,16 +127,22 @@ export default function NavBar() {
             <span className="font-title text-4xl font-regular text-foreground">
               {pageTitle}
             </span>
-            <Link href="/" className="items-center hidden md:flex">
+            <button
+              type="button"
+              className="items-center hidden md:flex"
+              onClick={() => guardedNavigate("/")}
+              aria-label="Accueil"
+            >
               <Logo width={160} height={46} />
-            </Link>
+            </button>
           </div>
 
           {/* Right: profile (hidden on desktop) */}
           <div className="flex items-center gap-2 md:hidden">
             {isLoggedIn && (
-              <Link
-                href="/profile"
+              <button
+                type="button"
+                onClick={() => guardedNavigate("/profile")}
                 aria-label="Profil"
                 className="ml-1 inline-flex items-center justify-center w-8 h-8 rounded-full overflow-hidden bg-muted ring-1 ring-border/20 shadow-sm"
                 title={userName || "Profil"}
@@ -148,7 +158,7 @@ export default function NavBar() {
                     {getInitials(userName)}
                   </div>
                 )}
-              </Link>
+              </button>
             )}
           </div>
         </div>
@@ -173,13 +183,17 @@ export default function NavBar() {
             </div>
             <nav className="space-y-1 flex-1 overflow-y-auto">
               <div className="flex justify-center mb-3 p-3">
-                <Link
-                  href="/"
-                  onClick={() => setIsOpen(false)}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsOpen(false);
+                    guardedNavigate("/");
+                  }}
                   className="inline-flex items-center"
+                  aria-label="Accueil"
                 >
                   <Logo width={160} height={46} />
-                </Link>
+                </button>
               </div>
               <div className="px-3 mb-3">
                 <Input
@@ -193,9 +207,10 @@ export default function NavBar() {
             </nav>
             <div className="pt-4 space-y-3">
               {isLoggedIn && (
-                <Link
-                  href="/profile"
-                  className="flex items-center gap-3 p-3 bg-transparent cursor-pointer border-t border-border"
+                <button
+                  type="button"
+                  onClick={() => guardedNavigate("/profile")}
+                  className="flex items-center gap-3 p-3 bg-transparent cursor-pointer border-t border-border w-full text-left"
                 >
                   <div className="flex items-center justify-center w-10 h-10 rounded-full overflow-hidden bg-muted ring-1 ring-border/20 shadow-sm">
                     {localProfileImage ? (
@@ -215,7 +230,7 @@ export default function NavBar() {
                       {username || userName || "Anonyme"}
                     </span>
                   </div>
-                </Link>
+                </button>
               )}
               <Button
                 onClick={handleLogout}
@@ -232,9 +247,14 @@ export default function NavBar() {
       {/* Desktop / Tablet sidebar like X */}
       <aside className="hidden md:flex md:flex-col md:fixed md:inset-y-0 md:left-0 md:w-64 bg-background border-r-2 border-border/50 z-30">
         <div className="px-4 py-3 pt-10 flex justify-center">
-          <Link href="/" className="inline-flex items-center">
+          <button
+            type="button"
+            onClick={() => guardedNavigate("/")}
+            className="inline-flex items-center"
+            aria-label="Accueil"
+          >
             <Logo width={160} height={40} />
-          </Link>
+          </button>
         </div>
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
           <div className="mt-3">
@@ -249,9 +269,10 @@ export default function NavBar() {
         <div className="p-4 space-y-3">
           {/* <AdminButton /> */}
           {isLoggedIn && (
-              <Link
-              href="/profile"
-              className="flex items-center gap-3 p-3 bg-transparent cursor-pointer border-t border-border"
+            <button
+              type="button"
+              onClick={() => guardedNavigate("/profile")}
+              className="flex items-center gap-3 p-3 bg-transparent cursor-pointer border-t border-border w-full text-left"
             >
               <div className="flex items-center justify-center w-10 h-10 rounded-full overflow-hidden bg-muted ring-1 ring-border/20 shadow-sm">
                 {localProfileImage ? (
@@ -271,7 +292,7 @@ export default function NavBar() {
                   {username || userName || "Anonyme"}
                 </span>
               </div>
-            </Link>
+            </button>
           )}
           <Button onClick={handleLogout} variant="primary" className="w-full">
             {isLoggedIn ? "Se déconnecter" : "Se connecter"}

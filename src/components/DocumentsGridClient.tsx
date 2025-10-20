@@ -31,7 +31,6 @@ export default function DocumentsGridClient({ documents: serverDocuments = [], c
   );
   const [selectMode, setSelectMode] = useState(false);
 
-  // Charger les documents locaux (toujours, même si connecté)
   useEffect(() => {
     const loadLocalDocs = () => {
       try {
@@ -57,9 +56,9 @@ export default function DocumentsGridClient({ documents: serverDocuments = [], c
     return () => window.removeEventListener("storage", onStorage);
   }, []);
 
-  // Fusionner les documents locaux et serveur
-  // Les documents locaux en premier, puis les documents serveur
-  const documents = [...localDocuments, ...serverDocuments];
+  const documents = currentUserId 
+    ? serverDocuments
+    : [...localDocuments, ...serverDocuments];
 
   const toggleSelect = (id: string | number, checked: boolean) => {
     setSelectedIds((prev) => {
@@ -81,22 +80,18 @@ export default function DocumentsGridClient({ documents: serverDocuments = [], c
   const handleBulkDelete = (formData: FormData) => {
     if (selectedIds.length === 0) return;
 
-    // Séparer les documents locaux et serveur
     const localIdsToDelete: (string | number)[] = [];
     const serverIdsToDelete: (string | number)[] = [];
 
     selectedIds.forEach((id) => {
       const doc = documents.find((d) => d.id === id);
       if (doc && !doc.user_id) {
-        // Document local
         localIdsToDelete.push(id);
       } else {
-        // Document serveur
         serverIdsToDelete.push(id);
       }
     });
 
-    // Supprimer les documents locaux du localStorage
     if (localIdsToDelete.length > 0) {
       try {
         const raw = localStorage.getItem(LOCAL_DOCS_KEY);
@@ -109,19 +104,16 @@ export default function DocumentsGridClient({ documents: serverDocuments = [], c
       }
     }
 
-    // Supprimer les documents serveur via l'action
     if (currentUserId && serverIdsToDelete.length > 0) {
       formData.append("userId", String(currentUserId));
       serverIdsToDelete.forEach((id) => formData.append("documentIds", String(id)));
       formAction(formData);
     }
 
-    // Optimistic UI
     setSelectedIds([]);
     setSelectMode(false);
   };
 
-  // Affichage vide si aucun document
   if (!documents || documents.length === 0) {
     return (
       <section aria-labelledby="docs-empty">
@@ -163,7 +155,6 @@ export default function DocumentsGridClient({ documents: serverDocuments = [], c
 
         <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(300px,1fr))]">
           {documents.map((document) => {
-            // Un document est local s'il n'a pas de user_id (vient du localStorage)
             const isLocal = !document.user_id;
             return (
               <div key={document.id} className="w-full">

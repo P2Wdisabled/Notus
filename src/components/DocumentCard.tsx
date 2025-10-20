@@ -4,8 +4,10 @@ import { useActionState, startTransition } from "react";
 import { deleteDocumentAction, updateDocumentAction } from "@/lib/actions";
 import Link from "next/link";
 import DOMPurify from "dompurify";
-import { Button, Badge, Input } from "@/components/ui";
+import { Button, Input } from "@/components/ui";
+import { useGuardedNavigate } from "@/hooks/useGuardedNavigate";
 import TagsManager from "@/components/TagsManager";
+import { cn } from "@/lib/utils";
 
 interface Document {
   id: string | number;
@@ -25,6 +27,7 @@ interface DocumentCardProps {
   onToggleSelect?: (id: string | number, checked: boolean) => void;
   onEnterSelectMode?: (id: string | number) => void;
   isLocal?: boolean;
+  index?: number;
 }
 
 function unwrapToString(raw: any): string {
@@ -108,6 +111,7 @@ export default function DocumentCard({
   onToggleSelect = () => {},
   onEnterSelectMode = () => {},
   isLocal = false,
+  index = 0,
 }: DocumentCardProps) {
   const [message, formAction, isPending] = useActionState(
     deleteDocumentAction,
@@ -115,9 +119,11 @@ export default function DocumentCard({
   );
   const [updateMsg, updateFormAction, isUpdating] = useActionState(
     updateDocumentAction,
-    { ok: false }
+    { ok: false, error: "" }
   );
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const { checkConnectivity } = useGuardedNavigate();
 
   const isOwner = document.user_id === currentUserId;
   const updatedDate = new Date(document.updated_at);
@@ -219,9 +225,64 @@ export default function DocumentCard({
     });
   };
 
-  const handleTagsChange = (newTags: string[]) => {
-    setTags(newTags);
-    persistTags(newTags);
+  const handleTagsChange = async (newTags: string[]) => {
+    const prevTags = tags || [];
+    const isAddition = newTags.length > prevTags.length;
+    const isRemoval = newTags.length < prevTags.length;
+
+    // Création d'un tag: ne créer que si connecté
+    if (isAddition) {
+      if (!currentUserId) {
+        window.dispatchEvent(
+          new CustomEvent("notus:offline-popin", {
+            detail: {
+              message: "Vous pourrez accéder à cette fonctionnalité une fois la connexion rétablie.",
+              durationMs: 5000,
+            },
+          })
+        );
+        return;
+      }
+      const online = await checkConnectivity();
+      if (!online) {
+        console.log(`[DocumentCard] Ajout de tag bloqué (offline)`);
+        window.dispatchEvent(
+          new CustomEvent("notus:offline-popin", {
+            detail: {
+              message: "Vous pourrez accéder à cette fonctionnalité une fois la connexion rétablie.",
+              durationMs: 5000,
+            },
+          })
+        );
+        return;
+      }
+      // en ligne: on applique côté front et on persiste
+      setTags(newTags);
+      persistTags(newTags);
+      return;
+    }
+
+    // Suppression: appliquer côté front; tenter de persister si connecté
+    if (isRemoval) {
+      setTags(newTags);
+      if (!currentUserId) return;
+      const online = await checkConnectivity();
+      if (online) {
+        persistTags(newTags);
+      } else {
+        window.dispatchEvent(
+          new CustomEvent("notus:offline-popin", {
+            detail: {
+              message: "Vous pourrez accéder à cette fonctionnalité une fois la connexion rétablie.",
+              durationMs: 5000,
+            },
+          })
+        );
+      }
+      return;
+    }
+
+    // Aucun changement détecté (sécurité)
   };
 
   const handleDelete = (formData: FormData) => {
@@ -279,23 +340,36 @@ export default function DocumentCard({
     }
   };
 
+  const handleCardClick = (e: React.MouseEvent) => {
+    if (selectMode || longPressActivatedRef.current) {
+      e.preventDefault();
+      onToggleSelect(document.id, !selected);
+      longPressActivatedRef.current = false;
+    }
+  };
+
+  const handleLongPress = () => {
+    onEnterSelectMode(document.id);
+    onToggleSelect(document.id, !selected);
+  };
+
   // ref + state pour lire les styles calculés
   const previewRef = useRef<HTMLDivElement>(null);
   const [computedStyle, setComputedStyle] = useState({
-    color: null,
-    backgroundColor: null,
-    fontSize: null,
-    fontFamily: null,
-    fontWeight: null,
-    lineHeight: null,
-    accent: null,
+    color: null as string | null,
+    backgroundColor: null as string | null,
+    fontSize: null as string | null,
+    fontFamily: null as string | null,
+    fontWeight: null as string | null,
+    lineHeight: null as string | null,
+    accent: null as string | null,
   });
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     const el = previewRef.current;
     // si l'élément n'est pas prêt, on essaie le root (ou on attend previewHtml)
-    const target = el instanceof Element ? el : document.documentElement;
+    const target = el instanceof Element ? el : (document as any).body;
     try {
       const style = window.getComputedStyle(target);
       setComputedStyle({
@@ -319,91 +393,170 @@ export default function DocumentCard({
     : `/documents/${document.id}`;
 
   return (
-    <Link
-      href={documentUrl}
-      className="block bg-card text-card-foreground rounded-2xl shadow-lg p-6 mb-4 hover:shadow-lg transition-shadow border border-border"
-      onContextMenu={handleContextMenu}
-      onClick={handleClick}
+    <div
+      className={cn(
+        "group relative bg-card border rounded-xl p-5 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-1 cursor-pointer animate-fade-in-up",
+        selected && "border-primary ring-2 ring-primary/20 bg-primary/5",
+      )}
+      style={{ animationDelay: `${index * 50}ms` }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => {
+        setIsHovered(false);
+        clearLongPressTimer();
+      }}
+      onClick={handleCardClick}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        handleLongPress();
+      }}
       onMouseDown={startLongPressTimer}
       onMouseUp={clearLongPressTimer}
-      onMouseLeave={clearLongPressTimer}
       onTouchStart={startLongPressTimer}
       onTouchEnd={clearLongPressTimer}
     >
-      {/* Tags + ajout */}
-      <div className="mb-2">
-        <div
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-          }}
-        >
-          <TagsManager
-            tags={tags}
-            onTagsChange={handleTagsChange}
-            placeholder="Nouveau tag..."
-            maxTags={10}
-          />
+      {/* Header */}
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center gap-2 w-full min-w-0">
+          <div
+            className="flex-1 min-w-0 max-w-full"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+          >
+            <TagsManager
+              tags={tags}
+              onTagsChange={handleTagsChange}
+              placeholder="Nouveau tag..."
+              maxTags={10}
+            />
+          </div>
         </div>
       </div>
 
-      {/* Titre du document */}
-      <div className="mb-2">
-        <span className="block truncate text-xl font-title text-foreground hover:text-primary transition-colors">
-          {document.title}
-        </span>
-      </div>
-
-      {/* preview */}
-      <div
-        ref={previewRef}
-        className="text-muted-foreground mb-4"
-      >
-        {contentIsHtml ? (
-          // only render sanitized HTML when previewHtml available
-          previewHtml ? (
-            <div
-              className="line-clamp-3 prose max-w-full"
-              dangerouslySetInnerHTML={{ __html: previewHtml }}
-            />
-          ) : (
-            <p className="text-muted-foreground/70 italic">
-              Chargement...
+      {/* Content */}
+      <div className="space-y-2">
+        <a
+          href={documentUrl}
+          className="block"
+          onClick={async (e) => {
+            if (selectMode || longPressActivatedRef.current) {
+              e.preventDefault();
+              return;
+            }
+            e.preventDefault();
+            console.log(`[DocumentCard] Tentative d'ouverture du document ${document.id} (${document.title})`);
+            try {
+              const controller = new AbortController();
+              const timeoutId = window.setTimeout(() => controller.abort(), 5000);
+              console.log(`[DocumentCard] Vérification de connexion (check-status) avant navigation...`);
+              const resp = await fetch("/api/admin/check-status", {
+                method: "GET",
+                cache: "no-store",
+                credentials: "include",
+                headers: { "cache-control": "no-cache" },
+                signal: controller.signal,
+              });
+              window.clearTimeout(timeoutId);
+              console.log(`[DocumentCard] Réponse de vérification: ${resp.status} ${resp.ok ? "OK" : "FAIL"}`);
+              if (resp.ok) {
+                console.log(`[DocumentCard] Connexion OK, redirection vers ${documentUrl}`);
+                window.location.href = documentUrl;
+              } else {
+                console.log(`[DocumentCard] Connexion échouée, affichage popin offline`);
+                window.dispatchEvent(
+                  new CustomEvent("notus:offline-popin", {
+                    detail: {
+                      message:
+                        "Vous pourrez accéder à cette fonctionnalité une fois la connexion rétablie.",
+                      durationMs: 5000,
+                    },
+                  })
+                );
+              }
+            } catch (error) {
+              console.log(`[DocumentCard] Erreur de vérification de connexion:`, error);
+              window.dispatchEvent(
+                new CustomEvent("notus:offline-popin", {
+                  detail: {
+                    message:
+                      "Vous pourrez accéder à cette fonctionnalité une fois la connexion rétablie.",
+                    durationMs: 5000,
+                  },
+                })
+              );
+            }
+          }}
+        >
+          <h3 className="text-lg font-semibold text-card-foreground group-hover:text-primary transition-colors duration-200">
+            {document.title}
+          </h3>
+        </a>
+        <div
+          ref={previewRef}
+          className="text-sm text-muted-foreground line-clamp-2 leading-relaxed"
+        >
+          {contentIsHtml ? (
+            // only render sanitized HTML when previewHtml available
+            previewHtml ? (
+              <div
+                className="prose max-w-full"
+                dangerouslySetInnerHTML={{ __html: previewHtml }}
+              />
+            ) : (
+              <p className="text-muted-foreground/70 italic">
+                Chargement...
+              </p>
+            )
+          ) : previewText ? (
+            <p>
+              {previewText.length > 200
+                ? `${previewText.substring(0, 200)}...`
+                : previewText}
             </p>
-          )
-        ) : previewText ? (
-          <p className="line-clamp-3">
-            {previewText.length > 200
-              ? `${previewText.substring(0, 200)}...`
-              : previewText}
-          </p>
-        ) : (
-          <p className="text-gray-400 dark:text-gray-500 italic">
-            Document vide
-          </p>
-        )}
-        <div className="flex items-center justify-between mt-2">
-          <time
-            dateTime={document.updated_at}
-            className="text-xs text-muted-foreground"
-          >
-            {formattedDate}
-          </time>
-          {selectMode && (
-            <input
-              type="checkbox"
-              checked={selected}
-              onClick={handleCheckboxClick}
-              onChange={handleCheckboxChange}
-              className="w-5 h-5 cursor-pointer rounded-full appearance-none border-2 border-input checked:border-primary checked:bg-primary"
-              aria-label="Sélectionner ce document"
-            />
+          ) : (
+            <p className="text-gray-400 dark:text-gray-500 italic">
+              Document vide
+            </p>
           )}
         </div>
       </div>
 
-      {/* Actions */}
-      <div className="flex justify-between items-center"></div>
+      {/* Footer */}
+      <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
+        <time
+          dateTime={document.updated_at}
+          className="text-xs text-muted-foreground"
+        >
+          {formattedDate}
+        </time>
+        {/* {isOwner && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Propriétaire</span>
+          </div>
+        )} */}
+          {selectMode && (
+          <div
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleSelect(document.id, !selected);
+            }}
+            className="animate-fade-in"
+          >
+             <input
+               type="checkbox"
+               checked={selected}
+               onClick={handleCheckboxClick}
+               onChange={handleCheckboxChange}
+               className="h-5 w-5 appearance-none border-2 border-input rounded transition-all duration-200 checked:border-primary checked:bg-primary checked:accent-primary"
+               style={{
+                 accentColor: selected ? 'var(--primary)' : undefined
+               }}
+               aria-label="Sélectionner ce document"
+             />
+          </div>
+        )}
+      </div>
 
       {/* Message de suppression */}
       {message && (
@@ -411,7 +564,7 @@ export default function DocumentCard({
           <p className="text-sm text-destructive">{message}</p>
         </div>
       )}
-    </Link>
+    </div>
   );
 }
 

@@ -5,12 +5,14 @@ import { User, UserRepositoryResult, CreateUserData, UpdateUserProfileData } fro
 export class PrismaUserRepository {
   async createUser(userData: CreateUserData): Promise<UserRepositoryResult<User>> {
     try {
-      const hashedPassword = await bcrypt.hash(userData.password, 12);
+      // Hacher le mot de passe avec salt
+      const passwordHash = await bcrypt.hash(userData.password, 12);
+      
       const user = await prisma.user.create({
         data: {
           email: userData.email,
           username: userData.username,
-          password_hash: hashedPassword,
+          password_hash: passwordHash,
           first_name: userData.firstName,
           last_name: userData.lastName,
           email_verification_token: userData.verificationToken,
@@ -241,6 +243,7 @@ export class PrismaUserRepository {
           error: 'Token de réinitialisation invalide ou expiré',
         };
       }
+
 
       const updatedUser = await prisma.user.update({
         where: { id: user.id },
