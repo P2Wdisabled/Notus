@@ -10,6 +10,7 @@ concurrency:
 
 env:
   CI: true
+  ENV_NAME: prod   # <<< nom de l'environnement GitHub (Settings > Environments)
 
 jobs:
   install:
@@ -17,19 +18,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Use Node.js 22.x
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22.x
           cache: npm
           cache-dependency-path: package-lock.json
       - name: npm i
         run: npm i
-      # Option: on exporte node_modules pour éviter de réinstaller aux étapes suivantes
       - name: Pack deps
         run: tar czf deps.tgz node_modules package-lock.json
-      - name: Upload deps artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: deps
           path: deps.tgz
@@ -44,12 +42,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22.x
-      - name: Download deps
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           name: deps
-      - name: Unpack deps
-        run: tar xzf deps.tgz
+      - run: tar xzf deps.tgz
       - name: npm test (if present)
         run: npm test --if-present -- --ci
 
@@ -62,12 +58,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22.x
-      - name: Download deps
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           name: deps
-      - name: Unpack deps
-        run: tar xzf deps.tgz
+      - run: tar xzf deps.tgz
       - name: npm run lint (if present)
         run: npm run lint --if-present
 
@@ -80,12 +74,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22.x
-      - name: Download deps
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           name: deps
-      - name: Unpack deps
-        run: tar xzf deps.tgz
+      - run: tar xzf deps.tgz
       - name: Cache Next build
         uses: actions/cache@v4
         with:
@@ -95,32 +87,19 @@ jobs:
             next-${{ runner.os }}-
       - name: npm run build
         run: npm run build
-      - name: Upload build logs (utile en debug)
-        if: always()
-        run: |
-          mkdir -p artifacts
-          [ -f .next/trace ] && cp -r .next/trace artifacts/ || true
-          tar czf build-logs.tgz artifacts || true
-      - name: Save build artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-logs
-          path: build-logs.tgz
-          retention-days: 1
 
   deploy:
     name: 5) deploy (rsync)
     runs-on: ubuntu-latest
     needs: build
+    environment:
+      name: ${{ env.ENV_NAME }}   # <<< rend dispo les secrets de l'environnement
     steps:
       - uses: actions/checkout@v4
-
       - name: Install sshpass & rsync
         run: |
           sudo apt-get update -y
           sudo apt-get install -y sshpass rsync
-
       - name: Check secrets & set defaults
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
@@ -137,7 +116,6 @@ jobs:
             fi
           done
           echo "PORT=${SSH_PORT:-22}" >> "$GITHUB_ENV"
-
       - name: Rsync source to server
         env:
           SSHPASS: ${{ secrets.SSH_PASSWORD }}
@@ -154,6 +132,8 @@ jobs:
     name: 6) prisma (generate + migrate + build)
     runs-on: ubuntu-latest
     needs: deploy
+    environment:
+      name: ${{ env.ENV_NAME }}
     steps:
       - name: prisma + build on server
         env:
@@ -169,15 +149,11 @@ jobs:
           sshpass -e ssh -p "${PORT}" -o StrictHostKeyChecking=no "${SSH_USER}@${SSH_HOST}" "
             set -e
             cd '${REMOTE_PATH}'
-            # Env (optionnel)
             if [ -n '${ENV_VARS}' ]; then export ${ENV_VARS}; fi
             if [ -n '${ENV_FILE_PROD}' ]; then printf '%s\n' '${ENV_FILE_PROD}' > .env.production; fi
-            # Déps prod (sécurité)
             npm i --omit=dev
-            # Prisma
             npx prisma generate
             npx prisma migrate deploy
-            # Rebuild côté serveur (cohérence arch/env Next)
             npm run build
           "
 
@@ -185,6 +161,8 @@ jobs:
     name: 7) restart (PM2 reload)
     runs-on: ubuntu-latest
     needs: prisma
+    environment:
+      name: ${{ env.ENV_NAME }}
     steps:
       - name: pm2 reload
         env:
