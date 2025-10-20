@@ -139,13 +139,47 @@ export default function DocumentCard({
 
   // Gérer le contenu selon le type (objet pour documents locaux, string pour documents serveur)
   const getContentText = (content: any): string => {
-    if (typeof content === "object" && content !== null) {
-      return content.text || "";
+    try {
+      // Si c'est une chaîne JSON, essayer de la parser
+      if (typeof content === "string") {
+        const parsed = JSON.parse(content);
+        if (parsed && typeof parsed === "object" && "text" in parsed) {
+          return parsed.text || "";
+        }
+        return content;
+      }
+      
+      // Si c'est déjà un objet
+      if (typeof content === "object" && content !== null) {
+        return content.text || "";
+      }
+      
+      return content || "";
+    } catch (e) {
+      // Si le parsing JSON échoue, retourner le contenu tel quel
+      return content || "";
     }
-    return content || "";
   };
 
-  const firstLine = getContentText(document.content).split(/\r?\n/)[0];
+  const contentText = getContentText(document.content);
+  
+  // Nettoyer le texte : supprimer le markdown et les balises HTML
+  const cleanText = (text: string): string => {
+    return text
+      .replace(/\*\*(.*?)\*\*/g, '$1') // **bold** -> bold
+      .replace(/\*(.*?)\*/g, '$1')     // *italic* -> italic
+      .replace(/<u>(.*?)<\/u>/g, '$1') // <u>underline</u> -> underline
+      .replace(/~~(.*?)~~/g, '$1')     // ~~strikethrough~~ -> strikethrough
+      .replace(/<span[^>]*>(.*?)<\/span>/g, '$1') // <span>color</span> -> color
+      .replace(/#+\s*/g, '')           // # headers -> remove
+      .replace(/<\/?[^>]+(>|$)/g, '')  // remove any remaining HTML tags
+      .trim();
+  };
+  
+  const firstLine = cleanText(contentText.substring(0, 500).split(/\n\n/)[0]);
+  
+  // Si le texte original ou le texte nettoyé est vide, on considère le document comme vide
+  const isEmpty = !contentText || contentText.trim() === "" || !firstLine || firstLine.trim() === "";
 
   // ensure we always define contentIsHtml and previewText
   const rawPreviewSource = getContentText(document?.content);
@@ -529,7 +563,11 @@ export default function DocumentCard({
               <p className="text-muted-foreground/70 italic">Chargement...</p>
             )
           ) : (
-            <p className="text-gray-400 dark:text-gray-500 italic">Document vide</p>
+            !isEmpty ? (
+              <p className="text-gray-600 dark:text-gray-300">{firstLine}</p>
+            ) : (
+              <p className="text-gray-400 dark:text-gray-500 italic">Document vide</p>
+            )
           )}
         </div>
       </div>
