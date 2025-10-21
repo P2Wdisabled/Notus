@@ -6,7 +6,10 @@ import { useTheme } from "@/contexts/ThemeContext";
 export default function ThemeToggle() {
   const { isDark, toggleTheme } = useTheme();
 
-  return (
+  // Bouton temporairement masqué
+  return null;
+
+  /* return (
     <Button
       onClick={toggleTheme}
       variant="ghost"
@@ -39,5 +42,5 @@ export default function ThemeToggle() {
         </svg>
       )}
     </Button>
-  );
+  ); */
 }
