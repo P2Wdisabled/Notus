@@ -361,11 +361,6 @@ export default function DocumentCard({
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const longPressActivatedRef = useRef(false);
 
-  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    e.stopPropagation();
-    onToggleSelect(document.id, e.target.checked);
-  };
-
   const clearLongPressTimer = () => {
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
@@ -449,10 +444,72 @@ export default function DocumentCard({
     ? `/documents/local/${encodeURIComponent(String(document.id))}`
     : `/documents/${document.id}`;
 
+  const handleCardNavigation = async (e: React.MouseEvent) => {
+    // En mode sélection, toggle la sélection au lieu de naviguer
+    if (selectMode) {
+      e.preventDefault();
+      e.stopPropagation();
+      onToggleSelect(document.id, !selected);
+      return;
+    }
+
+    // Si long press activé, toggle la sélection
+    if (longPressActivatedRef.current) {
+      e.preventDefault();
+      onToggleSelect(document.id, !selected);
+      longPressActivatedRef.current = false;
+      return;
+    }
+
+    // Sinon, navigation normale
+    e.preventDefault();
+    console.log(`[DocumentCard] Tentative d'ouverture du document ${document.id} (${document.title})`);
+    try {
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), 5000);
+      console.log(`[DocumentCard] Vérification de connexion (check-status) avant navigation...`);
+      const resp = await fetch("/api/admin/check-status", {
+        method: "GET",
+        cache: "no-store",
+        credentials: "include",
+        headers: { "cache-control": "no-cache" },
+        signal: controller.signal,
+      });
+      window.clearTimeout(timeoutId);
+      console.log(`[DocumentCard] Réponse de vérification: ${resp.status} ${resp.ok ? "OK" : "FAIL"}`);
+      if (resp.ok) {
+        console.log(`[DocumentCard] Connexion OK, redirection vers ${documentUrl}`);
+        window.location.href = documentUrl;
+      } else {
+        console.log(`[DocumentCard] Connexion échouée, affichage popin offline`);
+        window.dispatchEvent(
+          new CustomEvent("notus:offline-popin", {
+            detail: {
+              message:
+                "Vous pourrez accéder à cette fonctionnalité une fois la connexion rétablie.",
+              durationMs: 5000,
+            },
+          })
+        );
+      }
+    } catch (error) {
+      console.log(`[DocumentCard] Erreur de vérification de connexion:`, error);
+      window.dispatchEvent(
+        new CustomEvent("notus:offline-popin", {
+          detail: {
+            message:
+              "Vous pourrez accéder à cette fonctionnalité une fois la connexion rétablie.",
+            durationMs: 5000,
+          },
+        })
+      );
+    }
+  };
+
   return (
     <div
       className={cn(
-        "group relative bg-card border rounded-xl p-5 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-1 animate-fade-in-up",
+        "group relative bg-card border rounded-xl p-5 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-1 animate-fade-in-up cursor-pointer",
         selected && "border-primary ring-2 ring-primary/20 bg-primary/5",
       )}
       style={{ animationDelay: `${index * 50}ms` }}
@@ -469,13 +526,19 @@ export default function DocumentCard({
       onMouseUp={clearLongPressTimer}
       onTouchStart={startLongPressTimer}
       onTouchEnd={clearLongPressTimer}
+      onClick={handleCardNavigation}
     >
-      {/* Header - Zone des tags (non cliquable) */}
+      {/* Header - Zone des tags */}
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2 w-full min-w-0">
           <div
             className="flex-1 min-w-0 max-w-full"
             onClick={(e) => {
+              // En mode sélection, ne pas bloquer la propagation pour permettre la sélection
+              if (selectMode) {
+                return;
+              }
+              // Hors mode sélection, bloquer la propagation pour gérer les tags
               e.preventDefault();
               e.stopPropagation();
               handleTagsClick();
@@ -486,7 +549,7 @@ export default function DocumentCard({
               onTagsChange={handleTagsChange}
               placeholder="Nouveau tag..."
               maxTags={10}
-              disabled={!currentUserId}
+              disabled={!currentUserId || selectMode}
             />
           </div>
         </div>
@@ -494,62 +557,9 @@ export default function DocumentCard({
 
       {/* Content */}
       <div className="space-y-2">
-        <a
-          href={documentUrl}
-          className="block"
-          onClick={async (e) => {
-            if (selectMode || longPressActivatedRef.current) {
-              e.preventDefault();
-              return;
-            }
-            e.preventDefault();
-            console.log(`[DocumentCard] Tentative d'ouverture du document ${document.id} (${document.title})`);
-            try {
-              const controller = new AbortController();
-              const timeoutId = window.setTimeout(() => controller.abort(), 5000);
-              console.log(`[DocumentCard] Vérification de connexion (check-status) avant navigation...`);
-              const resp = await fetch("/api/admin/check-status", {
-                method: "GET",
-                cache: "no-store",
-                credentials: "include",
-                headers: { "cache-control": "no-cache" },
-                signal: controller.signal,
-              });
-              window.clearTimeout(timeoutId);
-              console.log(`[DocumentCard] Réponse de vérification: ${resp.status} ${resp.ok ? "OK" : "FAIL"}`);
-              if (resp.ok) {
-                console.log(`[DocumentCard] Connexion OK, redirection vers ${documentUrl}`);
-                window.location.href = documentUrl;
-              } else {
-                console.log(`[DocumentCard] Connexion échouée, affichage popin offline`);
-                window.dispatchEvent(
-                  new CustomEvent("notus:offline-popin", {
-                    detail: {
-                      message:
-                        "Vous pourrez accéder à cette fonctionnalité une fois la connexion rétablie.",
-                      durationMs: 5000,
-                    },
-                  })
-                );
-              }
-            } catch (error) {
-              console.log(`[DocumentCard] Erreur de vérification de connexion:`, error);
-              window.dispatchEvent(
-                new CustomEvent("notus:offline-popin", {
-                  detail: {
-                    message:
-                      "Vous pourrez accéder à cette fonctionnalité une fois la connexion rétablie.",
-                    durationMs: 5000,
-                  },
-                })
-              );
-            }
-          }}
-        >
-          <h3 className="text-lg font-semibold text-card-foreground group-hover:text-primary transition-colors duration-200">
-            {document.title}
-          </h3>
-        </a>
+        <h3 className="text-lg font-semibold text-card-foreground group-hover:text-primary transition-colors duration-200">
+          {document.title}
+        </h3>
         <div
           ref={previewRef}
           className="text-sm text-muted-foreground line-clamp-2 leading-relaxed"
@@ -583,7 +593,7 @@ export default function DocumentCard({
         </time>
 
         {/* Avatars des personnes ayant accès */}
-        {currentUserId && (
+        {currentUserId && !selectMode && (
           <div className="flex items-center ml-3">
             <div className="flex -space-x-2">
               {accessList.map((u, i) => (
@@ -611,21 +621,33 @@ export default function DocumentCard({
         {selectMode && (
           <div
             onClick={(e) => {
+              e.preventDefault();
               e.stopPropagation();
               onToggleSelect(document.id, !selected);
             }}
-            className="animate-fade-in"
+            className={cn(
+              "h-5 w-5 border-2 rounded transition-all duration-200 cursor-pointer flex items-center justify-center animate-fade-in",
+              selected 
+                ? "border-primary bg-primary" 
+                : "border-input bg-background"
+            )}
+            role="checkbox"
+            aria-checked={selected}
+            aria-label="Sélectionner ce document"
           >
-            <input
-              type="checkbox"
-              checked={selected}
-              onChange={handleCheckboxChange}
-              className="h-5 w-5 appearance-none border-2 border-input rounded transition-all duration-200 checked:border-primary checked:bg-primary checked:accent-primary"
-              style={{
-                accentColor: selected ? 'var(--primary)' : undefined
-              }}
-              aria-label="Sélectionner ce document"
-            />
+            {selected && (
+              <svg
+                className="w-4 h-4 text-primary-foreground"
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="4"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path d="M5 13l4 4L19 7"></path>
+              </svg>
+            )}
           </div>
         )}
       </div>
