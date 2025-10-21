@@ -20,6 +20,7 @@ import { Document } from "@/lib/types";
 import TagsManager from "@/components/TagsManager";
 import { addShareAction } from "@/lib/actions/DocumentActions";
 import UserListButton from "@/components/ui/UserList/UserListButton";
+import { useGuardedNavigate } from "@/hooks/useGuardedNavigate";
 
 interface EditDocumentPageClientProps {
   session?: any;
@@ -55,6 +56,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
 
   // Router
   const router = useRouter();
+  const { guardedNavigate, checkConnectivity } = useGuardedNavigate();
 
   // Action state (must be before any conditional returns)
   const typedUpdateAction =
@@ -340,7 +342,8 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
       const submittingUserEmail = userEmail || props.session?.user?.email || "";
       formData.append("email", submittingUserEmail);
 
-      if (typeof navigator !== "undefined" && !navigator.onLine) {
+      const onlineOk = await checkConnectivity();
+      if (!onlineOk) {
         try {
           const key = `notus:doc:${props.params.id}`;
           const cachedRaw = typeof window !== "undefined" ? localStorage.getItem(key) : null;
@@ -382,6 +385,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
       formAction,
       setShowSavedState,
       setShowSuccessMessage,
+      checkConnectivity,
     ]
   );
 
@@ -535,12 +539,19 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   }, [document, userEmail]);
 
   // -------- Share functionality --------
-  const handleShareButtonClick = () => {
+  const handleShareButtonClick = async () => {
+    const ok = await checkConnectivity();
+    if (!ok) return;
     setIsShareModalOpen(true);
   };
 
   const handleShareSubmit = async () => {
     if (!document) return;
+    const ok = await checkConnectivity();
+    if (!ok) {
+      setShareError("Connexion requise pour partager la note.");
+      return;
+    }
     if (!shareEmail || shareEmail.trim().length === 0) {
       setShareError("Email requis");
       return;
@@ -894,12 +905,13 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
 
             {/* Buttons */}
             <div className="flex justify-center space-x-4">
-            <Link
-                href="/"
+            <button
+                type="button"
+                onClick={() => guardedNavigate("/")}
                 className="px-6 py-3 rounded-lg text-foreground hover:shadow-md hover:border-primary hover:bg-foreground/5 border border-primary cursor-pointer"
               >
                 Annuler
-              </Link>
+              </button>
               <Button
                 type="submit"
                 disabled={isPending || hasEditAccess === false}

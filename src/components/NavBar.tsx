@@ -210,7 +210,11 @@ export default function NavBar() {
                   <Link
                     key={item.href}
                     href={item.href}
-                    onClick={() => setIsOpen(false)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setIsOpen(false);
+                      guardedNavigate(item.href);
+                    }}
                     className={`flex items-center gap-3 p-3 rounded-md hover:bg-accent text-foreground ${pathname === item.href ? 'bg-accent/70' : ''}`}
                   >
                     <item.icon />
@@ -285,6 +289,10 @@ export default function NavBar() {
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={(e) => {
+                  e.preventDefault();
+                  guardedNavigate(item.href);
+                }}
                 className={`flex items-center gap-3 p-3 rounded-md hover:bg-accent text-foreground ${pathname === item.href ? 'bg-accent/70' : ''}`}
               >
                 <item.icon />

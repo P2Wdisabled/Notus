@@ -50,6 +50,7 @@ export default async function RootLayout({
                 {children}
                 <FloatingCreateButton serverSession={session} />
                 <ThemeToggle />
+                <OfflinePopin />
               </SelectionProvider>
             </SearchProvider>
           </AuthSessionProvider>

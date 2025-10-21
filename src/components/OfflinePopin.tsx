@@ -11,6 +11,7 @@ export default function OfflinePopin() {
   const [overrideMessage, setOverrideMessage] = useState<string | null>(null);
   const [forceShow, setForceShow] = useState<boolean>(false);
   const pathname = usePathname();
+  const isEditingDocument = /^\/documents\/(\d+)/.test(pathname || "");
 
   const handleOnline = useCallback(() => {
     console.log(`[OfflinePopin] Événement 'online' détecté`);
@@ -123,7 +124,9 @@ export default function OfflinePopin() {
         <div>
           <h4 className="font-semibold mb-1">Vous êtes hors ligne</h4>
           <p className="text-sm leading-5">
-            {overrideMessage || "Votre connexion internet semble interrompue. Les notes seront enregistrées une fois la connexion rétablie."}
+            {overrideMessage || (isEditingDocument
+              ? "Votre connexion internet semble interrompue. Vous pourrez enregistrer la note une fois la connexion rétablie."
+              : "Votre connexion internet semble interrompue. Vous pourrez avoir accès aux différentes fonctionnalités une fois la connexion rétablie.")}
           </p>
         </div>
         <button
