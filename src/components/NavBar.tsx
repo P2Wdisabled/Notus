@@ -9,6 +9,7 @@ import { Logo, Input, Button } from "@/components/ui";
 import { useLocalSession } from "@/hooks/useLocalSession";
 import { useSearch } from "@/contexts/SearchContext";
 import { useGuardedNavigate } from "@/hooks/useGuardedNavigate";
+import LoginRequiredModal from "@/components/LoginRequiredModal";
 
 interface NavItem {
   name: string;
@@ -19,6 +20,7 @@ interface NavItem {
 export default function NavBar() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
   const router = useRouter();
   const { searchQuery, startSearch, clearSearch } = useSearch();
   const { data: session, status } = useSession();
@@ -107,6 +109,19 @@ export default function NavBar() {
     } else {
       clearSearch();
     }
+  };
+
+  const handleNavItemClick = (e: React.MouseEvent, href: string) => {
+    e.preventDefault();
+    setIsOpen(false);
+    
+    // Vérifier si c'est "Notes partagées" et l'utilisateur n'est pas connecté
+    if (href === "/shared" && !isLoggedIn) {
+      setShowLoginModal(true);
+      return;
+    }
+    
+    guardedNavigate(href);
   };
 
   return (
@@ -210,11 +225,7 @@ export default function NavBar() {
                   <Link
                     key={item.href}
                     href={item.href}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setIsOpen(false);
-                      guardedNavigate(item.href);
-                    }}
+                    onClick={(e) => handleNavItemClick(e, item.href)}
                     className={`flex items-center gap-3 p-3 rounded-md hover:bg-accent text-foreground ${pathname === item.href ? 'bg-accent/70' : ''}`}
                   >
                     <item.icon />
@@ -289,10 +300,7 @@ export default function NavBar() {
               <Link
                 key={item.href}
                 href={item.href}
-                onClick={(e) => {
-                  e.preventDefault();
-                  guardedNavigate(item.href);
-                }}
+                onClick={(e) => handleNavItemClick(e, item.href)}
                 className={`flex items-center gap-3 p-3 rounded-md hover:bg-accent text-foreground ${pathname === item.href ? 'bg-accent/70' : ''}`}
               >
                 <item.icon />
@@ -334,6 +342,13 @@ export default function NavBar() {
           </Button>
         </div>
       </aside>
+
+      {/* Modal de connexion pour Notes partagées */}
+      <LoginRequiredModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        message="Vous devez être connecté pour avoir accès aux notes partagées."
+      />
     </>
   );
 }
