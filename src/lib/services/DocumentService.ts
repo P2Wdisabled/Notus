@@ -57,7 +57,7 @@ export class DocumentService {
     tags: string[] | undefined = undefined
   ): Promise<DocumentRepositoryResult<Document>> {
     try {
-      return await this.documentRepository.createOrUpdateDocumentById(documentId, userId, title, content, tags);
+      return await this.documentRepository.createOrUpdateDocumentById(documentId, userId, title, content, tags, userEmail);
     } catch (error) {
       console.error("❌ Erreur création/mise à jour document par ID:", error);
       return { success: false, error: error instanceof Error ? error.message : "Erreur inconnue" };

@@ -331,7 +331,7 @@ export class PrismaDocumentRepository {
     }
   }
 
-  async createOrUpdateDocumentById(id: number, userId: number, title: string, content: string, tags: string[]): Promise<DocumentRepositoryResult<Document>> {
+  async createOrUpdateDocumentById(id: number, userId: number, title: string, content: string, tags: string[], userEmail?: string): Promise<DocumentRepositoryResult<Document>> {
     try {
       // Essayer de mettre à jour d'abord
       const existingDocument = await prisma.document.findUnique({
@@ -344,12 +344,23 @@ export class PrismaDocumentRepository {
               last_name: true,
             },
           },
+          Share: true,
         },
       });
 
       if (existingDocument) {
-        // Vérifier que le document appartient à l'utilisateur
-        if (existingDocument.user_id !== userId) {
+        // Vérifier que le document appartient à l'utilisateur OU qu'il a des permissions de partage
+        const isOwner = existingDocument.user_id === userId;
+        let hasSharePermission = false;
+        
+        if (!isOwner && userEmail) {
+          // Vérifier les permissions de partage
+          hasSharePermission = existingDocument.Share.some(
+            share => share.email.toLowerCase().trim() === userEmail.toLowerCase().trim() && share.permission === true
+          );
+        }
+        
+        if (!isOwner && !hasSharePermission) {
           return {
             success: false,
             error: 'Vous n\'êtes pas autorisé à modifier ce document',

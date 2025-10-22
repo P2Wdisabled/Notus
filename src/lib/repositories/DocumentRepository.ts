@@ -174,7 +174,8 @@ export class DocumentRepository extends BaseRepository {
     userId: number,
     title: string,
     content: string,
-    tags: string[] | undefined = undefined
+    tags: string[] | undefined = undefined,
+    userEmail?: string
   ): Promise<DocumentRepositoryResult<Document>> {
     try {
       if (documentId) {
@@ -186,10 +187,27 @@ export class DocumentRepository extends BaseRepository {
           values.splice(2, 0, tags);
         }
 
+        // Vérifier si l'utilisateur est le propriétaire OU s'il a des permissions de partage
+        let whereClause = `WHERE id = $${values.length - 1} AND user_id = $${values.length}`;
+        
+        // Si un email est fourni, vérifier aussi les permissions de partage
+        if (userEmail) {
+          whereClause = `WHERE id = $${values.length - 1} AND (
+            user_id = $${values.length} OR 
+            EXISTS (
+              SELECT 1 FROM shares 
+              WHERE id_doc = $${values.length - 1} 
+              AND lower(trim(email)) = lower(trim($${values.length + 1})) 
+              AND permission = true
+            )
+          )`;
+          values.push(userEmail);
+        }
+
         const result = await this.query<Document>(
           `UPDATE documents 
            SET ${updateFields.join(", ")}, updated_at = CURRENT_TIMESTAMP
-           WHERE id = $${values.length - 1} AND user_id = $${values.length}
+           ${whereClause}
            RETURNING id, title, content, tags, created_at, updated_at, user_id`,
           values
         );
