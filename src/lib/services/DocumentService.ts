@@ -92,6 +92,15 @@ export class DocumentService {
     }
   }
 
+  async fetchSharedByUser(userId: number): Promise<DocumentRepositoryResult<Document[]>> {
+    try {
+      return await this.documentRepository.fetchSharedByUser(userId);
+    } catch (error) {
+      console.error("❌ Erreur récupération documents partagés par utilisateur:", error);
+      return { success: false, error: error instanceof Error ? error.message : "Erreur inconnue" };
+    }
+  }
+
   async getSharePermission(documentId: number, email: string): Promise<DocumentRepositoryResult<{ permission: boolean }>> {
     try {
       return await this.documentRepository.getSharePermission(documentId, email);
