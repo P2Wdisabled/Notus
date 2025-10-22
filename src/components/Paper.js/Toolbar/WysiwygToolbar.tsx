@@ -1,0 +1,967 @@
+"use client";
+import { useState, useEffect, useCallback, useRef } from "react";
+import dynamic from "next/dynamic";
+import Modal from "@/components/ui/modal";
+
+const ClientOnlyDrawingCanvas = dynamic(() => import("../../Paper.js/ClientOnlyDrawingCanvas"), { ssr: false });
+
+interface WysiwygToolbarProps {
+  onFormatChange: (command: string, value?: string) => void;
+  showDebug?: boolean;
+  onToggleDebug?: () => void;
+}
+
+export default function WysiwygToolbar({ onFormatChange, showDebug = false, onToggleDebug }: WysiwygToolbarProps) {
+  const [showHeadingMenu, setShowHeadingMenu] = useState(false);
+  const [showListMenu, setShowListMenu] = useState(false);
+  const [showAlignMenu, setShowAlignMenu] = useState(false);
+  const [showDrawingModal, setShowDrawingModal] = useState(false);
+  const [showImageEditModal, setShowImageEditModal] = useState(false);
+  const canvasCtrlRef = useRef<any>(null);
+  const drawingModalContentRef = useRef<HTMLDivElement>(null);
+  const [drawings, setDrawings] = useState<any[]>([]);
+  const [drawingState, setDrawingState] = useState({ color: "#000000", size: 3, opacity: 1 });
+  const [isBold, setIsBold] = useState(false);
+  const [isItalic, setIsItalic] = useState(false);
+  const [isUnderline, setIsUnderline] = useState(false);
+  const [isStrikethrough, setIsStrikethrough] = useState(false);
+  const [showColorPicker, setShowColorPicker] = useState(false);
+  const [currentColor, setCurrentColor] = useState("#000000");
+  const [hasLink, setHasLink] = useState(false);
+  const [showHighlightPicker, setShowHighlightPicker] = useState(false);
+  const [currentHighlight, setCurrentHighlight] = useState("transparent");
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+  const [canEditImage, setCanEditImage] = useState(false);
+  const [imageInfo, setImageInfo] = useState<{ src: string; naturalWidth: number; naturalHeight: number; styleWidth: string; styleHeight: string } | null>(null);
+  const [widthPercent, setWidthPercent] = useState<number>(100);
+
+  // Image crop state
+  const imageRef = useRef<HTMLImageElement>(null);
+  const cropContainerRef = useRef<HTMLDivElement>(null);
+  const [isCropping, setIsCropping] = useState(false);
+  const [cropStart, setCropStart] = useState<{ x: number; y: number } | null>(null);
+  const [cropRect, setCropRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+
+  // Check current formatting state
+  const checkFormatting = useCallback(() => {
+    if (typeof document === "undefined") return;
+    
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+    
+    const range = selection.getRangeAt(0);
+    const container = range.commonAncestorContainer;
+    const element = container.nodeType === Node.TEXT_NODE ? container.parentElement : container as Element;
+    
+    if (element) {
+      setIsBold(document.queryCommandState('bold'));
+      setIsItalic(document.queryCommandState('italic'));
+      setIsUnderline(document.queryCommandState('underline'));
+      
+      // Check for strikethrough in various ways
+      // Check for strikethrough more thoroughly
+      let isStrike = false;
+      
+      // Check queryCommandState first
+      if (document.queryCommandState('strikeThrough')) {
+        isStrike = true;
+      } else {
+        // Check if element or any parent has strikethrough
+        let currentElement: HTMLElement | null = element as HTMLElement | null;
+        while (currentElement && currentElement !== (document.body as unknown as HTMLElement)) {
+          if (currentElement.nodeName === 'S' || 
+              currentElement.nodeName === 'DEL' || 
+              currentElement.nodeName === 'STRIKE' ||
+              (currentElement as HTMLElement).style?.textDecoration?.includes('line-through')) {
+            isStrike = true;
+            break;
+          }
+          currentElement = currentElement.parentElement as HTMLElement | null;
+        }
+      }
+      
+      setIsStrikethrough(isStrike);
+
+      // Check current text color
+      const computedStyle = window.getComputedStyle(element);
+      const color = computedStyle.color;
+      if (color && color !== 'rgb(0, 0, 0)' && color !== 'rgba(0, 0, 0, 0)') {
+        // Convert rgb to hex
+        let hexColor = color;
+        if (color.startsWith('rgb')) {
+          const rgb = color.match(/\d+/g);
+          if (rgb && rgb.length >= 3) {
+            const r = parseInt(rgb[0]);
+            const g = parseInt(rgb[1]);
+            const b = parseInt(rgb[2]);
+            hexColor = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+          }
+        }
+        setCurrentColor(hexColor);
+      }
+
+      // Check current highlight color
+      const backgroundColor = computedStyle.backgroundColor;
+      if (backgroundColor && backgroundColor !== 'rgba(0, 0, 0, 0)' && backgroundColor !== 'transparent') {
+        // Convert rgb to hex
+        let hexHighlight = backgroundColor;
+        if (backgroundColor.startsWith('rgb')) {
+          const rgb = backgroundColor.match(/\d+/g);
+          if (rgb && rgb.length >= 3) {
+            const r = parseInt(rgb[0]);
+            const g = parseInt(rgb[1]);
+            const b = parseInt(rgb[2]);
+            hexHighlight = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+          }
+        }
+        setCurrentHighlight(hexHighlight);
+      } else {
+        setCurrentHighlight("transparent");
+      }
+
+      // Check undo/redo availability
+      setCanUndo(document.queryCommandEnabled('undo'));
+      setCanRedo(document.queryCommandEnabled('redo'));
+    }
+  }, []);
+
+  // Listen for selection changes
+  useEffect(() => {
+    const handleSelectionChange = () => {
+      checkFormatting();
+      // Detect if an image is selected for editing
+      try {
+        const selectedImg = document.querySelector('img[data-selected-image="true"]') as HTMLImageElement | null;
+        const info = (window as any).getCurrentImageForEditing ? (window as any).getCurrentImageForEditing() : null;
+        setCanEditImage(!!selectedImg && !!info);
+        if (info) {
+          setImageInfo(info);
+          // Try to infer initial width percent from style if available
+          if (info.styleWidth && info.styleWidth.endsWith('%')) {
+            const val = Number(info.styleWidth.replace('%',''));
+            if (!Number.isNaN(val)) setWidthPercent(Math.min(100, Math.max(1, val)));
+          } else {
+            setWidthPercent(100);
+          }
+        } else {
+          setImageInfo(null);
+        }
+      } catch (_e) {
+        setCanEditImage(false);
+        setImageInfo(null);
+      }
+    };
+
+    // Listen for input changes to update undo/redo states
+    const handleInput = () => {
+      setTimeout(() => {
+        setCanUndo(document.queryCommandEnabled('undo'));
+        setCanRedo(document.queryCommandEnabled('redo'));
+      }, 10);
+    };
+
+    document.addEventListener('selectionchange', handleSelectionChange);
+    document.addEventListener('input', handleInput);
+    
+    return () => {
+      document.removeEventListener('selectionchange', handleSelectionChange);
+      document.removeEventListener('input', handleInput);
+    };
+  }, [checkFormatting]);
+
+  // Handle clicks outside color pickers to close them
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      
+      // Check if click is outside color picker containers
+      if (showColorPicker && !target.closest('[data-color-picker]')) {
+        setShowColorPicker(false);
+      }
+      
+      if (showHighlightPicker && !target.closest('[data-highlight-picker]')) {
+        setShowHighlightPicker(false);
+      }
+    };
+
+    if (showColorPicker || showHighlightPicker) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showColorPicker, showHighlightPicker]);
+
+  // Expose a global opener so double-click from the editor can open this modal
+  useEffect(() => {
+    (window as any).openImageEditModal = () => {
+      if (canEditImage) setShowImageEditModal(true);
+      else setShowImageEditModal(false);
+    };
+  }, [canEditImage]);
+
+  // Crop interactions
+  const getRelativePos = (clientX: number, clientY: number) => {
+    const container = cropContainerRef.current;
+    if (!container) return { x: 0, y: 0 };
+    const rect = container.getBoundingClientRect();
+    const x = Math.min(Math.max(0, clientX - rect.left), rect.width);
+    const y = Math.min(Math.max(0, clientY - rect.top), rect.height);
+    return { x, y };
+  };
+
+  const handleCropMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsCropping(true);
+    const p = getRelativePos(e.clientX, e.clientY);
+    setCropStart(p);
+    setCropRect({ x: p.x, y: p.y, width: 0, height: 0 });
+  };
+
+  const handleCropMouseMove = (e: React.MouseEvent) => {
+    if (!isCropping || !cropStart || !cropContainerRef.current) return;
+    const p = getRelativePos(e.clientX, e.clientY);
+    const x = Math.min(cropStart.x, p.x);
+    const y = Math.min(cropStart.y, p.y);
+    const width = Math.abs(p.x - cropStart.x);
+    const height = Math.abs(p.y - cropStart.y);
+    setCropRect({ x, y, width, height });
+  };
+
+  const handleCropMouseUp = (e: React.MouseEvent) => {
+    if (!isCropping) return;
+    e.preventDefault();
+    setIsCropping(false);
+  };
+
+  const resetCrop = () => {
+    // Default to full image area when opening
+    const container = cropContainerRef.current;
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    setCropRect({ x: 0, y: 0, width: rect.width, height: rect.height });
+    setCropStart({ x: 0, y: 0 });
+  };
+
+  useEffect(() => {
+    if (showImageEditModal) {
+      // Give layout a tick, then set full crop
+      const t = setTimeout(() => resetCrop(), 0);
+      return () => clearTimeout(t);
+    }
+  }, [showImageEditModal]);
+
+  const applyResizeOnly = () => {
+    try {
+      onFormatChange('setImageWidth', JSON.stringify({ widthPercent }));
+      setShowImageEditModal(false);
+    } catch (_e) {
+      onFormatChange('setImageWidth', String(widthPercent));
+      setShowImageEditModal(false);
+    }
+  };
+
+  const applyCropAndReplace = async () => {
+    if (!imageInfo || !imageRef.current || !cropContainerRef.current) return;
+    const imgEl = imageRef.current;
+    const dispRect = cropContainerRef.current.getBoundingClientRect();
+    const sel = cropRect && cropRect.width > 0 && cropRect.height > 0
+      ? cropRect
+      : { x: 0, y: 0, width: dispRect.width, height: dispRect.height };
+    // Map displayed selection to natural pixels
+    const scaleX = imageInfo.naturalWidth / dispRect.width;
+    const scaleY = imageInfo.naturalHeight / dispRect.height;
+    const sx = Math.round(sel.x * scaleX);
+    const sy = Math.round(sel.y * scaleY);
+    const sw = Math.max(1, Math.round(sel.width * scaleX));
+    const sh = Math.max(1, Math.round(sel.height * scaleY));
+    // Draw to canvas
+    const canvas = document.createElement('canvas');
+    canvas.width = sw;
+    canvas.height = sh;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const tmpImg = new Image();
+    // Ensure CORS-safe data URLs and same-origin URLs
+    tmpImg.crossOrigin = 'anonymous';
+    await new Promise<void>((resolve, reject) => {
+      tmpImg.onload = () => resolve();
+      tmpImg.onerror = () => reject();
+      tmpImg.src = imageInfo.src;
+    }).catch(() => {});
+    try {
+      ctx.drawImage(tmpImg, sx, sy, sw, sh, 0, 0, sw, sh);
+      const dataUrl = canvas.toDataURL('image/png');
+      onFormatChange('replaceSelectedImage', JSON.stringify({ src: dataUrl, widthPercent }));
+      setShowImageEditModal(false);
+    } catch (_e) {
+      // Fallback: just set width
+      applyResizeOnly();
+    }
+  };
+
+  return (
+    <div className="bg-transparent text-foreground p-4 flex flex-wrap items-center gap-1">
+      {/* Undo */}
+      <button
+        type="button"
+        onClick={() => {
+          if ((window as any).handleWysiwygUndo) {
+            (window as any).handleWysiwygUndo();
+          } else {
+            onFormatChange('undo');
+          }
+        }}
+        disabled={!canUndo}
+        className={`p-2 rounded transition-colors ${
+          canUndo
+            ? "bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
+            : "bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
+        }`}
+        title="Annuler (Ctrl+Z)"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/>
+        </svg>
+      </button>
+
+      {/* Redo */}
+      <button
+        type="button"
+        onClick={() => {
+          if ((window as any).handleWysiwygRedo) {
+            (window as any).handleWysiwygRedo();
+          } else {
+            onFormatChange('redo');
+          }
+        }}
+        disabled={!canRedo}
+        className={`p-2 rounded transition-colors ${
+          canRedo
+            ? "bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
+            : "bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
+        }`}
+        title="Rétablir (Ctrl+Y ou Ctrl+Shift+Z)"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M18.4 10.6C16.55 8.99 14.15 8 11.5 8c-4.65 0-8.58 3.03-9.96 7.22L3.9 16c1.05-3.19 4.05-5.5 7.6-5.5 1.95 0 3.73.72 5.12 1.88L13 16h9V7l-3.6 3.6z"/>
+        </svg>
+      </button>
+
+      {/* Separator */}
+      <div className="h-8 w-px bg-gray-300 dark:bg-gray-600 mx-2"></div>
+
+      {/* Bold */}
+      <button
+        type="button"
+        onClick={() => onFormatChange('bold')}
+        className={`p-2 rounded transition-colors ${
+          isBold
+            ? "bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white"
+            : "bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
+        }`}
+        title="Gras (Ctrl+B)"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M15.6 10.79c.97-.67 1.65-1.77 1.65-2.79 0-2.26-1.75-4-4-4H7v14h7.04c2.09 0 3.71-1.7 3.71-3.79 0-1.52-.86-2.82-2.15-3.42zM10 6.5h3c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5h-3v-3zm3.5 9H10v-3h3.5c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5z"/>
+        </svg>
+      </button>
+
+      {/* Italic */}
+      <button
+        type="button"
+        onClick={() => onFormatChange('italic')}
+        className={`p-2 rounded transition-colors ${
+          isItalic
+            ? "bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white"
+            : "bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
+        }`}
+        title="Italique (Ctrl+I)"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M10 4v3h2.21l-3.42 8H6v3h8v-3h-2.21l3.42-8H18V4z"/>
+        </svg>
+      </button>
+
+      {/* Underline */}
+      <button
+        type="button"
+        onClick={() => onFormatChange('underline')}
+        className={`p-2 rounded transition-colors ${
+          isUnderline
+            ? "bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white"
+            : "bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
+        }`}
+        title="Souligné (Ctrl+U)"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 17c3.31 0 6-2.69 6-6V3h-2.5v8c0 1.93-1.57 3.5-3.5 3.5S8.5 12.93 8.5 11V3H6v8c0 3.31 2.69 6 6 6zm-7 2v2h14v-2H5z"/>
+        </svg>
+      </button>
+
+      {/* Strikethrough */}
+      <button
+        type="button"
+        onClick={() => onFormatChange('strikeThrough')}
+        className={`p-2 rounded transition-colors ${
+          isStrikethrough
+            ? "bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white"
+            : "bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
+        }`}
+        title="Barré"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M10 19h4v-3h-4v3zM5 4v3h5v3h4V7h5V4H5zM3 14h18v-2H3v2z"/>
+        </svg>
+      </button>
+
+      {/* Text Color */}
+      <div className="relative" data-color-picker>
+        <button
+          type="button"
+          onClick={() => setShowColorPicker(!showColorPicker)}
+          className="p-2 rounded transition-colors bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
+          title="Couleur du texte"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M9.62 12L12 5.67 14.38 12M11 3L5.5 17h2.25l1.12-3h6.25l1.12 3h2.25L13 3h-2z"/>
+          </svg>
+          <div 
+            className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-4 h-1 rounded"
+            style={{ backgroundColor: currentColor }}
+          />
+        </button>
+
+        {showColorPicker && (
+          <div className="absolute top-full left-0 mt-1 p-3 bg-white dark:bg-gray-700 rounded shadow-lg border border-gray-200 dark:border-gray-600 z-50">
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Couleur du texte
+              </label>
+              <input
+                type="color"
+                value={currentColor}
+                onChange={(e) => {
+                  const color = e.target.value;
+                  setCurrentColor(color);
+                  onFormatChange('foreColor', color);
+                }}
+                className="w-full h-10 rounded border border-gray-300 dark:border-gray-600 cursor-pointer"
+                title="Sélectionner une couleur"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setCurrentColor("#000000");
+                  onFormatChange('foreColor', "#000000");
+                  setShowColorPicker(false);
+                }}
+                className="px-3 py-1 text-sm bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded transition-colors"
+              >
+                Réinitialiser (Noir)
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Highlight Color */}
+      <div className="relative" data-highlight-picker>
+        <button
+          type="button"
+          onClick={() => setShowHighlightPicker(!showHighlightPicker)}
+          className="p-2 rounded transition-colors bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
+          title="Couleur de surlignage"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M17.75 7L14 3.25l-10 10V17h3.75l10-10zm2.96-2.96a.996.996 0 000-1.41L18.37.29a.996.996 0 00-1.41 0L15 2.25 18.75 6l1.96-1.96z"/>
+            <path fillOpacity=".36" d="M0 20h24v4H0z"/>
+          </svg>
+          <div 
+            className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-4 h-1 rounded"
+            style={{ backgroundColor: currentHighlight === "transparent" ? "#ffff00" : currentHighlight }}
+          />
+        </button>
+
+        {showHighlightPicker && (
+          <div className="absolute top-full left-0 mt-1 p-3 bg-white dark:bg-gray-700 rounded shadow-lg border border-gray-200 dark:border-gray-600 z-50">
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Couleur de surlignage
+              </label>
+              <input
+                type="color"
+                value={currentHighlight === "transparent" ? "#ffff00" : currentHighlight}
+                onChange={(e) => {
+                  const color = e.target.value;
+                  setCurrentHighlight(color);
+                  onFormatChange('backColor', color);
+                }}
+                className="w-full h-10 rounded border border-gray-300 dark:border-gray-600 cursor-pointer"
+                title="Sélectionner une couleur de surlignage"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setCurrentHighlight("transparent");
+                  onFormatChange('backColor', "transparent");
+                  setShowHighlightPicker(false);
+                }}
+                className="px-3 py-1 text-sm bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded transition-colors"
+              >
+                Supprimer le surlignage
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Separator */}
+      <div className="h-8 w-px bg-gray-300 dark:bg-gray-600 mx-2"></div>
+
+      {/* Heading */}
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setShowHeadingMenu(!showHeadingMenu)}
+          className="p-2 rounded transition-colors bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
+          title="Titre"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M5 4v3h5v3h4V7h5V4H5zM3 14h18v-2H3v2z"/>
+          </svg>
+        </button>
+
+        {showHeadingMenu && (
+          <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-700 rounded shadow-lg border border-gray-200 dark:border-gray-600 z-50">
+            <div className="py-1">
+              <button
+                type="button"
+                onClick={() => {
+                  onFormatChange('formatBlock', 'div');
+                  setShowHeadingMenu(false);
+                }}
+                className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-600"
+              >
+                Normal
+              </button>
+              {[1, 2, 3, 4, 5, 6].map((level) => (
+                <button
+                  key={level}
+                  type="button"
+                  onClick={() => {
+                    onFormatChange('formatBlock', `h${level}`);
+                    setShowHeadingMenu(false);
+                  }}
+                  className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-600"
+                >
+                  H{level} - {level === 1 ? 'Titre principal' : level === 2 ? 'Sous-titre' : level === 3 ? 'Titre de section' : `Titre niveau ${level}`}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* List */}
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setShowListMenu(!showListMenu)}
+          className="p-2 rounded transition-colors bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
+          title="Liste"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
+          </svg>
+        </button>
+
+        {showListMenu && (
+          <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-700 rounded shadow-lg border border-gray-200 dark:border-gray-600 z-50">
+            <div className="py-1">
+              <button
+                type="button"
+                onClick={() => {
+                  onFormatChange('insertUnorderedList');
+                  setShowListMenu(false);
+                }}
+                className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-600"
+              >
+                • Liste à puces
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onFormatChange('insertOrderedList');
+                  setShowListMenu(false);
+                }}
+                className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-600"
+              >
+                1. Liste numérotée
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+
+      {/* Separator */}
+      <div className="h-8 w-px bg-gray-300 dark:bg-gray-600 mx-2"></div>
+
+      {/* Alignment */}
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setShowAlignMenu(!showAlignMenu)}
+          className="p-2 rounded transition-colors bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
+          title="Alignement"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M3 21h18v-2H3v2zm0-4h18v-2H3v2zm0-4h18v-2H3v2zm0-4h18V7H3v2zm0-6v2h18V3H3z"/>
+          </svg>
+        </button>
+
+        {showAlignMenu && (
+          <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-700 rounded shadow-lg border border-gray-200 dark:border-gray-600 z-50">
+            <div className="py-1">
+              <button
+                type="button"
+                onClick={() => {
+                  onFormatChange('justifyLeft');
+                  setShowAlignMenu(false);
+                }}
+                className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-600"
+              >
+                Aligner à gauche
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onFormatChange('justifyCenter');
+                  setShowAlignMenu(false);
+                }}
+                className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-600"
+              >
+                Centrer
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onFormatChange('justifyRight');
+                  setShowAlignMenu(false);
+                }}
+                className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-600"
+              >
+                Aligner à droite
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onFormatChange('justifyFull');
+                  setShowAlignMenu(false);
+                }}
+                className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-600"
+              >
+                Justifier
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Indent */}
+      <button
+        type="button"
+        onClick={() => onFormatChange('indent')}
+        className="p-2 rounded transition-colors bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
+        title="Augmenter l'indentation"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M3 21h18v-2H3v2zM3 8v8l4-4-4-4zm8 9h10v-2H11v2zM3 5v2h18V5H3z"/>
+        </svg>
+      </button>
+
+      {/* Outdent */}
+      <button
+        type="button"
+        onClick={() => onFormatChange('outdent')}
+        className="p-2 rounded transition-colors bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
+        title="Diminuer l'indentation"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M3 21h18v-2H3v2zM7 8v8l-4-4 4-4zm4 9h10v-2H11v2zM3 5v2h18V5H3z"/>
+        </svg>
+      </button>
+
+      {/* Separator */}
+      <div className="h-8 w-px bg-gray-300 dark:bg-gray-600 mx-2"></div>
+
+      {/* Link */}
+      <button
+        type="button"
+        onClick={() => onFormatChange('createLink')}
+        className="p-2 rounded transition-colors bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
+        title="Lien"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/>
+        </svg>
+      </button>
+
+      {/* Image */}
+      <button
+        type="button"
+        onClick={() => onFormatChange('insertImage')}
+        className="p-2 rounded transition-colors bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
+        title="Image"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+        </svg>
+      </button>
+
+
+      {/* Draw (Canvas) */}
+      <button
+        type="button"
+        onClick={() => setShowDrawingModal(true)}
+        className="p-2 rounded transition-colors bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
+        title="Dessiner (ouvrir le canvas)"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1.003 1.003 0 000-1.42l-2.34-2.34a1.003 1.003 0 00-1.42 0l-1.83 1.83 3.75 3.75 1.84-1.82z"/>
+        </svg>
+      </button>
+
+
+      {/* Quote */}
+      <button
+        type="button"
+        onClick={() => onFormatChange('insertQuote')}
+        className="p-2 rounded transition-colors bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
+        title="Citation (Ctrl+Shift+.)"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M6 17h3l2-4V7H5v6h3zm8 0h3l2-4V7h-6v6h3z"/>
+        </svg>
+      </button>
+
+      {/* Horizontal Rule */}
+      <button
+        type="button"
+        onClick={() => onFormatChange('insertHorizontalRule')}
+        className="p-2 rounded transition-colors bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
+        title="Ligne horizontale (Ctrl+Shift+-)"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M3 11h18v2H3z"/>
+        </svg>
+      </button>
+
+
+
+      {/* Separator */}
+      {/* <div className="h-8 w-px bg-gray-300 dark:bg-gray-600 mx-2"></div> */}
+
+      {/* Debug Toggle */}
+      {false && onToggleDebug && (
+        <button
+          type="button"
+          onClick={onToggleDebug}
+          className={`p-2 rounded transition-colors ${
+            showDebug
+              ? "bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white"
+              : "bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
+          }`}
+          title="Afficher/Masquer le debug Markdown"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0L19.2 12l-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/>
+          </svg>
+        </button>
+      )}
+
+      {/* Drawing Modal */}
+      <Modal isOpen={showDrawingModal} onClose={() => setShowDrawingModal(false)} title="Dessiner" size="full" className="sm:max-w-4xl">
+        <Modal.Content>
+          <div ref={drawingModalContentRef} className="w-full max-h-[80vh] relative bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded overflow-hidden">
+            <div className="relative w-full h-[50vh] sm:h-[60vh] md:h-[65vh]">
+            <ClientOnlyDrawingCanvas
+              mode="draw"
+              className="absolute inset-0 w-full h-full"
+              drawings={drawings}
+              setDrawings={setDrawings}
+              drawingState={drawingState}
+              setDrawingState={setDrawingState}
+              onCanvasReady={(ctrl: any) => (canvasCtrlRef.current = ctrl)}
+            />
+            </div>
+          </div>
+          <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-4 items-center">
+            <div className="flex items-center gap-3">
+              <label className="text-sm shrink-0">Couleur</label>
+              <input
+                type="color"
+                value={drawingState.color}
+                onChange={(e) => {
+                  const color = e.target.value;
+                  setDrawingState((s) => ({ ...s, color }));
+                  canvasCtrlRef.current?.setDrawingState?.({ color });
+                }}
+                className="h-9 w-12 p-1 rounded border border-gray-300 dark:border-gray-600 bg-transparent"
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              <label className="text-sm shrink-0">Taille</label>
+              <input
+                type="range"
+                min={1}
+                max={24}
+                value={drawingState.size}
+                onChange={(e) => {
+                  const size = Number(e.target.value);
+                  setDrawingState((s) => ({ ...s, size }));
+                  canvasCtrlRef.current?.setDrawingState?.({ size });
+                }}
+                className="flex-1"
+              />
+              <span className="text-xs text-gray-500 w-8 text-right">{drawingState.size}</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <label className="text-sm shrink-0">Opacité</label>
+              <input
+                type="range"
+                min={0.05}
+                max={1}
+                step={0.05}
+                value={drawingState.opacity}
+                onChange={(e) => {
+                  const opacity = Number(e.target.value);
+                  setDrawingState((s) => ({ ...s, opacity }));
+                  canvasCtrlRef.current?.setDrawingState?.({ opacity });
+                }}
+                className="flex-1"
+              />
+              <span className="text-xs text-gray-500 w-10 text-right">{Math.round(drawingState.opacity * 100)}%</span>
+            </div>
+          </div>
+        </Modal.Content>
+        <Modal.Footer>
+          <button
+            type="button"
+            className="px-3 py-2 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600"
+            onClick={() => {
+              // Reset
+              setDrawings([]);
+              canvasCtrlRef.current?.clearCanvas?.();
+            }}
+          >
+            Effacer
+          </button>
+          <button
+            type="button"
+            className="px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
+            onClick={() => {
+              try {
+                const dataUrl = canvasCtrlRef.current?.exportAsDataURL?.();
+                if (dataUrl) {
+                  onFormatChange('insertImage', dataUrl);
+                  setShowDrawingModal(false);
+                }
+              } catch (e) {
+                console.error(e);
+              }
+            }}
+          >
+            Insérer l'image
+          </button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Image Edit Modal */}
+      <Modal isOpen={showImageEditModal} onClose={() => setShowImageEditModal(false)} title="Modifier l'image" size="lg">
+        <Modal.Content>
+          {imageInfo ? (
+            <div className="space-y-4">
+              <div
+                ref={cropContainerRef}
+                onMouseDown={handleCropMouseDown}
+                onMouseMove={handleCropMouseMove}
+                onMouseUp={handleCropMouseUp}
+                className="relative w-full max-h-[60vh] overflow-hidden bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded"
+                style={{ aspectRatio: `${imageInfo.naturalWidth}/${imageInfo.naturalHeight}` } as any}
+              >
+                <img
+                  ref={imageRef}
+                  src={imageInfo.src}
+                  alt="selected"
+                  className="w-full h-full object-contain select-none pointer-events-none"
+                  draggable={false}
+                />
+                {cropRect && (
+                  <div
+                    className="absolute border-2 border-blue-500 bg-blue-500/10"
+                    style={{ left: `${cropRect.x}px`, top: `${cropRect.y}px`, width: `${cropRect.width}px`, height: `${cropRect.height}px` }}
+                  />
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm">Largeur d'affichage</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="range"
+                    min={1}
+                    max={100}
+                    value={widthPercent}
+                    onChange={(e) => setWidthPercent(Number(e.target.value))}
+                    className="flex-1"
+                  />
+                  <span className="text-xs w-12 text-right">{widthPercent}%</span>
+                  <button
+                    type="button"
+                    className="px-3 py-1 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600"
+                    onClick={() => setWidthPercent(100)}
+                  >
+                    100%
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                <span>Astuce: cliquez-glissez sur l'image pour définir la zone à recadrer.</span>
+                <button type="button" className="underline" onClick={resetCrop}>Sélection complète</button>
+              </div>
+            </div>
+          ) : (
+            <div className="text-sm text-gray-600 dark:text-gray-300">Aucune image sélectionnée.</div>
+          )}
+        </Modal.Content>
+        <Modal.Footer>
+          <button
+            type="button"
+            className="px-3 py-2 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600"
+            onClick={() => setShowImageEditModal(false)}
+          >
+            Annuler
+          </button>
+          <button
+            type="button"
+            className="px-3 py-2 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600"
+            onClick={applyResizeOnly}
+            disabled={!canEditImage}
+          >
+            Appliquer la largeur
+          </button>
+          <button
+            type="button"
+            className="px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
+            onClick={applyCropAndReplace}
+            disabled={!canEditImage}
+          >
+            Recadrer et remplacer
+          </button>
+        </Modal.Footer>
+      </Modal>
+    </div>
+  );
+}
