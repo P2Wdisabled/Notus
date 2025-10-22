@@ -94,7 +94,20 @@ export class PrismaDocumentRepository {
       });
 
       // Transformer les documents pour correspondre à notre interface
-      const transformedDocuments: Document[] = documents.map(doc => ({
+      const transformedDocuments: Document[] = documents.map((doc: {
+        id: number;
+        user_id: number;
+        title: string;
+        content: string;
+        tags: string[];
+        created_at: Date;
+        updated_at: Date;
+        user: {
+          username: string | null;
+          first_name: string | null;
+          last_name: string | null;
+        };
+      }) => ({
         id: doc.id,
         user_id: doc.user_id,
         title: doc.title,
@@ -181,7 +194,15 @@ export class PrismaDocumentRepository {
       // Vérifier que le document appartient à l'utilisateur
       const document = await prisma.document.findUnique({
         where: { id },
-        select: { user_id: true },
+        select: { 
+          id: true,
+          user_id: true,
+          title: true,
+          content: true,
+          tags: true,
+          created_at: true,
+          updated_at: true,
+        },
       });
 
       if (!document) {
@@ -198,6 +219,21 @@ export class PrismaDocumentRepository {
         };
       }
 
+      // 2. Insérer dans la table de corbeille
+    await prisma.trashDocument.create({
+      data: {
+        user_id: document.user_id,
+        title: document.title,
+        content: document.content,
+        tags: document.tags,
+        created_at: document.created_at,
+        updated_at: document.updated_at,
+        deleted_at: new Date(),
+        original_id: document.id,
+      },
+    });
+
+    // 3. Supprimer de la table principale
       await prisma.document.delete({
         where: { id },
       });
@@ -232,7 +268,15 @@ export class PrismaDocumentRepository {
           id: { in: ids },
           user_id: userId,
         },
-        select: { id: true },
+        select: { 
+          id: true, 
+          user_id: true, 
+          title: true, 
+          content: true, 
+          tags: true, 
+          created_at: true, 
+          updated_at: true 
+        },
       });
 
       if (documents.length !== ids.length) {
@@ -242,6 +286,31 @@ export class PrismaDocumentRepository {
         };
       }
 
+      // 2. Insérer tous les documents dans la table de corbeille
+      const trashDocuments = documents.map((doc: {
+        id: number;
+        user_id: number;
+        title: string;
+        content: string;
+        tags: string[];
+        created_at: Date;
+        updated_at: Date;
+      }) => ({
+        user_id: doc.user_id,
+        title: doc.title,
+        content: doc.content,
+        tags: doc.tags,
+        created_at: doc.created_at,
+        updated_at: doc.updated_at,
+        deleted_at: new Date(),
+        original_id: doc.id,
+      }));
+
+      await prisma.trashDocument.createMany({
+        data: trashDocuments,
+      });
+
+      // 3. Supprimer tous les documents de la table principale
       const result = await prisma.document.deleteMany({
         where: {
           id: { in: ids },

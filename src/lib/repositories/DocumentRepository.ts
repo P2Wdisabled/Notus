@@ -218,6 +218,25 @@ export class DocumentRepository extends BaseRepository {
 
   async deleteDocument(documentId: number, userId: number): Promise<DocumentRepositoryResult<{ id: number }>> {
     try {
+      const document = await this.query<Document>(
+      `SELECT * FROM documents WHERE id = $1 AND user_id = $2`,
+      [documentId, userId]
+    );
+
+    if (document.rows.length === 0) {
+      return { success: false, error: "Document non trouvé ou vous n'êtes pas autorisé à le supprimer" };
+    }
+
+    const doc = document.rows[0];
+
+    // 2. Insérer dans la table de corbeille
+    await this.query(
+      `INSERT INTO trash_documents (user_id, title, content, tags, created_at, updated_at, deleted_at, original_id)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7)`,
+      [doc.user_id, doc.title, doc.content, doc.tags, doc.created_at, doc.updated_at, doc.id]
+    );
+
+    // 3. Supprimer de la table principale
       const result = await this.query<{ id: number }>(
         `DELETE FROM documents 
          WHERE id = $1 AND user_id = $2
@@ -225,9 +244,6 @@ export class DocumentRepository extends BaseRepository {
         [documentId, userId]
       );
 
-      if (result.rows.length === 0) {
-        return { success: false, error: "Document non trouvé ou vous n'êtes pas autorisé à le supprimer" };
-      }
 
       return { success: true, data: result.rows[0] };
     } catch (error) {
@@ -251,6 +267,42 @@ export class DocumentRepository extends BaseRepository {
         return { success: false, error: "Identifiants de documents invalides" };
       }
 
+      // 1. Récupérer tous les documents avant suppression
+      const documents = await this.query<Document>(
+        `SELECT * FROM documents 
+         WHERE user_id = $1 AND id = ANY($2::int[])`,
+        [userId, ids]
+      );
+
+      if (documents.rows.length === 0) {
+        return { success: false, error: "Aucun document trouvé ou vous n'êtes pas autorisé à les supprimer" };
+      }
+
+      // 2. Insérer tous les documents dans la table de corbeille en une seule requête
+      const trashValues = documents.rows.map((doc, index) => 
+        `($${index * 8 + 1}, $${index * 8 + 2}, $${index * 8 + 3}, $${index * 8 + 4}, $${index * 8 + 5}, $${index * 8 + 6}, NOW(), $${index * 8 + 7})`
+      ).join(', ');
+
+      const trashParams: any[] = [];
+      documents.rows.forEach((doc) => {
+        trashParams.push(
+          doc.user_id,
+          doc.title,
+          doc.content,
+          doc.tags,
+          doc.created_at,
+          doc.updated_at,
+          doc.id // original_id
+        );
+      });
+
+      await this.query(
+        `INSERT INTO trash_documents (user_id, title, content, tags, created_at, updated_at, deleted_at, original_id)
+         VALUES ${trashValues}`,
+        trashParams
+      );
+
+      // 3. Supprimer de la table principale
       const result = await this.query<{ id: number }>(
         `DELETE FROM documents
          WHERE user_id = $1 AND id = ANY($2::int[])
