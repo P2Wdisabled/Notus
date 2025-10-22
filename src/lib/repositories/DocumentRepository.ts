@@ -29,6 +29,21 @@ export class DocumentRepository extends BaseRepository {
         )
       `);
 
+      // Table des documents supprimés (trash)
+      await this.query(`
+        CREATE TABLE IF NOT EXISTS trash_documents (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER,
+          title VARCHAR(255) NOT NULL,
+          content TEXT NOT NULL DEFAULT '',
+          tags TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          deleted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          original_id INTEGER
+        )
+      `);
+
       // Ajouter la colonne tags si base déjà existante
       await this.addColumnIfNotExists("documents", "tags", "TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[]");
 

@@ -869,6 +869,8 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
                 maxTags={20}
                 className="w-full"
                 disabled={hasEditAccess === false}
+                currentUserId={userId}
+                requireAuth={true}
               />
             </div>
 
@@ -905,13 +907,14 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
 
             {/* Buttons */}
             <div className="flex justify-center space-x-4">
-            <button
+            <Button
                 type="button"
                 onClick={() => guardedNavigate("/")}
-                className="px-6 py-3 rounded-lg text-foreground hover:shadow-md hover:border-primary hover:bg-foreground/5 border border-primary cursor-pointer"
+                variant="ghostPurple"
+                size="lg"
               >
                 Annuler
-              </button>
+              </Button>
               <Button
                 type="submit"
                 disabled={isPending || hasEditAccess === false}

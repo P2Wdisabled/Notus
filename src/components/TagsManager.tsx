@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import LoginRequiredModal from "@/components/LoginRequiredModal";
 
 interface TagsManagerProps {
   tags: string[];
@@ -12,6 +13,8 @@ interface TagsManagerProps {
   maxTags?: number;
   className?: string;
   disabled?: boolean;
+  currentUserId?: string | number | null;
+  requireAuth?: boolean;
 }
 
 export default function TagsManager({
@@ -21,10 +24,13 @@ export default function TagsManager({
   maxTags = 20,
   className = "",
   disabled = false,
+  currentUserId,
+  requireAuth = false,
 }: TagsManagerProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [newTag, setNewTag] = useState("");
   const [isValid, setIsValid] = useState(true);
+  const [showLoginModal, setShowLoginModal] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -48,6 +54,13 @@ export default function TagsManager({
 
   const addTag = () => {
     if (disabled) return;
+    
+    // Vérifier si l'authentification est requise et si l'utilisateur n'est pas connecté
+    if (requireAuth && !currentUserId) {
+      setShowLoginModal(true);
+      return;
+    }
+    
     const trimmedTag = newTag.trim();
     if (isValid && trimmedTag) {
       onTagsChange([...tags, trimmedTag]);
@@ -73,6 +86,13 @@ export default function TagsManager({
 
   const startAdding = () => {
     if (disabled) return;
+    
+    // Vérifier si l'authentification est requise et si l'utilisateur n'est pas connecté
+    if (requireAuth && !currentUserId) {
+      setShowLoginModal(true);
+      return;
+    }
+    
     setIsAdding(true);
   };
 
@@ -227,6 +247,13 @@ export default function TagsManager({
             : "Tag trop long (max 50 caractères)"}
         </div>
       )}
+
+      {/* Modal de connexion */}
+      <LoginRequiredModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        message="Vous devez être connecté pour gérer les tags de ce document."
+      />
     </div>
   );
 }

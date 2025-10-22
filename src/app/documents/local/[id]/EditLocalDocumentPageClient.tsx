@@ -308,6 +308,8 @@ export default function EditLocalDocumentPageClient({ params }: EditLocalDocumen
                 placeholder="Ajouter un tag..."
                 maxTags={20}
                 className="w-full"
+                currentUserId={localSession?.userId}
+                requireAuth={true}
               />
             </div>
 
