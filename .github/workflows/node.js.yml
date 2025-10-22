@@ -171,7 +171,7 @@ jobs:
               echo 'ERROR: DATABASE_URL manquante.' >&2; exit 1
             fi
             npx prisma generate
-            npx prisma migrate deploy
+            npx prisma db push
 
             # 4) Build Next
             npm run build
