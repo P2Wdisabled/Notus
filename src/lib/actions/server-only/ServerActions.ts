@@ -593,12 +593,30 @@ export async function updateDocumentAction(prevState: unknown, formDataOrObj: Fo
       return { ok: false, error: Object.values(validation.errors)[0] || "Données invalides" };
     }
 
+    // Get user email from session or formData
+    let userEmail: string | undefined = undefined;
+    if (fd && fd.get("email")) {
+      userEmail = String(fd.get("email"));
+    } else if (typeof (formDataOrObj as any).email === "string") {
+      userEmail = (formDataOrObj as any).email;
+    } else {
+      // Try to get from server session
+      try {
+        const session = await getServerSession(authOptions);
+        userEmail = session?.user?.email || undefined;
+      } catch {}
+    }
+    if (!userEmail) {
+      return { ok: false, error: "Email utilisateur manquant pour la mise à jour." };
+    }
+
     const documentService = await getDocumentService();
     
     // Actually update the document in the database
     const updateResult = await documentService.createOrUpdateDocumentById(
       idNum,
       userIdToUse,
+      userEmail,
       title,
       contentStr,
       tags

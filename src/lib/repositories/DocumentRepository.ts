@@ -189,7 +189,8 @@ export class DocumentRepository extends BaseRepository {
     userId: number,
     title: string,
     content: string,
-    tags: string[] | undefined = undefined
+    tags: string[] | undefined = undefined,
+    userEmail?: string
   ): Promise<DocumentRepositoryResult<Document>> {
     try {
       if (documentId) {
@@ -201,10 +202,27 @@ export class DocumentRepository extends BaseRepository {
           values.splice(2, 0, tags);
         }
 
+        // Vérifier si l'utilisateur est le propriétaire OU s'il a des permissions de partage
+        let whereClause = `WHERE id = $${values.length - 1} AND user_id = $${values.length}`;
+        
+        // Si un email est fourni, vérifier aussi les permissions de partage
+        if (userEmail) {
+          whereClause = `WHERE id = $${values.length - 1} AND (
+            user_id = $${values.length} OR 
+            EXISTS (
+              SELECT 1 FROM shares 
+              WHERE id_doc = $${values.length - 1} 
+              AND lower(trim(email)) = lower(trim($${values.length + 1})) 
+              AND permission = true
+            )
+          )`;
+          values.push(userEmail);
+        }
+
         const result = await this.query<Document>(
           `UPDATE documents 
            SET ${updateFields.join(", ")}, updated_at = CURRENT_TIMESTAMP
-           WHERE id = $${values.length - 1} AND user_id = $${values.length}
+           ${whereClause}
            RETURNING id, title, content, tags, created_at, updated_at, user_id`,
           values
         );
@@ -351,6 +369,45 @@ export class DocumentRepository extends BaseRepository {
       return { success: true, documents: result.rows };
     } catch (error) {
       console.error("❌ Erreur récupération documents partagés:", error);
+      return { success: false, error: error instanceof Error ? error.message : "Erreur inconnue" };
+    }
+  }
+
+  async fetchSharedByUser(userId: number): Promise<DocumentRepositoryResult<Document[]>> {
+    try {
+      const result = await this.query<Document & { shared_emails: string; shared_permissions: boolean }>(
+        `SELECT d.id, d.title, d.content, d.tags, d.created_at, d.updated_at, u.username, u.first_name, u.last_name, d.user_id,
+                array_agg(s.email) as shared_emails, array_agg(s.permission) as shared_permissions
+           FROM documents d
+           JOIN users u ON d.user_id = u.id
+           JOIN shares s ON s.id_doc = d.id
+           WHERE d.user_id = $1
+           GROUP BY d.id, d.title, d.content, d.tags, d.created_at, d.updated_at, u.username, u.first_name, u.last_name, d.user_id
+           ORDER BY d.updated_at DESC`,
+        [userId]
+      );
+
+      // Transformer les résultats pour inclure les informations de partage
+      const transformedDocuments: Document[] = result.rows.map((doc: any) => ({
+        id: doc.id,
+        user_id: doc.user_id,
+        title: doc.title,
+        content: doc.content,
+        tags: doc.tags,
+        created_at: doc.created_at,
+        updated_at: doc.updated_at,
+        username: doc.username,
+        first_name: doc.first_name,
+        last_name: doc.last_name,
+        sharedWith: doc.shared_emails.map((email: string, index: number) => ({
+          email,
+          permission: doc.shared_permissions[index]
+        }))
+      }));
+
+      return { success: true, documents: transformedDocuments };
+    } catch (error) {
+      console.error("❌ Erreur récupération documents partagés par utilisateur:", error);
       return { success: false, error: error instanceof Error ? error.message : "Erreur inconnue" };
     }
   }

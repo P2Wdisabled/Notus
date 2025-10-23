@@ -21,13 +21,24 @@ export default async function Home() {
     ? await fetchSharedDocumentsAction()
     : { success: true, documents: [] };
 
+  // Combiner les documents en évitant les doublons
+  const userDocuments = userDocumentsResult.success && Array.isArray(userDocumentsResult.documents)
+    ? userDocumentsResult.documents
+    : [];
+  
+  const sharedDocuments = sharedDocumentsResult.success && Array.isArray(sharedDocumentsResult.documents)
+    ? sharedDocumentsResult.documents
+    : [];
+
+  // Créer un Set des IDs des documents de l'utilisateur pour éviter les doublons
+  const userDocumentIds = new Set(userDocuments.map(d => d.id));
+  
+  // Filtrer les documents partagés pour ne garder que ceux qui ne sont PAS déjà dans les documents de l'utilisateur
+  const uniqueSharedDocuments = sharedDocuments.filter(d => !userDocumentIds.has(d.id));
+
   const allDocuments = [
-    ...(userDocumentsResult.success && Array.isArray(userDocumentsResult.documents)
-      ? userDocumentsResult.documents
-      : []),
-    ...(sharedDocumentsResult.success && Array.isArray(sharedDocumentsResult.documents)
-      ? sharedDocumentsResult.documents
-      : []),
+    ...userDocuments,
+    ...uniqueSharedDocuments,
   ].map((d: any) => ({
     ...d,
     id: String(d.id),

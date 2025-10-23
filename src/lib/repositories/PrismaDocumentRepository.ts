@@ -331,7 +331,7 @@ export class PrismaDocumentRepository {
     }
   }
 
-  async createOrUpdateDocumentById(id: number, userId: number, title: string, content: string, tags: string[]): Promise<DocumentRepositoryResult<Document>> {
+  async createOrUpdateDocumentById(id: number, userId: number, title: string, content: string, tags: string[], userEmail?: string): Promise<DocumentRepositoryResult<Document>> {
     try {
       // Essayer de mettre à jour d'abord
       const existingDocument = await prisma.document.findUnique({
@@ -344,12 +344,23 @@ export class PrismaDocumentRepository {
               last_name: true,
             },
           },
+          Share: true,
         },
       });
 
       if (existingDocument) {
-        // Vérifier que le document appartient à l'utilisateur
-        if (existingDocument.user_id !== userId) {
+        // Vérifier que le document appartient à l'utilisateur OU qu'il a des permissions de partage
+        const isOwner = existingDocument.user_id === userId;
+        let hasSharePermission = false;
+        
+        if (!isOwner && userEmail) {
+          // Vérifier les permissions de partage
+          hasSharePermission = existingDocument.Share.some(
+            share => share.email.toLowerCase().trim() === userEmail.toLowerCase().trim() && share.permission === true
+          );
+        }
+        
+        if (!isOwner && !hasSharePermission) {
           return {
             success: false,
             error: 'Vous n\'êtes pas autorisé à modifier ce document',
@@ -438,6 +449,146 @@ export class PrismaDocumentRepository {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Erreur inconnue',
+      };
+    }
+  }
+
+  async fetchSharedWithUser(email: string): Promise<DocumentRepositoryResult<Document[]>> {
+    try {
+      const documents = await prisma.document.findMany({
+        where: {
+          Share: {
+            some: {
+              email: email,
+            },
+          },
+        },
+        include: {
+          user: {
+            select: {
+              username: true,
+              first_name: true,
+              last_name: true,
+            },
+          },
+        },
+        orderBy: { updated_at: 'desc' },
+      });
+
+      // Transformer les documents pour correspondre à notre interface
+      const transformedDocuments: Document[] = documents.map((doc: {
+        id: number;
+        user_id: number;
+        title: string;
+        content: string;
+        tags: string[];
+        created_at: Date;
+        updated_at: Date;
+        user: {
+          username: string | null;
+          first_name: string | null;
+          last_name: string | null;
+        };
+      }) => ({
+        id: doc.id,
+        user_id: doc.user_id,
+        title: doc.title,
+        content: doc.content,
+        tags: doc.tags,
+        created_at: doc.created_at,
+        updated_at: doc.updated_at,
+        username: doc.user.username ?? undefined,
+        first_name: doc.user.first_name ?? undefined,
+        last_name: doc.user.last_name ?? undefined,
+      }));
+
+      return {
+        success: true,
+        documents: transformedDocuments,
+      };
+    } catch (error: unknown) {
+      console.error('❌ Erreur récupération documents partagés avec utilisateur:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Erreur inconnue',
+        documents: [],
+      };
+    }
+  }
+
+  async fetchSharedByUser(userId: number): Promise<DocumentRepositoryResult<Document[]>> {
+    try {
+      const documents = await prisma.document.findMany({
+        where: {
+          user_id: userId,
+          Share: {
+            some: {},
+          },
+        },
+        include: {
+          user: {
+            select: {
+              username: true,
+              first_name: true,
+              last_name: true,
+            },
+          },
+          Share: {
+            select: {
+              email: true,
+              permission: true,
+            },
+          },
+        },
+        orderBy: { updated_at: 'desc' },
+      });
+
+      // Transformer les documents pour correspondre à notre interface
+      const transformedDocuments: Document[] = documents.map((doc: {
+        id: number;
+        user_id: number;
+        title: string;
+        content: string;
+        tags: string[];
+        created_at: Date;
+        updated_at: Date;
+        user: {
+          username: string | null;
+          first_name: string | null;
+          last_name: string | null;
+        };
+        Share: {
+          email: string;
+          permission: boolean;
+        }[];
+      }) => ({
+        id: doc.id,
+        user_id: doc.user_id,
+        title: doc.title,
+        content: doc.content,
+        tags: doc.tags,
+        created_at: doc.created_at,
+        updated_at: doc.updated_at,
+        username: doc.user.username ?? undefined,
+        first_name: doc.user.first_name ?? undefined,
+        last_name: doc.user.last_name ?? undefined,
+        // Ajouter les informations de partage
+        sharedWith: doc.Share.map(share => ({
+          email: share.email,
+          permission: share.permission,
+        })),
+      }));
+
+      return {
+        success: true,
+        documents: transformedDocuments,
+      };
+    } catch (error: unknown) {
+      console.error('❌ Erreur récupération documents partagés par utilisateur:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Erreur inconnue',
+        documents: [],
       };
     }
   }
