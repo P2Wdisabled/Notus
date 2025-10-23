@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, startTransition } from "react";
 import { deleteDocumentAction } from "@/lib/actions";
 import { useState } from "react";
 
@@ -35,7 +35,9 @@ export default function NoteCard({ note, currentUserId, onDelete }: NoteCardProp
     if (!currentUserId) return;
     formData.append("noteId", note.id);
     formData.append("userId", currentUserId);
-    formAction(formData);
+    startTransition(() => {
+      formAction(formData);
+    });
     setShowDeleteConfirm(false);
     if (onDelete) {
       onDelete(note.id);

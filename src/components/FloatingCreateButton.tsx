@@ -30,7 +30,8 @@ export default function FloatingCreateButton({ serverSession }: FloatingCreateBu
   // Calculer la position du bouton en fonction de l'état de connexion et du mode sélection
   const getBottomClass = () => {
     const isHomePage = pathname === "/";
-    const hasConnectionWarning = !isLoggedIn && isHomePage;
+    const isNotesPage = pathname === "/notes";
+    const hasConnectionWarning = !isLoggedIn && (isHomePage || isNotesPage);
     
     if (isSelectModeActive && hasConnectionWarning) {
       // Mode sélection + avertissement de connexion : remonter pour éviter l'empilement

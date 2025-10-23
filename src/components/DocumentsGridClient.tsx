@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useActionState } from "react";
+import { useActionState, startTransition } from "react";
 import { deleteMultipleDocumentsAction } from "@/lib/actions";
 import DocumentCard from "@/components/DocumentCard";
 import SelectionBar from "@/components/SelectionBar";
@@ -110,7 +110,9 @@ export default function DocumentsGridClient({ documents: serverDocuments = [], c
     if (currentUserId && serverIdsToDelete.length > 0) {
       formData.append("userId", String(currentUserId));
       serverIdsToDelete.forEach((id) => formData.append("documentIds", String(id)));
-      formAction(formData);
+      startTransition(() => {
+        formAction(formData);
+      });
     }
 
     setSelectedIds([]);
