@@ -1,7 +1,12 @@
 import { Suspense } from "react";
 import { AdminPageSkeleton } from "@/components/ui/skeleton";
+import AdminGuard from "@/components/AdminGuard";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  return <Suspense fallback={<AdminPageSkeleton />}>{children}</Suspense>;
+  return (
+    <AdminGuard>
+      <Suspense fallback={<AdminPageSkeleton />}>{children}</Suspense>
+    </AdminGuard>
+  );
 }
 
