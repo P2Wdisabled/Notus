@@ -182,7 +182,6 @@ export default function EditLocalDocumentPageClient({ params }: EditLocalDocumen
       setDocument(newDoc);
       setIsNewDoc(false); // Marquer comme document existant
       setShowSavedState(true);
-      setTimeout(() => setShowSavedState(false), 2000);
 
       // Rediriger vers l'URL avec le nouvel ID
       setTimeout(() => {
@@ -218,7 +217,6 @@ export default function EditLocalDocumentPageClient({ params }: EditLocalDocumen
       // Mettre à jour l'état local et rester sur la page
       setDocument(docs[idx]);
       setShowSavedState(true);
-      setTimeout(() => setShowSavedState(false), 2000);
     }
   };
 
@@ -318,7 +316,7 @@ export default function EditLocalDocumentPageClient({ params }: EditLocalDocumen
               <input
                 type="text"
                 value={title}
-                onChange={(e) => setTitle(e.target.value)}
+                onChange={(e) => { setTitle(e.target.value); setShowSavedState(false); }}
                 className="w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange dark:focus:ring-primary bg-transparent text-foreground text-xl font-semibold"
                 placeholder="Titre du document"
                 maxLength={255}
@@ -338,15 +336,18 @@ export default function EditLocalDocumentPageClient({ params }: EditLocalDocumen
                     if (typeof val === "string") {
                       try {
                         setContent(JSON.parse(val));
+                        setShowSavedState(false);
                       } catch {
                         setContent({
                           text: val,
                           drawings: [],
                           textFormatting: {},
                         });
+                        setShowSavedState(false);
                       }
                     } else {
                       setContent(val);
+                      setShowSavedState(false);
                     }
                   }}
                   placeholder="Commencez à écrire votre document..."
@@ -360,6 +361,7 @@ export default function EditLocalDocumentPageClient({ params }: EditLocalDocumen
               <Button
                 type="button"
                 onClick={handleSave}
+                disabled={showSavedState}
                 className={`${showSavedState
                   ? "bg-green-600 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-600"
                   : "bg-primary hover:bg-primary/90 text-primary-foreground"

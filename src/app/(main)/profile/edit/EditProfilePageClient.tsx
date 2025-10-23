@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useRef, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState, startTransition } from "react";
 import { Button, Card, Form, Input, Modal, ImageUpload } from "@/components/ui";
 import { updateUserProfileAction } from "@/lib/actions";
 import { useRouter } from "next/navigation";
@@ -164,7 +164,9 @@ export default function EditProfilePageClient({ user }: EditProfilePageClientPro
     formData.set("email", email);
     if (profileImage) formData.set("profileImage", profileImage);
     if (bannerImage) formData.set("bannerImage", bannerImage);
-    formAction(formData);
+    startTransition(() => {
+      formAction(formData);
+    });
   };
 
   return (

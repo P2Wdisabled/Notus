@@ -350,7 +350,9 @@ export default function DocumentCard({
     if (!currentUserId) return;
     formData.append("documentId", String(document.id));
     formData.append("userId", String(currentUserId));
-    formAction(formData);
+    startTransition(() => {
+      formAction(formData);
+    });
     setShowDeleteConfirm(false);
     if (onDelete) {
       onDelete(document.id);
