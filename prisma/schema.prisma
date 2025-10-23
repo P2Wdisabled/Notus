@@ -1,3 +1,6 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,48 +10,54 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+
 model User {
-  id                       Int             @id @default(autoincrement())
-  email                    String          @unique
-  username                 String?         @unique
-  password_hash            String?
-  first_name               String?
-  last_name                String?
-  email_verified           Boolean         @default(false)
-  email_verification_token String?
+  id                       Int       @id @default(autoincrement())
+  name                     String?
+  email                    String    @unique
+  
+  // Champs personnalisés de votre application
+  username                 String?   @unique
+  first_name                String?   @map("first_name")
+  last_name                 String?   @map("last_name")
+  password_hash             String?   @map("password_hash")
+  is_admin                  Boolean   @default(false) @map("is_admin")
+  email_verified           Boolean   @default(false)
   provider                 String?
   provider_id              String?
-  created_at               DateTime        @default(now())
-  updated_at               DateTime        @updatedAt
+  is_banned                 Boolean   @default(false) @map("is_banned")
+  created_at                DateTime  @default(now()) @map("created_at")
+  updated_at                DateTime  @default(now()) @updatedAt @map("updated_at")
+  
+  // Champs supplémentaires de l'application existante
+  email_verification_token String?
   reset_token              String?
   reset_token_expiry       DateTime?
-  is_admin                 Boolean         @default(false)
-  is_banned                Boolean         @default(false)
   terms_accepted_at        DateTime?
   profile_image            String?
   banner_image             String?
-  documents                Document[]
-  user_sessions            user_sessions[]
 
-  @@index([email], map: "idx_users_email")
-  @@index([provider, provider_id], map: "idx_users_provider")
-  @@index([username], map: "idx_users_username")
+  // Relations personnalisées
+  documents Document[]
+  adminActions AdminAction[] @relation("AdminActions")
+  targetUserActions AdminAction[] @relation("TargetUserActions")
+
   @@map("users")
 }
 
 model Document {
   id         Int      @id @default(autoincrement())
-  user_id    Int
+  user_id    Int      @map("user_id")
   title      String
   content    String   @default("")
   tags       String[] @default([])
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  Share      Share[]
+  created_at DateTime @default(now()) @map("created_at")
+  updated_at DateTime @updatedAt @map("updated_at")
 
-  @@index([created_at(sort: Desc)], map: "idx_documents_created_at")
-  @@index([user_id], map: "idx_documents_user_id")
+  // Relations
+  user  User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  Share Share[]
+
   @@map("documents")
 }
 
@@ -62,38 +71,42 @@ model VerificationToken {
 }
 
 model Share {
-  id         Int      @id @default(autoincrement())
-  id_doc     Int
+  id         Int     @id @default(autoincrement())
+  id_doc     Int     @map("id_doc")
   email      String
-  permission Boolean  @default(false)
-  document   Document @relation(fields: [id_doc], references: [id], onDelete: Cascade)
+  permission Boolean @default(false)
 
-  @@unique([id_doc, email], map: "uq_shares_id_doc_email")
-  @@index([email], map: "idx_shares_email")
+  document Document @relation(fields: [id_doc], references: [id], onDelete: Cascade)
+
   @@map("shares")
 }
 
-model user_sessions {
-  id         Int       @id @default(autoincrement())
-  user_id    Int?
-  token_hash String    @db.VarChar(255)
-  expires_at DateTime  @db.Timestamp(6)
-  created_at DateTime? @default(now()) @db.Timestamp(6)
-  users      User?     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+model AdminAction {
+  id             Int      @id @default(autoincrement())
+  admin_id       Int      @map("admin_id")
+  target_user_id Int      @map("target_user_id")
+  action_type    String   @map("action_type") // 'ban', 'unban', 'promote_admin', 'demote_admin'
+  reason         String?
+  details        Json?    // Pour stocker des informations supplémentaires
+  created_at     DateTime @default(now()) @map("created_at")
 
-  @@index([user_id], map: "idx_sessions_user_id")
+  // Relations
+  admin       User @relation("AdminActions", fields: [admin_id], references: [id], onDelete: Cascade)
+  target_user User @relation("TargetUserActions", fields: [target_user_id], references: [id], onDelete: Cascade)
+
+  @@map("admin_actions")
 }
 
 model TrashDocument {
   id         Int      @id @default(autoincrement())
-  user_id    Int?
+  original_id Int?
+  user_id    Int
   title      String
   content    String   @default("")
   tags       String[] @default([])
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
   deleted_at DateTime @default(now())
-  original_id Int?
 
   @@map("trash_documents")
 }
