@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, startTransition } from "react";
 import { createDocumentAction } from "@/lib/actions";
 import { useState } from "react";
 
@@ -21,7 +21,9 @@ export default function CreateNoteForm({ userId }: CreateNoteFormProps) {
 
   const handleSubmit = (formData: FormData) => {
     formData.append("userId", userId);
-    formAction(formData);
+    startTransition(() => {
+      formAction(formData);
+    });
     setContent(""); // Réinitialiser le champ après soumission
   };
 

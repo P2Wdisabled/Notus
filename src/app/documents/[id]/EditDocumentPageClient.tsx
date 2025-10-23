@@ -266,6 +266,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   const handleContentChange = useCallback((newContent: any) => {
     const normalized = normalizeContent(newContent);
     setContent(normalized);
+    setShowSavedState(false);
 
     try {
       if (typeof window !== "undefined") {
@@ -291,12 +292,8 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     if (state && (state as any).ok) {
       setShowSuccessMessage(true);
       setShowSavedState(true);
-
-      const savedTimer = setTimeout(() => setShowSavedState(false), 1500);
       const messageTimer = setTimeout(() => setShowSuccessMessage(false), 3000);
-
       return () => {
-        clearTimeout(savedTimer);
         clearTimeout(messageTimer);
       };
     }
@@ -363,7 +360,6 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
           }
           setShowSuccessMessage(true);
           setShowSavedState(true);
-          setTimeout(() => setShowSavedState(false), 1500);
           setTimeout(() => setShowSuccessMessage(false), 3000);
         } catch {}
         return;
@@ -411,6 +407,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
 
   const handleTagsChange = (nextTags: string[]) => {
     setTags(nextTags);
+    setShowSavedState(false);
     if (typeof navigator !== "undefined" && navigator.onLine) {
       persistTags(nextTags);
     }
@@ -869,6 +866,8 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
                 maxTags={20}
                 className="w-full"
                 disabled={hasEditAccess === false}
+                currentUserId={userId}
+                requireAuth={true}
               />
             </div>
 
@@ -877,7 +876,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
               <input
                 type="text"
                 value={title}
-                onChange={hasEditAccess === false ? undefined : (e) => setTitle(e.target.value)}
+                onChange={hasEditAccess === false ? undefined : (e) => { setTitle(e.target.value); setShowSavedState(false); }}
                 readOnly={hasEditAccess === false}
                 className={`w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange dark:focus:ring-primary bg-transparent text-foreground text-xl font-semibold ${hasEditAccess === false ? 'cursor-default opacity-75' : ''}`}
                 placeholder="Titre du document"
@@ -905,16 +904,17 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
 
             {/* Buttons */}
             <div className="flex justify-center space-x-4">
-            <button
+            <Button
                 type="button"
                 onClick={() => guardedNavigate("/")}
-                className="px-6 py-3 rounded-lg text-foreground hover:shadow-md hover:border-primary hover:bg-foreground/5 border border-primary cursor-pointer"
+                variant="ghostPurple"
+                size="lg"
               >
                 Annuler
-              </button>
+              </Button>
               <Button
                 type="submit"
-                disabled={isPending || hasEditAccess === false}
+                disabled={isPending || hasEditAccess === false || showSavedState}
                 className={`${showSavedState
                   ? "bg-green-600 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-600"
                   : "bg-primary hover:bg-primary/90 text-primary-foreground"

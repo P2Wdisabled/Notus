@@ -66,9 +66,9 @@ export class PrismaDocumentService {
     }
   }
 
-  async createOrUpdateDocumentById(id: number, userId: number, title: string, content: string, tags: string[]): Promise<DocumentRepositoryResult<Document>> {
+  async createOrUpdateDocumentById(id: number, userId: number, userEmail: string, title: string, content: string, tags: string[]): Promise<DocumentRepositoryResult<Document>> {
     try {
-      return await this.documentRepository.createOrUpdateDocumentById(id, userId, title, content, tags);
+      return await this.documentRepository.createOrUpdateDocumentById(id, userId, title, content, tags, userEmail);
     } catch (error) {
       console.error("❌ Erreur création/mise à jour document:", error);
       return { success: false, error: error instanceof Error ? error.message : "Erreur inconnue" };

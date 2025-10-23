@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useActionState } from "react";
+import { useActionState, startTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useSearch } from "@/contexts/SearchContext";
 import { useSelection } from "@/contexts/SelectionContext";
@@ -141,7 +141,9 @@ export function SearchableDocumentsList({
       serverIdsToDelete.forEach((id) =>
         formData.append("documentIds", String(id))
       );
-      formAction(formData);
+      startTransition(() => {
+        formAction(formData);
+      });
     }
 
     setSelectedIds([]);

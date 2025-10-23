@@ -29,6 +29,21 @@ export class DocumentRepository extends BaseRepository {
         )
       `);
 
+      // Table des documents supprimés (trash)
+      await this.query(`
+        CREATE TABLE IF NOT EXISTS trash_documents (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER,
+          title VARCHAR(255) NOT NULL,
+          content TEXT NOT NULL DEFAULT '',
+          tags TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          deleted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          original_id INTEGER
+        )
+      `);
+
       // Ajouter la colonne tags si base déjà existante
       await this.addColumnIfNotExists("documents", "tags", "TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[]");
 
@@ -174,7 +189,8 @@ export class DocumentRepository extends BaseRepository {
     userId: number,
     title: string,
     content: string,
-    tags: string[] | undefined = undefined
+    tags: string[] | undefined = undefined,
+    userEmail?: string
   ): Promise<DocumentRepositoryResult<Document>> {
     try {
       if (documentId) {
@@ -186,10 +202,27 @@ export class DocumentRepository extends BaseRepository {
           values.splice(2, 0, tags);
         }
 
+        // Vérifier si l'utilisateur est le propriétaire OU s'il a des permissions de partage
+        let whereClause = `WHERE id = $${values.length - 1} AND user_id = $${values.length}`;
+        
+        // Si un email est fourni, vérifier aussi les permissions de partage
+        if (userEmail) {
+          whereClause = `WHERE id = $${values.length - 1} AND (
+            user_id = $${values.length} OR 
+            EXISTS (
+              SELECT 1 FROM shares 
+              WHERE id_doc = $${values.length - 1} 
+              AND lower(trim(email)) = lower(trim($${values.length + 1})) 
+              AND permission = true
+            )
+          )`;
+          values.push(userEmail);
+        }
+
         const result = await this.query<Document>(
           `UPDATE documents 
            SET ${updateFields.join(", ")}, updated_at = CURRENT_TIMESTAMP
-           WHERE id = $${values.length - 1} AND user_id = $${values.length}
+           ${whereClause}
            RETURNING id, title, content, tags, created_at, updated_at, user_id`,
           values
         );
@@ -218,6 +251,25 @@ export class DocumentRepository extends BaseRepository {
 
   async deleteDocument(documentId: number, userId: number): Promise<DocumentRepositoryResult<{ id: number }>> {
     try {
+      const document = await this.query<Document>(
+      `SELECT * FROM documents WHERE id = $1 AND user_id = $2`,
+      [documentId, userId]
+    );
+
+    if (document.rows.length === 0) {
+      return { success: false, error: "Document non trouvé ou vous n'êtes pas autorisé à le supprimer" };
+    }
+
+    const doc = document.rows[0];
+
+    // 2. Insérer dans la table de corbeille
+    await this.query(
+      `INSERT INTO trash_documents (user_id, title, content, tags, created_at, updated_at, deleted_at, original_id)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7)`,
+      [doc.user_id, doc.title, doc.content, doc.tags, doc.created_at, doc.updated_at, doc.id]
+    );
+
+    // 3. Supprimer de la table principale
       const result = await this.query<{ id: number }>(
         `DELETE FROM documents 
          WHERE id = $1 AND user_id = $2
@@ -225,9 +277,6 @@ export class DocumentRepository extends BaseRepository {
         [documentId, userId]
       );
 
-      if (result.rows.length === 0) {
-        return { success: false, error: "Document non trouvé ou vous n'êtes pas autorisé à le supprimer" };
-      }
 
       return { success: true, data: result.rows[0] };
     } catch (error) {
@@ -251,6 +300,42 @@ export class DocumentRepository extends BaseRepository {
         return { success: false, error: "Identifiants de documents invalides" };
       }
 
+      // 1. Récupérer tous les documents avant suppression
+      const documents = await this.query<Document>(
+        `SELECT * FROM documents 
+         WHERE user_id = $1 AND id = ANY($2::int[])`,
+        [userId, ids]
+      );
+
+      if (documents.rows.length === 0) {
+        return { success: false, error: "Aucun document trouvé ou vous n'êtes pas autorisé à les supprimer" };
+      }
+
+      // 2. Insérer tous les documents dans la table de corbeille en une seule requête
+      const trashValues = documents.rows.map((doc, index) => 
+        `($${index * 8 + 1}, $${index * 8 + 2}, $${index * 8 + 3}, $${index * 8 + 4}, $${index * 8 + 5}, $${index * 8 + 6}, NOW(), $${index * 8 + 7})`
+      ).join(', ');
+
+      const trashParams: any[] = [];
+      documents.rows.forEach((doc) => {
+        trashParams.push(
+          doc.user_id,
+          doc.title,
+          doc.content,
+          doc.tags,
+          doc.created_at,
+          doc.updated_at,
+          doc.id // original_id
+        );
+      });
+
+      await this.query(
+        `INSERT INTO trash_documents (user_id, title, content, tags, created_at, updated_at, deleted_at, original_id)
+         VALUES ${trashValues}`,
+        trashParams
+      );
+
+      // 3. Supprimer de la table principale
       const result = await this.query<{ id: number }>(
         `DELETE FROM documents
          WHERE user_id = $1 AND id = ANY($2::int[])
@@ -284,6 +369,45 @@ export class DocumentRepository extends BaseRepository {
       return { success: true, documents: result.rows };
     } catch (error) {
       console.error("❌ Erreur récupération documents partagés:", error);
+      return { success: false, error: error instanceof Error ? error.message : "Erreur inconnue" };
+    }
+  }
+
+  async fetchSharedByUser(userId: number): Promise<DocumentRepositoryResult<Document[]>> {
+    try {
+      const result = await this.query<Document & { shared_emails: string; shared_permissions: boolean }>(
+        `SELECT d.id, d.title, d.content, d.tags, d.created_at, d.updated_at, u.username, u.first_name, u.last_name, d.user_id,
+                array_agg(s.email) as shared_emails, array_agg(s.permission) as shared_permissions
+           FROM documents d
+           JOIN users u ON d.user_id = u.id
+           JOIN shares s ON s.id_doc = d.id
+           WHERE d.user_id = $1
+           GROUP BY d.id, d.title, d.content, d.tags, d.created_at, d.updated_at, u.username, u.first_name, u.last_name, d.user_id
+           ORDER BY d.updated_at DESC`,
+        [userId]
+      );
+
+      // Transformer les résultats pour inclure les informations de partage
+      const transformedDocuments: Document[] = result.rows.map((doc: any) => ({
+        id: doc.id,
+        user_id: doc.user_id,
+        title: doc.title,
+        content: doc.content,
+        tags: doc.tags,
+        created_at: doc.created_at,
+        updated_at: doc.updated_at,
+        username: doc.username,
+        first_name: doc.first_name,
+        last_name: doc.last_name,
+        sharedWith: doc.shared_emails.map((email: string, index: number) => ({
+          email,
+          permission: doc.shared_permissions[index]
+        }))
+      }));
+
+      return { success: true, documents: transformedDocuments };
+    } catch (error) {
+      console.error("❌ Erreur récupération documents partagés par utilisateur:", error);
       return { success: false, error: error instanceof Error ? error.message : "Erreur inconnue" };
     }
   }
