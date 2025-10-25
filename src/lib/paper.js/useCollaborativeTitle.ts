@@ -24,24 +24,15 @@ export function useCollaborativeTitle({ roomId, onRemoteTitle }: UseCollaborativ
   useEffect(() => {
     if (!socket || !roomId) return;
 
-    const handleTitleUpdate: ServerToClientEvents['title-update'] = (data) => {
-      console.log('📝 Received title update:', {
-        clientId: (data as any).clientId,
-        myClientId: clientIdRef.current,
-        title: data.title,
-        isOwnUpdate: (data as any).clientId === clientIdRef.current
-      });
-
-      // Ignore own updates using clientId
-      if ((data as any).clientId && (data as any).clientId === clientIdRef.current) {
-        console.log('📝 Ignoring own title update');
-        return;
-      }
-      if (typeof data.title === 'string') {
-        console.log('📝 Applying remote title');
-        onRemoteTitle(data.title);
-      }
-    };
+      const handleTitleUpdate: ServerToClientEvents['title-update'] = (data) => {
+        // Ignore own updates using clientId
+        if ((data as any).clientId && (data as any).clientId === clientIdRef.current) {
+          return;
+        }
+        if (typeof data.title === 'string') {
+          onRemoteTitle(data.title);
+        }
+      };
 
     socket.on('title-update', handleTitleUpdate);
 
@@ -59,11 +50,6 @@ export function useCollaborativeTitle({ roomId, onRemoteTitle }: UseCollaborativ
   const emitTitleChange = useMemo(() => {
     return (title: string) => {
       if (!socket || !roomId) return;
-      console.log('📝 Emitting title change:', {
-        roomId,
-        clientId: clientIdRef.current,
-        title
-      });
       socket.emit('title-update', roomId, { title, clientId: clientIdRef.current, ts: Date.now() });
     };
   }, [socket, roomId]);

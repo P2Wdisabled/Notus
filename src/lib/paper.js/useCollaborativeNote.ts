@@ -24,24 +24,15 @@ export function useCollaborativeNote({ roomId, onRemoteContent }: UseCollaborati
   useEffect(() => {
     if (!socket || !roomId) return;
 
-    const handleTextUpdate: ServerToClientEvents['text-update'] = (data) => {
-      console.log('📝 Received text update:', { 
-        clientId: (data as any).clientId, 
-        myClientId: clientIdRef.current,
-        contentLength: data.content?.length,
-        isOwnUpdate: (data as any).clientId === clientIdRef.current
-      });
-      
-      // Ignore own updates using clientId
-      if ((data as any).clientId && (data as any).clientId === clientIdRef.current) {
-        console.log('📝 Ignoring own update');
-        return;
-      }
-      if (typeof data.content === 'string') {
-        console.log('📝 Applying remote content');
-        onRemoteContent(data.content);
-      }
-    };
+      const handleTextUpdate: ServerToClientEvents['text-update'] = (data) => {
+        // Ignore own updates using clientId
+        if ((data as any).clientId && (data as any).clientId === clientIdRef.current) {
+          return;
+        }
+        if (typeof data.content === 'string') {
+          onRemoteContent(data.content);
+        }
+      };
 
     socket.on('text-update', handleTextUpdate);
 
@@ -56,17 +47,12 @@ export function useCollaborativeNote({ roomId, onRemoteContent }: UseCollaborati
     return () => leaveRoom(roomId);
   }, [socket, roomId, joinRoom, leaveRoom]);
 
-  const emitLocalChange = useMemo(() => {
-    return (markdown: string) => {
-      if (!socket || !roomId) return;
-      console.log('📝 Emitting local change:', { 
-        roomId, 
-        clientId: clientIdRef.current, 
-        contentLength: markdown.length 
-      });
-      socket.emit('text-update', roomId, { content: markdown, clientId: clientIdRef.current, ts: Date.now() });
-    };
-  }, [socket, roomId]);
+    const emitLocalChange = useMemo(() => {
+      return (markdown: string) => {
+        if (!socket || !roomId) return;
+        socket.emit('text-update', roomId, { content: markdown, clientId: clientIdRef.current, ts: Date.now() });
+      };
+    }, [socket, roomId]);
 
   return { isConnected, emitLocalChange, clientId: clientIdRef.current };
 }

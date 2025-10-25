@@ -16,12 +16,6 @@ export function useSocket(roomId?: string): UseSocketReturn {
   useEffect(() => {
     // Use same-origin connection (no explicit URL = current domain)
     const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL;
-    console.log('🔌 Socket connection config:', {
-      socketUrl,
-      hasEnvVar: !!process.env.NEXT_PUBLIC_SOCKET_URL,
-      currentOrigin: typeof window !== 'undefined' ? window.location.origin : 'server',
-      willConnectTo: socketUrl || 'same-origin'
-    });
     
     // Initialize socket connection with fallback to polling
     const socketInstance: Socket<ServerToClientEvents, ClientToServerEvents> = io(socketUrl || undefined, {
@@ -32,32 +26,18 @@ export function useSocket(roomId?: string): UseSocketReturn {
       forceNew: true
     });
     
-    console.log('🔌 Socket instance created:', {
-      connected: socketInstance.connected,
-      id: socketInstance.id,
-      url: 'connecting...'
-    });
 
     socketInstance.on('connect', () => {
       setIsConnected(true);
-      console.log('✅ Connected to server:', {
-        id: socketInstance.id,
-        transport: socketInstance.io?.engine?.transport?.name
-      });
     });
 
     socketInstance.on('disconnect', (reason) => {
       setIsConnected(false);
-      console.log('❌ Disconnected from server:', reason);
     });
 
     // Narrow type using 'connect_error'
     socketInstance.on('connect_error', (err) => {
-      console.error('🚨 Socket connect_error:', {
-        message: err.message,
-        name: err.name,
-        stack: err.stack
-      });
+      // Connection error handled silently
     });
 
     setSocket(socketInstance);

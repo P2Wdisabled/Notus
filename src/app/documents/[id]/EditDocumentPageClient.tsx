@@ -98,16 +98,17 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   const [hasEditAccess, setHasEditAccess] = useState<boolean | null>(null);
   const [hasReadAccess, setHasReadAccess] = useState<boolean | null>(null);
   const [users, setUsers] = useState([]);
+  const [isOffline, setIsOffline] = useState(false);
+  const [offlineBaseline, setOfflineBaseline] = useState<string>("");
 
   // Collaborative title synchronization
   const { emitTitleChange, isConnected: isTitleConnected } = useCollaborativeTitle({
     roomId: document ? String(document.id) : undefined,
-    onRemoteTitle: (remoteTitle: string) => {
-      console.log('📝 Received remote title:', remoteTitle);
-      setTitle(remoteTitle);
-      // Update localStorage with remote title change
-      updateLocalStorage(content, remoteTitle);
-    },
+      onRemoteTitle: (remoteTitle: string) => {
+        setTitle(remoteTitle);
+        // Update localStorage with remote title change
+        updateLocalStorage(content, remoteTitle);
+      },
   });
 
   const normalizeContent = (rawContent: any): NotepadContent => {
@@ -292,15 +293,10 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
           user_id: cached?.user_id ?? Number(userId ?? ((props.session as any)?.user?.id ?? 0)),
           cachedAt: Date.now(),
         };
-        localStorage.setItem(key, JSON.stringify(payload));
-        console.log('💾 LocalStorage updated with remote changes:', {
-          contentLength: contentToSave?.text?.length || 0,
-          title: titleToSave ?? title,
-          timestamp: Date.now()
-        });
+          localStorage.setItem(key, JSON.stringify(payload));
       }
     } catch (err) {
-      console.error('❌ Error updating localStorage:', err);
+      // Silent error handling for localStorage
     }
   }, [props.params.id, title, tags, userId, props.session]);
 
@@ -421,30 +417,140 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
       return;
     }
 
-    console.log('⏱️ AutoSave initialized for document:', document.id);
-
     const intervalId = setInterval(async () => {
       try {
-        console.log('⏱️ AutoSave tick for document:', document.id);
         const onlineOk = await checkConnectivity();
-        console.log('🌐 Connectivity before autosave:', onlineOk);
         if (!onlineOk) {
-          console.log('⏭️ Skipping autosave: offline');
           return;
         }
 
         await handleSubmit();
-        console.log('💾 AutoSave completed successfully');
       } catch (err) {
-        console.error('❌ AutoSave error:', err);
+        // Silent error handling for autosave
       }
     }, 10000);
 
     return () => {
-      console.log('🧹 Clearing AutoSave interval for document:', document.id);
       clearInterval(intervalId);
     };
   }, [document?.id, hasEditAccess, handleSubmit, checkConnectivity]);
+
+  // -------- Offline/Online conflict resolution --------
+  useEffect(() => {
+    if (!document) return;
+
+    const handleOffline = () => {
+      setIsOffline(true);
+      // Store baseline when going offline
+      const baseline = content.text || "";
+      setOfflineBaseline(baseline);
+      localStorage.setItem(`notus:offline-baseline:${document.id}`, baseline);
+      console.log('📴 Mode hors ligne activé - Baseline sauvegardé:', {
+        documentId: document.id,
+        baselineLength: baseline.length,
+        baselinePreview: baseline.substring(0, 50) + '...'
+      });
+    };
+
+    const handleOnline = async () => {
+      setIsOffline(false);
+      console.log('🌐 Reconnexion détectée - Début de la résolution des conflits');
+      
+      try {
+        // Fetch current state from database
+        const response = await fetch(`/api/openDoc?id=${document.id}`, { cache: "no-store" });
+        const result = await response.json();
+        
+          if (result.success) {
+          const remoteContent = normalizeContent(result.content);
+          const remoteText = remoteContent.text || "";
+          const storedBaseline = localStorage.getItem(`notus:offline-baseline:${document.id}`) || "";
+          const currentText = content.text || "";
+          
+          console.log('📊 Données récupérées de la base de données:', {
+            documentId: document.id,
+            title: result.title,
+            updatedAt: result.updated_at,
+            contentLength: remoteText.length,
+            contentPreview: remoteText.substring(0, 100) + '...',
+            tags: result.tags,
+            hasContent: !!result.content,
+            contentType: typeof result.content
+          });
+          
+          console.log('🔍 Analyse des conflits:', {
+            documentId: document.id,
+            baselineLength: storedBaseline.length,
+            remoteLength: remoteText.length,
+            currentLength: currentText.length,
+            baselinePreview: storedBaseline.substring(0, 50) + '...',
+            remotePreview: remoteText.substring(0, 50) + '...',
+            currentPreview: currentText.substring(0, 50) + '...'
+          });
+          
+          // Compare remote content with stored baseline
+          if (remoteText !== storedBaseline) {
+            // Remote changes occurred while offline - overwrite local changes
+            console.log('⚠️ Conflit détecté - Changements distants trouvés pendant la déconnexion');
+            console.log('🔄 Écrasement des modifications locales par les changements distants');
+            console.log('📥 Application des données de la BDD:', {
+              title: result.title,
+              contentLength: remoteText.length,
+              contentPreview: remoteText.substring(0, 100) + '...',
+              tags: result.tags,
+              updatedAt: result.updated_at
+            });
+            
+            // Update document state with remote data
+            setDocument({
+              ...document,
+              content: JSON.stringify(remoteContent),
+              updated_at: new Date(result.updated_at)
+            });
+            
+            // Update all local states with remote data
+            setContent(remoteContent);
+            setTitle(result.title);
+            setTags(Array.isArray(result.tags) ? result.tags : []);
+            
+            // Update localStorage with remote data
+            updateLocalStorage(remoteContent, result.title);
+            
+            setOfflineBaseline("");
+            localStorage.removeItem(`notus:offline-baseline:${document.id}`);
+            console.log('✅ Résolution terminée - Toutes les données distantes appliquées');
+          } else {
+            // No remote changes - our offline changes are safe to persist
+            console.log('✅ Aucun conflit - Aucun changement distant détecté');
+            console.log('💾 Sauvegarde des modifications hors ligne');
+            await handleSubmit();
+            setOfflineBaseline("");
+            localStorage.removeItem(`notus:offline-baseline:${document.id}`);
+            console.log('✅ Modifications hors ligne sauvegardées avec succès');
+          }
+        } else {
+          console.log('❌ Échec de la récupération du contenu distant:', result.error);
+        }
+      } catch (err) {
+        console.error('❌ Erreur lors de la résolution des conflits:', err);
+      }
+    };
+
+    // Check initial state
+    if (typeof navigator !== 'undefined') {
+      const initialOffline = !navigator.onLine;
+      setIsOffline(initialOffline);
+      console.log('🔌 État de connexion initial:', { isOffline: initialOffline });
+    }
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [document, content.text, handleSubmit, normalizeContent, updateLocalStorage]);
 
   const persistTags = (nextTags: string[]) => {
     if (!userId) return;
@@ -979,7 +1085,6 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
                   initialData={content}
                   onContentChange={handleContentChange}
                   onRemoteContentChange={(remoteContent) => {
-                    console.log('📝 Received remote content change, updating state and localStorage');
                     // Keep React state in sync so autosave submits the latest content
                     setContent(remoteContent);
                     // Persist to localStorage like local edits do
