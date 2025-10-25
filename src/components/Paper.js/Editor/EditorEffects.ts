@@ -12,6 +12,7 @@ export interface EditorEffectsProps {
   formattingHandler: React.MutableRefObject<any>;
   debounceTimeout: React.MutableRefObject<NodeJS.Timeout | null>;
   handleEditorChange: () => void;
+  isUpdatingFromMarkdown?: React.MutableRefObject<boolean>;
 }
 
 export function useEditorEffects({
@@ -23,17 +24,115 @@ export function useEditorEffects({
   setImageOverlayRect,
   formattingHandler,
   debounceTimeout,
-  handleEditorChange
+  handleEditorChange,
+  isUpdatingFromMarkdown
 }: EditorEffectsProps) {
   
   // Note: Initialization is handled in the main component
 
-  // Initialize editor content once on mount
+  // Initialize editor content once on mount and sync external changes
   useEffect(() => {
-    if (editorRef.current && markdown && !editorRef.current.innerHTML && markdownConverter.current) {
-      const initialHtml = markdownConverter.current.markdownToHtml(markdown);
-      editorRef.current.innerHTML = initialHtml;
+    const root = editorRef.current;
+    if (!root || !markdown || !markdownConverter.current) return;
+
+    const currentHtml = markdownConverter.current.markdownToHtml(markdown);
+    const editorHtml = root.innerHTML;
+
+    // Only update if content is different to avoid infinite loops
+    if (editorHtml === currentHtml) return;
+
+    // Helpers to preserve caret/selection across HTML refresh
+    const getSelectionOffsets = (container: HTMLElement): { start: number; end: number } | null => {
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) return null;
+      const range = sel.getRangeAt(0);
+      // Ensure selection belongs to this editor
+      if (!container.contains(range.startContainer) || !container.contains(range.endContainer)) return null;
+
+      const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+      let start = -1;
+      let end = -1;
+      let offset = 0;
+      let node: Node | null = walker.nextNode();
+      while (node) {
+        const textLen = (node.textContent || '').length;
+        if (node === range.startContainer) start = offset + range.startOffset;
+        if (node === range.endContainer) end = offset + range.endOffset;
+        offset += textLen;
+        node = walker.nextNode();
+      }
+      if (start < 0 || end < 0) return null;
+      return { start, end };
+    };
+
+    const setSelectionOffsets = (container: HTMLElement, selStart: number, selEnd: number) => {
+      const totalLength = container.textContent ? container.textContent.length : 0;
+      const clamp = (v: number) => Math.max(0, Math.min(v, totalLength));
+      const targetStart = clamp(selStart);
+      const targetEnd = clamp(selEnd);
+
+      const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+      let node: Node | null = walker.nextNode();
+      let traversed = 0;
+
+      const locate = (target: number): { node: Node; offset: number } => {
+        let n: Node | null = node;
+        let acc = traversed;
+        while (n) {
+          const len = (n.textContent || '').length;
+          if (acc + len >= target) {
+            return { node: n, offset: target - acc };
+          }
+          acc += len;
+          n = walker.nextNode();
+        }
+        // fallback to end of container
+        return { node: container, offset: container.childNodes.length } as any;
+      };
+
+      const startPos = locate(targetStart);
+      // Reset walker to beginning to compute end separately
+      const walker2 = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+      let acc2 = 0;
+      let n2: Node | null = walker2.nextNode();
+      while (n2) {
+        const len = (n2.textContent || '').length;
+        if (acc2 + len >= targetEnd) break;
+        acc2 += len;
+        n2 = walker2.nextNode();
+      }
+      const endPos = n2 ? { node: n2, offset: targetEnd - acc2 } : startPos;
+
+      try {
+        const sel = window.getSelection();
+        if (!sel) return;
+        const newRange = document.createRange();
+        newRange.setStart(startPos.node, startPos.offset);
+        newRange.setEnd(endPos.node, endPos.offset);
+        sel.removeAllRanges();
+        sel.addRange(newRange);
+      } catch {
+        // ignore restoration errors
+      }
+    };
+
+    // If the editor is focused, preserve selection; otherwise, simple swap
+    const isFocused = document.activeElement === root || root.contains(document.activeElement as Node);
+    const prevSelection = isFocused ? getSelectionOffsets(root) : null;
+
+    // Apply new HTML
+    // Mark that we're updating from markdown to avoid feedback loops
+    (isUpdatingFromMarkdown as any)?.current && ((isUpdatingFromMarkdown as any).current = true);
+    root.innerHTML = currentHtml;
+
+    if (prevSelection) {
+      // restore selection on next tick to ensure DOM is ready
+      setTimeout(() => setSelectionOffsets(root, prevSelection.start, prevSelection.end), 0);
     }
+    // Clear the flag after update
+    setTimeout(() => {
+      (isUpdatingFromMarkdown as any)?.current && ((isUpdatingFromMarkdown as any).current = false);
+    }, 0);
   }, [markdown, editorRef, markdownConverter]);
 
   // Keep overlay in sync on scroll/resize/content changes

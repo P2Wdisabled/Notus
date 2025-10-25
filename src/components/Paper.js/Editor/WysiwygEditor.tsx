@@ -27,6 +27,13 @@ export default function WysiwygEditor({
   readOnly = false,
 }: WysiwygEditorProps) {
   const [markdown, setMarkdown] = useState(content);
+  
+  // Sync external content changes only when not updating from user input
+  useEffect(() => {
+    if (content !== markdown) {
+      setMarkdown(content);
+    }
+  }, [content]);
   const [linkPopup, setLinkPopup] = useState<{ visible: boolean; x: number; y: number; url: string }>({
     visible: false,
     x: 0,
@@ -83,7 +90,8 @@ export default function WysiwygEditor({
     setImageOverlayRect,
     formattingHandler,
     debounceTimeout,
-    handleEditorChange: eventHandlers.handleEditorChange
+    handleEditorChange: eventHandlers.handleEditorChange,
+    isUpdatingFromMarkdown
   });
 
   return (

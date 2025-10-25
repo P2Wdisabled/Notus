@@ -1,0 +1,74 @@
+"use client";
+import { useEffect, useMemo, useRef } from "react";
+import { useSocket } from "./socket-client";
+import type { ClientToServerEvents, ServerToClientEvents } from "./types";
+
+interface UseCollaborativeNoteOptions {
+  roomId: string | undefined;
+  onRemoteContent: (content: string) => void;
+}
+
+function generateClientId(): string {
+  if (typeof crypto !== 'undefined' && 'getRandomValues' in crypto) {
+    const arr = new Uint8Array(16);
+    crypto.getRandomValues(arr);
+    return Array.from(arr, (b) => b.toString(16).padStart(2, '0')).join('');
+  }
+  return Math.random().toString(36).slice(2) + Date.now().toString(36);
+}
+
+export function useCollaborativeNote({ roomId, onRemoteContent }: UseCollaborativeNoteOptions) {
+  const clientIdRef = useRef<string>(generateClientId());
+  const { socket, isConnected, joinRoom, leaveRoom } = useSocket(roomId);
+
+  useEffect(() => {
+    if (!socket || !roomId) return;
+
+    const handleTextUpdate: ServerToClientEvents['text-update'] = (data) => {
+      console.log('📝 Received text update:', { 
+        clientId: (data as any).clientId, 
+        myClientId: clientIdRef.current,
+        contentLength: data.content?.length,
+        isOwnUpdate: (data as any).clientId === clientIdRef.current
+      });
+      
+      // Ignore own updates using clientId
+      if ((data as any).clientId && (data as any).clientId === clientIdRef.current) {
+        console.log('📝 Ignoring own update');
+        return;
+      }
+      if (typeof data.content === 'string') {
+        console.log('📝 Applying remote content');
+        onRemoteContent(data.content);
+      }
+    };
+
+    socket.on('text-update', handleTextUpdate);
+
+    return () => {
+      socket.off('text-update', handleTextUpdate);
+    };
+  }, [socket, roomId, onRemoteContent]);
+
+  useEffect(() => {
+    if (!socket || !roomId) return;
+    joinRoom(roomId);
+    return () => leaveRoom(roomId);
+  }, [socket, roomId, joinRoom, leaveRoom]);
+
+  const emitLocalChange = useMemo(() => {
+    return (markdown: string) => {
+      if (!socket || !roomId) return;
+      console.log('📝 Emitting local change:', { 
+        roomId, 
+        clientId: clientIdRef.current, 
+        contentLength: markdown.length 
+      });
+      socket.emit('text-update', roomId, { content: markdown, clientId: clientIdRef.current, ts: Date.now() });
+    };
+  }, [socket, roomId]);
+
+  return { isConnected, emitLocalChange, clientId: clientIdRef.current };
+}
+
+

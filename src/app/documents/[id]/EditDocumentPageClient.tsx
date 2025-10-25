@@ -15,12 +15,12 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useLocalSession } from "@/hooks/useLocalSession";
 import WysiwygNotepad from "@/components/Paper.js/WysiwygNotepad";
-import CollaborativeNotepad from "@/components/Paper.js/CollaborativeNotepad";
 import { Document } from "@/lib/types";
 import TagsManager from "@/components/TagsManager";
 import { addShareAction } from "@/lib/actions/DocumentActions";
 import UserListButton from "@/components/ui/UserList/UserListButton";
 import { useGuardedNavigate } from "@/hooks/useGuardedNavigate";
+import { useCollaborativeTitle } from "@/lib/paper.js/useCollaborativeTitle";
 
 interface EditDocumentPageClientProps {
   session?: any;
@@ -85,6 +85,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   const [error, setError] = useState<string | null>(null);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [showSavedState, setShowSavedState] = useState(false);
+  const [showSavedNotification, setShowSavedNotification] = useState(false);
 
   
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -97,6 +98,17 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   const [hasEditAccess, setHasEditAccess] = useState<boolean | null>(null);
   const [hasReadAccess, setHasReadAccess] = useState<boolean | null>(null);
   const [users, setUsers] = useState([]);
+
+  // Collaborative title synchronization
+  const { emitTitleChange, isConnected: isTitleConnected } = useCollaborativeTitle({
+    roomId: document ? String(document.id) : undefined,
+    onRemoteTitle: (remoteTitle: string) => {
+      console.log('📝 Received remote title:', remoteTitle);
+      setTitle(remoteTitle);
+      // Update localStorage with remote title change
+      updateLocalStorage(content, remoteTitle);
+    },
+  });
 
   const normalizeContent = (rawContent: any): NotepadContent => {
     if (!rawContent) return { text: "", drawings: [], textFormatting: {} };
@@ -263,10 +275,8 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     };
   }, [props.params.id]);
 
-  const handleContentChange = useCallback((newContent: any) => {
-    const normalized = normalizeContent(newContent);
-    setContent(normalized);
-
+  // Utility function to update localStorage with current state
+  const updateLocalStorage = useCallback((contentToSave: any, titleToSave?: string) => {
     try {
       if (typeof window !== "undefined") {
         const key = `notus:doc:${props.params.id}`;
@@ -275,29 +285,45 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
         const payload = {
           ...(cached || {}),
           id: Number(props.params.id),
-          title: title,
-          content: normalized,
+          title: titleToSave ?? title,
+          content: contentToSave,
           tags: tags,
           updated_at: new Date().toISOString(),
-        user_id: cached?.user_id ?? Number(userId ?? ((props.session as any)?.user?.id ?? 0)),
+          user_id: cached?.user_id ?? Number(userId ?? ((props.session as any)?.user?.id ?? 0)),
           cachedAt: Date.now(),
         };
         localStorage.setItem(key, JSON.stringify(payload));
+        console.log('💾 LocalStorage updated with remote changes:', {
+          contentLength: contentToSave?.text?.length || 0,
+          title: titleToSave ?? title,
+          timestamp: Date.now()
+        });
       }
-    } catch {}
-  }, []);
+    } catch (err) {
+      console.error('❌ Error updating localStorage:', err);
+    }
+  }, [props.params.id, title, tags, userId, props.session]);
+
+  const handleContentChange = useCallback((newContent: any) => {
+    const normalized = normalizeContent(newContent);
+    setContent(normalized);
+    updateLocalStorage(normalized);
+  }, [updateLocalStorage]);
 
   useEffect(() => {
     if (state && (state as any).ok) {
       setShowSuccessMessage(true);
       setShowSavedState(true);
+      setShowSavedNotification(true);
 
       const savedTimer = setTimeout(() => setShowSavedState(false), 1500);
       const messageTimer = setTimeout(() => setShowSuccessMessage(false), 3000);
+      const notificationTimer = setTimeout(() => setShowSavedNotification(false), 2000);
 
       return () => {
         clearTimeout(savedTimer);
         clearTimeout(messageTimer);
+        clearTimeout(notificationTimer);
       };
     }
   }, [state]);
@@ -388,6 +414,37 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
       checkConnectivity,
     ]
   );
+
+  // -------- Auto-save every 10 seconds (checks connectivity beforehand) --------
+  useEffect(() => {
+    if (!document || hasEditAccess === false) {
+      return;
+    }
+
+    console.log('⏱️ AutoSave initialized for document:', document.id);
+
+    const intervalId = setInterval(async () => {
+      try {
+        console.log('⏱️ AutoSave tick for document:', document.id);
+        const onlineOk = await checkConnectivity();
+        console.log('🌐 Connectivity before autosave:', onlineOk);
+        if (!onlineOk) {
+          console.log('⏭️ Skipping autosave: offline');
+          return;
+        }
+
+        await handleSubmit();
+        console.log('💾 AutoSave completed successfully');
+      } catch (err) {
+        console.error('❌ AutoSave error:', err);
+      }
+    }, 10000);
+
+    return () => {
+      console.log('🧹 Clearing AutoSave interval for document:', document.id);
+      clearInterval(intervalId);
+    };
+  }, [document?.id, hasEditAccess, handleSubmit, checkConnectivity]);
 
   const persistTags = (nextTags: string[]) => {
     if (!userId) return;
@@ -768,6 +825,25 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
                   >
                     {hasEditAccess === false ? "Lecture seule" : "Partager"}
                   </MenuItem>
+                  
+                  <MenuItem
+                    onClick={() => {
+                      if (hasEditAccess !== false) {
+                        handleSubmit();
+                        setIsMenuOpen(false);
+                      }
+                    }}
+                    disabled={hasEditAccess === false || isPending}
+                    icon={
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M19 21H5C3.89543 21 3 20.1046 3 19V5C3 3.89543 3.89543 3 5 3H16L21 8V19C21 20.1046 20.1046 21 19 21Z" stroke={hasEditAccess === false || isPending ? "#999" : "#DD05C7"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M17 21V13H7V21" stroke={hasEditAccess === false || isPending ? "#999" : "#DD05C7"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M7 3V8H15" stroke={hasEditAccess === false || isPending ? "#999" : "#DD05C7"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    }
+                  >
+                    {isPending ? "Sauvegarde..." : hasEditAccess === false ? "Lecture seule" : "Sauvegarder"}
+                  </MenuItem>
                 </div>
               )}
             </div>
@@ -859,7 +935,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
 
         {/* Edit form */}
         <div className="bg-white dark:bg-black rounded-2xl border border-gray dark:border-dark-gray p-6 overflow-hidden">
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form className="space-y-6">
             {/* Tags */}
             <div className="mb-1">
               <TagsManager
@@ -877,7 +953,14 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
               <input
                 type="text"
                 value={title}
-                onChange={hasEditAccess === false ? undefined : (e) => setTitle(e.target.value)}
+                onChange={hasEditAccess === false ? undefined : (e) => {
+                  const newTitle = e.target.value;
+                  setTitle(newTitle);
+                  // Emit title change to other clients
+                  if (emitTitleChange && isTitleConnected) {
+                    emitTitleChange(newTitle);
+                  }
+                }}
                 readOnly={hasEditAccess === false}
                 className={`w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange dark:focus:ring-primary bg-transparent text-foreground text-xl font-semibold ${hasEditAccess === false ? 'cursor-default opacity-75' : ''}`}
                 placeholder="Titre du document"
@@ -895,63 +978,37 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
                   key={`doc-${document.id}-${document.updated_at}`}
                   initialData={content}
                   onContentChange={handleContentChange}
+                  onRemoteContentChange={(remoteContent) => {
+                    console.log('📝 Received remote content change, updating state and localStorage');
+                    // Keep React state in sync so autosave submits the latest content
+                    setContent(remoteContent);
+                    // Persist to localStorage like local edits do
+                    updateLocalStorage(remoteContent);
+                  }}
                   placeholder="Commencez à écrire votre document..."
                   className=""
                   showDebug={false}
                   readOnly={hasEditAccess === false}
+                  roomId={String(document.id)}
                 />
               </div>
             </div>
 
-            {/* Buttons */}
-            <div className="flex justify-center space-x-4">
-            <button
-                type="button"
-                onClick={() => guardedNavigate("/")}
-                className="px-6 py-3 rounded-lg text-foreground hover:shadow-md hover:border-primary hover:bg-foreground/5 border border-primary cursor-pointer"
-              >
-                Annuler
-              </button>
-              <Button
-                type="submit"
-                disabled={isPending || hasEditAccess === false}
-                className={`${showSavedState
-                  ? "bg-green-600 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-600"
-                  : "bg-primary hover:bg-primary/90 text-primary-foreground"
-                  } disabled:bg-gray-400 disabled:cursor-not-allowed font-semibold py-3 px-6 rounded-lg transition-colors`}
-              >
-                {isPending
-                  ? "Sauvegarde..."
-                  : showSavedState
-                    ? "Sauvegardé"
-                    : hasEditAccess === false
-                      ? "Lecture seule"
-                      : "Sauvegarder"}
-              </Button>
-            </div>
             
-            {/* Success/Error messages */}
-            {(showSuccessMessage || (state && (state as any).error)) && (
-              <div
-                className={`shrink-0 rounded-lg p-4 mt-4 ${showSuccessMessage
-                  ? "bg-white dark:bg-black border border-orange dark:border-dark-purple"
-                  : "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"
-                  }`}
-              >
-                <p
-                  className={`text-sm ${showSuccessMessage
-                    ? "text-orange dark:text-dark-purple"
-                    : "text-red-600 dark:text-red-400"
-                    }`}
-                >
-                  {showSuccessMessage
-                    ? "Document sauvegardé avec succès !"
-                    : (state as any)?.error || "Erreur lors de la sauvegarde"}
-                </p>
-              </div>
-            )}
           </form>
         </div>
+        
+        {/* Saved notification */}
+        {showSavedNotification && (
+          <div className="fixed bottom-4 left-4 z-50 pointer-events-none">
+            <div className="bg-primary text-white border border-primary rounded-lg px-3 py-2 shadow-lg pointer-events-auto flex items-center">
+              <svg className="w-4 h-4 mr-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              <span className="text-sm font-medium">Note enregistrée</span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

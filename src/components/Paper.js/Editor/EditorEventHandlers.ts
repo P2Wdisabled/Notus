@@ -51,17 +51,11 @@ export function useEditorEventHandlers({
         
         // Only update if markdown has actually changed to avoid unnecessary re-renders
         if (markdown !== newMarkdown) {
-          // Set flag to prevent HTML update during typing
-          isUpdatingFromMarkdown.current = true;
-          
-          // Update markdown state without triggering HTML update
+          // Send the new markdown upward (parent will emit via socket)
           onContentChange(newMarkdown);
-          
-          // Reset flag immediately since we're not updating HTML
-          isUpdatingFromMarkdown.current = false;
         }
       }
-    }, 300); // Reduced debounce time
+    }, 150);
   }, [onContentChange, markdown, editorRef, markdownConverter, isUpdatingFromMarkdown, debounceTimeout]);
 
   // Handle link hover to show popup
