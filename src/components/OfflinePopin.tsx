@@ -125,7 +125,7 @@ export default function OfflinePopin() {
           <h4 className="font-semibold mb-1">Vous êtes hors ligne</h4>
           <p className="text-sm leading-5">
             {overrideMessage || (isEditingDocument
-              ? "Votre connexion internet semble interrompue. Vous pourrez enregistrer la note une fois la connexion rétablie."
+              ? "Votre connexion semble interrompue. Les changements effectués seront enregistrés si vous êtes seul à en faire, sinon ils seront écrasés."
               : "Votre connexion internet semble interrompue. Vous pourrez avoir accès aux différentes fonctionnalités une fois la connexion rétablie.")}
           </p>
         </div>

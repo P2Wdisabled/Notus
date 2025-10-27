@@ -13,6 +13,14 @@ export interface DrawingData {
 
 export interface TextUpdateData {
   content: string;
+  clientId?: string;
+  ts?: number;
+}
+
+export interface TitleUpdateData {
+  title: string;
+  clientId?: string;
+  ts?: number;
 }
 
 export interface RoomState {
@@ -119,6 +127,7 @@ export interface ClientToServerEvents {
   'leave-room': (roomId: string) => void;
   'drawing-data': (data: DrawingData) => void;
   'text-update': (data: TextUpdateData) => void;
+  'title-update': (roomId: string, data: TitleUpdateData & { clientId: string; ts: number }) => void;
   'text-formatting-update': (data: any) => void;
   'clear-canvas': () => void;
 }
@@ -128,6 +137,7 @@ export interface ServerToClientEvents {
   'room-state': (state: RoomState) => void;
   'drawing-data': (data: DrawingData) => void;
   'text-update': (data: TextUpdateData) => void;
+  'title-update': (data: TitleUpdateData & { clientId: string; ts: number }) => void;
   'text-formatting-update': (data: any) => void;
   'clear-canvas': () => void;
   'user-joined': (userId: string) => void;
