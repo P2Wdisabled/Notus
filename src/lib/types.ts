@@ -150,3 +150,12 @@ export interface MenuItemProps {
   className?: string;
   disabled?: boolean;
 }
+
+export interface Notification {
+  id: number;
+  id_sender: number | null;
+  id_receiver: number;
+  message: string;
+  send_date: Date;
+  read_date: Date | null;
+}

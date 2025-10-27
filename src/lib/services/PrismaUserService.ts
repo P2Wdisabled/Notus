@@ -216,6 +216,20 @@ export class PrismaUserService {
         return { success: false, error: updateResult.error || "Erreur lors de la mise à jour du mot de passe" };
       }
 
+      // Create an in-app notification informing the user their password was changed
+      try {
+        const notifSvc = new (await import("./NotificationService")).NotificationService();
+        if (updateResult.user) {
+          await notifSvc.sendNotification(null, updateResult.user.id, {
+            type: "password-changed",
+            message: "Votre mot de passe a été modifié.",
+            timestamp: new Date().toISOString(),
+          });
+        }
+      } catch (e) {
+        console.warn("Could not create password-changed notification:", e);
+      }
+
       return { success: true };
     } catch (error) {
       console.error("❌ Erreur réinitialisation mot de passe:", error);
