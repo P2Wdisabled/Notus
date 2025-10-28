@@ -1,7 +1,8 @@
-// lib/socket.ts
+// lib/socket-client.ts
 import { useEffect, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { UseSocketReturn, ClientToServerEvents, ServerToClientEvents } from './types';
+import { UseSocketReturn } from './types';
+import type { ClientToServerEvents, ServerToClientEvents } from './types';
 
 /**
  * Custom hook for socket connection
@@ -13,24 +14,30 @@ export function useSocket(roomId?: string): UseSocketReturn {
   const [isConnected, setIsConnected] = useState<boolean>(false);
 
   useEffect(() => {
+    // Use same-origin connection (no explicit URL = current domain)
     const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL;
-    const socketInstance = io(socketUrl, {
-      transports: ['websocket'],
-      autoConnect: true
+    
+    // Initialize socket connection with fallback to polling
+    const socketInstance: Socket<ServerToClientEvents, ClientToServerEvents> = io(socketUrl || undefined, {
+      transports: ['polling', 'websocket'],
+      autoConnect: true,
+      path: '/api/socket',
+      timeout: 20000,
+      forceNew: true
     });
+    
 
     socketInstance.on('connect', () => {
       setIsConnected(true);
-      console.log('Connected to server');
     });
 
-    socketInstance.on('disconnect', () => {
+    socketInstance.on('disconnect', (reason) => {
       setIsConnected(false);
-      console.log('Disconnected from server');
     });
 
-    socketInstance.on('error', (error: Error) => {
-      console.error('Socket error:', error);
+    // Narrow type using 'connect_error'
+    socketInstance.on('connect_error', (err) => {
+      // Connection error handled silently
     });
 
     setSocket(socketInstance);

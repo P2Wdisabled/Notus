@@ -7,6 +7,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import PromoteAdminButton from "@/components/PromoteAdminButton";
 import OfflinePopin from "@/components/OfflinePopin";
 import { SearchProvider } from "@/contexts/SearchContext";
+import UserStatusGuard from "@/components/UserStatusGuard";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../lib/auth";
 import Link from "next/link";
@@ -45,14 +46,16 @@ export default async function RootLayout({
       <body className="antialiased">
         <ThemeProvider>
           <AuthSessionProvider session={session}>
-            <SearchProvider>
-              <SelectionProvider>
-                {children}
-                <FloatingCreateButton serverSession={session} />
-                <ThemeToggle />
-                <OfflinePopin />
-              </SelectionProvider>
-            </SearchProvider>
+            <UserStatusGuard>
+              <SearchProvider>
+                <SelectionProvider>
+                  {children}
+                  <FloatingCreateButton serverSession={session} />
+                  <ThemeToggle />
+                  <OfflinePopin />
+                </SelectionProvider>
+              </SearchProvider>
+            </UserStatusGuard>
           </AuthSessionProvider>
         </ThemeProvider>
 

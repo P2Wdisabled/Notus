@@ -332,11 +332,25 @@ export class DocumentManagementService {
         return { ok: false, error: Object.values(validation.errors)[0] || "Données invalides" };
       }
 
+      // Get user email from session or formData
+      let userEmail: string | undefined = undefined;
+      if (fd && fd.get("email")) {
+        userEmail = String(fd.get("email"));
+      } else if (typeof (formDataOrObj as any).email === "string") {
+        userEmail = (formDataOrObj as any).email;
+      } else {
+        // Try to get from server session
+        try {
+          const session = await getServerSession(authOptions);
+          userEmail = session?.user?.email || undefined;
+        } catch {}
+      }
+
       // Actually update the document in the database
       const updateResult = await this.documentService.createOrUpdateDocumentById(
         idNum,
         userIdToUse,
-        "", // no email available in this path
+        userEmail || "",
         title,
         contentStr,
         tags

@@ -71,6 +71,16 @@ export function clearUserSession(): boolean {
     // Vider aussi le localStorage pour la session utilisateur
     if (typeof window !== "undefined") {
       localStorage.removeItem("userSession");
+      localStorage.removeItem("currentUserId");
+      // Nettoyer aussi les clés de documents liées à l'utilisateur
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith("notus:doc:") || key.startsWith("notus.tags"))) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(key => localStorage.removeItem(key));
     }
 
     return true;

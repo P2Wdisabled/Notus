@@ -15,12 +15,12 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useLocalSession } from "@/hooks/useLocalSession";
 import WysiwygNotepad from "@/components/Paper.js/WysiwygNotepad";
-import CollaborativeNotepad from "@/components/Paper.js/CollaborativeNotepad";
 import { Document } from "@/lib/types";
 import TagsManager from "@/components/TagsManager";
 import { addShareAction } from "@/lib/actions/DocumentActions";
 import UserListButton from "@/components/ui/UserList/UserListButton";
 import { useGuardedNavigate } from "@/hooks/useGuardedNavigate";
+import { useCollaborativeTitle } from "@/lib/paper.js/useCollaborativeTitle";
 
 interface EditDocumentPageClientProps {
   session?: any;
@@ -85,6 +85,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   const [error, setError] = useState<string | null>(null);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [showSavedState, setShowSavedState] = useState(false);
+  const [showSavedNotification, setShowSavedNotification] = useState(false);
 
   
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -97,6 +98,18 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   const [hasEditAccess, setHasEditAccess] = useState<boolean | null>(null);
   const [hasReadAccess, setHasReadAccess] = useState<boolean | null>(null);
   const [users, setUsers] = useState([]);
+  const [isOffline, setIsOffline] = useState(false);
+  const [offlineBaseline, setOfflineBaseline] = useState<string>("");
+
+  // Collaborative title synchronization
+  const { emitTitleChange, isConnected: isTitleConnected } = useCollaborativeTitle({
+    roomId: document ? String(document.id) : undefined,
+      onRemoteTitle: (remoteTitle: string) => {
+        setTitle(remoteTitle);
+        // Update localStorage with remote title change
+        updateLocalStorage(content, remoteTitle);
+      },
+  });
 
   const normalizeContent = (rawContent: any): NotepadContent => {
     if (!rawContent) return { text: "", drawings: [], textFormatting: {} };
@@ -263,10 +276,8 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     };
   }, [props.params.id]);
 
-  const handleContentChange = useCallback((newContent: any) => {
-    const normalized = normalizeContent(newContent);
-    setContent(normalized);
-
+  // Utility function to update localStorage with current state
+  const updateLocalStorage = useCallback((contentToSave: any, titleToSave?: string) => {
     try {
       if (typeof window !== "undefined") {
         const key = `notus:doc:${props.params.id}`;
@@ -275,29 +286,39 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
         const payload = {
           ...(cached || {}),
           id: Number(props.params.id),
-          title: title,
-          content: normalized,
+          title: titleToSave ?? title,
+          content: contentToSave,
           tags: tags,
           updated_at: new Date().toISOString(),
-        user_id: cached?.user_id ?? Number(userId ?? ((props.session as any)?.user?.id ?? 0)),
+          user_id: cached?.user_id ?? Number(userId ?? ((props.session as any)?.user?.id ?? 0)),
           cachedAt: Date.now(),
         };
-        localStorage.setItem(key, JSON.stringify(payload));
+          localStorage.setItem(key, JSON.stringify(payload));
       }
-    } catch {}
-  }, []);
+    } catch (err) {
+      // Silent error handling for localStorage
+    }
+  }, [props.params.id, title, tags, userId, props.session]);
+
+  const handleContentChange = useCallback((newContent: any) => {
+    const normalized = normalizeContent(newContent);
+    setContent(normalized);
+    updateLocalStorage(normalized);
+  }, [updateLocalStorage]);
 
   useEffect(() => {
     if (state && (state as any).ok) {
       setShowSuccessMessage(true);
       setShowSavedState(true);
+      setShowSavedNotification(true);
 
       const savedTimer = setTimeout(() => setShowSavedState(false), 1500);
       const messageTimer = setTimeout(() => setShowSuccessMessage(false), 3000);
+      const notificationTimer = setTimeout(() => setShowSavedNotification(false), 2000);
 
       return () => {
-        clearTimeout(savedTimer);
         clearTimeout(messageTimer);
+        clearTimeout(notificationTimer);
       };
     }
   }, [state]);
@@ -363,7 +384,6 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
           }
           setShowSuccessMessage(true);
           setShowSavedState(true);
-          setTimeout(() => setShowSavedState(false), 1500);
           setTimeout(() => setShowSuccessMessage(false), 3000);
         } catch {}
         return;
@@ -389,6 +409,147 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     ]
   );
 
+  // -------- Auto-save every 10 seconds (checks connectivity beforehand) --------
+  useEffect(() => {
+    if (!document || hasEditAccess === false) {
+      return;
+    }
+
+    const intervalId = setInterval(async () => {
+      try {
+        const onlineOk = await checkConnectivity();
+        if (!onlineOk) {
+          return;
+        }
+
+        await handleSubmit();
+      } catch (err) {
+        // Silent error handling for autosave
+      }
+    }, 10000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [document?.id, hasEditAccess, handleSubmit, checkConnectivity]);
+
+  // -------- Offline/Online conflict resolution --------
+  useEffect(() => {
+    if (!document) return;
+
+    const handleOffline = () => {
+      setIsOffline(true);
+      // Store baseline when going offline
+      const baseline = content.text || "";
+      setOfflineBaseline(baseline);
+      localStorage.setItem(`notus:offline-baseline:${document.id}`, baseline);
+      console.log('📴 Mode hors ligne activé - Baseline sauvegardé:', {
+        documentId: document.id,
+        baselineLength: baseline.length,
+        baselinePreview: baseline.substring(0, 50) + '...'
+      });
+    };
+
+    const handleOnline = async () => {
+      setIsOffline(false);
+      console.log('🌐 Reconnexion détectée - Début de la résolution des conflits');
+      
+      try {
+        // Fetch current state from database
+        const response = await fetch(`/api/openDoc?id=${document.id}`, { cache: "no-store" });
+        const result = await response.json();
+        
+          if (result.success) {
+          const remoteContent = normalizeContent(result.content);
+          const remoteText = remoteContent.text || "";
+          const storedBaseline = localStorage.getItem(`notus:offline-baseline:${document.id}`) || "";
+          const currentText = content.text || "";
+          
+          console.log('📊 Données récupérées de la base de données:', {
+            documentId: document.id,
+            title: result.title,
+            updatedAt: result.updated_at,
+            contentLength: remoteText.length,
+            contentPreview: remoteText.substring(0, 100) + '...',
+            tags: result.tags,
+            hasContent: !!result.content,
+            contentType: typeof result.content
+          });
+          
+          console.log('🔍 Analyse des conflits:', {
+            documentId: document.id,
+            baselineLength: storedBaseline.length,
+            remoteLength: remoteText.length,
+            currentLength: currentText.length,
+            baselinePreview: storedBaseline.substring(0, 50) + '...',
+            remotePreview: remoteText.substring(0, 50) + '...',
+            currentPreview: currentText.substring(0, 50) + '...'
+          });
+          
+          // Compare remote content with stored baseline
+          if (remoteText !== storedBaseline) {
+            // Remote changes occurred while offline - overwrite local changes
+            console.log('⚠️ Conflit détecté - Changements distants trouvés pendant la déconnexion');
+            console.log('🔄 Écrasement des modifications locales par les changements distants');
+            console.log('📥 Application des données de la BDD:', {
+              title: result.title,
+              contentLength: remoteText.length,
+              contentPreview: remoteText.substring(0, 100) + '...',
+              tags: result.tags,
+              updatedAt: result.updated_at
+            });
+            
+            // Update document state with remote data
+            setDocument({
+              ...document,
+              content: JSON.stringify(remoteContent),
+              updated_at: new Date(result.updated_at)
+            });
+            
+            // Update all local states with remote data
+            setContent(remoteContent);
+            setTitle(result.title);
+            setTags(Array.isArray(result.tags) ? result.tags : []);
+            
+            // Update localStorage with remote data
+            updateLocalStorage(remoteContent, result.title);
+            
+            setOfflineBaseline("");
+            localStorage.removeItem(`notus:offline-baseline:${document.id}`);
+            console.log('✅ Résolution terminée - Toutes les données distantes appliquées');
+          } else {
+            // No remote changes - our offline changes are safe to persist
+            console.log('✅ Aucun conflit - Aucun changement distant détecté');
+            console.log('💾 Sauvegarde des modifications hors ligne');
+            await handleSubmit();
+            setOfflineBaseline("");
+            localStorage.removeItem(`notus:offline-baseline:${document.id}`);
+            console.log('✅ Modifications hors ligne sauvegardées avec succès');
+          }
+        } else {
+          console.log('❌ Échec de la récupération du contenu distant:', result.error);
+        }
+      } catch (err) {
+        console.error('❌ Erreur lors de la résolution des conflits:', err);
+      }
+    };
+
+    // Check initial state
+    if (typeof navigator !== 'undefined') {
+      const initialOffline = !navigator.onLine;
+      setIsOffline(initialOffline);
+      console.log('🔌 État de connexion initial:', { isOffline: initialOffline });
+    }
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [document, content.text, handleSubmit, normalizeContent, updateLocalStorage]);
+
   const persistTags = (nextTags: string[]) => {
     if (!userId) return;
     const fd = new FormData();
@@ -411,6 +572,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
 
   const handleTagsChange = (nextTags: string[]) => {
     setTags(nextTags);
+    setShowSavedState(false);
     if (typeof navigator !== "undefined" && navigator.onLine) {
       persistTags(nextTags);
     }
@@ -768,6 +930,25 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
                   >
                     {hasEditAccess === false ? "Lecture seule" : "Partager"}
                   </MenuItem>
+                  
+                  <MenuItem
+                    onClick={() => {
+                      if (hasEditAccess !== false) {
+                        handleSubmit();
+                        setIsMenuOpen(false);
+                      }
+                    }}
+                    disabled={hasEditAccess === false || isPending}
+                    icon={
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M19 21H5C3.89543 21 3 20.1046 3 19V5C3 3.89543 3.89543 3 5 3H16L21 8V19C21 20.1046 20.1046 21 19 21Z" stroke={hasEditAccess === false || isPending ? "#999" : "#DD05C7"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M17 21V13H7V21" stroke={hasEditAccess === false || isPending ? "#999" : "#DD05C7"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M7 3V8H15" stroke={hasEditAccess === false || isPending ? "#999" : "#DD05C7"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    }
+                  >
+                    {isPending ? "Sauvegarde..." : hasEditAccess === false ? "Lecture seule" : "Sauvegarder"}
+                  </MenuItem>
                 </div>
               )}
             </div>
@@ -859,7 +1040,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
 
         {/* Edit form */}
         <div className="bg-white dark:bg-black rounded-2xl border border-gray dark:border-dark-gray p-6 overflow-hidden">
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form className="space-y-6">
             {/* Tags */}
             <div className="mb-1">
               <TagsManager
@@ -869,6 +1050,8 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
                 maxTags={20}
                 className="w-full"
                 disabled={hasEditAccess === false}
+                currentUserId={userId}
+                requireAuth={true}
               />
             </div>
 
@@ -877,7 +1060,14 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
               <input
                 type="text"
                 value={title}
-                onChange={hasEditAccess === false ? undefined : (e) => setTitle(e.target.value)}
+                onChange={hasEditAccess === false ? undefined : (e) => {
+                  const newTitle = e.target.value;
+                  setTitle(newTitle);
+                  // Emit title change to other clients
+                  if (emitTitleChange && isTitleConnected) {
+                    emitTitleChange(newTitle);
+                  }
+                }}
                 readOnly={hasEditAccess === false}
                 className={`w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange dark:focus:ring-primary bg-transparent text-foreground text-xl font-semibold ${hasEditAccess === false ? 'cursor-default opacity-75' : ''}`}
                 placeholder="Titre du document"
@@ -895,63 +1085,36 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
                   key={`doc-${document.id}-${document.updated_at}`}
                   initialData={content}
                   onContentChange={handleContentChange}
+                  onRemoteContentChange={(remoteContent) => {
+                    // Keep React state in sync so autosave submits the latest content
+                    setContent(remoteContent);
+                    // Persist to localStorage like local edits do
+                    updateLocalStorage(remoteContent);
+                  }}
                   placeholder="Commencez à écrire votre document..."
                   className=""
                   showDebug={false}
                   readOnly={hasEditAccess === false}
+                  roomId={String(document.id)}
                 />
               </div>
             </div>
 
-            {/* Buttons */}
-            <div className="flex justify-center space-x-4">
-            <button
-                type="button"
-                onClick={() => guardedNavigate("/")}
-                className="px-6 py-3 rounded-lg text-foreground hover:shadow-md hover:border-primary hover:bg-foreground/5 border border-primary cursor-pointer"
-              >
-                Annuler
-              </button>
-              <Button
-                type="submit"
-                disabled={isPending || hasEditAccess === false}
-                className={`${showSavedState
-                  ? "bg-green-600 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-600"
-                  : "bg-primary hover:bg-primary/90 text-primary-foreground"
-                  } disabled:bg-gray-400 disabled:cursor-not-allowed font-semibold py-3 px-6 rounded-lg transition-colors`}
-              >
-                {isPending
-                  ? "Sauvegarde..."
-                  : showSavedState
-                    ? "Sauvegardé"
-                    : hasEditAccess === false
-                      ? "Lecture seule"
-                      : "Sauvegarder"}
-              </Button>
-            </div>
             
-            {/* Success/Error messages */}
-            {(showSuccessMessage || (state && (state as any).error)) && (
-              <div
-                className={`shrink-0 rounded-lg p-4 mt-4 ${showSuccessMessage
-                  ? "bg-white dark:bg-black border border-orange dark:border-dark-purple"
-                  : "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"
-                  }`}
-              >
-                <p
-                  className={`text-sm ${showSuccessMessage
-                    ? "text-orange dark:text-dark-purple"
-                    : "text-red-600 dark:text-red-400"
-                    }`}
-                >
-                  {showSuccessMessage
-                    ? "Document sauvegardé avec succès !"
-                    : (state as any)?.error || "Erreur lors de la sauvegarde"}
-                </p>
-              </div>
-            )}
           </form>
         </div>
+        
+        {/* Saved notification */}
+        {showSavedNotification && (
+          <div className="fixed bottom-4 left-4 z-50 pointer-events-none">
+            <div className="bg-primary text-white border border-primary rounded-lg px-3 py-2 shadow-lg pointer-events-auto flex items-center">
+              <svg className="w-4 h-4 mr-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              <span className="text-sm font-medium">Note enregistrée</span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

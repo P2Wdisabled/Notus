@@ -261,7 +261,17 @@ function RegisterPageClient({ serverSession }: RegisterPageClientProps) {
                   required
                   checked={acceptTerms}
                   onChange={(e) => setAcceptTerms(e.target.checked)}
-                  className="w-4 h-4 accent-orange dark:accent-dark-purple bg-white dark:bg-white border-orange dark:border-purple rounded"
+                  className={`h-5 w-5 border-2 rounded transition-all duration-200 cursor-pointer appearance-none ${
+                    acceptTerms 
+                      ? "border-primary bg-primary" 
+                      : "border-input bg-background"
+                  }`}
+                  style={{
+                    backgroundImage: acceptTerms ? `url("data:image/svg+xml,%3csvg viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M5 13l4 4L19 7'/%3e%3c/svg%3e")` : 'none',
+                    backgroundSize: '16px',
+                    backgroundPosition: 'center',
+                    backgroundRepeat: 'no-repeat'
+                  }}
                 />
               </div>
               <div className="ml-3 text-sm">
@@ -273,7 +283,7 @@ function RegisterPageClient({ serverSession }: RegisterPageClientProps) {
                   <Link
                     href="/legal/cgu"
                     target="_blank"
-                    className="text-orange hover:text-dark-orange dark:text-dark-purple dark:hover:text-purple underline"
+                    className="text-primary hover:text-primary/90 dark:text-primary dark:hover:text-primary/90 underline"
                   >
                     conditions générales d&apos;utilisation
                   </Link>{" "}
@@ -281,7 +291,7 @@ function RegisterPageClient({ serverSession }: RegisterPageClientProps) {
                   <Link
                     href="/legal/rgpd"
                     target="_blank"
-                    className="text-orange hover:text-dark-orange dark:text-dark-purple dark:hover:text-purple underline"
+                    className="text-primary hover:text-primary/90 dark:text-primary dark:hover:text-primary/90 underline"
                   >
                     mentions légales RGPD
                   </Link>

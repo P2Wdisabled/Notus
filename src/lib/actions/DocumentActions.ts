@@ -478,8 +478,9 @@ export async function fetchSharedDocumentsAction(): Promise<ActionResult> {
   try {
     const session = await getServerSession(authOptions);
     const email = session?.user?.email as string | undefined;
+    const userId = session?.user?.id ? Number(session.user.id) : undefined;
 
-    if (!email) {
+    if (!email || !userId) {
       return { success: false, error: "Utilisateur non authentifié", documents: [] };
     }
 
@@ -489,12 +490,25 @@ export async function fetchSharedDocumentsAction(): Promise<ActionResult> {
 
     await documentService.initializeTables();
 
-    const result = await documentService.fetchSharedWithUser(email);
-    if (!result.success) {
-      return { success: false, error: result.error || "Erreur lors de la récupération des documents partagés", documents: [] };
+    // Récupérer les documents partagés avec l'utilisateur
+    const sharedWithResult = await documentService.fetchSharedWithUser(email);
+    if (!sharedWithResult.success) {
+      return { success: false, error: sharedWithResult.error || "Erreur lors de la récupération des documents partagés", documents: [] };
     }
 
-    return { success: true, documents: result.documents || [] };
+    // Récupérer les documents partagés par l'utilisateur
+    const sharedByResult = await documentService.fetchSharedByUser(userId);
+    if (!sharedByResult.success) {
+      return { success: false, error: sharedByResult.error || "Erreur lors de la récupération des documents partagés", documents: [] };
+    }
+
+    // Combiner les deux listes
+    const allSharedDocuments = [
+      ...(sharedWithResult.documents || []),
+      ...(sharedByResult.documents || [])
+    ];
+
+    return { success: true, documents: allSharedDocuments };
   } catch (error: unknown) {
     console.error("❌ Erreur fetchSharedDocumentsAction:", error);
     return { success: false, error: "Erreur lors de la récupération des documents partagés", documents: [] };

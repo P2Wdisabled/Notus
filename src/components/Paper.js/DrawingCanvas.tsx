@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState, useCallback } from "react";
-import { useSocket } from "@/lib/paper.js/socket";
+import { useSocket } from "@/lib/paper.js/socket-client";
 import { useLocalSession } from "@/hooks/useLocalSession";
 
 interface Drawing {

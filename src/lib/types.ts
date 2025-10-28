@@ -33,6 +33,10 @@ export interface Document {
   username?: string;
   first_name?: string;
   last_name?: string;
+  sharedWith?: {
+    email: string;
+    permission: boolean;
+  }[];
 }
 
 export interface UserSession {

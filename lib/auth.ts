@@ -15,6 +15,7 @@ declare module "next-auth" {
       lastName: string;
       isAdmin: boolean;
       isVerified: boolean;
+      isBanned: boolean;
     };
   }
 
@@ -27,6 +28,7 @@ declare module "next-auth" {
     lastName: string;
     isAdmin: boolean;
     isVerified: boolean;
+    isBanned: boolean;
   }
 }
 
@@ -38,6 +40,7 @@ declare module "next-auth/jwt" {
     lastName: string;
     isAdmin: boolean;
     isVerified: boolean;
+    isBanned: boolean;
   }
 }
 
@@ -100,6 +103,7 @@ export const authOptions: NextAuthOptions = {
             lastName: user.last_name || "",
             isAdmin: user.is_admin,
             isVerified: user.email_verified,
+            isBanned: user.is_banned,
           };
         } catch (e) {
           console.error("Erreur authorize(credentials):", e);
@@ -156,6 +160,7 @@ export const authOptions: NextAuthOptions = {
             session.user.lastName = user.last_name || "";
             session.user.isAdmin = user.is_admin;
             session.user.isVerified = user.email_verified;
+            session.user.isBanned = user.is_banned;
           }
         } catch (error) {
           console.error(
@@ -174,6 +179,7 @@ export const authOptions: NextAuthOptions = {
         token.lastName = user.lastName;
         token.isAdmin = user.isAdmin;
         token.isVerified = user.isVerified;
+        token.isBanned = user.isBanned;
       }
       return token;
     },
