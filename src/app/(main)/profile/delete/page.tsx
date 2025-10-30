@@ -5,7 +5,6 @@ import Link from "next/link";
 import { Button, Input, Modal } from "@/components/ui";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { signOut } from "next-auth/react";
 
 export default function DeleteAccountPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -19,12 +18,12 @@ export default function DeleteAccountPage() {
   useEffect(() => {
     if (successOpen) {
       const t = setTimeout(() => {
-        // Déconnecter l'utilisateur après un court délai
-        signOut({ callbackUrl: "/", redirect: true });
+        // Rediriger vers le flux de déconnexion unifié (comme la navbar)
+        router.push("/logout?immediate=1");
       }, 1500);
       return () => clearTimeout(t);
     }
-  }, [successOpen]);
+  }, [successOpen, router]);
 
   return (
     <div className="min-h-screen bg-background">
