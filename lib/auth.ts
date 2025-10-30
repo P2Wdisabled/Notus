@@ -2,6 +2,7 @@ import NextAuth, { NextAuthOptions, User } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { UserService } from "../src/lib/services/UserService";
+import { prisma } from "@/lib/prisma";
 
 // Étendre les types NextAuth
 declare module "next-auth" {
@@ -120,22 +121,58 @@ export const authOptions: NextAuthOptions = {
           const existingUser = await userService.getUserByEmail(user.email!);
 
           if (!existingUser.success) {
-            // Créer un nouvel utilisateur
-            const username = user.email?.split("@")[0] || "user";
-            const firstName =
-              String((profile as Record<string, unknown>)?.given_name || user.name?.split(" ")[0] || "");
-            const lastName =
-              String((profile as Record<string, unknown>)?.family_name ||
-              user.name?.split(" ").slice(1).join(" ") ||
-              "");
+            // Vérifier si un compte supprimé existe et est restaurable
+            const deleted = await prisma.deletedAccount.findFirst({ where: { email: user.email!.toLowerCase() } });
+            const now = new Date();
+            const expired = !!(deleted?.expires_at && deleted.expires_at.getTime() <= now.getTime());
 
-            await userService.createUser({
-              email: user.email!,
-              username,
-              password: "", // Pas de mot de passe pour OAuth
-              firstName: firstName || "Utilisateur",
-              lastName: lastName || "OAuth",
-            });
+            if (deleted && !expired) {
+              // Restaurer automatiquement pour OAuth (pas de mot de passe à valider)
+              await prisma.$transaction(async (tx) => {
+                const usernameCandidate = deleted.username || user.email!.split("@")[0];
+                const snapshot = (deleted.user_snapshot as any) || {};
+                const data: any = {
+                  email: deleted.email,
+                  username: usernameCandidate,
+                  first_name: deleted.first_name || null,
+                  last_name: deleted.last_name || null,
+                  password_hash: snapshot.password_hash || null,
+                  is_admin: !!deleted.is_admin,
+                  email_verified: true,
+                  provider: "google",
+                  provider_id: account?.providerAccountId || deleted.provider_id || null,
+                  is_banned: !!deleted.is_banned,
+                  profile_image: deleted.profile_image || null,
+                  banner_image: deleted.banner_image || null,
+                };
+                try {
+                  await tx.user.create({ data });
+                } catch (_) {
+                  // Conflit sur le username, utiliser un fallback
+                  await tx.user.create({
+                    data: { ...data, username: `${user.email!.split("@")[0]}_restored` },
+                  });
+                }
+                await tx.deletedAccount.delete({ where: { id: deleted.id } });
+              });
+            } else {
+              // Créer un nouvel utilisateur
+              const username = user.email?.split("@")[0] || "user";
+              const firstName =
+                String((profile as Record<string, unknown>)?.given_name || user.name?.split(" ")[0] || "");
+              const lastName =
+                String((profile as Record<string, unknown>)?.family_name ||
+                user.name?.split(" ").slice(1).join(" ") ||
+                "");
+
+              await userService.createUser({
+                email: user.email!,
+                username,
+                password: "", // Pas de mot de passe pour OAuth
+                firstName: firstName || "Utilisateur",
+                lastName: lastName || "OAuth",
+              });
+            }
           }
         } catch (error) {
           console.error(
