@@ -13,6 +13,12 @@ import {
   Alert,
   LoadingSpinner,
   Logo,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
 } from "@/components/ui";
 
 function LoginPageClient({ serverSession }: { serverSession: any }) {
@@ -21,6 +27,10 @@ function LoginPageClient({ serverSession }: { serverSession: any }) {
   const [errorMessage, setErrorMessage] = useState("");
   const [isPending, setIsPending] = useState(false);
   const [password, setPassword] = useState("");
+  const [reactivateOpen, setReactivateOpen] = useState(false);
+  const [reactivateEmail, setReactivateEmail] = useState("");
+  const [reactivateExpiresAt, setReactivateExpiresAt] = useState<string | null>(null);
+  const [reactivateError, setReactivateError] = useState("");
 
   // Clear only the password on auth error
   useEffect(() => {
@@ -85,6 +95,35 @@ function LoginPageClient({ serverSession }: { serverSession: any }) {
                   return;
                 }
 
+                // 1) Check if account is deleted but restorable
+                try {
+                  const checkRes = await fetch("/api/check-deleted-account", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email }),
+                  });
+                  if (checkRes.ok) {
+                    const data = await checkRes.json();
+                    if (data?.success && data.found) {
+                      if (data.expired) {
+                        setErrorMessage(
+                          "Ce compte a été supprimé et le délai de restauration est dépassé."
+                        );
+                        setIsPending(false);
+                        return;
+                      }
+                      // Prompt to reactivate
+                      setReactivateEmail(email);
+                      setReactivateExpiresAt(data.expiresAt || null);
+                      setReactivateError("");
+                      setReactivateOpen(true);
+                      setIsPending(false);
+                      return;
+                    }
+                  }
+                } catch (_) {}
+
+                // 2) Proceed with normal sign-in
                 const result = await signIn("credentials", {
                   redirect: false,
                   callbackUrl: "/",
@@ -175,6 +214,69 @@ function LoginPageClient({ serverSession }: { serverSession: any }) {
           </Link>
         </Card.Footer>
       </Card>
+      {/* Reactivation dialog */}
+      <Dialog open={reactivateOpen} onOpenChange={setReactivateOpen}>
+        <DialogContent showCloseButton>
+          <DialogHeader>
+            <DialogTitle>Réactiver votre compte ?</DialogTitle>
+            <DialogDescription>
+              Votre compte associé à {reactivateEmail} a été supprimé, mais peut
+              encore être restauré{reactivateExpiresAt ? ` jusqu'au ${new Date(reactivateExpiresAt).toLocaleDateString()}` : ""}.
+              Confirmez pour le réactiver.
+            </DialogDescription>
+          </DialogHeader>
+          {reactivateError ? (
+            <div className="text-red-600 text-sm">{reactivateError}</div>
+          ) : null}
+          <DialogFooter>
+            <Button
+              className="px-6 py-2"
+              variant="secondary"
+              onClick={() => {
+                setReactivateOpen(false);
+              }}
+            >
+              Annuler
+            </Button>
+            <Button
+              className="px-6 py-2"
+              variant="primary"
+              onClick={async () => {
+                setReactivateError("");
+                try {
+                  const res = await fetch("/api/reactivate-account", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email: reactivateEmail, password }),
+                  });
+                  const data = await res.json().catch(() => ({}));
+                  if (!res.ok || !data?.success) {
+                    setReactivateError(data?.error || "Impossible de réactiver le compte.");
+                    return;
+                  }
+                  // After restore, sign-in directly
+                  const result = await signIn("credentials", {
+                    redirect: false,
+                    callbackUrl: "/",
+                    email: reactivateEmail,
+                    password,
+                  });
+                  if (result?.ok && !result.error) {
+                    setReactivateOpen(false);
+                    router.push("/");
+                  } else {
+                    setReactivateError("La réactivation a réussi, mais la connexion a échoué.");
+                  }
+                } catch (e) {
+                  setReactivateError("Erreur interne. Veuillez réessayer.");
+                }
+              }}
+            >
+              Réactiver
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -2,13 +2,20 @@
 
 import { signOut } from "next-auth/react";
 import { clearUserSession } from "@/lib/session-utils";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import { Button, Modal } from "@/components/ui";
 
 export default function LogoutPageClient() {
   const router = useRouter();
-  const [open, setOpen] = useState(true);
+  const searchParams = useSearchParams();
+  const immediate = !!(
+    searchParams?.get("immediate") === "1" ||
+    searchParams?.get("immediate") === "true" ||
+    searchParams?.has("auto") ||
+    searchParams?.get("source") === "delete"
+  );
+  const [open, setOpen] = useState(!immediate);
 
   const handleConfirm = async () => {
     try {
@@ -21,6 +28,17 @@ export default function LogoutPageClient() {
     setOpen(false);
     router.push("/");
   };
+
+  useEffect(() => {
+    if (immediate) {
+      (async () => {
+        try {
+          clearUserSession();
+        } catch {}
+        await signOut({ callbackUrl: "/", redirect: true });
+      })();
+    }
+  }, [immediate]);
 
   return (
     <>

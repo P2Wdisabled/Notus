@@ -8,7 +8,7 @@ import { Button, Input, Card, Alert } from "@/components/ui";
 
 export default function ResetPasswordPage() {
   const searchParams = useSearchParams();
-  const token = searchParams.get("token");
+  const token = searchParams?.get("token");
 
   const [message, formAction, isPending] = useActionState(
     resetPasswordAction,

@@ -110,3 +110,37 @@ model TrashDocument {
 
   @@map("trash_documents")
 }
+
+model DeletedAccount {
+  id                Int       @id @default(autoincrement())
+  original_user_id  Int       @map("original_user_id")
+  email             String
+  username          String?
+  first_name        String?   @map("first_name")
+  last_name         String?   @map("last_name")
+  provider          String?
+  provider_id       String?
+  profile_image     String?
+  banner_image      String?
+  is_admin          Boolean?  @map("is_admin")
+  is_banned         Boolean?  @map("is_banned")
+  user_snapshot     Json?     @map("user_snapshot")
+  added_at          DateTime  @default(now()) @map("added_at")
+  // Convenience: compute 30 days retention window in DB (PostgreSQL)
+  expires_at        DateTime? @default(dbgenerated("now() + interval '30 days'")) @map("expires_at")
+
+  @@index([original_user_id], map: "idx_deleted_accounts_original_user_id")
+  @@index([email], map: "idx_deleted_accounts_email")
+  @@map("deleted_accounts")
+}
+model Notification {
+  id         Int      @id @default(autoincrement())
+  id_sender   Int?
+  id_receiver Int
+  message     Json
+  send_date   DateTime @default(now())
+  read_date   DateTime?
+
+  @@index([id_receiver], map: "idx_notifications_receiver")
+  @@map("notifications")
+}

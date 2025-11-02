@@ -13,7 +13,7 @@ const errorMessages: Record<string, string> = {
 
 export default function AuthErrorPage() {
   const searchParams = useSearchParams();
-  const error = searchParams.get("error");
+  const error = searchParams?.get("error");
 
   const getErrorMessage = (error: string | null): string => {
     if (!error) return errorMessages.Default;
@@ -31,7 +31,7 @@ export default function AuthErrorPage() {
 
         <Card.Content className="space-y-4">
           <Alert variant="error">
-            {getErrorMessage(error)}
+            {getErrorMessage(error || null)}
           </Alert>
 
           <div className="text-center space-y-2">
