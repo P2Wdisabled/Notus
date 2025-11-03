@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import LoginRequiredModal from "@/components/LoginRequiredModal";
+import { useSearch } from "@/contexts/SearchContext";
 
 interface TagsManagerProps {
   tags: string[];
@@ -33,6 +34,7 @@ export default function TagsManager({
   const [showLoginModal, setShowLoginModal] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const { startSearch } = useSearch();
 
   // Focus sur l'input quand on commence à ajouter
   useEffect(() => {
@@ -102,7 +104,7 @@ export default function TagsManager({
   };
 
   return (
-    <div className={`w-full scroller ${className} ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
+    <div className={`w-full scroller ${className} ${disabled ? 'opacity-50' : ''}`}>
       <div
         ref={scrollContainerRef}
         className="flex items-center gap-2 px-1 overflow-x-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent pb-1 max-w-full"
@@ -204,7 +206,14 @@ export default function TagsManager({
             key={tag}
             variant="purple"
             size="md"
-            className="flex-shrink-0 pr-1 group"
+            className="flex-shrink-0 pr-1 group cursor-pointer"
+            onClick={(e) => {
+              // Cliquer sur un tag filtre la liste par ce tag
+              e.stopPropagation();
+              startSearch(tag);
+            }}
+            title={`Filtrer par tag: ${tag}`}
+            aria-label={`Filtrer par tag: ${tag}`}
           >
             <span 
               className="mr-1 max-w-[200px] truncate" 
@@ -216,7 +225,7 @@ export default function TagsManager({
               type="button"
               className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-md text-accent hover:bg-accent/20 transition-colors"
               aria-label={`Supprimer le tag ${tag}`}
-              onClick={() => removeTag(tag)}
+              onClick={(e) => { e.stopPropagation(); removeTag(tag); }}
             >
               <svg
                 className="h-4 w-4"

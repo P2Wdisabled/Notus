@@ -447,6 +447,12 @@ export default function DocumentCard({
     : `/documents/${document.id}`;
 
   const handleCardNavigation = async (e: React.MouseEvent) => {
+    // Si une modal de connexion est ouverte, ignorer toute navigation
+    if (showLoginModal) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
     // En mode sélection, toggle la sélection au lieu de naviguer
     if (selectMode) {
       e.preventDefault();

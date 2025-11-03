@@ -147,12 +147,12 @@ function LoginPageClient({ serverSession }: { serverSession: any }) {
           >
             {/* Email/Pseudo */}
             <Input
-              label="Email ou nom d'utilisateur"
+              label="Email"
               type="text"
               id="email"
               name="email"
               required
-              placeholder="votre@email.com ou nom d'utilisateur"
+              placeholder="votre@email.com"
             />
 
             {/* Mot de passe */}
