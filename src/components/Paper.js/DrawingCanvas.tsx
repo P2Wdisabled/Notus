@@ -21,14 +21,14 @@ interface DrawingState {
   opacity: number;
 }
 
-  interface CanvasController {
-    saveDrawings: () => Promise<Drawing[]>;
-    saveAndClear: () => Promise<Drawing[]>;
-    clearCanvas: () => void;
-    clearAndSync?: () => Promise<void>;
-    setDrawingState: (state: Partial<DrawingState>) => void;
-    exportAsDataURL: () => string | null;
-  }
+interface CanvasController {
+  saveDrawings: () => Promise<Drawing[]>;
+  saveAndClear: () => Promise<Drawing[]>;
+  clearCanvas: () => void;
+  clearAndSync?: () => Promise<void>;
+  setDrawingState: (state: Partial<DrawingState>) => void;
+  exportAsDataURL: () => string | null;
+}
 
 interface DrawingCanvasProps {
   drawings?: Drawing[];
@@ -69,7 +69,12 @@ export default function DrawingCanvas({
   const pathsRef = useRef(new Map());
   const isDrawingRef = useRef(false);
   const currentPathRef = useRef<any>(null);
+  const lastPointRef = useRef<{ x: number; y: number } | null>(null);
   const modeRef = useRef(mode);
+
+  // Minimum distance (in px) between sampled points to avoid too-dense vertices
+  // Lower distance captures more points and allows smoother, curvier results
+  const MIN_POINT_DISTANCE = 1.5; // tweak this to taste (1-3 px)
 
   // Session
   const { session, isLoggedIn } = useLocalSession();
@@ -216,6 +221,7 @@ export default function DrawingCanvas({
         path.opacity = ds.opacity;
 
         path.add(event.point);
+        lastPointRef.current = { x: event.point.x, y: event.point.y };
         setCurrentPath(path);
         currentPathRef.current = path;
 
@@ -233,7 +239,22 @@ export default function DrawingCanvas({
           return;
         }
 
-        currentPathRef.current.add(event.point);
+        // Sample points to avoid many tiny segments which later simplify to corners
+        const last = lastPointRef.current;
+        const px = event.point.x;
+        const py = event.point.y;
+        if (!last) {
+          currentPathRef.current.add(event.point);
+          lastPointRef.current = { x: px, y: py };
+        } else {
+          const dx = px - last.x;
+          const dy = py - last.y;
+          const dist2 = dx * dx + dy * dy;
+          if (dist2 >= MIN_POINT_DISTANCE * MIN_POINT_DISTANCE) {
+            currentPathRef.current.add(event.point);
+            lastPointRef.current = { x: px, y: py };
+          }
+        }
         // Live update current path style in case controls changed mid-stroke
         const ds = drawingStateRef.current;
         currentPathRef.current.strokeColor = new paper.Color(ds.color);
@@ -268,8 +289,26 @@ export default function DrawingCanvas({
         setIsDrawing(false);
         isDrawingRef.current = false;
 
-        // Finalize path
-        currentPathRef.current.simplify(2);
+        // Finalize path: apply a curvier smoothing algorithm (Catmull-Rom)
+        try {
+          // Catmull-Rom produces nice rounded curves through the points.
+          // Factor controls tension; higher => tighter curves. 0.6 is a good starting point.
+          currentPathRef.current.smooth({ type: 'catmull-rom', factor: 0.6 });
+          // Apply a light simplify to remove redundant points while keeping curves
+          try {
+            currentPathRef.current.simplify(0.2);
+          } catch (_e) {}
+        } catch (_e) {
+          // Fallback to continuous smoothing if catmull-rom isn't available
+          try {
+            currentPathRef.current.smooth({ type: 'continuous' });
+            try { currentPathRef.current.simplify(0.2); } catch (_e) {}
+          } catch (_e) {
+            try { currentPathRef.current.simplify(0.2); } catch (_e) {}
+          }
+        }
+        // reset last point
+        lastPointRef.current = null;
 
         // Convert to serializable format
         const dsFinal = drawingStateRef.current;
@@ -366,10 +405,10 @@ export default function DrawingCanvas({
               }
             });
             // clear canvas and state
-            try { paper.project.clear(); } catch (e) {}
+            try { paper.project.clear(); } catch (e) { }
             pathsRef.current.clear();
             setDrawings([]);
-            try { paper.view.update(); } catch (e) {}
+            try { paper.view.update(); } catch (e) { }
             await new Promise((res) => setTimeout(res, 0));
             return allPaths;
           },
@@ -383,7 +422,7 @@ export default function DrawingCanvas({
               paper.project.clear();
               pathsRef.current.clear();
               setDrawings([]);
-              try { paper.view.update(); } catch (e) {}
+              try { paper.view.update(); } catch (e) { }
               await new Promise((res) => setTimeout(res, 0));
             } catch (e) { /* no-op */ }
           },

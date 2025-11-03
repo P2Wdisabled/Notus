@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface HeadingMenuProps {
   onFormatChange: (command: string, value: string) => void;
@@ -7,12 +7,41 @@ interface HeadingMenuProps {
 
 export default function HeadingMenu({ onFormatChange }: HeadingMenuProps) {
   const [showHeadingMenu, setShowHeadingMenu] = useState(false);
+  const MENU_ID = 'headingMenu';
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const ce = e as CustomEvent<string>;
+      if (ce.detail !== MENU_ID) setShowHeadingMenu(false);
+    };
+    window.addEventListener('wysiwyg:open-menu', handler as EventListener);
+    return () => window.removeEventListener('wysiwyg:open-menu', handler as EventListener);
+  }, []);
+
+  // Close when clicking outside the heading menu
+  useEffect(() => {
+    if (!showHeadingMenu) return;
+    const onDocMouse = (ev: MouseEvent) => {
+      const target = ev.target as Element | null;
+      if (target && !target.closest('[data-heading-menu]')) {
+        setShowHeadingMenu(false);
+        window.dispatchEvent(new CustomEvent('wysiwyg:open-menu', { detail: '' }));
+      }
+    };
+    document.addEventListener('mousedown', onDocMouse);
+    return () => document.removeEventListener('mousedown', onDocMouse);
+  }, [showHeadingMenu]);
 
   return (
-    <div className="relative inline-block">
+    <div className="relative inline-block" data-heading-menu>
       <button
         type="button"
-        onClick={() => setShowHeadingMenu(!showHeadingMenu)}
+        onClick={() => {
+          const next = !showHeadingMenu;
+          setShowHeadingMenu(next);
+          if (next) window.dispatchEvent(new CustomEvent('wysiwyg:open-menu', { detail: MENU_ID }));
+          else window.dispatchEvent(new CustomEvent('wysiwyg:open-menu', { detail: '' }));
+        }}
         className="p-2 rounded transition-colors bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
         title="Titre"
       >

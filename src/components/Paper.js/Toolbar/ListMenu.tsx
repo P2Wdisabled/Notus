@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface ListMenuProps {
   onFormatChange: (command: string) => void;
@@ -7,12 +7,38 @@ interface ListMenuProps {
 
 export default function ListMenu({ onFormatChange }: ListMenuProps) {
   const [showListMenu, setShowListMenu] = useState(false);
+  const MENU_ID = 'listMenu';
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const ce = e as CustomEvent<string>;
+      if (ce.detail !== MENU_ID) setShowListMenu(false);
+    };
+    window.addEventListener('wysiwyg:open-menu', handler as EventListener);
+    return () => window.removeEventListener('wysiwyg:open-menu', handler as EventListener);
+  }, []);
+
+  // Close when clicking outside
+  useEffect(() => {
+    if (!showListMenu) return;
+    const onDocMouse = (ev: MouseEvent) => {
+      const target = ev.target as Element | null;
+      if (target && !target.closest('[data-list-menu]')) setShowListMenu(false);
+    };
+    document.addEventListener('mousedown', onDocMouse);
+    return () => document.removeEventListener('mousedown', onDocMouse);
+  }, [showListMenu]);
 
   return (
-    <div className="relative">
+    <div className="relative" data-list-menu>
       <button
         type="button"
-        onClick={() => setShowListMenu(!showListMenu)}
+        onClick={() => {
+          const next = !showListMenu;
+          setShowListMenu(next);
+          if (next) window.dispatchEvent(new CustomEvent('wysiwyg:open-menu', { detail: MENU_ID }));
+          else window.dispatchEvent(new CustomEvent('wysiwyg:open-menu', { detail: '' }));
+        }}
         className="p-2 rounded transition-colors bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
         title="Liste"
       >

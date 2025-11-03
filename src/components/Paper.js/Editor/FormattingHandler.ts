@@ -269,13 +269,13 @@ export class FormattingHandler {
             restoreSelection();
           }, 10);
           break;
-        case 'insertQuote':
+        case 'insertQuote': {
           // Check if current selection is already in a blockquote
-          const currentElement = range.commonAncestorContainer.nodeType === Node.TEXT_NODE 
-            ? range.commonAncestorContainer.parentElement 
+          const currentElement = range.commonAncestorContainer.nodeType === Node.TEXT_NODE
+            ? range.commonAncestorContainer.parentElement
             : range.commonAncestorContainer as Element;
           const existingBlockquote = currentElement?.closest('blockquote');
-          
+
           if (existingBlockquote) {
             // Remove blockquote - move content out
             const parent = existingBlockquote.parentNode;
@@ -283,19 +283,48 @@ export class FormattingHandler {
               parent?.insertBefore(existingBlockquote.firstChild, existingBlockquote);
             }
             parent?.removeChild(existingBlockquote);
-          } else {
-            // Add blockquote
-            const blockquote = document.createElement('blockquote');
-            if (selectedText) {
-              blockquote.textContent = selectedText;
-              range.deleteContents();
-            } else {
-              blockquote.textContent = 'Citation';
-            }
-            range.insertNode(blockquote);
+            // Restore selection after removing the blockquote
+            restoreSelection();
+            break;
           }
-          restoreSelection();
+
+          // Add a new blockquote
+          const blockquote = document.createElement('blockquote');
+          if (selectedText) {
+            // If the user selected text, move it into the blockquote and restore selection
+            blockquote.textContent = selectedText;
+            range.deleteContents();
+            range.insertNode(blockquote);
+            restoreSelection();
+            break;
+          }
+
+          // No selection: insert an empty paragraph with a zero-width space so it persists
+          const p = document.createElement('p');
+          const zw = document.createTextNode('\u200B'); // zero-width space — keeps the node non-empty but invisible
+          p.appendChild(zw);
+          blockquote.appendChild(p);
+
+          // Insert the blockquote at the current range
+          range.insertNode(blockquote);
+
+          // Place the caret just after the zero-width character inside the paragraph
+          try {
+            const sel = window.getSelection();
+            if (sel) {
+              const newRange = document.createRange();
+              // If the text node is present, set caret after the zw character
+              newRange.setStart(zw, 1);
+              newRange.collapse(true);
+              sel.removeAllRanges();
+              sel.addRange(newRange);
+            }
+          } catch (_e) {
+            // ignore selection errors
+          }
+
           break;
+        }
         case 'insertHorizontalRule':
           const hr = document.createElement('hr');
           range.deleteContents();
