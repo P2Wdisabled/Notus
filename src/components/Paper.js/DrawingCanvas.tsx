@@ -21,12 +21,14 @@ interface DrawingState {
   opacity: number;
 }
 
-interface CanvasController {
-  saveDrawings: () => Promise<Drawing[]>;
-  clearCanvas: () => void;
-  setDrawingState: (state: Partial<DrawingState>) => void;
-  exportAsDataURL: () => string | null;
-}
+  interface CanvasController {
+    saveDrawings: () => Promise<Drawing[]>;
+    saveAndClear: () => Promise<Drawing[]>;
+    clearCanvas: () => void;
+    clearAndSync?: () => Promise<void>;
+    setDrawingState: (state: Partial<DrawingState>) => void;
+    exportAsDataURL: () => string | null;
+  }
 
 interface DrawingCanvasProps {
   drawings?: Drawing[];
@@ -38,6 +40,7 @@ interface DrawingCanvasProps {
   mode?: string;
   drawingState?: DrawingState;
   setDrawingState?: (state: DrawingState | ((prev: DrawingState) => DrawingState)) => void;
+  startFresh?: boolean;
   [key: string]: any;
 }
 
@@ -315,12 +318,9 @@ export default function DrawingCanvas({
       if (onCanvasReady) {
         onCanvasReady({
           saveDrawings: async () => {
-            // Sync current drawings to state first
             syncDrawingsToState();
-
-            // Get all paths from the canvas and convert them to serializable format
             const allPaths: Drawing[] = [];
-            paper.project.activeLayer.children.forEach((item: any, index: number) => {
+            paper.project.activeLayer.children.forEach((item: any) => {
               if (item.className === "Path") {
                 const serializedPath: Drawing = {
                   segments: item.segments.map((segment: any) => ({
@@ -342,10 +342,50 @@ export default function DrawingCanvas({
             });
             return allPaths;
           },
+          saveAndClear: async () => {
+            syncDrawingsToState();
+            const allPaths: Drawing[] = [];
+            paper.project.activeLayer.children.forEach((item: any) => {
+              if (item.className === "Path") {
+                const serializedPath: Drawing = {
+                  segments: item.segments.map((segment: any) => ({
+                    point: [segment.point.x, segment.point.y] as [number, number],
+                    handleIn: segment.handleIn
+                      ? ([segment.handleIn.x, segment.handleIn.y] as [number, number])
+                      : null,
+                    handleOut: segment.handleOut
+                      ? ([segment.handleOut.x, segment.handleOut.y] as [number, number])
+                      : null,
+                  })),
+                  color: item.strokeColor?.toCSS() || "#000000",
+                  size: item.strokeWidth || 3,
+                  opacity: item.opacity || 1,
+                  closed: item.closed || false,
+                };
+                allPaths.push(serializedPath);
+              }
+            });
+            // clear canvas and state
+            try { paper.project.clear(); } catch (e) {}
+            pathsRef.current.clear();
+            setDrawings([]);
+            try { paper.view.update(); } catch (e) {}
+            await new Promise((res) => setTimeout(res, 0));
+            return allPaths;
+          },
           clearCanvas: () => {
             paper.project.clear();
             pathsRef.current.clear();
             setDrawings([]);
+          },
+          clearAndSync: async () => {
+            try {
+              paper.project.clear();
+              pathsRef.current.clear();
+              setDrawings([]);
+              try { paper.view.update(); } catch (e) {}
+              await new Promise((res) => setTimeout(res, 0));
+            } catch (e) { /* no-op */ }
           },
           setDrawingState: (newState: Partial<DrawingState>) => {
             setDrawingState((prev) => ({ ...prev, ...newState }));
@@ -376,6 +416,17 @@ export default function DrawingCanvas({
   // -------- Load initial drawings --------
   useEffect(() => {
     if (!paperScope || !isInitialized) return;
+
+    // If parent requested a fresh canvas, clear existing project and state
+    if (props.startFresh) {
+      try {
+        paperScope.project.clear();
+      } catch (e) { /* no-op */ }
+      pathsRef.current.clear();
+      setDrawings([]);
+      // Ensure we don't immediately reload the old `drawings` value
+      return; // <-- ajouté : sortir pour éviter de recharger les anciens dessins
+    }
 
     // Clear existing paths
     paperScope.project.clear();
@@ -418,7 +469,7 @@ export default function DrawingCanvas({
 
       paperScope.view.draw();
     }
-  }, [paperScope, isInitialized, drawings]);
+  }, [paperScope, isInitialized, drawings, props.startFresh]);
 
   // -------- Canvas setup --------
   useEffect(() => {
