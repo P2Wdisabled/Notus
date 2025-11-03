@@ -47,7 +47,6 @@ export default function NotificationOverlay({ isOpen = true, onClose }: Notifica
     }, [isOpen, session]);
     useEffect(() => {
         if (!isOpen) return;
-        console.log("fetchNotifications result:", { notifications, loading, error });
     }, [notifications, loading, error, isOpen]);
     if (!isOpen) return null;
 
@@ -93,40 +92,49 @@ export default function NotificationOverlay({ isOpen = true, onClose }: Notifica
                                 }
 
                                 // If this is a share-invite, show special text and an accept button
-                                if (parsed?.type === "share-invite" || parsed?.type === "share-invite" ) {
+                                                if (parsed?.type === "share-invite" || parsed?.type === "share-invite" ) {
                                     const docTitle = parsed.documentTitle || parsed.title || "un document";
                                     const confirmUrl = parsed.url || parsed.confirmUrl;
-
-                                    return (
-                                        <div key={n.id} className="px-2 py-2">
+                                                    const isRead = Boolean((n as any).read_date);
+                                                    return (
+                                                        <div key={n.id} className={`px-2 py-2 ${isRead ? 'bg-gray-100 dark:bg-gray-700' : ''}`}>
                                             <div className="flex items-center justify-between">
                                                 <div>
                                                     <div className="font-medium">{username} vous a partagé un document</div>
                                                     <div className="text-sm text-gray-600 dark:text-gray-300">{docTitle}</div>
                                                 </div>
                                                 <div className="ml-2">
-                                                                        <button
-                                                                            onClick={async (e) => {
-                                                                                e.preventDefault();
-                                                                                try {
-                                                                                    await fetch('/api/notification/mark-read', {
-                                                                                        method: 'POST',
-                                                                                        headers: { 'Content-Type': 'application/json' },
-                                                                                        body: JSON.stringify({ notificationId: n.id }),
-                                                                                        cache: 'no-store'
-                                                                                    });
-                                                                                } catch (err) {
-                                                                                    console.warn('Failed to mark notification read', err);
-                                                                                }
-                                                                                // navigate to confirm url after marking as read
-                                                                                if (confirmUrl) {
-                                                                                    window.location.href = confirmUrl;
-                                                                                }
-                                                                            }}
-                                                                            className="bg-primary text-white px-3 py-1 rounded"
-                                                                        >
-                                                                            Accepter
-                                                                        </button>
+                                                                                        {isRead ? (
+                                                                                            <button
+                                                                                                disabled
+                                                                                                className="bg-gray-400 text-white px-3 py-1 rounded opacity-80 cursor-not-allowed"
+                                                                                            >
+                                                                                                Accepté
+                                                                                            </button>
+                                                                                        ) : (
+                                                                                            <button
+                                                                                                onClick={async (e) => {
+                                                                                                    e.preventDefault();
+                                                                                                    try {
+                                                                                                        await fetch('/api/notification/mark-read', {
+                                                                                                            method: 'POST',
+                                                                                                            headers: { 'Content-Type': 'application/json' },
+                                                                                                            body: JSON.stringify({ notificationId: n.id }),
+                                                                                                            cache: 'no-store'
+                                                                                                        });
+                                                                                                    } catch (err) {
+                                                                                                        // intentionally silent failure — UI will not crash on mark-read failure
+                                                                                                    }
+                                                                                                    // navigate to confirm url after marking as read
+                                                                                                    if (confirmUrl) {
+                                                                                                        window.location.href = confirmUrl;
+                                                                                                    }
+                                                                                                }}
+                                                                                                className="bg-primary text-white px-3 py-1 rounded"
+                                                                                            >
+                                                                                                Accepter
+                                                                                            </button>
+                                                                                        )}
                                                 </div>
                                             </div>
                                         </div>
@@ -135,14 +143,17 @@ export default function NotificationOverlay({ isOpen = true, onClose }: Notifica
 
                                 // default notification rendering
                                 const messageText = parsed?.message || String(n.message || "");
+                                const isReadDefault = Boolean((n as any).read_date);
                                 return (
-                                    <NotificationItem
-                                        key={n.id}
-                                        avatar={""}
-                                        username={String(username)}
-                                        message={messageText}
-                                        onClick={() => { /* TODO: handle click */ }}
-                                    />
+                                    <div key={`item-${n.id}`} className={`${isReadDefault ? 'bg-gray-100 dark:bg-gray-700' : ''}`}>
+                                        <NotificationItem
+                                            key={n.id}
+                                            avatar={""}
+                                            username={String(username)}
+                                            message={messageText}
+                                            onClick={() => { /* TODO: handle click */ }}
+                                        />
+                                    </div>
                                 );
                 })}
             </div>

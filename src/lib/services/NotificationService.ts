@@ -34,14 +34,14 @@ export class NotificationService {
         }
     }
 
-        async markNotificationAsRead(notificationId: number) {
-            try {
-                return await this.notificationRepository.markAsRead(notificationId);
-            } catch (error) {
-                console.error("❌ Erreur markNotificationAsRead:", error);
-                return { success: false, error: error instanceof Error ? error.message : "Erreur inconnue" };
-            }
+    async markNotificationAsRead(notificationId: number) {
+        try {
+            return await this.notificationRepository.markAsRead(notificationId);
+        } catch (error) {
+            console.error("❌ Erreur markNotificationAsRead:", error);
+            return { success: false, error: error instanceof Error ? error.message : "Erreur inconnue" };
         }
+    }
 
     async markAllAsRead(id_receiver: number) {
         try {
@@ -52,12 +52,22 @@ export class NotificationService {
         }
     }
 
-        async deleteNotification(notificationId: number) {
-            try {
-                return await this.notificationRepository.deleteNotification(notificationId);
-            } catch (error) {
-                console.error("❌ Erreur deleteNotification:", error);
-                return { success: false, error: error instanceof Error ? error.message : "Erreur inconnue" };
-            }
+    async deleteNotification(notificationId: number) {
+        try {
+            return await this.notificationRepository.deleteNotification(notificationId);
+        } catch (error) {
+            console.error("❌ Erreur deleteNotification:", error);
+            return { success: false, error: error instanceof Error ? error.message : "Erreur inconnue" };
         }
+    }
+
+    async sendPasswordChangeNotification(id_receiver: number) {
+        // system notification: sender null
+        const messageText = "Votre mot de passe a été modifié.";
+        try {
+            return await this.notificationRepository.createNotification(null, id_receiver, messageText);
+        } catch (error) {
+            return { success: false, error: error instanceof Error ? error.message : "Erreur inconnue" };
+        }
+    }
 }

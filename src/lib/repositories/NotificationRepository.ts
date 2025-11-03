@@ -32,8 +32,9 @@ export class NotificationRepository extends BaseRepository {
 
     async createNotification(id_sender: number | null, id_receiver: number, message: object | string) {
         try {
-            // Insert message as JSON
-            const msg = typeof message === "string" ? message : JSON.stringify(message);
+            // Ensure we insert valid JSON into jsonb column
+            const msg = JSON.stringify(message);
+
             const result = await this.query<Notification>(
                 `INSERT INTO notifications (id_sender, id_receiver, message)
          VALUES ($1, $2, $3)
