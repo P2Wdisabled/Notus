@@ -426,7 +426,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
       } catch (err) {
         // Silent error handling for autosave
       }
-    }, 10000);
+    }, 1000); //Auto-enregistrement après 1 seconde
 
     return () => {
       clearInterval(intervalId);
@@ -1077,9 +1077,6 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
 
             {/* Content */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Contenu
-              </label>
               <div className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-700">
                 <WysiwygNotepad
                   key={`doc-${document.id}-${document.updated_at}`}
