@@ -53,8 +53,10 @@ export function TagsProvider({ documents, children }: TagsProviderProps) {
 
 export function useTagsContext(): TagsContextValue {
   const ctx = useContext(TagsContext);
-  if (!ctx) throw new Error("useTagsContext must be used within a TagsProvider");
+  if (!ctx) {
+    return {
+      getSuggestedTag: () => null,
+    };
+  }
   return ctx;
 }
-
-
