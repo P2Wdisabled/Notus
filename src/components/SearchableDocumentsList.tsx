@@ -11,6 +11,7 @@ import SelectionBar from "@/components/SelectionBar";
 import ConnectionWarning from "@/components/ConnectionWarning";
 import { Card, Alert } from "@/components/ui";
 import { Document, LocalDocument, AnyDocument } from "@/lib/types";
+import { TagsProvider } from "@/contexts/TagsContext";
 
 const LOCAL_DOCS_KEY = "notus.local.documents";
 
@@ -34,6 +35,7 @@ export function SearchableDocumentsList({
     undefined
   );
   const [selectMode, setSelectMode] = useState(false);
+  const [isMessageVisible, setIsMessageVisible] = useState(false);
   const { setIsSelectModeActive } = useSelection();
 
   // Synchroniser l'état local avec le contexte global
@@ -67,6 +69,8 @@ export function SearchableDocumentsList({
   }, []);
 
   useEffect(() => {
+    // Afficher le message dès qu'il change
+    setIsMessageVisible(!!message);
     if (message && !isPending && !message.includes("Erreur")) {
       const timer = setTimeout(() => {
         router.refresh();
@@ -225,11 +229,31 @@ export function SearchableDocumentsList({
   }
 
   return (
-    <>
+    <TagsProvider documents={[...localDocuments as unknown as AnyDocument[], ...serverDocuments as unknown as AnyDocument[]]}>
       <div className="space-y-3">
-        {message && (
-          <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-            <p className="text-sm text-red-600 dark:text-red-400">{message}</p>
+        {message && isMessageVisible && (
+          <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-start justify-between gap-3">
+            <p className="text-sm text-red-600 dark:text-red-400 flex-1">{message}</p>
+            <button
+              type="button"
+              onClick={() => setIsMessageVisible(false)}
+              aria-label="Fermer le message"
+              className="text-red-500 hover:text-red-700 dark:text-red-300 dark:hover:text-red-200 shrink-0"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                width="18"
+                height="18"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M18 6L6 18M6 6l12 12" />
+              </svg>
+            </button>
           </div>
         )}
 
@@ -278,7 +302,7 @@ export function SearchableDocumentsList({
 
       {/* Avertissement de connexion - toujours affiché si nécessaire */}
       <ConnectionWarning currentUserId={currentUserId} hasSelectionBar={selectMode} />
-    </>
+    </TagsProvider>
   );
 }
 
