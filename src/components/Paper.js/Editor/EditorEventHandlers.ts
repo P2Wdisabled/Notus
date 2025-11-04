@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import DOMPurify from "dompurify";
 
 export interface EditorEventHandlersProps {
@@ -30,6 +30,8 @@ export function useEditorEventHandlers({
   formattingHandler,
   handleEditorChange
 }: EditorEventHandlersProps) {
+  // Timer ref used to delay hiding the link popup to allow moving cursor to the popup
+  const popupHideTimerRef = useRef<number | null>(null);
   
   // Handle content change in the editor - convert to markdown
   const handleEditorChangeCallback = useCallback((e?: React.FormEvent) => {
@@ -60,6 +62,13 @@ export function useEditorEventHandlers({
 
   // Handle link hover to show popup
   const handleLinkHover = useCallback((e: React.MouseEvent) => {
+    // If there's a scheduled hide, cancel it because we're hovering a link now
+    try {
+      if (popupHideTimerRef.current) {
+        clearTimeout(popupHideTimerRef.current as any);
+        popupHideTimerRef.current = null;
+      }
+    } catch (_) {}
     const target = e.target as HTMLElement;
     const link = target.closest('a');
     if (link && editorRef.current) {
@@ -88,12 +97,27 @@ export function useEditorEventHandlers({
       const isMovingToPopup = relatedTarget?.closest('[data-link-popup]');
       const isMovingToAnotherLink = relatedTarget?.closest('a');
       
-      // Only hide if not moving to popup or another link
+      // Delay hiding slightly to allow the pointer to enter the popup
       if (!isMovingToPopup && !isMovingToAnotherLink) {
-        setLinkPopup(prev => ({ ...prev, visible: false }));
+        try {
+          if (popupHideTimerRef.current) clearTimeout(popupHideTimerRef.current as any);
+        } catch (_) {}
+        popupHideTimerRef.current = window.setTimeout(() => {
+          setLinkPopup(prev => ({ ...prev, visible: false }));
+          popupHideTimerRef.current = null;
+        }, 150) as unknown as number;
       }
     }
   }, [setLinkPopup]);
+
+  // Clear any pending timer on unmount
+  useEffect(() => {
+    return () => {
+      try {
+        if (popupHideTimerRef.current) clearTimeout(popupHideTimerRef.current as any);
+      } catch (_) {}
+    };
+  }, []);
 
   // Handle editor clicks to track selected image
   const handleEditorClick = useCallback((e: React.MouseEvent) => {
@@ -154,6 +178,27 @@ export function useEditorEventHandlers({
     const pastedData = clipboardData.getData('text/html') || clipboardData.getData('text/plain');
     
     if (pastedData) {
+      try {
+        // If current selection is inside a link, move caret after the link before inserting
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0) {
+          let node: Node | null = sel.getRangeAt(0).commonAncestorContainer;
+          if (node && node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+          const el = node as Element | null;
+          if (el) {
+            const anchor = el.closest && el.closest('a');
+            if (anchor && anchor.parentNode) {
+              const newRange = document.createRange();
+              newRange.setStartAfter(anchor);
+              newRange.collapse(true);
+              sel.removeAllRanges();
+              sel.addRange(newRange);
+            }
+          }
+        }
+      } catch (_e) {
+        // ignore
+      }
       // Clean the pasted content
       const cleanHtml = DOMPurify.sanitize(pastedData);
       document.execCommand('insertHTML', false, cleanHtml);
