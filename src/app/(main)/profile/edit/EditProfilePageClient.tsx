@@ -48,9 +48,9 @@ export default function EditProfilePageClient({ user }: EditProfilePageClientPro
   );
 
   const displayName =
-    initial.name ||
     `${initial.firstName} ${initial.lastName}`.trim() ||
     initial.username ||
+    initial.name ||
     "MonCompte";
 
   const [username, setUsername] = useState(initial.username);
