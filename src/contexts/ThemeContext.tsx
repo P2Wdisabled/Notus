@@ -5,12 +5,15 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 interface ThemeContextType {
   isDark: boolean;
   toggleTheme: () => void;
+  primaryColor: string;
+  setPrimaryColor: (hexColor: string) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [isDark, setIsDark] = useState(false);
+  const [primaryColor, setPrimaryColor] = useState<string>("");
 
   useEffect(() => {
     // Vérifier la préférence système au chargement
@@ -53,6 +56,30 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     return () => mediaQuery.removeEventListener("change", handleChange);
   }, []);
 
+  // Applique la couleur principale aux variables CSS pertinentes
+  const applyPrimaryColor = (hexColor: string) => {
+    const root = document.documentElement;
+    root.style.setProperty("--primary", hexColor);
+    root.style.setProperty("--accent", hexColor);
+    root.style.setProperty("--ring", hexColor);
+    root.style.setProperty("--sidebar-primary", hexColor);
+  };
+
+  // Charger la couleur principale sauvegardée
+  useEffect(() => {
+    const saved = localStorage.getItem("primaryColor");
+    if (saved) {
+      setPrimaryColor(saved);
+      applyPrimaryColor(saved);
+    }
+  }, []);
+
+  const updatePrimaryColor = (hexColor: string) => {
+    setPrimaryColor(hexColor);
+    localStorage.setItem("primaryColor", hexColor);
+    applyPrimaryColor(hexColor);
+  };
+
   const toggleTheme = () => {
     const newIsDark = !isDark;
     setIsDark(newIsDark);
@@ -68,7 +95,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <ThemeContext.Provider value={{ isDark, toggleTheme }}>
+    <ThemeContext.Provider value={{ isDark, toggleTheme, primaryColor, setPrimaryColor: updatePrimaryColor }}>
       {children}
     </ThemeContext.Provider>
   );

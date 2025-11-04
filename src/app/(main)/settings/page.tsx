@@ -6,7 +6,7 @@ import ContentWrapper from "@/components/ContentWrapper";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
 
 export default function SettingsPage() {
-  const { isDark, toggleTheme } = useTheme();
+  const { isDark, toggleTheme, primaryColor, setPrimaryColor } = useTheme();
 
   return (
     <div className="min-h-screen bg-background">
@@ -66,6 +66,32 @@ export default function SettingsPage() {
                   )}
                 </span>
               </button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Couleur principale</CardTitle>
+            </CardHeader>
+            <CardContent className="flex items-center justify-between gap-4">
+              <div>
+                <div className="text-foreground font-medium">Couleur de l'interface</div>
+                <div className="text-muted-foreground text-sm">Changez la couleur primaire utilisée dans l'application.</div>
+              </div>
+              <div className="flex items-center gap-3">
+                <input
+                  type="color"
+                  aria-label="Choisir la couleur principale"
+                  value={primaryColor && /^#([0-9a-fA-F]{6})$/.test(primaryColor) ? primaryColor : "#a855f7"}
+                  onChange={(e) => setPrimaryColor(e.target.value)}
+                  className="h-10 w-16 cursor-pointer rounded-md border border-border bg-background p-1"
+                />
+                <div
+                  className="h-10 w-10 rounded-full border border-border"
+                  style={{ backgroundColor: primaryColor && /^#([0-9a-fA-F]{6})$/.test(primaryColor) ? primaryColor : "#a855f7" }}
+                  aria-hidden="true"
+                />
+              </div>
             </CardContent>
           </Card>
         </div>
