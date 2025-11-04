@@ -72,7 +72,7 @@ export default function NavBar() {
     //{ name: "Favoris", href: "/favorites", icon: StarIcon },
     //{ name: "Dossiers", href: "/folders", icon: FolderIcon },
     //{ name: "Notifications", href: "/notifications", icon: BellIcon },
-    //{ name: "Corbeille", href: "/trash", icon: TrashIcon },
+    { name: "Corbeille", href: "/trash", icon: TrashIcon },
   ];
 
   const pageTitle = getPageTitle(pathname, items);
@@ -581,6 +581,7 @@ function getPageTitle(pathname: string | null, items: NavItem[]): string {
   if (pathname === "/") return "Mes notes";
   if (pathname === "/profile") return "Mon compte";
   if (pathname === "/settings") return "Paramètres";
+  if (pathname === "/trash") return "Corbeille";
   if (pathname.startsWith("/profile/edit")) return "Modifier le profil";
   return "Notus";
 }

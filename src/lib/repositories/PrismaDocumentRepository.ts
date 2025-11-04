@@ -1,5 +1,5 @@
 import { prisma } from '../prisma';
-import { Document, DocumentRepositoryResult, CreateDocumentData } from '../types';
+import type { Document, DocumentRepositoryResult, CreateDocumentData, TrashDocument } from '../types';
 
 export class PrismaDocumentRepository {
   async createDocument(data: CreateDocumentData): Promise<DocumentRepositoryResult<Document>> {
@@ -452,7 +452,70 @@ export class PrismaDocumentRepository {
       };
     }
   }
+  async getUserTrashedDocuments(userId: number, limit: number = 20, offset: number = 0): Promise<DocumentRepositoryResult<TrashDocument[]>> {
+    try {
+      const trashed = await prisma.trashDocument.findMany({
+        where: { user_id: userId },
+        orderBy: { deleted_at: 'desc' },
+        take: limit,
+        skip: offset,
+      });
 
+      const mapped: TrashDocument[] = trashed.map((t) => ({
+        id: t.id,
+        original_id: (t as any).original_id ?? null,
+        user_id: t.user_id,
+        title: t.title,
+        content: t.content,
+        tags: t.tags as any,
+        created_at: t.created_at as any,
+        updated_at: t.updated_at as any,
+        deleted_at: t.deleted_at as any,
+      }));
+
+      return { success: true, documents: mapped as unknown as any } as any;
+    } catch (error: unknown) {
+      console.error('❌ Erreur récupération corbeille:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Erreur inconnue',
+        documents: [],
+      } as any;
+    }
+  }
+
+  async restoreDocumentFromTrash(trashId: number, userId: number): Promise<DocumentRepositoryResult<{ id: number }>> {
+    try {
+      // Vérifier le document en corbeille et sa propriété
+      const trashed = await prisma.trashDocument.findUnique({ where: { id: trashId } });
+      if (!trashed) {
+        return { success: false, error: 'Élément introuvable dans la corbeille' };
+      }
+      if (trashed.user_id !== userId) {
+        return { success: false, error: "Vous n'êtes pas autorisé à restaurer cet élément" };
+      }
+
+      // Restaurer en recréant un document (nouvel id)
+      const created = await prisma.document.create({
+        data: {
+          user_id: trashed.user_id,
+          title: trashed.title,
+          content: trashed.content,
+          tags: trashed.tags as any,
+          created_at: trashed.created_at,
+          updated_at: new Date(),
+        },
+      });
+
+      // Supprimer l'entrée de corbeille
+      await prisma.trashDocument.delete({ where: { id: trashed.id } });
+
+      return { success: true, data: { id: created.id } };
+    } catch (error: unknown) {
+      console.error('❌ Erreur restauration corbeille:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Erreur inconnue' };
+    }
+  }
   async fetchSharedWithUser(email: string): Promise<DocumentRepositoryResult<Document[]>> {
     try {
       const documents = await prisma.document.findMany({

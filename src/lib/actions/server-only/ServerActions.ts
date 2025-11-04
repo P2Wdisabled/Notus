@@ -3,6 +3,7 @@
 // Actions serveur uniquement - pas d'imports de base de données côté client
 import { getServerSession } from "next-auth";
 import { authOptions } from "../../../../lib/auth";
+import { revalidatePath } from "next/cache";
 
 // Import dynamique des services uniquement côté serveur
 async function getUserService() {
@@ -266,6 +267,82 @@ export async function getUserDocumentsAction(userId: number, limit: number = 20,
       documents: [],
     };
   }
+}
+
+// Corbeille: récupérer les documents supprimés de l'utilisateur
+export async function getUserTrashDocumentsAction(userId: number, limit: number = 20, offset: number = 0) {
+  try {
+    const { DocumentValidator } = await import("../../validators/DocumentValidator");
+    const paginationValidation = DocumentValidator.validatePaginationParams(limit, offset);
+    if (!paginationValidation.isValid) {
+      return {
+        success: false,
+        error: Object.values(paginationValidation.errors)[0] || "Paramètres de pagination invalides",
+        documents: [],
+      };
+    }
+
+    if (!process.env.DATABASE_URL) {
+      return {
+        success: true,
+        documents: [],
+      };
+    }
+
+    const documentService = await getDocumentService();
+    const result = await documentService.getUserTrashedDocuments(userId, limit, offset);
+    if (!result.success) {
+      return { success: false, error: result.error || "Erreur lors de la récupération de la corbeille", documents: [] };
+    }
+    return { success: true, documents: result.documents || [] };
+  } catch (error: unknown) {
+    console.error("❌ Erreur corbeille:", error);
+    return { success: false, error: "Erreur lors de la récupération de la corbeille", documents: [] };
+  }
+}
+
+// Corbeille: restaurer un document supprimé
+export async function restoreTrashedDocumentAction(prevState: unknown, formData: FormData): Promise<string> {
+  try {
+    const trashIdRaw = formData.get("trashId");
+    if (!trashIdRaw) {
+      return "Identifiant de corbeille manquant";
+    }
+    const trashId = parseInt(String(trashIdRaw));
+    if (isNaN(trashId) || trashId <= 0) {
+      return "Identifiant invalide";
+    }
+
+    if (!process.env.DATABASE_URL) {
+      return "Document restauré (mode simulation). Configurez DATABASE_URL pour la persistance.";
+    }
+
+    const session = await getServerSession(authOptions);
+    const userId = session?.user?.id ? parseInt(String(session.user.id)) : undefined;
+    if (!userId) {
+      return "Non authentifié";
+    }
+
+    const documentService = await getDocumentService();
+    const result = await documentService.restoreDocumentFromTrash(trashId, userId);
+    if (!result.success) {
+      return result.error || "Erreur lors de la restauration";
+    }
+    // Revalidate trash and notes pages so UI reflects changes immediately
+    try {
+      revalidatePath("/trash");
+      revalidatePath("/notes");
+    } catch {}
+    return "Document restauré avec succès";
+  } catch (error: unknown) {
+    console.error("❌ Erreur restauration corbeille:", error);
+    return "Erreur lors de la restauration. Veuillez réessayer.";
+  }
+}
+
+// Wrapper pour utilisation directe dans <form action={...}>
+export async function restoreTrashedDocumentFormAction(formData: FormData): Promise<void> {
+  await restoreTrashedDocumentAction(undefined, formData);
 }
 
 // Actions de profil utilisateur

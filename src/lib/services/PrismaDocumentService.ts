@@ -1,5 +1,5 @@
 import { PrismaDocumentRepository } from "../repositories/PrismaDocumentRepository";
-import { CreateDocumentData, Document, DocumentRepositoryResult } from "../types";
+import { CreateDocumentData, Document, DocumentRepositoryResult, TrashDocument } from "../types";
 
 export class PrismaDocumentService {
   private documentRepository: PrismaDocumentRepository;
@@ -71,6 +71,24 @@ export class PrismaDocumentService {
       return await this.documentRepository.createOrUpdateDocumentById(id, userId, title, content, tags, userEmail);
     } catch (error) {
       console.error("❌ Erreur création/mise à jour document:", error);
+      return { success: false, error: error instanceof Error ? error.message : "Erreur inconnue" };
+    }
+  }
+
+  async getUserTrashedDocuments(userId: number, limit: number = 20, offset: number = 0): Promise<DocumentRepositoryResult<TrashDocument[]>> {
+    try {
+      return await this.documentRepository.getUserTrashedDocuments(userId, limit, offset) as any;
+    } catch (error) {
+      console.error("❌ Erreur récupération corbeille:", error);
+      return { success: false, error: error instanceof Error ? error.message : "Erreur inconnue" } as any;
+    }
+  }
+
+  async restoreDocumentFromTrash(trashId: number, userId: number): Promise<DocumentRepositoryResult<{ id: number }>> {
+    try {
+      return await this.documentRepository.restoreDocumentFromTrash(trashId, userId);
+    } catch (error) {
+      console.error("❌ Erreur restauration corbeille:", error);
       return { success: false, error: error instanceof Error ? error.message : "Erreur inconnue" };
     }
   }
