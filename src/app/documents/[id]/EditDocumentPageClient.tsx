@@ -21,6 +21,7 @@ import { addShareAction } from "@/lib/actions/DocumentActions";
 import UserListButton from "@/components/ui/UserList/UserListButton";
 import { useGuardedNavigate } from "@/hooks/useGuardedNavigate";
 import { useCollaborativeTitle } from "@/lib/paper.js/useCollaborativeTitle";
+import sanitizeLinks from "@/lib/sanitizeLinks";
 
 interface EditDocumentPageClientProps {
   session?: any;
@@ -305,17 +306,6 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     updateLocalStorage(normalized);
   }, [updateLocalStorage]);
 
-  const sanitizeLinks = (link: string) => {
-    if (!link) return link;
-    return link.replace(/\\?\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (match, text, url) => {
-      try {
-        if (text === url || decodeURIComponent(text) === url) return url;
-      } catch {
-      }
-      return match;
-    });
-  };
-
   useEffect(() => {
     if (state && (state as any).ok) {
       setShowSuccessMessage(true);
@@ -585,69 +575,6 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     setShowSavedState(false);
     if (typeof navigator !== "undefined" && navigator.onLine) {
       persistTags(nextTags);
-    }
-  };
-
-  const addTag = () => {
-    const value = (newTag || "").trim().substring(0, 30);
-    if (!value) return;
-    if (tags.includes(value)) {
-      setNewTag("");
-      setShowTagInput(false);
-      return;
-    }
-    const next = [...tags, value];
-    setTags(next);
-    try {
-      const key = `notus:doc:${props.params.id}`;
-      const cachedRaw = typeof window !== "undefined" ? localStorage.getItem(key) : null;
-      const cached = cachedRaw ? JSON.parse(cachedRaw) : {};
-      const payload = {
-        ...(cached || {}),
-        id: Number(props.params.id),
-        title: title,
-        content: content,
-        tags: next,
-        updated_at: new Date().toISOString(),
-        user_id: cached?.user_id ?? Number(userId ?? ((props.session as any)?.user?.id ?? 0)),
-        cachedAt: Date.now(),
-      };
-      if (typeof window !== "undefined") {
-        localStorage.setItem(key, JSON.stringify(payload));
-      }
-    } catch { }
-
-    if (typeof navigator !== "undefined" && navigator.onLine) {
-      persistTags(next);
-    }
-    setNewTag("");
-    setShowTagInput(false);
-  };
-
-  const removeTag = (value: string) => {
-    const next = tags.filter((t) => t !== value);
-    setTags(next);
-    try {
-      const key = `notus:doc:${props.params.id}`;
-      const cachedRaw = typeof window !== "undefined" ? localStorage.getItem(key) : null;
-      const cached = cachedRaw ? JSON.parse(cachedRaw) : {};
-      const payload = {
-        ...(cached || {}),
-        id: Number(props.params.id),
-        title: title,
-        content: content,
-        tags: next,
-        updated_at: new Date().toISOString(),
-        user_id: cached?.user_id ?? Number(userId ?? ((props.session as any)?.user?.id ?? 0)),
-        cachedAt: Date.now(),
-      };
-      if (typeof window !== "undefined") {
-        localStorage.setItem(key, JSON.stringify(payload));
-      }
-    } catch { }
-
-    if (typeof navigator !== "undefined" && navigator.onLine) {
-      persistTags(next);
     }
   };
 
