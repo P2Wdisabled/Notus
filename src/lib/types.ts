@@ -132,6 +132,18 @@ export interface DocumentRepositoryResult<T = unknown> extends DatabaseResult<T>
   documents?: Document[];
 }
 
+export interface TrashDocument {
+  id: number;
+  original_id?: number | null;
+  user_id: number;
+  title: string;
+  content: string;
+  tags: string[];
+  created_at: Date;
+  updated_at: Date;
+  deleted_at: Date;
+}
+
 // Interface pour les documents locaux (localStorage) qui ont des types différents
 export interface LocalDocument {
   id: string;

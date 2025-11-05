@@ -48,9 +48,9 @@ export default function EditProfilePageClient({ user }: EditProfilePageClientPro
   );
 
   const displayName =
-    initial.name ||
     `${initial.firstName} ${initial.lastName}`.trim() ||
     initial.username ||
+    initial.name ||
     "MonCompte";
 
   const [username, setUsername] = useState(initial.username);
@@ -345,13 +345,13 @@ export default function EditProfilePageClient({ user }: EditProfilePageClientPro
             </div>
           </form>
         </Card>
-        {/*<div className="flex justify-center pt-10 gap-4">
+        <div className="flex justify-center pt-10 gap-4">
         <Button variant="danger" className="px-6 py-2">
             <Link href="/profile/delete">
               Supprimer le compte
             </Link>
           </Button>
-        </div>*/}
+        </div>
       </div>
 
       {/* Success Modal */}

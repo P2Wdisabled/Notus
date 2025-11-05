@@ -39,10 +39,12 @@ export function SearchProvider({ children }: SearchProviderProps) {
 
     const query = searchQuery.toLowerCase();
     return documents.filter((doc) => {
-      // Recherche uniquement dans le titre
+      // Recherche dans le titre et les tags
       const titleMatch = doc.title?.toLowerCase().includes(query);
+      const tagsArray = Array.isArray((doc as any).tags) ? (doc as any).tags as string[] : [];
+      const tagsMatch = tagsArray.some((t) => t?.toLowerCase().includes(query));
 
-      return titleMatch;
+      return Boolean(titleMatch || tagsMatch);
     });
   };
 
@@ -53,10 +55,12 @@ export function SearchProvider({ children }: SearchProviderProps) {
 
     const query = searchQuery.toLowerCase();
     return documents.filter((doc) => {
-      // Recherche uniquement dans le titre
+      // Recherche dans le titre et les tags
       const titleMatch = doc.title?.toLowerCase().includes(query);
+      const tagsArray = Array.isArray((doc as any).tags) ? (doc as any).tags as string[] : [];
+      const tagsMatch = tagsArray.some((t) => t?.toLowerCase().includes(query));
 
-      return titleMatch;
+      return Boolean(titleMatch || tagsMatch);
     });
   };
 

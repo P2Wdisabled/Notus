@@ -77,16 +77,16 @@ export class FormattingHandler {
           // If containers are no longer valid, try to find similar content
           const editor = this.editorRef.current;
           if (editor) {
-            const textNodes = [];
-            const walker = document.createTreeWalker(
-              editor,
-              NodeFilter.SHOW_TEXT,
-              null
-            );
-            let node;
-            while (node = walker.nextNode()) {
-              textNodes.push(node);
-            }
+                  const textNodes = [];
+                  const walker = document.createTreeWalker(
+                    editor,
+                    NodeFilter.SHOW_TEXT,
+                    null
+                  );
+                  let node;
+                  while (node = walker.nextNode()) {
+                    textNodes.push(node);
+                  }
             
             if (textNodes.length > 0) {
               // Try to find a text node that contains similar content
@@ -175,15 +175,27 @@ export class FormattingHandler {
           }
           break;
         case 'createLink':
-          const url = prompt('URL du lien:');
-          if (url) {
-            document.execCommand('createLink', false, url);
+          // If a value was provided (e.g. from an internal popin), use it.
+          if (value) {
+            try {
+              document.execCommand('createLink', false, value);
+              restoreSelection();
+            } catch (e) {
+              // ignore
+            }
+            break;
+          }
+
+          // Fallback to native prompt if no value provided
+          const urlPrompt = prompt('URL du lien:');
+          if (urlPrompt) {
+            document.execCommand('createLink', false, urlPrompt);
             restoreSelection();
           }
           break;
         case 'insertImage':
           if (value) {
-            // Prefer manual insertion to be robust with data URLs/base64
+
             try {
               const img = document.createElement('img');
               img.src = value;
@@ -191,27 +203,26 @@ export class FormattingHandler {
               img.style.maxWidth = '100%';
               img.style.height = 'auto';
 
-              // Insert at current range/caret
-              range.deleteContents();
-              range.insertNode(img);
+              // If current selection is inside a link, move caret outside before inserting
+              this.ensureSelectionOutsideLink(range, selection);
 
-              // Move caret after the image by inserting a trailing space/br
+              const updatedRange = selection.getRangeAt(0);
+              updatedRange.deleteContents();
+              updatedRange.insertNode(img);
+
               const br = document.createElement('br');
               img.parentNode?.insertBefore(br, img.nextSibling);
 
-              // Update selection after insertion
               const afterRange = document.createRange();
               afterRange.setStartAfter(br);
               afterRange.collapse(true);
               selection.removeAllRanges();
               selection.addRange(afterRange);
 
-              // Sync markdown
               setTimeout(() => {
                 this.syncMarkdown();
               }, 0);
             } catch (e) {
-              // Fallback to execCommand if manual insertion fails
               document.execCommand('insertImage', false, value);
             }
             restoreSelection();
@@ -247,7 +258,6 @@ export class FormattingHandler {
         case 'backColor':
           if (value) {
             if (value === 'transparent') {
-              // Remove background color
               document.execCommand('removeFormat', false);
             } else {
               document.execCommand('backColor', false, value);
@@ -257,45 +267,62 @@ export class FormattingHandler {
           break;
         case 'undo':
           document.execCommand('undo', false);
-          // Restore selection after undo
           setTimeout(() => {
             restoreSelection();
           }, 10);
           break;
         case 'redo':
           document.execCommand('redo', false);
-          // Restore selection after redo
           setTimeout(() => {
             restoreSelection();
           }, 10);
           break;
-        case 'insertQuote':
-          // Check if current selection is already in a blockquote
-          const currentElement = range.commonAncestorContainer.nodeType === Node.TEXT_NODE 
-            ? range.commonAncestorContainer.parentElement 
+        case 'insertQuote': {
+          const currentElement = range.commonAncestorContainer.nodeType === Node.TEXT_NODE
+            ? range.commonAncestorContainer.parentElement
             : range.commonAncestorContainer as Element;
           const existingBlockquote = currentElement?.closest('blockquote');
-          
+
           if (existingBlockquote) {
-            // Remove blockquote - move content out
             const parent = existingBlockquote.parentNode;
             while (existingBlockquote.firstChild) {
               parent?.insertBefore(existingBlockquote.firstChild, existingBlockquote);
             }
             parent?.removeChild(existingBlockquote);
-          } else {
-            // Add blockquote
-            const blockquote = document.createElement('blockquote');
-            if (selectedText) {
-              blockquote.textContent = selectedText;
-              range.deleteContents();
-            } else {
-              blockquote.textContent = 'Citation';
-            }
-            range.insertNode(blockquote);
+            restoreSelection();
+            break;
           }
-          restoreSelection();
+
+          const blockquote = document.createElement('blockquote');
+          if (selectedText) {
+            blockquote.textContent = selectedText;
+            range.deleteContents();
+            range.insertNode(blockquote);
+            restoreSelection();
+            break;
+          }
+
+          const p = document.createElement('p');
+          const zw = document.createTextNode('\u200B');
+          p.appendChild(zw);
+          blockquote.appendChild(p);
+
+          range.insertNode(blockquote);
+
+          try {
+            const sel = window.getSelection();
+            if (sel) {
+              const newRange = document.createRange();
+              newRange.setStart(zw, 1);
+              newRange.collapse(true);
+              sel.removeAllRanges();
+              sel.addRange(newRange);
+            }
+          } catch (_e) {
+          }
+
           break;
+        }
         case 'insertHorizontalRule':
           const hr = document.createElement('hr');
           range.deleteContents();
@@ -312,18 +339,15 @@ export class FormattingHandler {
                 widthPercent: typeof data.widthPercent === 'number' ? data.widthPercent : undefined,
                 widthPx: typeof data.widthPx === 'number' ? data.widthPx : undefined,
               });
-              // sync markdown and overlay
               setTimeout(() => {
                 this.syncMarkdown();
               }, 0);
             }
           } catch (_e) {
-            // ignore
           }
           break;
         }
         case 'setImageWidth': {
-          // value can be a number or a JSON string { widthPercent|widthPx }
           try {
             if (value && value.trim().startsWith('{')) {
               const data = JSON.parse(value);
@@ -344,13 +368,11 @@ export class FormattingHandler {
               }
             }
           } catch (_e) {
-            // ignore
           }
           break;
         }
       }
       
-      // Immediately convert to markdown after formatting
       setTimeout(() => {
         this.syncMarkdown();
       }, 50);
@@ -359,7 +381,32 @@ export class FormattingHandler {
     }
   }
 
-  // Helper to set image properties on a specific target
+  // Ensure the current selection/caret is moved outside of the nearest anchor (<a>) if any.
+  // Returns a Range representing the (possibly updated) selection range.
+  private ensureSelectionOutsideLink(range: Range, selection: Selection): Range {
+    try {
+      let node: Node | null = range.commonAncestorContainer;
+      // If text node, use its parent element to search for anchors
+      if (node && node.nodeType === Node.TEXT_NODE) node = node.parentElement as Node;
+      const el = node as Element | null;
+      if (el) {
+        const anchor = el.closest && el.closest('a');
+        if (anchor && anchor.parentNode) {
+          const newRange = document.createRange();
+          // Place caret immediately after the anchor to avoid inserting inside it
+          newRange.setStartAfter(anchor);
+          newRange.collapse(true);
+          selection.removeAllRanges();
+          selection.addRange(newRange);
+          return newRange;
+        }
+      }
+    } catch (e) {
+      // ignore and return original range
+    }
+    return range;
+  }
+
   private setImageProperties(img: HTMLImageElement, payload: { src?: string; widthPercent?: number; widthPx?: number }) {
     if (payload.src) {
       try { img.src = payload.src; } catch {}
@@ -375,7 +422,6 @@ export class FormattingHandler {
     }
   }
 
-  // Sync markdown
   private syncMarkdown() {
     if (this.editorRef.current) {
       const newHtml = this.editorRef.current.innerHTML;

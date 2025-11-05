@@ -12,6 +12,7 @@ import LoginRequiredModal from "@/components/LoginRequiredModal";
 import { cn } from "@/lib/utils";
 import { Document, LocalDocument, AnyDocument } from "@/lib/types";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui";
+import sanitizeLinks from "@/lib/sanitizeLinks";
 
 interface DocumentCardProps {
   document: AnyDocument;
@@ -163,7 +164,8 @@ export default function DocumentCard({
   };
 
   const contentText = getContentText(document.content);
-  
+  const contentTextSanitized = sanitizeLinks(contentText);
+
   // Nettoyer le texte : supprimer le markdown et les balises HTML
   const cleanText = (text: string): string => {
     return text
@@ -177,13 +179,13 @@ export default function DocumentCard({
       .trim();
   };
   
-  const firstLine = cleanText(contentText.substring(0, 500).split(/\n\n/)[0]);
+  const firstLine = cleanText((contentTextSanitized || "").substring(0, 500).split(/\n\n/)[0]);
   
   // Si le texte original ou le texte nettoyé est vide, on considère le document comme vide
   const isEmpty = !contentText || contentText.trim() === "" || !firstLine || firstLine.trim() === "";
 
   // ensure we always define contentIsHtml and previewText
-  const rawPreviewSource = getContentText(document?.content);
+  const rawPreviewSource = sanitizeLinks(getContentText(document?.content));
   const normalizedString = unwrapToString(rawPreviewSource);
   const contentIsHtml = detectHtmlInString(normalizedString);
   const previewText = contentIsHtml
@@ -447,6 +449,12 @@ export default function DocumentCard({
     : `/documents/${document.id}`;
 
   const handleCardNavigation = async (e: React.MouseEvent) => {
+    // Si une modal de connexion est ouverte, ignorer toute navigation
+    if (showLoginModal) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
     // En mode sélection, toggle la sélection au lieu de naviguer
     if (selectMode) {
       e.preventDefault();
@@ -564,7 +572,7 @@ export default function DocumentCard({
         </h3>
         <div
           ref={previewRef}
-          className="text-sm text-muted-foreground line-clamp-2 leading-relaxed"
+          className="text-sm text-muted-foreground line-clamp-1 leading-relaxed"
         >
           {contentIsHtml ? (
             previewHtml ? (
