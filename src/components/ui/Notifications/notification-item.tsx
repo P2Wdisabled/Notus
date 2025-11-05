@@ -5,6 +5,7 @@ interface NotificationItemProps {
     username: string;
     id_sender?: number | null;
     message: string;
+    onClick?: () => void;
 }
 
 export default function NotificationItem({
@@ -12,6 +13,7 @@ export default function NotificationItem({
     username,
     id_sender,
     message,
+    onClick,
 }: NotificationItemProps) {
     const isSystem = typeof id_sender !== "undefined"
         ? id_sender === null
@@ -29,6 +31,7 @@ export default function NotificationItem({
     return (
         <button
             type="button"
+            onClick={onClick}
             className="w-full flex flex-row items-center text-left px-3 py-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-black dark:text-white"
         >
             {!isSystem ? (
@@ -37,9 +40,7 @@ export default function NotificationItem({
                         src={normalizedAvatar}
                         alt={username || "avatar"}
                         className="w-8 h-8 rounded-full mr-3 object-cover"
-                        onError={(e) => {
-                            setImgError(true);
-                        }}
+                        onError={() => setImgError(true)}
                     />
                 ) : (
                     <div className="w-8 h-8 rounded-full mr-3 bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-xs text-gray-500">
@@ -54,15 +55,18 @@ export default function NotificationItem({
                         <span
                             className="text-xs text-gray-500 dark:text-gray-300 ml-1 cursor-pointer select-none"
                             title={normalizedAvatar.slice(0, 200)}
-                            onClick={() => {
-                                try { navigator.clipboard.writeText(normalizedAvatar); } catch (e) { }
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                try { navigator.clipboard.writeText(normalizedAvatar); } catch (err) { }
                             }}
                         >
                             {`len:${normalizedAvatar.length}${normalizedAvatar.startsWith("data:") ? " • data" : ""}`}
                         </span>
                     ) : null}
                 </div>
-                <span className="text-sm text-gray-600 dark:text-gray-300 truncate max-w-[260px]">{message || ""}</span>
+                <span className="text-sm text-gray-600 dark:text-gray-300 truncate max-w-[260px]" title={message || ""}>
+                    {message || ""}
+                </span>
             </div>
         </button>
     );

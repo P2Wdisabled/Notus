@@ -103,10 +103,10 @@ export class NotificationRepository extends BaseRepository {
     async markAsRead(notificationId: number) {
         try {
             const result = await this.query<{ id: number }>(
-                `UPDATE notifications SET read_date = CURRENT_TIMESTAMP WHERE id = $1`,
-                [notificationId,]
+                `UPDATE notifications SET read_date = CURRENT_TIMESTAMP WHERE id = $1 RETURNING id`,
+                [notificationId]
             );
-            if (result.rows.length === 0) {
+            if (!result.rows || result.rows.length === 0) {
                 return { success: false, error: "Notification non trouvée ou accès refusé" };
             }
             return { success: true, data: { id: result.rows[0].id } };

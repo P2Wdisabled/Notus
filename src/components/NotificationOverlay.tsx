@@ -58,6 +58,23 @@ export default function NotificationOverlay({ isOpen = true, onClose }: Notifica
 
     if (!isOpen) return null;
 
+    // mark a notification as read (optimistic UI update)
+    async function markAsRead(notificationId: number) {
+        if (!notificationId) return;
+        // optimistic update
+        setNotifications(prev => prev ? prev.map(n => n.id === notificationId ? { ...n, read_date: new Date() } : n) : prev);
+        try {
+            await fetch("/api/notification/mark-read", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ notificationId }),
+                cache: "no-store",
+            });
+        } catch {
+            // ignore errors; UI already updated optimistically
+        }
+    }
+
     return (
         <div className="h-screen w-80 bg-white dark:bg-gray-800 rounded-none shadow-lg border-l border-gray-200 dark:border-gray-700 p-2 flex flex-col">
             <div className="flex items-center justify-between px-2 py-2 flex-shrink-0">
@@ -76,7 +93,7 @@ export default function NotificationOverlay({ isOpen = true, onClose }: Notifica
                 )}
 
                 {!loading && (notifications ?? []).map((n: Notification) => {
-                    const parsed = n.parsed ?? null;
+                    const parsed = (n as any).parsed ?? null;
                     const messageText = parsed?.message ?? String(n.message || "");
                     const isRead = Boolean(n.read_date);
 
@@ -124,16 +141,8 @@ export default function NotificationOverlay({ isOpen = true, onClose }: Notifica
                                             <button
                                                 onClick={async (e) => {
                                                     e.preventDefault();
-                                                    try {
-                                                        await fetch("/api/notification/mark-read", {
-                                                            method: "POST",
-                                                            headers: { "Content-Type": "application/json" },
-                                                            body: JSON.stringify({ notificationId: n.id }),
-                                                            cache: "no-store",
-                                                        });
-                                                    } catch {
-                                                        // silent
-                                                    }
+                                                    e.stopPropagation();
+                                                    await markAsRead(n.id);
                                                     if (confirmUrl) window.location.href = confirmUrl;
                                                 }}
                                                 className="bg-primary text-white px-3 py-1 rounded"
@@ -159,6 +168,7 @@ export default function NotificationOverlay({ isOpen = true, onClose }: Notifica
                                 avatar={avatarUrl}
                                 username={String(username)}
                                 message={messageText}
+                                onClick={() => { if (!isRead) markAsRead(n.id); }}
                             />
                         </div>
                     );
