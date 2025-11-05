@@ -55,6 +55,7 @@ export class PrismaDocumentRepository {
         title: document.title,
         content: document.content,
         tags: document.tags,
+        favori: (document as any).favori ?? null,
         created_at: document.created_at,
         updated_at: document.updated_at,
         username: document.user.username || undefined,
@@ -100,6 +101,7 @@ export class PrismaDocumentRepository {
         title: string;
         content: string;
         tags: string[];
+        favori?: boolean | null;
         created_at: Date;
         updated_at: Date;
         user: {
@@ -113,6 +115,7 @@ export class PrismaDocumentRepository {
         title: doc.title,
         content: doc.content,
         tags: doc.tags,
+        favori: (doc as any).favori ?? null,
         created_at: doc.created_at,
         updated_at: doc.updated_at,
         username: doc.user.username ?? undefined,
@@ -169,6 +172,7 @@ export class PrismaDocumentRepository {
         title: document.title,
         content: document.content,
         tags: document.tags,
+        favori: (document as any).favori ?? null,
         created_at: document.created_at,
         updated_at: document.updated_at,
         username: document.user.username || undefined,
@@ -393,6 +397,7 @@ export class PrismaDocumentRepository {
           title: updatedDocument.title,
           content: updatedDocument.content,
           tags: updatedDocument.tags,
+          favori: (updatedDocument as any).favori ?? null,
           created_at: updatedDocument.created_at,
           updated_at: updatedDocument.updated_at,
           username: updatedDocument.user.username ?? undefined,
@@ -432,6 +437,7 @@ export class PrismaDocumentRepository {
           title: newDocument.title,
           content: newDocument.content,
           tags: newDocument.tags,
+          favori: (newDocument as any).favori ?? null,
           created_at: newDocument.created_at,
           updated_at: newDocument.updated_at,
           username: newDocument.user.username ?? undefined,
@@ -534,30 +540,23 @@ export class PrismaDocumentRepository {
               last_name: true,
             },
           },
+          Share: {
+            where: { email: email },
+            select: ({ email: true, permission: true, favori: true } as any),
+          },
         },
         orderBy: { updated_at: 'desc' },
       });
 
       // Transformer les documents pour correspondre à notre interface
-      const transformedDocuments: Document[] = documents.map((doc: {
-        id: number;
-        user_id: number;
-        title: string;
-        content: string;
-        tags: string[];
-        created_at: Date;
-        updated_at: Date;
-        user: {
-          username: string | null;
-          first_name: string | null;
-          last_name: string | null;
-        };
-      }) => ({
+      const transformedDocuments: Document[] = documents.map((doc: any) => ({
         id: doc.id,
         user_id: doc.user_id,
         title: doc.title,
         content: doc.content,
         tags: doc.tags,
+        // pour les documents partagés, utiliser le favori du lien de partage
+        favori: (doc.Share && doc.Share[0] ? doc.Share[0].favori : null),
         created_at: doc.created_at,
         updated_at: doc.updated_at,
         username: doc.user.username ?? undefined,
@@ -597,46 +596,31 @@ export class PrismaDocumentRepository {
             },
           },
           Share: {
-            select: {
+            select: ({
               email: true,
               permission: true,
-            },
+              favori: true,
+            } as any),
           },
         },
         orderBy: { updated_at: 'desc' },
       });
 
       // Transformer les documents pour correspondre à notre interface
-      const transformedDocuments: Document[] = documents.map((doc: {
-        id: number;
-        user_id: number;
-        title: string;
-        content: string;
-        tags: string[];
-        created_at: Date;
-        updated_at: Date;
-        user: {
-          username: string | null;
-          first_name: string | null;
-          last_name: string | null;
-        };
-        Share: {
-          email: string;
-          permission: boolean;
-        }[];
-      }) => ({
+      const transformedDocuments: Document[] = documents.map((doc: any) => ({
         id: doc.id,
         user_id: doc.user_id,
         title: doc.title,
         content: doc.content,
         tags: doc.tags,
+        favori: (doc as any).favori ?? null,
         created_at: doc.created_at,
         updated_at: doc.updated_at,
         username: doc.user.username ?? undefined,
         first_name: doc.user.first_name ?? undefined,
         last_name: doc.user.last_name ?? undefined,
         // Ajouter les informations de partage
-        sharedWith: doc.Share.map(share => ({
+        sharedWith: doc.Share.map((share: any) => ({
           email: share.email,
           permission: share.permission,
         })),
@@ -653,6 +637,93 @@ export class PrismaDocumentRepository {
         error: error instanceof Error ? error.message : 'Erreur inconnue',
         documents: [],
       };
+    }
+  }
+
+  async toggleFavoriteForDocument(
+    documentId: number,
+    userId: number,
+    value: boolean | null
+  ): Promise<DocumentRepositoryResult<{ id: number; favori: boolean | null }>> {
+    try {
+      const doc = await prisma.document.findUnique({ where: { id: documentId }, select: { id: true, user_id: true } });
+      if (!doc) return { success: false, error: 'Document non trouvé' };
+      if (doc.user_id !== userId) return { success: false, error: "Vous n'êtes pas autorisé à modifier ce favori" };
+
+      const updated = await prisma.document.update({ where: { id: documentId }, data: ({ favori: value } as any) });
+      return { success: true, data: { id: updated.id, favori: (updated as any).favori ?? null } };
+    } catch (e: unknown) {
+      return { success: false, error: e instanceof Error ? e.message : 'Erreur inconnue' };
+    }
+  }
+
+  async toggleFavoriteForShare(
+    documentId: number,
+    email: string,
+    value: boolean | null
+  ): Promise<DocumentRepositoryResult<{ id: number; favori: boolean | null }>> {
+    try {
+      const share = await prisma.share.findFirst({ where: { id_doc: documentId, email: email } });
+      if (!share) return { success: false, error: 'Partage introuvable pour cet utilisateur' };
+      const updated = await prisma.share.update({ where: { id: share.id }, data: ({ favori: value } as any) });
+      return { success: true, data: { id: updated.id, favori: (updated as any).favori ?? null } };
+    } catch (e: unknown) {
+      return { success: false, error: e instanceof Error ? e.message : 'Erreur inconnue' };
+    }
+  }
+
+  async getFavorites(userId: number, email: string): Promise<DocumentRepositoryResult<Document[]>> {
+    try {
+      const own = await prisma.document.findMany({
+        where: ({ user_id: userId, favori: true } as any),
+        include: {
+          user: { select: { username: true, first_name: true, last_name: true } },
+        },
+        orderBy: { updated_at: 'desc' },
+      });
+
+      const shared = await prisma.document.findMany({
+        where: ({ Share: { some: { email: email, favori: true } } } as any),
+        include: {
+          user: { select: { username: true, first_name: true, last_name: true } },
+          Share: ({ where: { email: email }, select: { favori: true } } as any),
+        },
+        orderBy: { updated_at: 'desc' },
+      });
+
+      const mappedOwn: Document[] = own.map((d: any) => ({
+        id: d.id,
+        user_id: d.user_id,
+        title: d.title,
+        content: d.content,
+        tags: d.tags,
+        favori: d.favori ?? null,
+        created_at: d.created_at,
+        updated_at: d.updated_at,
+        username: d.user?.username ?? undefined,
+        first_name: d.user?.first_name ?? undefined,
+        last_name: d.user?.last_name ?? undefined,
+      }));
+
+      const mappedShared: Document[] = shared.map((d: any) => ({
+        id: d.id,
+        user_id: d.user_id,
+        title: d.title,
+        content: d.content,
+        tags: d.tags,
+        favori: d.Share?.[0]?.favori ?? null,
+        created_at: d.created_at,
+        updated_at: d.updated_at,
+        username: d.user?.username ?? undefined,
+        first_name: d.user?.first_name ?? undefined,
+        last_name: d.user?.last_name ?? undefined,
+      }));
+
+      const byId = new Map<number, Document>();
+      [...mappedOwn, ...mappedShared].forEach(doc => { byId.set(doc.id, doc); });
+      return { success: true, documents: Array.from(byId.values()) };
+    } catch (e: unknown) {
+      return { success: false, error: e instanceof Error ? e.message : 'Erreur inconnue', documents: [] };
     }
   }
 

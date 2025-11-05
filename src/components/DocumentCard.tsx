@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { useActionState, startTransition } from "react";
-import { deleteDocumentAction, updateDocumentAction } from "@/lib/actions";
+import { deleteDocumentAction, updateDocumentAction, toggleFavoriteAction } from "@/lib/actions";
 import Link from "next/link";
 import DOMPurify from "dompurify";
 import { Button, Input } from "@/components/ui";
@@ -12,6 +12,7 @@ import LoginRequiredModal from "@/components/LoginRequiredModal";
 import { cn } from "@/lib/utils";
 import { Document, LocalDocument, AnyDocument } from "@/lib/types";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui";
+import FavoriteToggle from "@/components/FavoriteToggle";
 import sanitizeLinks from "@/lib/sanitizeLinks";
 
 interface DocumentCardProps {
@@ -24,6 +25,7 @@ interface DocumentCardProps {
   onEnterSelectMode?: (id: string | number) => void;
   isLocal?: boolean;
   index?: number;
+  onFavoriteChange?: (id: string | number, isFavorite: boolean) => void;
 }
 
 function unwrapToString(raw: any): string {
@@ -111,6 +113,7 @@ export default function DocumentCard({
   onEnterSelectMode = () => { },
   isLocal = false,
   index = 0,
+  onFavoriteChange,
 }: DocumentCardProps) {
   const [message, formAction, isPending] = useActionState(
     deleteDocumentAction,
@@ -120,6 +123,10 @@ export default function DocumentCard({
     updateDocumentAction,
     { ok: false, error: "" }
   );
+  const [favMsg, favFormAction, isFavUpdating] = useActionState(
+    toggleFavoriteAction,
+    undefined
+  );
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const { checkConnectivity } = useGuardedNavigate();
@@ -128,6 +135,7 @@ export default function DocumentCard({
   const isOwner = ('user_id' in document) ? document.user_id === currentUserId : false;
   const updatedDate = new Date(document.updated_at || new Date());
   const [accessList, setAccessList] = useState<any[]>([]);
+  const [isFavorite, setIsFavorite] = useState<boolean>(Boolean((document as any).favori === true));
   const formattedDate = updatedDate.toLocaleDateString("fr-FR", {
     day: "2-digit",
     month: "2-digit",
@@ -361,6 +369,27 @@ export default function DocumentCard({
     }
   };
 
+  const applyFavoriteChange = async (next: boolean) => {
+    if (!currentUserId) {
+      setShowLoginModal(true);
+      return;
+    }
+    try {
+      const fd = new FormData();
+      fd.append("documentId", String(document.id));
+      if (next) {
+        fd.append("value", "1");
+      } else {
+        fd.append("value", "");
+      }
+      startTransition(() => {
+        favFormAction(fd);
+      });
+      setIsFavorite(next);
+      try { onFavoriteChange && onFavoriteChange(document.id, next); } catch (_) {}
+    } catch (_) {}
+  };
+
   // Gestion du mode sélection (long press / clic contextuel)
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const longPressActivatedRef = useRef(false);
@@ -538,17 +567,15 @@ export default function DocumentCard({
       onTouchEnd={clearLongPressTimer}
       onClick={handleCardNavigation}
     >
-      {/* Header - Zone des tags */}
+      {/* Header - Zone des tags + Favori */}
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2 w-full min-w-0">
           <div
             className="flex-1 min-w-0 max-w-full"
             onClick={(e) => {
-              // En mode sélection, ne pas bloquer la propagation pour permettre la sélection
               if (selectMode) {
                 return;
               }
-              // Hors mode sélection, bloquer la propagation pour gérer les tags
               e.preventDefault();
               e.stopPropagation();
               handleTagsClick();
@@ -563,6 +590,15 @@ export default function DocumentCard({
             />
           </div>
         </div>
+        {!selectMode && (
+          <FavoriteToggle
+            isFavorite={isFavorite}
+            isAuthenticated={Boolean(currentUserId)}
+            onToggleAuthenticated={applyFavoriteChange}
+            onRequireLogin={() => setShowLoginModal(true)}
+            className="ml-3"
+          />
+        )}
       </div>
 
       {/* Content */}

@@ -68,8 +68,8 @@ export default function NavBar() {
     // { name: "Récent", href: "/recent", icon: ClockIcon },
     { name: "Notes personnelles", href: "/notes", icon: NoteIcon },
     { name: "Notes partagées", href: "/shared", icon: ShareIcon },
+    { name: "Favoris", href: "/favorites", icon: StarIcon },
     { name: "Paramètres", href: "/settings", icon: GearIcon },
-    //{ name: "Favoris", href: "/favorites", icon: StarIcon },
     //{ name: "Dossiers", href: "/folders", icon: FolderIcon },
     //{ name: "Notifications", href: "/notifications", icon: BellIcon },
     { name: "Corbeille", href: "/trash", icon: TrashIcon },
@@ -116,8 +116,8 @@ export default function NavBar() {
     e.preventDefault();
     setIsOpen(false);
     
-    // Vérifier si c'est "Notes partagées" et l'utilisateur n'est pas connecté
-    if (href === "/shared" && !isLoggedIn) {
+    // Vérifier si c'est une page protégée et l'utilisateur n'est pas connecté
+    if ((href === "/shared" || href === "/favorites" || href === "/trash") && !isLoggedIn) {
       setShowLoginModal(true);
       return;
     }
@@ -581,6 +581,7 @@ function getPageTitle(pathname: string | null, items: NavItem[]): string {
   if (pathname === "/") return "Mes notes";
   if (pathname === "/profile") return "Mon compte";
   if (pathname === "/settings") return "Paramètres";
+  if (pathname === "/favorites") return "Favoris";
   if (pathname === "/trash") return "Corbeille";
   if (pathname.startsWith("/profile/edit")) return "Modifier le profil";
   return "Notus";

@@ -973,3 +973,68 @@ export async function getAllUsersAction() {
     };
   }
 }
+
+// --- Favoris ---
+export async function toggleFavoriteAction(prevState: unknown, formData: FormData) {
+  try {
+    const session = await getServerSession(authOptions);
+    const userId = session?.user?.id ? Number(session.user.id) : undefined;
+    const email = session?.user?.email as string | undefined;
+    if (!userId || !email) {
+      return { success: false, error: "Utilisateur non authentifié" };
+    }
+
+    const documentIdRaw = formData.get("documentId");
+    const valueRaw = formData.get("value");
+    if (!documentIdRaw) return { success: false, error: "documentId requis" };
+    const documentId = parseInt(String(documentIdRaw), 10);
+    if (isNaN(documentId) || documentId <= 0) return { success: false, error: "ID de document invalide" };
+    const value = valueRaw === "1" || valueRaw === "true" ? true : null;
+
+    if (!process.env.DATABASE_URL) {
+      return { success: true, message: "Favori simulé (DATABASE_URL non configurée)" };
+    }
+
+    const docSvc = await getDocumentService();
+    await docSvc.initializeTables();
+
+    const docRes = await docSvc.getDocumentById(documentId);
+    if (!docRes.success || !docRes.document) {
+      return { success: false, error: docRes.error || "Document introuvable" };
+    }
+
+    if (docRes.document.user_id === userId) {
+      const res = await docSvc.toggleFavoriteForDocument(documentId, userId, value);
+      if (!res.success) return { success: false, error: res.error || "Erreur lors de la mise à jour du favori" };
+      return { success: true };
+    } else {
+      const res = await docSvc.toggleFavoriteForShare(documentId, email, value);
+      if (!res.success) return { success: false, error: res.error || "Erreur lors de la mise à jour du favori" };
+      return { success: true };
+    }
+  } catch (error: unknown) {
+    return { success: false, error: String(error instanceof Error ? error.message : error) };
+  }
+}
+
+export async function getFavoritesAction() {
+  try {
+    const session = await getServerSession(authOptions);
+    const userId = session?.user?.id ? Number(session.user.id) : undefined;
+    const email = session?.user?.email as string | undefined;
+    if (!userId || !email) {
+      return { success: false, error: "Utilisateur non authentifié", documents: [] };
+    }
+
+    if (!process.env.DATABASE_URL) {
+      return { success: true, documents: [] };
+    }
+
+    const docSvc = await getDocumentService();
+    const res = await docSvc.getFavorites(userId, email);
+    if (!res.success) return { success: false, error: res.error || "Erreur favoris", documents: [] };
+    return { success: true, documents: res.documents };
+  } catch (error: unknown) {
+    return { success: false, error: String(error instanceof Error ? error.message : error), documents: [] };
+  }
+}

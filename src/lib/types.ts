@@ -28,6 +28,7 @@ export interface Document {
   title: string;
   content: string;
   tags: string[];
+  favori?: boolean | null;
   created_at: Date;
   updated_at: Date;
   username?: string;
@@ -37,6 +38,7 @@ export interface Document {
     email: string;
     permission: boolean;
   }[];
+  favori_share?: boolean | null;
 }
 
 export interface UserSession {

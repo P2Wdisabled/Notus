@@ -92,4 +92,31 @@ export class PrismaDocumentService {
       return { success: false, error: error instanceof Error ? error.message : "Erreur inconnue" };
     }
   }
+
+  async toggleFavoriteForDocument(documentId: number, userId: number, value: boolean | null) {
+    try {
+      return await this.documentRepository.toggleFavoriteForDocument(documentId, userId, value);
+    } catch (error) {
+      console.error("❌ Erreur toggle favori (document):", error);
+      return { success: false, error: error instanceof Error ? error.message : "Erreur inconnue" };
+    }
+  }
+
+  async toggleFavoriteForShare(documentId: number, email: string, value: boolean | null) {
+    try {
+      return await this.documentRepository.toggleFavoriteForShare(documentId, email, value);
+    } catch (error) {
+      console.error("❌ Erreur toggle favori (share):", error);
+      return { success: false, error: error instanceof Error ? error.message : "Erreur inconnue" };
+    }
+  }
+
+  async getFavorites(userId: number, email: string) {
+    try {
+      return await this.documentRepository.getFavorites(userId, email);
+    } catch (error) {
+      console.error("❌ Erreur récupération favoris:", error);
+      return { success: false, error: error instanceof Error ? error.message : "Erreur inconnue", documents: [] };
+    }
+  }
 }

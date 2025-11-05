@@ -4,14 +4,16 @@ import NavBar from "@/components/NavBar";
 import ContentWrapper from "@/components/ContentWrapper";
 import { Card, CardContent, CardHeader, CardTitle, Button, Alert } from "@/components/ui";
 import { getUserTrashDocumentsAction, restoreTrashedDocumentFormAction } from "@/lib/actions";
+import { redirect } from "next/navigation";
 
 export default async function TrashPage() {
   const session = await getServerSession(authOptions);
+  if (!session?.user) {
+    redirect("/login");
+  }
   const userId = session?.user?.id ? parseInt(String(session.user.id)) : undefined;
 
-  const trashedResult = userId
-    ? await getUserTrashDocumentsAction(userId)
-    : { success: true, documents: [] } as any;
+  const trashedResult = await getUserTrashDocumentsAction(userId!);
 
   return (
     <div className="min-h-screen bg-background">
