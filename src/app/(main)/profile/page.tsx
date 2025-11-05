@@ -1,6 +1,7 @@
 import { auth } from "@/../auth";
 import NavBar from "@/components/NavBar";
 import ContentWrapper from "@/components/ContentWrapper";
+import Image  from "next/image";
 import { Card, Button } from "@/components/ui";
 import DocumentCard from "@/components/DocumentCard";
 import { getUserDocumentsAction, getUserProfileAction } from "@/lib/actions";
@@ -89,7 +90,7 @@ export default async function ProfilePage() {
           <div className="flex flex-col items-center md:flex-row md:items-end gap-4 relative z-10">
             <div className="w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-background overflow-hidden bg-muted ring-2 ring-border/30 shadow-lg">
               {userProfile?.profile_image ? (
-                <img
+                <Image
                   src={userProfile.profile_image}
                   alt="Photo de profil"
                   className="w-full h-full object-cover"

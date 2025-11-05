@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import Link from "next/link";
+import Image  from "next/image";
 
 type User = {
   id: number;
@@ -26,7 +27,7 @@ export default function UserList({ users, currentUserId }: UserListProps) {
           <div className="flex items-center gap-3">
             {user.avatarUrl && user.avatarUrl !== ""
               ? (
-                <img
+                <Image
                   src={user.avatarUrl}
                   alt={user.name}
                   className="w-10 h-10 rounded-full object-cover hover:opacity-80 transition"

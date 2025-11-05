@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import Image  from "next/image";
 import { useSession } from "next-auth/react";
 import AdminButton from "./AdminButton";
 import { Logo, Input, Button } from "@/components/ui";
@@ -164,7 +165,7 @@ export default function NavBar() {
                 title={userName || "Profil"}
               >
                 {localProfileImage ? (
-                  <img
+                  <Image
                     src={localProfileImage}
                     alt="Photo de profil"
                     className="w-full h-full object-cover"
@@ -244,7 +245,7 @@ export default function NavBar() {
                 >
                   <div className="flex items-center justify-center w-10 h-10 rounded-full overflow-hidden bg-muted ring-1 ring-border/20 shadow-sm">
                     {localProfileImage ? (
-                      <img
+                      <Image
                         src={localProfileImage}
                         alt="Photo de profil"
                         className="w-full h-full object-cover"
@@ -320,7 +321,7 @@ export default function NavBar() {
             >
               <div className="flex items-center justify-center w-10 h-10 rounded-full overflow-hidden bg-muted ring-1 ring-border/20 shadow-sm">
                 {localProfileImage ? (
-                  <img
+                  <Image
                     src={localProfileImage}
                     alt="Photo de profil"
                     className="w-full h-full object-cover"

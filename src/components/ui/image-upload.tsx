@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useState, useRef } from "react";
+import Image  from "next/image";
 
 export interface ImageUploadProps {
   label?: string;
@@ -191,7 +192,7 @@ export default function ImageUpload({
         {previewUrl ? (
           <div className="space-y-4">
             <div className="relative inline-block">
-              <img
+              <Image
                 src={previewUrl}
                 alt="Aperçu"
                 className="max-w-full max-h-48 rounded-lg object-cover"
