@@ -93,6 +93,24 @@ export class PrismaDocumentService {
     }
   }
 
+  async fetchSharedWithUser(email: string): Promise<DocumentRepositoryResult<Document[]>> {
+    try {
+      return await this.documentRepository.fetchSharedWithUser(email);
+    } catch (error) {
+      console.error("❌ Erreur récupération documents partagés:", error);
+      return { success: false, error: error instanceof Error ? error.message : "Erreur inconnue", documents: [] };
+    }
+  }
+
+  async fetchSharedByUser(userId: number): Promise<DocumentRepositoryResult<Document[]>> {
+    try {
+      return await this.documentRepository.fetchSharedByUser(userId);
+    } catch (error) {
+      console.error("❌ Erreur récupération documents partagés par utilisateur:", error);
+      return { success: false, error: error instanceof Error ? error.message : "Erreur inconnue", documents: [] };
+    }
+  }
+
   async toggleFavoriteForDocument(documentId: number, userId: number, value: boolean | null) {
     try {
       return await this.documentRepository.toggleFavoriteForDocument(documentId, userId, value);

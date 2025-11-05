@@ -54,6 +54,46 @@ export async function authenticate(prevState: unknown, formData: FormData): Prom
   }
 }
 
+// Documents partagés (utilise PrismaDocumentService)
+export async function fetchSharedDocumentsAction() {
+  try {
+    const session = await getServerSession(authOptions);
+    const email = session?.user?.email as string | undefined;
+    const userId = session?.user?.id ? Number(session.user.id) : undefined;
+
+    if (!email || !userId) {
+      return { success: false, error: "Utilisateur non authentifié", documents: [] };
+    }
+
+    if (!process.env.DATABASE_URL) {
+      return { success: true, documents: [] };
+    }
+
+    const documentService = await getDocumentService();
+    await documentService.initializeTables();
+
+    const sharedWithResult = await documentService.fetchSharedWithUser(email);
+    if (!sharedWithResult.success) {
+      return { success: false, error: sharedWithResult.error || "Erreur lors de la récupération des documents partagés", documents: [] };
+    }
+
+    const sharedByResult = await documentService.fetchSharedByUser(userId);
+    if (!sharedByResult.success) {
+      return { success: false, error: sharedByResult.error || "Erreur lors de la récupération des documents partagés", documents: [] };
+    }
+
+    const allSharedDocuments = [
+      ...(sharedWithResult.documents || []),
+      ...(sharedByResult.documents || [])
+    ];
+
+    return { success: true, documents: allSharedDocuments };
+  } catch (error: unknown) {
+    console.error("❌ Erreur fetchSharedDocumentsAction:", error);
+    return { success: false, error: "Erreur lors de la récupération des documents partagés", documents: [] };
+  }
+}
+
 export async function registerUser(prevState: unknown, formData: FormData): Promise<string> {
   try {
     const userData = {
