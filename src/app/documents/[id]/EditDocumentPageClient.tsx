@@ -112,7 +112,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     },
   });
 
-  const normalizeContent = (rawContent: any): NotepadContent => {
+  const normalizeContent = useCallback((rawContent: any): NotepadContent => {
     if (!rawContent) return { text: "", drawings: [], textFormatting: {} };
 
     let content = rawContent;
@@ -131,7 +131,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
       textFormatting: content.textFormatting || {},
       timestamp: content.timestamp || Date.now(),
     };
-  };
+  }, []);
 
   const loadDocument = useCallback(async () => {
     try {
@@ -223,7 +223,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     } finally {
       setIsLoading(false);
     }
-  }, [props.params.id]);
+  }, [props.params.id, normalizeContent]);
 
   useEffect(() => {
     if (isLoggedIn && props.params?.id && userId) {
@@ -253,7 +253,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
         })
         .catch(() => setUsers([]));
     }
-  }, [document]);
+  }, [document, normalizeContent]);
 
   useEffect(() => {
     const key = `notus:doc:${props.params.id}`;
@@ -304,7 +304,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     const normalized = normalizeContent(newContent);
     setContent(normalized);
     updateLocalStorage(normalized);
-  }, [updateLocalStorage]);
+  }, [normalizeContent, updateLocalStorage]);
 
   useEffect(() => {
     if (state && (state as any).ok) {
@@ -406,12 +406,13 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
       setShowSavedState,
       setShowSuccessMessage,
       checkConnectivity,
+      userEmail,
     ]
   );
 
   // -------- Auto-save every 10 seconds (checks connectivity beforehand) --------
   useEffect(() => {
-    if (!document || hasEditAccess === false) {
+    if (!document?.id || hasEditAccess === false) {
       return;
     }
 
@@ -635,7 +636,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
       }
     }
     checkAccess();
-  }, [document, userEmail]);
+  }, [document, userEmail, userId]);
 
   // -------- Share functionality --------
   const handleShareButtonClick = async () => {

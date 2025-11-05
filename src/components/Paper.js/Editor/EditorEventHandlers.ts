@@ -350,7 +350,7 @@ export function useEditorEventHandlers({
       e.preventDefault();
       formattingHandler.current.applyFormatting('insertHorizontalRule');
     }
-  }, [formattingHandler, handleEditorChange]);
+  }, [formattingHandler, handleEditorChange, editorRef, markdownConverter, onContentChange]);
 
   return {
     handleEditorChange: handleEditorChangeCallback,

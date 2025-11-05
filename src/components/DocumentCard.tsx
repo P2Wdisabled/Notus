@@ -229,7 +229,7 @@ export default function DocumentCard({
     return () => {
       mounted = false;
     };
-  }, [document?.content, contentIsHtml]);
+  }, [document?.content, contentIsHtml, normalizedString]);
 
   // Fetch access list (owner + shared users) via API route
   useEffect(() => {
@@ -454,7 +454,7 @@ export default function DocumentCard({
     if (typeof window === "undefined") return;
     const el = previewRef.current;
     // si l'élément n'est pas prêt, on essaie le root (ou on attend previewHtml)
-    const target = el instanceof Element ? el : (document as any).body;
+    const target = el instanceof Element ? el : ((window as any).document as any).body;
     try {
       const style = window.getComputedStyle(target);
       setComputedStyle({
