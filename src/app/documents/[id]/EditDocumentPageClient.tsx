@@ -426,7 +426,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
       } catch (err) {
         // Silent error handling for autosave
       }
-    }, 1000); //Auto-enregistrement après 1 seconde
+    }, 3000); //Auto-enregistrement après 3 secondes
 
     return () => {
       clearInterval(intervalId);
