@@ -174,4 +174,9 @@ export interface Notification {
   message: string;
   send_date: Date;
   read_date: Date | null;
+  parsed: any;
+  sender_username?: string;
+  sender_first_name?: string;
+  sender_last_name?: string;
+  avatar?: string;
 }

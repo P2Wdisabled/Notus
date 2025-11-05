@@ -3,11 +3,17 @@
 import React, { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import NotificationItem from "./ui/Notifications/notification-item";
+import { Avatar, AvatarImage, AvatarFallback } from "./ui/avatar";
 import type { Notification } from "@/lib/types";
 
 interface NotificationOverlayProps {
     isOpen?: boolean;
     onClose?: () => void;
+}
+
+function truncateText(s: string, max = 50) {
+    if (!s) return s;
+    return s.length > max ? s.slice(0, max - 3) + "..." : s;
 }
 
 export default function NotificationOverlay({ isOpen = true, onClose }: NotificationOverlayProps) {
@@ -45,9 +51,11 @@ export default function NotificationOverlay({ isOpen = true, onClose }: Notifica
 
         fetchNotifications();
     }, [isOpen, session]);
+
     useEffect(() => {
         if (!isOpen) return;
     }, [notifications, loading, error, isOpen]);
+
     if (!isOpen) return null;
 
     return (
@@ -59,7 +67,6 @@ export default function NotificationOverlay({ isOpen = true, onClose }: Notifica
                 </button>
             </div>
 
-            {/* Scrollable list area - fill remaining height and scroll */}
             <div className="mt-2 flex-1 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700">
                 {loading && <div className="p-4">Chargement...</div>}
                 {error && <div className="p-4 text-red-500">{error}</div>}
@@ -68,93 +75,93 @@ export default function NotificationOverlay({ isOpen = true, onClose }: Notifica
                     <div className="p-4 text-sm text-gray-500">Aucune notification</div>
                 )}
 
-            {!loading && (notifications ?? []).map((n, i) => {
-                                // message was stored as JSON-string or plain string; try to parse
-                                let parsed: any = null;
-                                try {
-                                    parsed = JSON.parse(n.message as unknown as string);
-                                } catch {
-                                    parsed = { message: String(n.message || "") };
-                                }
+                {!loading && (notifications ?? []).map((n: Notification) => {
+                    const parsed = n.parsed ?? null;
+                    const messageText = parsed?.message ?? String(n.message || "");
+                    const isRead = Boolean(n.read_date);
 
-                                // Prefer the sender metadata from the DB (if id_sender present),
-                                // falling back to the structured message `from`, then to a system label.
-                                const senderUsername = (n as any).sender_username;
-                                const senderFirst = (n as any).sender_first_name;
-                                const senderLast = (n as any).sender_last_name;
-                                let username = "Système";
-                                if (senderFirst || senderLast) {
-                                    username = [senderFirst, senderLast].filter(Boolean).join(" ");
-                                } else if (senderUsername) {
-                                    username = String(senderUsername);
-                                } else if (parsed?.from) {
-                                    username = String(parsed.from);
-                                }
+                    const firstNameFromSender = n.sender_first_name
+                        ? String(n.sender_first_name).trim().split(/\s+/)[0]
+                        : null;
+                    const username = firstNameFromSender || "Système";
 
-                                // If this is a share-invite, show special text and an accept button
-                                                if (parsed?.type === "share-invite" || parsed?.type === "share-invite" ) {
-                                    const docTitle = parsed.documentTitle || parsed.title || "un document";
-                                    const confirmUrl = parsed.url || parsed.confirmUrl;
-                                                    const isRead = Boolean((n as any).read_date);
-                                                    return (
-                                                        <div key={n.id} className={`px-2 py-2 ${isRead ? 'bg-gray-100 dark:bg-gray-700' : ''}`}>
-                                            <div className="flex items-center justify-between">
-                                                <div>
-                                                    <div className="font-medium">{username} vous a partagé un document</div>
-                                                    <div className="text-sm text-gray-600 dark:text-gray-300">{docTitle}</div>
-                                                </div>
-                                                <div className="ml-2">
-                                                                                        {isRead ? (
-                                                                                            <button
-                                                                                                disabled
-                                                                                                className="bg-gray-400 text-white px-3 py-1 rounded opacity-80 cursor-not-allowed"
-                                                                                            >
-                                                                                                Accepté
-                                                                                            </button>
-                                                                                        ) : (
-                                                                                            <button
-                                                                                                onClick={async (e) => {
-                                                                                                    e.preventDefault();
-                                                                                                    try {
-                                                                                                        await fetch('/api/notification/mark-read', {
-                                                                                                            method: 'POST',
-                                                                                                            headers: { 'Content-Type': 'application/json' },
-                                                                                                            body: JSON.stringify({ notificationId: n.id }),
-                                                                                                            cache: 'no-store'
-                                                                                                        });
-                                                                                                    } catch (err) {
-                                                                                                        // intentionally silent failure — UI will not crash on mark-read failure
-                                                                                                    }
-                                                                                                    // navigate to confirm url after marking as read
-                                                                                                    if (confirmUrl) {
-                                                                                                        window.location.href = confirmUrl;
-                                                                                                    }
-                                                                                                }}
-                                                                                                className="bg-primary text-white px-3 py-1 rounded"
-                                                                                            >
-                                                                                                Accepter
-                                                                                            </button>
-                                                                                        )}
-                                                </div>
-                                            </div>
+                    const rawAvatar = n.avatar;
+                    const avatarUrl = typeof rawAvatar === "string" ? rawAvatar.trim() : "";
+
+                    if (parsed?.type === "share-invite") {
+                        const docTitle = parsed.documentTitle || parsed.title || "un document";
+                        const confirmUrl = parsed.url || parsed.confirmUrl;
+                        const initial = (username?.charAt(0) || "U").toUpperCase();
+                        const displayTitle = truncateText(String(docTitle), 50);
+
+                        return (
+                            <div key={n.id} className={`px-2 py-2 ${isRead ? "bg-gray-100 dark:bg-gray-700" : ""}`}>
+                                <div className="flex items-center gap-3 min-w-0">
+                                    <Avatar className="w-10 h-10 flex-shrink-0" title={username}>
+                                        <AvatarImage src={avatarUrl || undefined} alt={username} />
+                                        <AvatarFallback className="text-sm font-medium">{initial}</AvatarFallback>
+                                    </Avatar>
+
+                                    <div className="flex-1 min-w-0 pr-2">
+                                        <div className="font-medium text-sm line-clamp-2" title='Partage de note'>
+                                            {username} vous a partagé une note
                                         </div>
-                                    );
-                                }
-
-                                // default notification rendering
-                                const messageText = parsed?.message || String(n.message || "");
-                                const isReadDefault = Boolean((n as any).read_date);
-                                return (
-                                    <div key={`item-${n.id}`} className={`${isReadDefault ? 'bg-gray-100 dark:bg-gray-700' : ''}`}>
-                                        <NotificationItem
-                                            key={n.id}
-                                            avatar={""}
-                                            username={String(username)}
-                                            message={messageText}
-                                            onClick={() => { /* TODO: handle click */ }}
-                                        />
+                                        <div className="text-xs text-gray-600 dark:text-gray-300 truncate" title={String(docTitle)}>
+                                            {displayTitle}
+                                        </div>
                                     </div>
-                                );
+
+                                    <div className="flex-shrink-0">
+                                        {isRead ? (
+                                            <button
+                                                title="Invitation déjà acceptée"
+                                                disabled
+                                                className="bg-gray-400 text-white px-3 py-1 rounded opacity-80 cursor-not-allowed"
+                                            >
+                                                Accepté
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={async (e) => {
+                                                    e.preventDefault();
+                                                    try {
+                                                        await fetch("/api/notification/mark-read", {
+                                                            method: "POST",
+                                                            headers: { "Content-Type": "application/json" },
+                                                            body: JSON.stringify({ notificationId: n.id }),
+                                                            cache: "no-store",
+                                                        });
+                                                    } catch {
+                                                        // silent
+                                                    }
+                                                    if (confirmUrl) window.location.href = confirmUrl;
+                                                }}
+                                                className="bg-primary text-white px-3 py-1 rounded"
+                                            >
+                                                Accepter
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    }
+
+                    const idSender = Object.prototype.hasOwnProperty.call(n, "id_sender")
+                        ? (n as any).id_sender
+                        : undefined;
+
+                    return (
+                        <div key={`item-${n.id}`} className={`${isRead ? "bg-gray-100 dark:bg-gray-700" : ""}`}>
+                            <NotificationItem
+                                key={n.id}
+                                id_sender={idSender}
+                                avatar={avatarUrl}
+                                username={String(username)}
+                                message={messageText}
+                            />
+                        </div>
+                    );
                 })}
             </div>
         </div>

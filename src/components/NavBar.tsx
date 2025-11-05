@@ -157,7 +157,6 @@ export default function NavBar() {
     setShowNotifications((prev) => {
       const next = !prev;
       if (next) setIsOpen(false);
-      console.log("notifications next:", next);
       return next;
     });
   };

@@ -1,14 +1,9 @@
 import { BaseRepository } from "./BaseRepository";
 import { Notification } from "../types";
 
-/**
- * Low-level DB operations for notifications.
- * All methods return a Database-like result object (success/error and data).
- */
 export class NotificationRepository extends BaseRepository {
     async initializeTables(): Promise<void> {
         try {
-            // Create notifications table if it doesn't exist
             await this.query(`
         CREATE TABLE IF NOT EXISTS notifications (
           id SERIAL PRIMARY KEY,
@@ -20,9 +15,7 @@ export class NotificationRepository extends BaseRepository {
         )
       `);
 
-            // Index on receiver for fast reads
             await this.query(`CREATE INDEX IF NOT EXISTS idx_notifications_receiver ON notifications(id_receiver)`);
-            // Optional index on send_date for sorting
             await this.query(`CREATE INDEX IF NOT EXISTS idx_notifications_send_date ON notifications(send_date DESC)`);
         } catch (error) {
             console.error("❌ Erreur lors de l'initialisation des tables notifications:", error);
@@ -32,7 +25,6 @@ export class NotificationRepository extends BaseRepository {
 
     async createNotification(id_sender: number | null, id_receiver: number, message: object | string) {
         try {
-            // Ensure we insert valid JSON into jsonb column
             const msg = JSON.stringify(message);
 
             const result = await this.query<Notification>(
@@ -43,7 +35,6 @@ export class NotificationRepository extends BaseRepository {
             );
 
             const row = result.rows[0];
-            // Ensure message is returned as string to match types.ts Notification.message
             if (row && typeof row.message === "object") {
                 row.message = JSON.stringify(row.message);
             }
@@ -61,7 +52,7 @@ export class NotificationRepository extends BaseRepository {
             let query = `
             SELECT n.id, n.id_sender, n.id_receiver, n.message, n.send_date, n.read_date,
                    u.username AS sender_username, u.first_name AS sender_first_name, u.last_name AS sender_last_name,
-                   u.profile_image AS sender_profile_image
+                   u.profile_image AS sender_avatar
             FROM notifications n
             LEFT JOIN users u ON n.id_sender = u.id
             WHERE n.id_receiver = $1
@@ -78,12 +69,10 @@ export class NotificationRepository extends BaseRepository {
             >(query, params);
 
             const rows = result.rows.map(r => {
-                // Ensure message is returned as a string
                 if (r.message && typeof r.message === "object") {
                     (r as any).message = JSON.stringify(r.message);
                 }
 
-                // Guarantee a sender_username field is present (null for system notifications)
                 return {
                     ...r,
                     sender_username: (r as any).sender_username ?? null
