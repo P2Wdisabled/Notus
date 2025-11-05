@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import DOMPurify from "dompurify";
 
 export interface EditorEventHandlersProps {
@@ -30,6 +30,8 @@ export function useEditorEventHandlers({
   formattingHandler,
   handleEditorChange
 }: EditorEventHandlersProps) {
+  // Timer ref used to delay hiding the link popup to allow moving cursor to the popup
+  const popupHideTimerRef = useRef<number | null>(null);
   
   // Handle content change in the editor - convert to markdown
   const handleEditorChangeCallback = useCallback((e?: React.FormEvent) => {
@@ -60,6 +62,13 @@ export function useEditorEventHandlers({
 
   // Handle link hover to show popup
   const handleLinkHover = useCallback((e: React.MouseEvent) => {
+    // If there's a scheduled hide, cancel it because we're hovering a link now
+    try {
+      if (popupHideTimerRef.current) {
+        clearTimeout(popupHideTimerRef.current as any);
+        popupHideTimerRef.current = null;
+      }
+    } catch (_) {}
     const target = e.target as HTMLElement;
     const link = target.closest('a');
     if (link && editorRef.current) {
@@ -88,12 +97,27 @@ export function useEditorEventHandlers({
       const isMovingToPopup = relatedTarget?.closest('[data-link-popup]');
       const isMovingToAnotherLink = relatedTarget?.closest('a');
       
-      // Only hide if not moving to popup or another link
+      // Delay hiding slightly to allow the pointer to enter the popup
       if (!isMovingToPopup && !isMovingToAnotherLink) {
-        setLinkPopup(prev => ({ ...prev, visible: false }));
+        try {
+          if (popupHideTimerRef.current) clearTimeout(popupHideTimerRef.current as any);
+        } catch (_) {}
+        popupHideTimerRef.current = window.setTimeout(() => {
+          setLinkPopup(prev => ({ ...prev, visible: false }));
+          popupHideTimerRef.current = null;
+        }, 150) as unknown as number;
       }
     }
   }, [setLinkPopup]);
+
+  // Clear any pending timer on unmount
+  useEffect(() => {
+    return () => {
+      try {
+        if (popupHideTimerRef.current) clearTimeout(popupHideTimerRef.current as any);
+      } catch (_) {}
+    };
+  }, []);
 
   // Handle editor clicks to track selected image
   const handleEditorClick = useCallback((e: React.MouseEvent) => {
@@ -154,6 +178,27 @@ export function useEditorEventHandlers({
     const pastedData = clipboardData.getData('text/html') || clipboardData.getData('text/plain');
     
     if (pastedData) {
+      try {
+        // If current selection is inside a link, move caret after the link before inserting
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0) {
+          let node: Node | null = sel.getRangeAt(0).commonAncestorContainer;
+          if (node && node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+          const el = node as Element | null;
+          if (el) {
+            const anchor = el.closest && el.closest('a');
+            if (anchor && anchor.parentNode) {
+              const newRange = document.createRange();
+              newRange.setStartAfter(anchor);
+              newRange.collapse(true);
+              sel.removeAllRanges();
+              sel.addRange(newRange);
+            }
+          }
+        }
+      } catch (_e) {
+        // ignore
+      }
       // Clean the pasted content
       const cleanHtml = DOMPurify.sanitize(pastedData);
       document.execCommand('insertHTML', false, cleanHtml);
@@ -177,6 +222,108 @@ export function useEditorEventHandlers({
     else if ((e.ctrlKey && e.shiftKey && e.key === 'Z') || (e.ctrlKey && e.key === 'y')) {
       e.preventDefault();
       formattingHandler.current.applyFormatting('redo');
+    }
+    // Handle Backspace to remove a zero-width-space paragraph in one stroke
+    else if (e.key === 'Backspace' && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+      try {
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount === 1) {
+          const range = sel.getRangeAt(0);
+          if (range.collapsed) {
+            let node: Node | null = range.startContainer;
+            if (node && node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+            const el = node as HTMLElement | null;
+            const para = el?.closest ? (el.closest('p') || el.closest('div')) as HTMLElement | null : null;
+            if (para) {
+              const txt = para.textContent || '';
+              // If paragraph contains only the zero-width-space, remove paragraph
+              if (txt === '\u200B' || txt === '\u200B\n' || txt.trim() === '\u200B') {
+                e.preventDefault();
+                const prev = para.previousElementSibling as HTMLElement | null;
+                if (prev) {
+                  // remove the empty paragraph and put caret at end of previous block
+                  para.remove();
+                  const sel2 = window.getSelection();
+                  const rng = document.createRange();
+                  // find last text node inside prev
+                  const walker = document.createTreeWalker(prev, NodeFilter.SHOW_TEXT);
+                  let last: Node | null = null;
+                  let n = walker.nextNode();
+                  while (n) { last = n; n = walker.nextNode(); }
+                  if (last) {
+                    rng.setStart(last, (last.textContent || '').length);
+                    rng.collapse(true);
+                    sel2?.removeAllRanges();
+                    sel2?.addRange(rng);
+                  } else {
+                    // fallback: place caret after prev
+                    rng.setStartAfter(prev);
+                    rng.collapse(true);
+                    sel2?.removeAllRanges();
+                    sel2?.addRange(rng);
+                  }
+                } else {
+                  // no previous block: clear paragraph content and place caret at start
+                  para.textContent = '';
+                  const sel2 = window.getSelection();
+                  const rng = document.createRange();
+                  rng.selectNodeContents(para);
+                  rng.collapse(true);
+                  sel2?.removeAllRanges();
+                  sel2?.addRange(rng);
+                }
+                try {
+                  if (editorRef.current && markdownConverter.current) {
+                    const updatedHtml = editorRef.current.innerHTML;
+                    try {
+                      const updatedMd = markdownConverter.current.htmlToMarkdown(updatedHtml);
+                      onContentChange(updatedMd);
+                    } catch (_err) {
+                      // fallback to generic change handler if conversion fails
+                      try { (handleEditorChange as any)(); } catch (_e) {}
+                    }
+                  } else {
+                    try { (handleEditorChange as any)(); } catch (_e) {}
+                  }
+                } catch (_e) {}
+              }
+            }
+          }
+        }
+      } catch (_e) {
+        // ignore
+      }
+    }
+    // Handle Enter to preserve empty paragraph lines across sync
+    else if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+      // Allow default behavior (creates paragraph), then ensure the new paragraph
+      // contains a zero-width space if it's empty so it survives HTML/MD roundtrips.
+      setTimeout(() => {
+        try {
+          const sel = window.getSelection();
+          if (!sel || sel.rangeCount === 0) return;
+          const range = sel.getRangeAt(0);
+          let node: Node | null = range.startContainer;
+          if (node && node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+          const el = node as HTMLElement | null;
+          const paragraph = el?.closest ? (el.closest('p') || el.closest('div')) as HTMLElement | null : null;
+          if (paragraph) {
+            const txt = paragraph.textContent || '';
+            // If paragraph contains only whitespace or is effectively empty, insert ZWSP
+            if (txt.trim() === '') {
+              const zw = document.createTextNode('\u200B');
+              paragraph.insertBefore(zw, paragraph.firstChild || null);
+              const newRange = document.createRange();
+              newRange.setStart(zw, 1);
+              newRange.collapse(true);
+              sel.removeAllRanges();
+              sel.addRange(newRange);
+              // Notify change so collaboration sends the updated markdown
+              try { (handleEditorChange as any)(); } catch(_e) {}
+            }
+          }
+        } catch (_e) {}
+      }, 0);
     }
     // Handle Ctrl+B for bold
     else if (e.ctrlKey && e.key === 'b') {
@@ -203,7 +350,7 @@ export function useEditorEventHandlers({
       e.preventDefault();
       formattingHandler.current.applyFormatting('insertHorizontalRule');
     }
-  }, [formattingHandler]);
+  }, [formattingHandler, handleEditorChange]);
 
   return {
     handleEditorChange: handleEditorChangeCallback,

@@ -77,16 +77,16 @@ export class FormattingHandler {
           // If containers are no longer valid, try to find similar content
           const editor = this.editorRef.current;
           if (editor) {
-            const textNodes = [];
-            const walker = document.createTreeWalker(
-              editor,
-              NodeFilter.SHOW_TEXT,
-              null
-            );
-            let node;
-            while (node = walker.nextNode()) {
-              textNodes.push(node);
-            }
+                  const textNodes = [];
+                  const walker = document.createTreeWalker(
+                    editor,
+                    NodeFilter.SHOW_TEXT,
+                    null
+                  );
+                  let node;
+                  while (node = walker.nextNode()) {
+                    textNodes.push(node);
+                  }
             
             if (textNodes.length > 0) {
               // Try to find a text node that contains similar content
@@ -203,8 +203,12 @@ export class FormattingHandler {
               img.style.maxWidth = '100%';
               img.style.height = 'auto';
 
-              range.deleteContents();
-              range.insertNode(img);
+              // If current selection is inside a link, move caret outside before inserting
+              this.ensureSelectionOutsideLink(range, selection);
+
+              const updatedRange = selection.getRangeAt(0);
+              updatedRange.deleteContents();
+              updatedRange.insertNode(img);
 
               const br = document.createElement('br');
               img.parentNode?.insertBefore(br, img.nextSibling);
@@ -375,6 +379,32 @@ export class FormattingHandler {
     } catch (error) {
       console.error('Error applying formatting:', error);
     }
+  }
+
+  // Ensure the current selection/caret is moved outside of the nearest anchor (<a>) if any.
+  // Returns a Range representing the (possibly updated) selection range.
+  private ensureSelectionOutsideLink(range: Range, selection: Selection): Range {
+    try {
+      let node: Node | null = range.commonAncestorContainer;
+      // If text node, use its parent element to search for anchors
+      if (node && node.nodeType === Node.TEXT_NODE) node = node.parentElement as Node;
+      const el = node as Element | null;
+      if (el) {
+        const anchor = el.closest && el.closest('a');
+        if (anchor && anchor.parentNode) {
+          const newRange = document.createRange();
+          // Place caret immediately after the anchor to avoid inserting inside it
+          newRange.setStartAfter(anchor);
+          newRange.collapse(true);
+          selection.removeAllRanges();
+          selection.addRange(newRange);
+          return newRange;
+        }
+      }
+    } catch (e) {
+      // ignore and return original range
+    }
+    return range;
   }
 
   private setImageProperties(img: HTMLImageElement, payload: { src?: string; widthPercent?: number; widthPx?: number }) {

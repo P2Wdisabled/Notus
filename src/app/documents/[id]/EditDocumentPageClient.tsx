@@ -10,7 +10,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useLocalSession } from "@/hooks/useLocalSession";
@@ -21,6 +21,7 @@ import { addShareAction } from "@/lib/actions/DocumentActions";
 import UserListButton from "@/components/ui/UserList/UserListButton";
 import { useGuardedNavigate } from "@/hooks/useGuardedNavigate";
 import { useCollaborativeTitle } from "@/lib/paper.js/useCollaborativeTitle";
+import sanitizeLinks from "@/lib/sanitizeLinks";
 
 interface EditDocumentPageClientProps {
   session?: any;
@@ -87,7 +88,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   const [showSavedState, setShowSavedState] = useState(false);
   const [showSavedNotification, setShowSavedNotification] = useState(false);
 
-  
+
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [permission, setPermission] = useState("read");
@@ -104,11 +105,11 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   // Collaborative title synchronization
   const { emitTitleChange, isConnected: isTitleConnected } = useCollaborativeTitle({
     roomId: document ? String(document.id) : undefined,
-      onRemoteTitle: (remoteTitle: string) => {
-        setTitle(remoteTitle);
-        // Update localStorage with remote title change
-        updateLocalStorage(content, remoteTitle);
-      },
+    onRemoteTitle: (remoteTitle: string) => {
+      setTitle(remoteTitle);
+      // Update localStorage with remote title change
+      updateLocalStorage(content, remoteTitle);
+    },
   });
 
   const normalizeContent = (rawContent: any): NotepadContent => {
@@ -169,7 +170,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
               JSON.stringify(cachePayload)
             );
           }
-        } catch {}
+        } catch { }
       } else {
         try {
           if (typeof window !== "undefined") {
@@ -192,7 +193,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
               return;
             }
           }
-        } catch {}
+        } catch { }
         setError(result.error || "Erreur lors du chargement du document");
       }
     } catch (err) {
@@ -217,7 +218,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
             return;
           }
         }
-      } catch {}
+      } catch { }
       setError("Erreur lors du chargement du document");
     } finally {
       setIsLoading(false);
@@ -259,7 +260,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     const handleBeforeUnload = () => {
       try {
         localStorage.removeItem(key);
-      } catch {}
+      } catch { }
     };
 
     if (typeof window !== "undefined") {
@@ -271,7 +272,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
         window.removeEventListener("beforeunload", handleBeforeUnload);
         try {
           localStorage.removeItem(key);
-        } catch {}
+        } catch { }
       }
     };
   }, [props.params.id]);
@@ -293,10 +294,9 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
           user_id: cached?.user_id ?? Number(userId ?? ((props.session as any)?.user?.id ?? 0)),
           cachedAt: Date.now(),
         };
-          localStorage.setItem(key, JSON.stringify(payload));
+        localStorage.setItem(key, JSON.stringify(payload));
       }
     } catch (err) {
-      // Silent error handling for localStorage
     }
   }, [props.params.id, title, tags, userId, props.session]);
 
@@ -348,7 +348,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
       }
 
       const contentToSave = {
-        text: content.text || "",
+        text: sanitizeLinks(content.text || ""),
         drawings: drawingsToSave,
         textFormatting: content.textFormatting || {},
         timestamp: Date.now(),
@@ -385,7 +385,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
           setShowSuccessMessage(true);
           setShowSavedState(true);
           setTimeout(() => setShowSuccessMessage(false), 3000);
-        } catch {}
+        } catch { }
         return;
       }
 
@@ -426,7 +426,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
       } catch (err) {
         // Silent error handling for autosave
       }
-    }, 1000); //Auto-enregistrement après 1 seconde
+    }, 3000); //Auto-enregistrement après 3 secondes
 
     return () => {
       clearInterval(intervalId);
@@ -453,18 +453,18 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     const handleOnline = async () => {
       setIsOffline(false);
       console.log('🌐 Reconnexion détectée - Début de la résolution des conflits');
-      
+
       try {
         // Fetch current state from database
         const response = await fetch(`/api/openDoc?id=${document.id}`, { cache: "no-store" });
         const result = await response.json();
-        
-          if (result.success) {
+
+        if (result.success) {
           const remoteContent = normalizeContent(result.content);
           const remoteText = remoteContent.text || "";
           const storedBaseline = localStorage.getItem(`notus:offline-baseline:${document.id}`) || "";
           const currentText = content.text || "";
-          
+
           console.log('📊 Données récupérées de la base de données:', {
             documentId: document.id,
             title: result.title,
@@ -475,7 +475,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
             hasContent: !!result.content,
             contentType: typeof result.content
           });
-          
+
           console.log('🔍 Analyse des conflits:', {
             documentId: document.id,
             baselineLength: storedBaseline.length,
@@ -485,7 +485,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
             remotePreview: remoteText.substring(0, 50) + '...',
             currentPreview: currentText.substring(0, 50) + '...'
           });
-          
+
           // Compare remote content with stored baseline
           if (remoteText !== storedBaseline) {
             // Remote changes occurred while offline - overwrite local changes
@@ -498,22 +498,22 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
               tags: result.tags,
               updatedAt: result.updated_at
             });
-            
+
             // Update document state with remote data
             setDocument({
               ...document,
               content: JSON.stringify(remoteContent),
               updated_at: new Date(result.updated_at)
             });
-            
+
             // Update all local states with remote data
             setContent(remoteContent);
             setTitle(result.title);
             setTags(Array.isArray(result.tags) ? result.tags : []);
-            
+
             // Update localStorage with remote data
             updateLocalStorage(remoteContent, result.title);
-            
+
             setOfflineBaseline("");
             localStorage.removeItem(`notus:offline-baseline:${document.id}`);
             console.log('✅ Résolution terminée - Toutes les données distantes appliquées');
@@ -578,69 +578,6 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     }
   };
 
-  const addTag = () => {
-    const value = (newTag || "").trim().substring(0, 30);
-    if (!value) return;
-    if (tags.includes(value)) {
-      setNewTag("");
-      setShowTagInput(false);
-      return;
-    }
-    const next = [...tags, value];
-    setTags(next);
-    try {
-      const key = `notus:doc:${props.params.id}`;
-      const cachedRaw = typeof window !== "undefined" ? localStorage.getItem(key) : null;
-      const cached = cachedRaw ? JSON.parse(cachedRaw) : {};
-      const payload = {
-        ...(cached || {}),
-        id: Number(props.params.id),
-        title: title,
-        content: content,
-        tags: next,
-        updated_at: new Date().toISOString(),
-            user_id: cached?.user_id ?? Number(userId ?? ((props.session as any)?.user?.id ?? 0)),
-        cachedAt: Date.now(),
-      };
-      if (typeof window !== "undefined") {
-        localStorage.setItem(key, JSON.stringify(payload));
-      }
-    } catch {}
-
-    if (typeof navigator !== "undefined" && navigator.onLine) {
-      persistTags(next);
-    }
-    setNewTag("");
-    setShowTagInput(false);
-  };
-
-  const removeTag = (value: string) => {
-    const next = tags.filter((t) => t !== value);
-    setTags(next);
-    try {
-      const key = `notus:doc:${props.params.id}`;
-      const cachedRaw = typeof window !== "undefined" ? localStorage.getItem(key) : null;
-      const cached = cachedRaw ? JSON.parse(cachedRaw) : {};
-      const payload = {
-        ...(cached || {}),
-        id: Number(props.params.id),
-        title: title,
-        content: content,
-        tags: next,
-        updated_at: new Date().toISOString(),
-        user_id: cached?.user_id ?? Number(userId ?? ((props.session as any)?.user?.id ?? 0)),
-        cachedAt: Date.now(),
-      };
-      if (typeof window !== "undefined") {
-        localStorage.setItem(key, JSON.stringify(payload));
-      }
-    } catch {}
-
-    if (typeof navigator !== "undefined" && navigator.onLine) {
-      persistTags(next);
-    }
-  };
-
   // -------- Access control --------
   useEffect(() => {
     if (!document) {
@@ -665,15 +602,15 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
         const result = await res.json();
         if (result.success && Array.isArray(result.accessList)) {
           const myEmail = String(userEmail).trim().toLowerCase();
-          
+
           // Check if user is owner
           const isOwner = Number(document.user_id) === Number(userId);
-          
+
           // Check if user has any access (read or edit)
-          const userAccess = result.accessList.find((u: any) => 
+          const userAccess = result.accessList.find((u: any) =>
             (u.email || "").trim().toLowerCase() === myEmail
           );
-          
+
           if (isOwner) {
             setHasEditAccess(true);
             setHasReadAccess(true);
@@ -930,7 +867,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
                   >
                     {hasEditAccess === false ? "Lecture seule" : "Partager"}
                   </MenuItem>
-                  
+
                   <MenuItem
                     onClick={() => {
                       if (hasEditAccess !== false) {
@@ -941,9 +878,9 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
                     disabled={hasEditAccess === false || isPending}
                     icon={
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M19 21H5C3.89543 21 3 20.1046 3 19V5C3 3.89543 3.89543 3 5 3H16L21 8V19C21 20.1046 20.1046 21 19 21Z" stroke={hasEditAccess === false || isPending ? "#999" : "#DD05C7"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                        <path d="M17 21V13H7V21" stroke={hasEditAccess === false || isPending ? "#999" : "#DD05C7"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                        <path d="M7 3V8H15" stroke={hasEditAccess === false || isPending ? "#999" : "#DD05C7"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M19 21H5C3.89543 21 3 20.1046 3 19V5C3 3.89543 3.89543 3 5 3H16L21 8V19C21 20.1046 20.1046 21 19 21Z" stroke={hasEditAccess === false || isPending ? "#999" : "#DD05C7"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        <path d="M17 21V13H7V21" stroke={hasEditAccess === false || isPending ? "#999" : "#DD05C7"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        <path d="M7 3V8H15" stroke={hasEditAccess === false || isPending ? "#999" : "#DD05C7"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                     }
                   >
@@ -1097,10 +1034,10 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
               </div>
             </div>
 
-            
+
           </form>
         </div>
-        
+
         {/* Saved notification */}
         {showSavedNotification && (
           <div className="fixed bottom-4 left-4 z-50 pointer-events-none">

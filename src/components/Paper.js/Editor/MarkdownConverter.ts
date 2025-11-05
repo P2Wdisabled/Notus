@@ -205,7 +205,11 @@ export class MarkdownConverter {
 
   // Convert markdown to HTML
   markdownToHtml(md: string): string {
-    const html = marked(md, {
+    // Defensive: replace any legacy placeholder tokens saved in markdown with explicit blank lines
+    const PLACEHOLDER = '[[__EMPTY_PARAGRAPH__]]';
+    const cleanedMd = md.split(PLACEHOLDER).join('\n\n');
+
+    const html = marked(cleanedMd, {
       breaks: true,
       gfm: true,
     }) as string;
