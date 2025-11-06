@@ -108,7 +108,7 @@ export default function UsersTable({ users }: UsersTableProps) {
   const getStatusBadge = (user: User) => {
     if (user.is_banned) {
       return (
-        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-destructive/10 text-destructive">
           Banni
         </span>
       );
@@ -116,7 +116,7 @@ export default function UsersTable({ users }: UsersTableProps) {
 
     if (!user.email_verified) {
       return (
-        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-accent/10 text-accent-foreground">
           En attente
         </span>
       );
@@ -133,7 +133,7 @@ export default function UsersTable({ users }: UsersTableProps) {
     if (!provider) return null;
 
     return (
-      <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+      <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-secondary text-secondary-foreground">
         {provider}
       </span>
     );
@@ -227,7 +227,7 @@ export default function UsersTable({ users }: UsersTableProps) {
                     </div>
                   </div>
                 ) : (
-                  <div className="text-red-600 dark:text-red-400 font-medium">
+                  <div className="text-destructive font-medium">
                     ✗ Non acceptées
                   </div>
                 )}
@@ -238,8 +238,8 @@ export default function UsersTable({ users }: UsersTableProps) {
                     onClick={() => handleBanClick(user)}
                     disabled={banningUsers.has(user.id)}
                     className={`inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded ${user.is_banned
-                      ? "text-green-700 bg-green-100 hover:bg-green-200 dark:bg-green-900 dark:text-green-200 dark:hover:bg-green-800"
-                      : "text-red-700 bg-red-100 hover:bg-red-200 dark:bg-red-900 dark:text-red-200 dark:hover:bg-red-800"
+                      ? "text-primary bg-primary/10 hover:bg-primary/20"
+                      : "text-destructive bg-destructive/10 hover:bg-destructive/20"
                       } disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
                     {banningUsers.has(user.id) ? (
@@ -282,7 +282,7 @@ export default function UsersTable({ users }: UsersTableProps) {
 
       {users.length === 0 && (
         <div className="text-center py-12">
-          <Icon name="users" className="mx-auto h-12 w-12 text-gray-400" />
+          <Icon name="users" className="mx-auto h-12 w-12 text-muted-foreground" />
           <h3 className="mt-2 text-sm font-medium text-foreground">
             Aucun utilisateur
           </h3>
@@ -294,32 +294,32 @@ export default function UsersTable({ users }: UsersTableProps) {
 
       {/* Modal de confirmation de bannissement */}
       {showBanModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white dark:bg-gray-800">
+        <div className="fixed inset-0 bg-foreground/30 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-card">
             <div className="mt-3">
-              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900">
-                <Icon name="alert" className="h-6 w-6 text-red-600 dark:text-red-400" />
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-destructive/10">
+                <Icon name="alert" className="h-6 w-6 text-destructive" />
               </div>
               <div className="mt-2 text-center">
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                <h3 className="text-lg font-medium text-foreground">
                   Confirmer le bannissement
                 </h3>
                 <div className="mt-2 px-7 py-3">
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                  <p className="text-sm text-muted-foreground">
                     Êtes-vous sûr de vouloir bannir{" "}
                     <strong>
                       {userToBan?.first_name} {userToBan?.last_name}
                     </strong>{" "}
                     ?
                   </p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
+                  <p className="text-xs text-muted-foreground mt-2">
                     Un email de notification sera envoyé à l'utilisateur.
                   </p>
                 </div>
                 <div className="mt-4">
                   <label
                     htmlFor="banReason"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 text-left"
+                    className="block text-sm font-medium text-foreground text-left"
                   >
                     Raison du bannissement (optionnel)
                   </label>
@@ -327,7 +327,7 @@ export default function UsersTable({ users }: UsersTableProps) {
                     id="banReason"
                     value={banReason}
                     onChange={(e) => setBanReason(e.target.value)}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-red-500 focus:border-red-500 dark:bg-gray-700 dark:text-white"
+                    className="mt-1 block w-full px-3 py-2 border border-border rounded-md shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring bg-card text-foreground"
                     rows={3}
                     placeholder="Expliquez la raison du bannissement..."
                   />
@@ -337,7 +337,7 @@ export default function UsersTable({ users }: UsersTableProps) {
                 <div className="flex space-x-3">
                   <button
                     onClick={confirmBan}
-                    className="px-4 py-2 bg-red-600 text-white text-base font-medium rounded-md shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-300"
+                    className="px-4 py-2 bg-destructive text-destructive-foreground text-base font-medium rounded-md shadow-sm hover:bg-destructive/90 focus:outline-none focus:ring-2 focus:ring-ring"
                   >
                     Confirmer le bannissement
                   </button>
@@ -347,7 +347,7 @@ export default function UsersTable({ users }: UsersTableProps) {
                       setUserToBan(null);
                       setBanReason("");
                     }}
-                    className="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 text-base font-medium rounded-md shadow-sm hover:bg-gray-400 dark:hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-300"
+                    className="px-4 py-2 bg-muted text-foreground text-base font-medium rounded-md shadow-sm hover:bg-muted/80 focus:outline-none focus:ring-2 focus:ring-ring"
                   >
                     Annuler
                   </button>

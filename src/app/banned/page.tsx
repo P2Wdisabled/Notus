@@ -8,30 +8,30 @@ export const metadata = {
 
 export default function BannedPage() {
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-background flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
           <div className="mx-auto h-16 w-16 text-red-500">
             <Icon name="alert" className="w-full h-full" />
           </div>
-          <h2 className="mt-6 text-3xl font-extrabold text-gray-900 dark:text-white">
+          <h2 className="mt-6 text-3xl font-extrabold text-foreground">
             Compte banni
           </h2>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+          <p className="mt-2 text-sm text-muted-foreground">
             Votre compte a été suspendu par un administrateur.
           </p>
         </div>
 
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-4">
+        <div className="bg-destructive/10 border border-destructive/20 rounded-md p-4">
           <div className="flex">
             <div className="flex-shrink-0">
-              <Icon name="alert" className="h-5 w-5 text-red-400" />
+              <Icon name="alert" className="h-5 w-5 text-destructive" />
             </div>
             <div className="ml-3">
-              <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
+              <h3 className="text-sm font-medium text-destructive">
                 Accès refusé
               </h3>
-              <div className="mt-2 text-sm text-red-700 dark:text-red-300">
+              <div className="mt-2 text-sm text-destructive">
                 <p>
                   Vous ne pouvez plus accéder à cette application. Si vous
                   pensez qu'il s'agit d'une erreur, contactez un administrateur.
@@ -44,7 +44,7 @@ export default function BannedPage() {
         <div className="text-center">
           <Link
             href="/"
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-primary-foreground bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring"
           >
             Retour à l'accueil
           </Link>

@@ -104,15 +104,15 @@ export default function ImageUpload({
   if (variant === "input") {
     return (
       <div className={`space-y-2 ${className}`}>
-        <label className="block text-black dark:text-white text-xl font-title font-bold">
+        <label className="block text-foreground text-xl font-title font-bold">
           {label}
         </label>
         <div
           className={`relative w-full px-3 py-2 border rounded-lg transition-colors bg-background text-foreground ${
             error
-              ? "border-red-500 focus-within:ring-red-500"
-              : "border-gray-300 dark:border-gray-600"
-          } focus-within:outline-none focus-within:ring-2 focus-within:ring-orange dark:focus-within:ring-dark-purple focus-within:border-transparent`}
+              ? "border-destructive focus-within:ring-destructive"
+              : "border-border"
+          } focus-within:outline-none focus-within:ring-2 focus-within:ring-ring focus-within:border-transparent`}
           onDrop={handleDrop}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
@@ -135,23 +135,23 @@ export default function ImageUpload({
           />
 
           <div className="flex items-center justify-between select-none">
-            <div className="text-dark-gray dark:text-gray text-sm">
+            <div className="text-muted-foreground text-sm">
               {previewUrl
                 ? "Image sélectionnée — cliquez pour changer"
                 : `JPEG, PNG, GIF et moins de ${sizeInMb}MB`}
             </div>
-            <div className="text-dark-gray dark:text-gray">
+            <div className="text-muted-foreground">
               <Icon name="pencil" className="w-4 h-4" />
             </div>
           </div>
         </div>
         {recommendedSize && (
-          <p className="text-sm text-dark-gray dark:text-light-gray">
+          <p className="text-sm text-muted-foreground">
             Format recommandé : {recommendedSize}
           </p>
         )}
         {error && (
-          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+          <p className="text-sm text-destructive">{error}</p>
         )}
       </div>
     );
@@ -160,7 +160,7 @@ export default function ImageUpload({
   // Default: dropzone variant
   return (
     <div className={`space-y-2 ${className}`}>
-      <label className="block text-black dark:text-white text-xl font-title font-bold">
+      <label className="block text-foreground text-xl font-title font-bold">
         {label}
       </label>
 
@@ -169,10 +169,10 @@ export default function ImageUpload({
           relative border-2 border-dashed rounded-lg p-6 text-center transition-colors
           ${
             isDragOver
-              ? "border-orange dark:border-dark-purple bg-orange/10 dark:bg-dark-purple/10"
-              : "border-gray dark:border-dark-gray hover:border-orange dark:hover:border-dark-purple"
+              ? "border-primary bg-primary/10"
+              : "border-border hover:border-primary"
           }
-          ${error ? "border-red-500 dark:border-red-400" : ""}
+          ${error ? "border-destructive" : ""}
         `}
         onDrop={handleDrop}
         onDragOver={handleDragOver}
@@ -206,19 +206,19 @@ export default function ImageUpload({
                 ×
               </button>
             </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+            <p className="text-sm text-muted-foreground">
               Cliquez pour changer l'image
             </p>
           </div>
         ) : (
           <div className="space-y-2">
-            <div className="w-12 h-12 mx-auto text-gray-400 dark:text-gray-500">
+            <div className="w-12 h-12 mx-auto text-muted-foreground">
               <Icon name="image" className="w-12 h-12" />
             </div>
-            <p className="text-gray-600 dark:text-gray-400">
+            <p className="text-muted-foreground">
               Glissez-déposez une image ou cliquez pour sélectionner
             </p>
-            <p className="text-sm text-gray-500 dark:text-gray-500">
+            <p className="text-sm text-muted-foreground">
               JPEG, PNG, GIF (max {Math.round(maxSize / 1024 / 1024)}MB)
               {recommendedSize && (
                 <span className="block text-xs mt-1">
@@ -231,7 +231,7 @@ export default function ImageUpload({
       </div>
 
       {error && (
-        <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+        <p className="text-sm text-destructive">{error}</p>
       )}
     </div>
   );

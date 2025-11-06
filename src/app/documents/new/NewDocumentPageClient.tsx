@@ -172,10 +172,10 @@ export default function NewDocumentPageClient(props: NewDocumentPageClientProps)
   // -------- Loading states --------
   if (sessionLoading) {
     return (
-      <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange dark:border-dark-purple mx-auto mb-4"></div>
-          <p className="text-orange dark:text-dark-purple">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-primary">
             Chargement de la session...
           </p>
         </div>
@@ -185,17 +185,17 @@ export default function NewDocumentPageClient(props: NewDocumentPageClientProps)
 
   if (!isLoggedIn) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="bg-card rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
+          <h1 className="text-2xl font-bold text-foreground mb-4">
             Accès refusé
           </h1>
-          <p className="text-gray-600 dark:text-gray-300 mb-6">
+          <p className="text-muted-foreground mb-6">
             Vous devez être connecté pour créer un document.
           </p>
           <Link
             href="/login"
-            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-3 px-6 rounded-lg transition-colors"
           >
             Se connecter
           </Link>
@@ -206,13 +206,13 @@ export default function NewDocumentPageClient(props: NewDocumentPageClientProps)
 
   // -------- Main render --------
   return (
-    <div className="min-h-screen bg-white dark:bg-black py-8">
+    <div className="min-h-screen bg-background py-8">
       <div className="max-w-4xl mx-auto px-4">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <Link
             href="/"
-            className="text-black dark:text-white font-semibold flex items-center"
+            className="text-foreground font-semibold flex items-center"
           >
             <Icon name="arrowLeft" className="h-5 w-5 mr-2" />
             Retour
@@ -220,7 +220,7 @@ export default function NewDocumentPageClient(props: NewDocumentPageClientProps)
         </div>
 
         {/* Create form */}
-        <div className="bg-white dark:bg-black rounded-2xl border border-gray dark:border-dark-gray p-6 overflow-hidden">
+        <div className="bg-card rounded-2xl border border-border p-6 overflow-hidden">
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Title */}
             <div>
@@ -228,7 +228,7 @@ export default function NewDocumentPageClient(props: NewDocumentPageClientProps)
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange dark:focus:ring-dark-purple bg-transparent text-black dark:text-white text-xl font-semibold"
+                className="w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-ring bg-transparent text-foreground text-xl font-semibold"
                 placeholder="Titre du document"
                 maxLength={255}
               />
@@ -236,7 +236,7 @@ export default function NewDocumentPageClient(props: NewDocumentPageClientProps)
 
             {/* Content */}
             <div>
-              <div className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-700">
+              <div className="border border-border rounded-lg overflow-hidden bg-card">
                 <WysiwygNotepad
                   initialData={content}
                   onContentChange={handleContentChange}
@@ -255,11 +255,7 @@ export default function NewDocumentPageClient(props: NewDocumentPageClientProps)
               <Button
                 type="submit"
                 disabled={isPending}
-                className={`${
-                  showSavedState
-                    ? "bg-green-600 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-600"
-                    : "bg-primary hover:bg-primary/90 text-primary-foreground"
-                } disabled:bg-gray-400 disabled:cursor-not-allowed font-semibold py-3 px-6 rounded-lg transition-colors`}
+                className={`bg-primary hover:bg-primary/90 text-primary-foreground disabled:bg-muted disabled:cursor-not-allowed font-semibold py-3 px-6 rounded-lg transition-colors`}
               >
                 {isPending
                   ? "Sauvegarde..."
@@ -274,15 +270,15 @@ export default function NewDocumentPageClient(props: NewDocumentPageClientProps)
               <div
                 className={`shrink-0 rounded-lg p-4 mt-4 ${
                   showSuccessMessage
-                    ? "bg-white dark:bg-black border border-orange dark:border-dark-purple"
-                    : "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"
+                    ? "bg-card border border-primary"
+                    : "bg-destructive/10 border border-destructive/20"
                 }`}
               >
                 <p
                   className={`text-sm ${
                     showSuccessMessage
-                      ? "text-orange dark:text-dark-purple"
-                      : "text-red-600 dark:text-red-400"
+                      ? "text-primary"
+                      : "text-destructive"
                   }`}
                 >
                   {showSuccessMessage

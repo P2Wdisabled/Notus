@@ -46,20 +46,20 @@ export default function NoteCard({ note, currentUserId, onDelete }: NoteCardProp
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 mb-4">
+    <div className="bg-background rounded-2xl shadow-xl p-6 mb-4">
       {/* En-tête de la note */}
       <div className="flex justify-between items-start mb-4">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
+          <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
             <span className="text-white font-bold text-sm">
               {note.first_name?.charAt(0) || "U"}
             </span>
           </div>
           <div>
-            <h3 className="font-semibold text-gray-900 dark:text-white">
+            <h3 className="font-semibold text-foreground">
               {note.first_name} {note.last_name}
             </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-sm text-muted-foreground">
               @{note.username} • {timeAgo}
             </p>
           </div>
@@ -70,7 +70,7 @@ export default function NoteCard({ note, currentUserId, onDelete }: NoteCardProp
           <div className="relative">
             <button
               onClick={() => setShowDeleteConfirm(!showDeleteConfirm)}
-              className="text-gray-400 hover:text-red-500 transition-colors"
+              className="text-muted-foreground hover:text-destructive transition-colors"
               title="Supprimer la note"
             >
               <Icon name="trash" className="w-5 h-5" />
@@ -78,14 +78,14 @@ export default function NoteCard({ note, currentUserId, onDelete }: NoteCardProp
 
             {/* Confirmation de suppression */}
             {showDeleteConfirm && (
-              <div className="absolute right-0 top-8 bg-white dark:bg-gray-700 rounded-lg shadow-lg p-4 border border-gray-200 dark:border-gray-600 z-10">
-                <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
+              <div className="absolute right-0 top-8 bg-card rounded-lg shadow-lg p-4 border border-border z-10">
+                <p className="text-sm text-foreground mb-3">
                   Supprimer cette note ?
                 </p>
                 <div className="flex space-x-2">
                   <button
                     onClick={() => setShowDeleteConfirm(false)}
-                    className="text-sm px-3 py-1 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-500"
+                    className="text-sm px-3 py-1 bg-muted text-foreground rounded hover:bg-muted/80"
                   >
                     Annuler
                   </button>
@@ -93,7 +93,7 @@ export default function NoteCard({ note, currentUserId, onDelete }: NoteCardProp
                     <button
                       type="submit"
                       disabled={isPending}
-                      className="text-sm px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50"
+                      className="text-sm px-3 py-1 bg-destructive text-destructive-foreground rounded hover:bg-destructive/90 disabled:opacity-50"
                     >
                       {isPending ? "Suppression..." : "Supprimer"}
                     </button>
@@ -106,14 +106,14 @@ export default function NoteCard({ note, currentUserId, onDelete }: NoteCardProp
       </div>
 
       {/* Contenu de la note */}
-      <div className="text-gray-900 dark:text-white whitespace-pre-wrap">
+      <div className="text-foreground whitespace-pre-wrap">
         {note.content}
       </div>
 
       {/* Message de suppression */}
       {message && (
-        <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-          <p className="text-sm text-red-600 dark:text-red-400">{message}</p>
+        <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+          <p className="text-sm text-destructive">{message}</p>
         </div>
       )}
     </div>

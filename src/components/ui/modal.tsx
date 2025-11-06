@@ -80,7 +80,7 @@ const ModalHeader: React.FC<React.ComponentProps<"div">> = ({ children, classNam
 
 const ModalTitle: React.FC<React.ComponentProps<"h3">> = ({ children, className = "", ...props }) => (
   <h3
-    className={`text-lg font-semibold text-gray-900 dark:text-white ${className}`}
+    className={`text-lg font-semibold text-foreground ${className}`}
     {...props}
   >
     {children}
@@ -89,7 +89,7 @@ const ModalTitle: React.FC<React.ComponentProps<"h3">> = ({ children, className 
 
 const ModalDescription: React.FC<React.ComponentProps<"p">> = ({ children, className = "", ...props }) => (
   <p
-    className={`text-sm text-gray-600 dark:text-gray-300 ${className}`}
+    className={`text-sm text-muted-foreground ${className}`}
     {...props}
   >
     {children}

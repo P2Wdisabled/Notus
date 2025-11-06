@@ -23,14 +23,14 @@ export default function AdminNavigation() {
   ];
 
   return (
-    <nav className="bg-white dark:bg-gray-800 shadow">
+    <nav className="bg-background shadow">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex">
             <div className="flex-shrink-0 flex items-center">
               <Link
                 href="/admin"
-                className="text-xl font-bold text-gray-900 dark:text-white"
+                className="text-xl font-bold text-foreground"
               >
                 Notus Admin
               </Link>
@@ -44,8 +44,8 @@ export default function AdminNavigation() {
                     href={item.href}
                     className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
                       isActive
-                        ? "border-blue-500 text-gray-900 dark:text-white"
-                        : "border-transparent text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600 hover:text-gray-700 dark:hover:text-gray-300"
+                        ? "border-primary text-foreground"
+                        : "border-transparent text-muted-foreground hover:border-border hover:text-foreground"
                     }`}
                   >
                     <span className="mr-2"><Icon name={item.icon} className="w-5 h-5" /></span>
@@ -59,7 +59,7 @@ export default function AdminNavigation() {
           <div className="hidden sm:ml-6 sm:flex sm:items-center">
             <Link
               href="/"
-              className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 px-3 py-2 rounded-md text-sm font-medium"
+              className="text-muted-foreground hover:text-foreground px-3 py-2 rounded-md text-sm font-medium"
             >
               Retour à l'app
             </Link>
@@ -69,7 +69,7 @@ export default function AdminNavigation() {
           <div className="sm:hidden flex items-center">
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+              className="inline-flex items-center justify-center p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-inset focus:ring-ring"
             >
               <Icon name="menu" className="h-6 w-6" />
             </button>
@@ -89,8 +89,8 @@ export default function AdminNavigation() {
                   href={item.href}
                   className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
                     isActive
-                      ? "bg-blue-50 border-blue-500 text-blue-700 dark:bg-blue-900 dark:text-blue-200"
-                      : "border-transparent text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:text-gray-700 dark:hover:text-gray-300"
+                      ? "bg-muted border-primary text-primary"
+                      : "border-transparent text-muted-foreground hover:bg-muted hover:border-border hover:text-foreground"
                   }`}
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
@@ -103,7 +103,7 @@ export default function AdminNavigation() {
             })}
             <Link
               href="/"
-              className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:text-gray-700 dark:hover:text-gray-300"
+              className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-muted-foreground hover:bg-muted hover:border-border hover:text-foreground"
               onClick={() => setIsMobileMenuOpen(false)}
             >
               Retour à l'app

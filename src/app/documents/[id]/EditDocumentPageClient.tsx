@@ -696,10 +696,10 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   // -------- Conditional rendering (after all Hooks) --------
   if (sessionLoading) {
     return (
-      <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange dark:border-dark-purple mx-auto mb-4"></div>
-          <p className="text-orange dark:text-dark-purple">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-primary">
             Chargement de la session...
           </p>
         </div>
@@ -709,17 +709,17 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
 
   if (!isLoggedIn) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="bg-card rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
+          <h1 className="text-2xl font-bold text-foreground mb-4">
             Accès refusé
           </h1>
-          <p className="text-gray-600 dark:text-gray-300 mb-6">
+          <p className="text-muted-foreground mb-6">
             Vous devez être connecté pour modifier un document.
           </p>
           <Link
             href="/login"
-            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-3 px-6 rounded-lg transition-colors"
           >
             Se connecter
           </Link>
@@ -730,10 +730,10 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange dark:border-dark-purple mx-auto mb-4"></div>
-          <p className="text-orange dark:text-dark-purple">Chargement...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-primary">Chargement...</p>
         </div>
       </div>
     );
@@ -741,15 +741,15 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
 
   if (error) {
     return (
-      <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-black rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
-          <h1 className="text-2xl font-bold text-black dark:text-white mb-4">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="bg-card rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
+          <h1 className="text-2xl font-bold text-foreground mb-4">
             Erreur
           </h1>
-          <p className="text-black dark:text-white mb-6">{error}</p>
+          <p className="text-foreground mb-6">{error}</p>
           <Link
             href="/"
-            className="bg-orange hover:bg-orange dark:bg-dark-purple dark:hover:bg-dark-purple text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-3 px-6 rounded-lg transition-colors"
           >
             Retour à l'accueil
           </Link>
@@ -760,17 +760,17 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
 
   if (!document) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="bg-card rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
+          <h1 className="text-2xl font-bold text-foreground mb-4">
             Document non trouvé
           </h1>
-          <p className="text-gray-600 dark:text-gray-300 mb-6">
+          <p className="text-muted-foreground mb-6">
             Ce document n'existe pas ou a été supprimé.
           </p>
           <Link
             href="/"
-            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-3 px-6 rounded-lg transition-colors"
           >
             Retour à l'accueil
           </Link>
@@ -782,17 +782,17 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   // Check if user has any access (read or edit)
   if (hasReadAccess === false) {
     return (
-      <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-black rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
-          <h1 className="text-2xl font-bold text-black dark:text-white mb-4">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="bg-card rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
+          <h1 className="text-2xl font-bold text-foreground mb-4">
             Accès refusé
           </h1>
-          <p className="text-gray-600 dark:text-gray-300 mb-6">
+          <p className="text-muted-foreground mb-6">
             Vous n'êtes pas autorisé à accéder à ce document.
           </p>
           <Link
             href="/"
-            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-3 px-6 rounded-lg transition-colors"
           >
             Retour à l'accueil
           </Link>
@@ -802,13 +802,13 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-black py-8">
+      <div className="min-h-screen bg-background py-8">
       <div className="max-w-4xl mx-auto px-4">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <Link
             href="/"
-            className="text-black dark:text-white font-semibold flex items-center"
+            className="text-foreground font-semibold flex items-center"
           >
             <Icon name="arrowLeft" className="h-5 w-5 mr-2" />
             Retour
@@ -816,7 +816,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
           <div className="flex flex-row justify-center items-center">
             <UserListButton users={users} className="self-center" />
             {hasEditAccess === false && (
-              <div className="ml-4 px-3 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 text-sm font-medium rounded-full border border-yellow-200 dark:border-yellow-700">
+              <div className="ml-4 px-3 py-1 bg-muted text-foreground text-sm font-medium rounded-full border border-border">
                 Mode lecture seule
               </div>
             )}
@@ -830,9 +830,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
                 <Icon name="dotsVertical" className="h-6 w-6" />
               </Button>
               {isMenuOpen && (
-                <div
-                  className="absolute right-0 top-full z-40 rounded-lg shadow-lg p-4 min-w-[13rem] bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700"
-                >
+                <div className="absolute right-0 top-full z-40 rounded-lg shadow-lg p-4 min-w-[13rem] bg-background border border-border">
                   <MenuItem
                     onClick={() => {
                       if (hasEditAccess !== false) {
@@ -886,7 +884,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
               />
 
               <div>
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="text-sm font-medium text-foreground mb-1">
                   Permissions
                 </label>
                 <DropdownMenu>
@@ -898,13 +896,13 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
                   <DropdownMenuContent>
                     <DropdownMenuItem
                       onClick={() => setPermission("read")}
-                      className={permission === "read" ? "bg-gray-100 dark:bg-gray-700" : ""}
+                      className={permission === "read" ? "bg-muted" : ""}
                     >
                       Peut lire
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onClick={() => setPermission("write")}
-                      className={permission === "write" ? "bg-gray-100 dark:bg-gray-700" : ""}
+                      className={permission === "write" ? "bg-muted" : ""}
                     >
                       Peut modifier
                     </DropdownMenuItem>
@@ -936,10 +934,10 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
               </div>
 
               {shareError && (
-                <p className="text-sm text-red-600 dark:text-red-400 mt-2">{shareError}</p>
+                <p className="text-sm text-destructive mt-2">{shareError}</p>
               )}
               {shareSuccess && (
-                <p className="text-sm text-green-600 dark:text-green-400 mt-2">{shareSuccess}</p>
+                <p className="text-sm text-primary mt-2">{shareSuccess}</p>
               )}
             </div>
           </Modal.Content>
@@ -948,7 +946,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
         </Modal>
 
         {/* Edit form */}
-        <div className="bg-white dark:bg-black rounded-2xl border border-gray dark:border-dark-gray p-6 overflow-hidden">
+        <div className="bg-card rounded-2xl border border-border p-6 overflow-hidden">
           <form className="space-y-6">
             {/* Tags */}
             <div className="mb-1">
@@ -978,7 +976,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
                   }
                 }}
                 readOnly={hasEditAccess === false}
-                className={`w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange dark:focus:ring-primary bg-transparent text-foreground text-xl font-semibold ${hasEditAccess === false ? 'cursor-default opacity-75' : ''}`}
+                className={`w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-ring bg-transparent text-foreground text-xl font-semibold ${hasEditAccess === false ? 'cursor-default opacity-75' : ''}`}
                 placeholder="Titre du document"
                 maxLength={255}
               />
@@ -986,7 +984,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
 
             {/* Content */}
             <div>
-              <div className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-700">
+              <div className="border border-border rounded-lg overflow-hidden bg-card">
                 <WysiwygNotepad
                   key={`doc-${document.id}-${document.updated_at}`}
                   initialData={content}

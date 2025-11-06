@@ -12,7 +12,7 @@ export default async function AdminUsersPage() {
         <h1 className="text-3xl font-bold text-foreground">
           Gestion des utilisateurs
         </h1>
-        <p className="mt-2 text-gray-600 dark:text-gray-400">
+        <p className="mt-2 text-muted-foreground">
           Gérez les comptes utilisateurs, bannissez ou débannissez des
           utilisateurs.
         </p>

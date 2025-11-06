@@ -16,8 +16,8 @@ export default function Navigation({ serverSession }: NavigationProps) {
   if (loading) {
     return (
       <div className="flex items-center space-x-4">
-        <div className="animate-pulse bg-gray dark:bg-dark-gray h-8 w-20 rounded"></div>
-        <div className="animate-pulse bg-gray dark:bg-dark-gray h-8 w-20 rounded"></div>
+        <div className="animate-pulse bg-muted h-8 w-20 rounded"></div>
+        <div className="animate-pulse bg-muted h-8 w-20 rounded"></div>
       </div>
     );
   }
@@ -27,13 +27,13 @@ export default function Navigation({ serverSession }: NavigationProps) {
       <div className="flex items-center space-x-4">
         <Link
           href="/register"
-          className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+          className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-2 px-4 rounded-lg transition-colors"
         >
           S'inscrire
         </Link>
         <Link
           href="/login"
-          className="border border-gray dark:border-dark-gray hover:bg-light-gray dark:hover:bg-gray-700 text-gray-700 dark:text-gray font-semibold py-2 px-4 rounded-lg transition-colors"
+          className="border border-border hover:bg-muted text-foreground font-semibold py-2 px-4 rounded-lg transition-colors"
         >
           Se connecter
         </Link>
@@ -43,7 +43,7 @@ export default function Navigation({ serverSession }: NavigationProps) {
 
   return (
     <div className="flex items-center space-x-4">
-      <span className="text-gray-700 dark:text-gray">
+      <span className="text-foreground">
         Bonjour, <strong>{userName}</strong>
       </span>
       <AdminButton />

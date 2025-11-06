@@ -371,10 +371,10 @@ const Sun: React.FC<SvgProps> = (props) => (
 const UserListBadge: React.FC<SvgProps> = (props) => (
   <svg width="11" height="11" viewBox="0 0 11 11" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
     <g clipPath="url(#clip0_735_16645)">
-      <rect x="1" y="1" width="9" height="9" className="fill-white dark:fill-black" />
+      <rect x="1" y="1" width="9" height="9" className="fill-[var(--background)]" />
       <path
         d="M8.07723 3.45456L2.92254 3.45456C2.87035 3.45472 2.8192 3.46845 2.77458 3.49428C2.72996 3.52011 2.69357 3.55706 2.66933 3.60116C2.64509 3.64525 2.63391 3.69482 2.637 3.74452C2.64009 3.79422 2.65732 3.84218 2.68686 3.88324L5.2642 7.43502C5.37102 7.58229 5.62818 7.58229 5.73528 7.43502L8.31263 3.88324C8.34246 3.84227 8.35996 3.79429 8.36321 3.7445C8.36647 3.69471 8.35536 3.64503 8.3311 3.60084C8.30683 3.55665 8.27034 3.51965 8.22558 3.49387C8.18083 3.46808 8.12952 3.45448 8.07723 3.45456Z"
-        className="fill-black dark:fill-white"
+        className="fill-[var(--foreground)]"
       />
     </g>
     <rect
@@ -384,7 +384,7 @@ const UserListBadge: React.FC<SvgProps> = (props) => (
       height="10"
       rx="1.5"
       transform="rotate(-180 10.5 10.5)"
-      className="stroke-black dark:stroke-white"
+      className="stroke-[var(--foreground)]"
     />
     <defs>
       <clipPath id="clip0_735_16645">
