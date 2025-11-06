@@ -8,6 +8,7 @@ import { useSession } from "next-auth/react";
 import AdminButton from "./AdminButton";
 import NotificationOverlay from "./NotificationOverlay";
 import { Logo, Input, Button } from "@/components/ui";
+import Icon, { type IconName } from "@/components/Icon";
 import { useLocalSession } from "@/hooks/useLocalSession";
 import { useSearch } from "@/contexts/SearchContext";
 import { useGuardedNavigate } from "@/hooks/useGuardedNavigate";
@@ -18,7 +19,7 @@ interface NavItem {
   name: string;
   href: string;
   onClick?: (e: React.MouseEvent) => void;
-  icon: (props: { className?: string }) => React.JSX.Element;
+  icon: IconName;
   // when true, this item won't be shown in the mobile drawer
   mobileHidden?: boolean;
 }
@@ -80,22 +81,22 @@ export default function NavBar() {
 
   const items: NavItem[] = [
     // { name: "Récent", href: "/recent", icon: ClockIcon },
-    { name: "Notes personnelles", href: "/notes", icon: NoteIcon },
-    { name: "Notes partagées", href: "/shared", icon: ShareIcon },
-    { name: "Favoris", href: "/favorites", icon: StarIcon },
-    { name: "Paramètres", href: "/settings", icon: GearIcon },
+    { name: "Notes personnelles", href: "/notes", icon: "note" },
+    { name: "Notes partagées", href: "/shared", icon: "share" },
+    { name: "Favoris", href: "/favorites", icon: "star" },
+    { name: "Paramètres", href: "/settings", icon: "gear" },
     //{ name: "Dossiers", href: "/folders", icon: FolderIcon },
     {
       name: "Notifications",
       href: "#",
-      icon: BellIcon,
+      icon: "bell",
       onClick: (e: React.MouseEvent) => {
         e.preventDefault();
         handleNotificationOverlay(e);
       },
       mobileHidden: true,
     },
-    { name: "Corbeille", href: "/trash", icon: TrashIcon },
+    { name: "Corbeille", href: "/trash", icon: "trash" },
   ];
 
   const pageTitle = getPageTitle(pathname, items);
@@ -175,7 +176,7 @@ export default function NavBar() {
               onClick={() => setIsOpen(!isOpen)}
               className="md:hidden p-2 rounded-md hover:bg-accent text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
             >
-              <MenuIcon />
+              <Icon name="menu" className="w-6 h-6" />
             </button>
             {/* Mobile page title */}
             <span className="font-title text-2xl sm:text-3xl font-regular text-foreground leading-tight">
@@ -201,7 +202,7 @@ export default function NavBar() {
                   className={`p-2 rounded-md hover:bg-accent text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer ${showNotifications ? 'bg-accent/70' : ''}`}
                   title="Notifications"
                 >
-                  <BellIcon />
+                  <Icon name="bell" className="w-6 h-6" />
                 </button>
 
                 <button
@@ -243,7 +244,7 @@ export default function NavBar() {
                 onClick={() => setIsOpen(false)}
                 className="p-2 rounded-md hover:bg-accent text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
               >
-                <CloseIcon />
+                <Icon name="x" className="w-6 h-6" />
               </button>
             </div>
             <nav className="space-y-1 flex-1 overflow-y-auto">
@@ -280,7 +281,7 @@ export default function NavBar() {
                             onClick={(e) => { e.preventDefault(); item.onClick?.(e); setIsOpen(false); }}
                             className={`w-full flex items-center gap-3 p-3 rounded-md hover:bg-accent text-foreground ${pathname === item.href || (item.name === 'Notifications' && showNotifications) ? 'bg-accent/70' : ''}`}
                       >
-                        <item.icon />
+                        <Icon name={item.icon} className="w-6 h-6" />
                         <span className="font-medium">{item.name}</span>
                       </button>
                     ) : (
@@ -290,7 +291,7 @@ export default function NavBar() {
                             onClick={(e) => handleNavItemClick(e, item.href)}
                             className={`flex items-center gap-3 p-3 rounded-md hover:bg-accent text-foreground ${pathname === item.href || (item.name === 'Notifications' && showNotifications) ? 'bg-accent/70' : ''}`}
                       >
-                        <item.icon />
+                        <Icon name={item.icon} className="w-6 h-6" />
                         <span className="font-medium">{item.name}</span>
                       </Link>
                     )
@@ -306,7 +307,7 @@ export default function NavBar() {
                 >
                   <div className="flex items-center justify-center w-10 h-10 rounded-full overflow-hidden bg-muted ring-1 ring-border/20 shadow-sm">
                     {localProfileImage ? (
-                      <Image
+                      <img
                         src={localProfileImage}
                         alt="Photo de profil"
                         className="w-full h-full object-cover"
@@ -374,7 +375,7 @@ export default function NavBar() {
                   onClick={(e) => { e.preventDefault(); item.onClick?.(e); }}
                   className={`w-full flex items-center gap-3 p-3 rounded-md hover:bg-accent text-foreground ${pathname === item.href || (item.name === 'Notifications' && showNotifications) ? 'bg-accent/70' : ''}`}
                 >
-                  <item.icon />
+                  <Icon name={item.icon} className="w-6 h-6" />
                   <span className="font-medium">{item.name}</span>
                 </button>
               ) : (
@@ -384,7 +385,7 @@ export default function NavBar() {
                   onClick={(e) => handleNavItemClick(e, item.href)}
                   className={`flex items-center gap-3 p-3 rounded-md hover:bg-accent text-foreground ${pathname === item.href || (item.name === 'Notifications' && showNotifications) ? 'bg-accent/70' : ''}`}
                 >
-                  <item.icon />
+                  <Icon name={item.icon} className="w-6 h-6" />
                   <span className="font-medium">{item.name}</span>
                 </Link>
               )
@@ -401,7 +402,7 @@ export default function NavBar() {
             >
               <div className="flex items-center justify-center w-10 h-10 rounded-full overflow-hidden bg-muted ring-1 ring-border/20 shadow-sm">
                 {localProfileImage ? (
-                  <Image
+                  <img
                     src={localProfileImage}
                     alt="Photo de profil"
                     className="w-full h-full object-cover"
@@ -439,225 +440,6 @@ export default function NavBar() {
   );
 }
 
-function MenuIcon(props: { className?: string }) {
-  return (
-    <svg
-      {...props}
-      className={`w-6 h-6 ${props.className || ""}`}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M4 6h16" />
-      <path d="M4 12h16" />
-      <path d="M4 18h16" />
-    </svg>
-  );
-}
-
-function SearchIcon(props: { className?: string }) {
-  return (
-    <svg
-      {...props}
-      className={`w-6 h-6 ${props.className || ""}`}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="11" cy="11" r="8" />
-      <path d="M21 21l-4.35-4.35" />
-    </svg>
-  );
-}
-
-function BellIcon(props: { className?: string }) {
-  return (
-    <svg
-      {...props}
-      className={`w-6 h-6 ${props.className || ""}`}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M6 8a6 6 0 0112 0v5l2 3H4l2-3V8" />
-      <path d="M13.73 21a2 2 0 01-3.46 0" />
-    </svg>
-  );
-}
-
-function CloseIcon(props: { className?: string }) {
-  return (
-    <svg
-      {...props}
-      className={`w-6 h-6 ${props.className || ""}`}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M6 6l12 12" />
-      <path d="M6 18L18 6" />
-    </svg>
-  );
-}
-
-function HomeIcon(props: { className?: string }) {
-  return (
-    <svg
-      {...props}
-      className={`w-6 h-6 ${props.className || ""}`}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M3 9l9-7 9 7" />
-      <path d="M9 22V12h6v10" />
-    </svg>
-  );
-}
-
-function ClockIcon(props: { className?: string }) {
-  return (
-    <svg
-      {...props}
-      className={`w-6 h-6 ${props.className || ""}`}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 7v5l3 3" />
-    </svg>
-  );
-}
-
-function NoteIcon(props: { className?: string }) {
-  return (
-    <svg
-      {...props}
-      className={`w-6 h-6 ${props.className || ""}`}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M4 4h12a2 2 0 012 2v10l-4-2H6a2 2 0 01-2-2V4z" />
-    </svg>
-  );
-}
-
-function ShareIcon(props: { className?: string }) {
-  return (
-    <svg
-      {...props}
-      className={`w-6 h-6 ${props.className || ""}`}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="18" cy="5" r="3" />
-      <circle cx="6" cy="12" r="3" />
-      <circle cx="18" cy="19" r="3" />
-      <path d="M8.59 13.51l6.83 3.98" />
-      <path d="M15.41 6.51L8.59 10.49" />
-    </svg>
-  );
-}
-
-function StarIcon(props: { className?: string }) {
-  return (
-    <svg
-      {...props}
-      className={`w-6 h-6 ${props.className || ""}`}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
-    </svg>
-  );
-}
-
-function FolderIcon(props: { className?: string }) {
-  return (
-    <svg
-      {...props}
-      className={`w-6 h-6 ${props.className || ""}`}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M3 7a2 2 0 012-2h4l2 2h6a2 2 0 012 2v7a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
-    </svg>
-  );
-}
-
-function TrashIcon(props: { className?: string }) {
-  return (
-    <svg
-      {...props}
-      className={`w-6 h-6 ${props.className || ""}`}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <polyline points="3 6 5 6 21 6" />
-      <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
-      <path d="M10 11v6" />
-      <path d="M14 11v6" />
-      <path d="M9 6V4a2 2 0 012-2h2a2 2 0 012 2v2" />
-    </svg>
-  );
-}
-
-function GearIcon(props: { className?: string }) {
-  return (
-    <svg
-      {...props}
-      className={`w-6 h-6 ${props.className || ""}`}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06A2 2 0 1 1 7.04 3.4l.06.06a1.65 1.65 0 0 0 1.82.33h0A1.65 1.65 0 0 0 10.43 2.3V2a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0A1.65 1.65 0 0 0 21.7 10.43H22a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-    </svg>
-  );
-}
 
 function getPageTitle(pathname: string | null, items: NavItem[]): string {
   if (!pathname) return "Notus";

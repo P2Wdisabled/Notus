@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import Icon from "@/components/Icon";
 
 interface HeadingMenuProps {
   onFormatChange: (command: string, value: string) => void;
@@ -45,7 +46,7 @@ export default function HeadingMenu({ onFormatChange }: HeadingMenuProps) {
         className="p-2 rounded transition-colors bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
         title="Titre"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M10.5 20V7H5V4h14v3h-5.5v13z"/></svg>
+        <Icon name="heading" className="w-5 h-5" />
       </button>
 
       {showHeadingMenu && (

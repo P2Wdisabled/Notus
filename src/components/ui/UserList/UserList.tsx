@@ -27,7 +27,7 @@ export default function UserList({ users, currentUserId }: UserListProps) {
           <div className="flex items-center gap-3">
             {user.avatarUrl && user.avatarUrl !== ""
               ? (
-                <Image
+                <img
                   src={user.avatarUrl}
                   alt={user.name}
                   className="w-10 h-10 rounded-full object-cover hover:opacity-80 transition"

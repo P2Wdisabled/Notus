@@ -12,6 +12,7 @@ import ConnectionWarning from "@/components/ConnectionWarning";
 import { Card, Alert } from "@/components/ui";
 import { Document, LocalDocument, AnyDocument } from "@/lib/types";
 import { TagsProvider } from "@/contexts/TagsContext";
+import Icon from "@/components/Icon";
 
 const LOCAL_DOCS_KEY = "notus.local.documents";
 
@@ -186,19 +187,7 @@ export function SearchableDocumentsList({
       <Card className="text-center py-12">
         <Card.Content>
           <div className="text-gray-400 dark:text-gray-500 mb-4">
-            <svg
-              className="w-16 h-16 mx-auto"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1}
-                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-              />
-            </svg>
+            <Icon name="document" className="w-16 h-16 mx-auto" />
           </div>
           <Card.Title className="text-lg mb-2">
             Aucun document pour le moment
@@ -214,19 +203,7 @@ export function SearchableDocumentsList({
       <Card className="text-center py-12">
         <Card.Content>
           <div className="text-gray-400 dark:text-gray-500 mb-4">
-            <svg
-              className="w-16 h-16 mx-auto"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-              />
-            </svg>
+            <Icon name="search" className="w-16 h-16 mx-auto" />
           </div>
           <Card.Title className="text-lg mb-2">
             Aucun résultat trouvé
@@ -249,19 +226,7 @@ export function SearchableDocumentsList({
               aria-label="Fermer le message"
               className="text-red-500 hover:text-red-700 dark:text-red-300 dark:hover:text-red-200 shrink-0"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                width="18"
-                height="18"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M18 6L6 18M6 6l12 12" />
-              </svg>
+              <Icon name="x" className="w-[18px] h-[18px]" />
             </button>
           </div>
         )}

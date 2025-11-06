@@ -22,6 +22,7 @@ import UserListButton from "@/components/ui/UserList/UserListButton";
 import { useGuardedNavigate } from "@/hooks/useGuardedNavigate";
 import { useCollaborativeTitle } from "@/lib/paper.js/useCollaborativeTitle";
 import sanitizeLinks from "@/lib/sanitizeLinks";
+import Icon from "@/components/Icon";
 
 interface EditDocumentPageClientProps {
   session?: any;
@@ -809,18 +810,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
             href="/"
             className="text-black dark:text-white font-semibold flex items-center"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5 mr-2"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fillRule="evenodd"
-                d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z"
-                clipRule="evenodd"
-              />
-            </svg>
+            <Icon name="arrowLeft" className="h-5 w-5 mr-2" />
             Retour
           </Link>
           <div className="flex flex-row justify-center items-center">
@@ -837,16 +827,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
                 onClick={toggleMenu}
                 className="md:mr-0 mr-8"
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-6 w-6"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                >
-                  <circle cx="12" cy="5" r="2" className="fill-black dark:fill-white" />
-                  <circle cx="12" cy="12" r="2" className="fill-black dark:fill-white" />
-                  <circle cx="12" cy="19" r="2" className="fill-black dark:fill-white" />
-                </svg>
+                <Icon name="dotsVertical" className="h-6 w-6" />
               </Button>
               {isMenuOpen && (
                 <div
@@ -860,11 +841,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
                       }
                     }}
                     disabled={hasEditAccess === false}
-                    icon={
-                      <svg width="18" height="16" viewBox="0 0 18 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M16.59 7.5L12 2.91V5.37L11.14 5.5C6.83 6.11 3.91 8.37 2.24 11.83C4.56 10.19 7.44 9.4 11 9.4H12V12.09M10 10.42C5.53 10.63 2.33 12.24 0 15.5C1 10.5 4 5.5 11 4.5V0.5L18 7.5L11 14.5V10.4C10.67 10.4 10.34 10.41 10 10.42Z" fill={hasEditAccess === false ? "#999" : "#DD05C7"} />
-                      </svg>
-                    }
+                    icon={<Icon name="share" className={hasEditAccess === false ? "w-4 h-4 text-gray-400" : "w-4 h-4 text-primary"} />}
                   >
                     {hasEditAccess === false ? "Lecture seule" : "Partager"}
                   </MenuItem>
@@ -877,13 +854,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
                       }
                     }}
                     disabled={hasEditAccess === false || isPending}
-                    icon={
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M19 21H5C3.89543 21 3 20.1046 3 19V5C3 3.89543 3.89543 3 5 3H16L21 8V19C21 20.1046 20.1046 21 19 21Z" stroke={hasEditAccess === false || isPending ? "#999" : "#DD05C7"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        <path d="M17 21V13H7V21" stroke={hasEditAccess === false || isPending ? "#999" : "#DD05C7"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        <path d="M7 3V8H15" stroke={hasEditAccess === false || isPending ? "#999" : "#DD05C7"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    }
+                    icon={<Icon name="document" className={hasEditAccess === false || isPending ? "w-4 h-4 text-gray-400" : "w-4 h-4 text-primary"} />}
                   >
                     {isPending ? "Sauvegarde..." : hasEditAccess === false ? "Lecture seule" : "Sauvegarder"}
                   </MenuItem>
@@ -1043,9 +1014,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
         {showSavedNotification && (
           <div className="fixed bottom-4 left-4 z-50 pointer-events-none">
             <div className="bg-primary text-white border border-primary rounded-lg px-3 py-2 shadow-lg pointer-events-auto flex items-center">
-              <svg className="w-4 h-4 mr-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
+              <Icon name="check" className="w-4 h-4 mr-2 text-white" />
               <span className="text-sm font-medium">Note enregistrée</span>
             </div>
           </div>

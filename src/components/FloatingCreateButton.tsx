@@ -5,6 +5,7 @@ import { useLocalSession } from "@/hooks/useLocalSession";
 import { usePathname, useRouter } from "next/navigation";
 import { useSelection } from "@/contexts/SelectionContext";
 import type { Session } from "next-auth";
+import Icon from "@/components/Icon";
 
 interface FloatingCreateButtonProps {
   serverSession?: Session | null;
@@ -106,19 +107,7 @@ export default function FloatingCreateButton({ serverSession }: FloatingCreateBu
             <span className="font-title text-xl">
               Créer une note
             </span>
-            <svg
-              className="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 4v16m8-8H4"
-              />
-            </svg>
+            <Icon name="plus" className="w-6 h-6" />
           </button>
         </div>
       </div>

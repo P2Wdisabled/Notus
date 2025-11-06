@@ -7,6 +7,7 @@ import DocumentCard from "@/components/DocumentCard";
 import { getUserDocumentsAction, getUserProfileAction } from "@/lib/actions";
 import Link from "next/link";
 import ProfileEditButton from "./ProfileEditButton";
+import Icon from "@/components/Icon";
 
 export default async function ProfilePage() {
   const session = await auth();
@@ -47,18 +48,7 @@ export default async function ProfilePage() {
             href="/"
             className="text-foreground font-semibold flex items-center"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-6 w-6 mr-2"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fillRule="evenodd"
-                d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z"
-                clipRule="evenodd"
-              />
-            </svg>
+            <Icon name="arrowLeft" className="h-6 w-6 mr-2" />
           </Link>
           <h2 className="font-title text-4xl font-regular">Mon compte</h2>
         </div>
@@ -90,7 +80,7 @@ export default async function ProfilePage() {
           <div className="flex flex-col items-center md:flex-row md:items-end gap-4 relative z-10">
             <div className="w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-background overflow-hidden bg-muted ring-2 ring-border/30 shadow-lg">
               {userProfile?.profile_image ? (
-                <Image
+                <img
                   src={userProfile.profile_image}
                   alt="Photo de profil"
                   className="w-full h-full object-cover"
@@ -119,7 +109,7 @@ export default async function ProfilePage() {
               @{username || "pseudo"}
             </p>
             <div className="flex items-center justify-center md:justify-start gap-2 mt-2 text-sm text-muted-foreground">
-              <CalendarIcon className="w-4 h-4" />
+              <Icon name="calendar" className="w-4 h-4" />
               <span>
                 A rejoint en {joinDate.toLocaleString("fr-FR", { month: "long" })}{" "}
                 {joinDate.getFullYear()}
@@ -170,22 +160,7 @@ export default async function ProfilePage() {
 }
 
 function CalendarIcon(props: { className?: string }) {
-  return (
-    <svg
-      {...props}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-      <line x1="16" y1="2" x2="16" y2="6"></line>
-      <line x1="8" y1="2" x2="8" y2="6"></line>
-      <line x1="3" y1="10" x2="21" y2="10"></line>
-    </svg>
-  );
+  return <Icon name="calendar" className={props.className} />;
 }
 
 function getInitials(name: string | null): string {

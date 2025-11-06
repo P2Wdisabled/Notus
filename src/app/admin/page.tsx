@@ -2,6 +2,7 @@ import Link from "next/link";
 import { UserService } from "@/lib/services/UserService";
 import { Button, Card, Badge } from "@/components/ui";
 import { User } from "@/lib/types";
+import Icon from "@/components/Icon";
 
 export default async function AdminDashboard() {
   const userService = new UserService();
@@ -133,19 +134,7 @@ export default async function AdminDashboard() {
           <div>
             <Button asChild className="bg-primary hover:bg-primary/90 text-primary-foreground py-2 px-4">
               <Link href="/admin/users">
-                <svg
-                  className="w-4 h-4 mr-2"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"
-                  />
-                </svg>
+                <Icon name="users" className="w-4 h-4 mr-2" />
                 Gérer les utilisateurs
               </Link>
             </Button>
@@ -237,19 +226,7 @@ export default async function AdminDashboard() {
           ) : (
             <div className="text-center py-8">
               <div className="w-16 h-16 mx-auto mb-4 bg-muted rounded-full flex items-center justify-center">
-                <svg
-                  className="w-8 h-8 text-muted-foreground"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"
-                  />
-                </svg>
+                <Icon name="users" className="w-8 h-8 text-muted-foreground" />
               </div>
               <p className="text-muted-foreground">
                 Aucun utilisateur trouvé.

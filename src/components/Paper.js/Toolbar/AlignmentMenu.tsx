@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import Icon from "@/components/Icon";
 
 interface AlignmentMenuProps {
   onFormatChange: (command: string) => void;
@@ -28,9 +29,7 @@ export default function AlignmentMenu({ onFormatChange }: AlignmentMenuProps) {
         className="p-2 rounded transition-colors bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
         title="Alignement"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M3 21h18v-2H3v2zm0-4h18v-2H3v2zm0-4h18v-2H3v2zm0-4h18V7H3v2zm0-6v2h18V3H3z" />
-        </svg>
+        <Icon name="align" className="h-5 w-5" />
       </button>
 
       {showAlignMenu && (
@@ -45,7 +44,7 @@ export default function AlignmentMenu({ onFormatChange }: AlignmentMenuProps) {
               }}
               className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-600"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 18h10M4 14h16M4 10h10M4 6h16" /></svg>
+              <Icon name="alignLeft" className="w-6 h-6" />
             </button>
             <button
               title="Centrer"
@@ -56,7 +55,7 @@ export default function AlignmentMenu({ onFormatChange }: AlignmentMenuProps) {
               }}
               className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-600"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 18H7m13-4H4m13-4H7m13-4H4" /></svg>
+              <Icon name="alignCenter" className="w-6 h-6" />
             </button>
             <button
               title="Aligner à droite"
@@ -67,7 +66,7 @@ export default function AlignmentMenu({ onFormatChange }: AlignmentMenuProps) {
               }}
               className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-600"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 18H10m10-4H4m16-4H10m10-4H4" /></svg>
+              <Icon name="alignRight" className="w-6 h-6" />
             </button>
             <button
               title="Justifier"
@@ -78,7 +77,7 @@ export default function AlignmentMenu({ onFormatChange }: AlignmentMenuProps) {
               }}
               className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-600"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 18H4m16-4H4m16-4H4m16-4H4" /></svg>
+              <Icon name="alignJustify" className="w-6 h-6" />
             </button>
           </div>
         </div>

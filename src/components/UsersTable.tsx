@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Icon from "@/components/Icon";
 import { User } from "@/lib/types";
 
 interface UsersTableProps {
@@ -242,25 +243,7 @@ export default function UsersTable({ users }: UsersTableProps) {
                       } disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
                     {banningUsers.has(user.id) ? (
-                      <svg
-                        className="animate-spin -ml-1 mr-1 h-3 w-3"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        ></circle>
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        ></path>
-                      </svg>
+                      <Icon name="spinner" className="animate-spin -ml-1 mr-1 h-3 w-3" />
                     ) : null}
                     {user.is_banned ? "Débannir" : "Bannir"}
                   </button>
@@ -272,25 +255,7 @@ export default function UsersTable({ users }: UsersTableProps) {
                       className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-primary bg-primary/10 hover:bg-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {adminUsers.has(user.id) ? (
-                        <svg
-                          className="animate-spin -ml-1 mr-1 h-3 w-3"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          ></circle>
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                          ></path>
-                        </svg>
+                        <Icon name="spinner" className="animate-spin -ml-1 mr-1 h-3 w-3" />
                       ) : null}
                       Promouvoir
                     </button>
@@ -303,25 +268,7 @@ export default function UsersTable({ users }: UsersTableProps) {
                       className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-foreground bg-foreground/10 hover:bg-foreground/20 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {adminUsers.has(user.id) ? (
-                        <svg
-                          className="animate-spin -ml-1 mr-1 h-3 w-3"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          ></circle>
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                          ></path>
-                        </svg>
+                        <Icon name="spinner" className="animate-spin -ml-1 mr-1 h-3 w-3" />
                       ) : null}
                       Rétrograder
                     </button>
@@ -335,19 +282,7 @@ export default function UsersTable({ users }: UsersTableProps) {
 
       {users.length === 0 && (
         <div className="text-center py-12">
-          <svg
-            className="mx-auto h-12 w-12 text-gray-400"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"
-            />
-          </svg>
+          <Icon name="users" className="mx-auto h-12 w-12 text-gray-400" />
           <h3 className="mt-2 text-sm font-medium text-foreground">
             Aucun utilisateur
           </h3>
@@ -363,19 +298,7 @@ export default function UsersTable({ users }: UsersTableProps) {
           <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white dark:bg-gray-800">
             <div className="mt-3">
               <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900">
-                <svg
-                  className="h-6 w-6 text-red-600 dark:text-red-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
-                  />
-                </svg>
+                <Icon name="alert" className="h-6 w-6 text-red-600 dark:text-red-400" />
               </div>
               <div className="mt-2 text-center">
                 <h3 className="text-lg font-medium text-gray-900 dark:text-white">

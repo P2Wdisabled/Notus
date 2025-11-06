@@ -14,6 +14,7 @@ import { Document, LocalDocument, AnyDocument } from "@/lib/types";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui";
 import FavoriteToggle from "@/components/FavoriteToggle";
 import sanitizeLinks from "@/lib/sanitizeLinks";
+import Icon from "@/components/Icon";
 
 interface DocumentCardProps {
   document: AnyDocument;
@@ -682,17 +683,7 @@ export default function DocumentCard({
             aria-label="Sélectionner ce document"
           >
             {selected && (
-              <svg
-                className="w-4 h-4 text-primary-foreground"
-                fill="none"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="4"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path d="M5 13l4 4L19 7"></path>
-              </svg>
+              <Icon name="check" className="w-4 h-4 text-primary-foreground" />
             )}
           </div>
         )}

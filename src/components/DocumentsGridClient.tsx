@@ -7,6 +7,7 @@ import DocumentCard from "@/components/DocumentCard";
 import SelectionBar from "@/components/SelectionBar";
 import ConnectionWarning from "@/components/ConnectionWarning";
 import { useSelection } from "@/contexts/SelectionContext";
+import Icon from "@/components/Icon";
 import { Document, LocalDocument, AnyDocument } from "@/lib/types";
 
 const LOCAL_DOCS_KEY = "notus.local.documents";
@@ -124,19 +125,7 @@ export default function DocumentsGridClient({ documents: serverDocuments = [], c
       <section aria-labelledby="docs-empty">
         <div className="bg-card border border-border rounded-2xl text-center py-12">
           <div className="text-muted-foreground/70 mb-4">
-            <svg
-              className="w-16 h-16 mx-auto"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1}
-                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-              />
-            </svg>
+            <Icon name="document" className="w-16 h-16 mx-auto" />
           </div>
           <h3 id="docs-empty" className="font-title text-lg mb-2 text-foreground">
             Aucun document pour le moment
