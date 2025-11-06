@@ -58,10 +58,8 @@ export default function NotificationOverlay({ isOpen = true, onClose }: Notifica
 
     if (!isOpen) return null;
 
-    // mark a notification as read (optimistic UI update)
     async function markAsRead(notificationId: number) {
         if (!notificationId) return;
-        // optimistic update
         setNotifications(prev => prev ? prev.map(n => n.id === notificationId ? { ...n, read_date: new Date() } : n) : prev);
         try {
             await fetch("/api/notification/mark-read", {
@@ -71,14 +69,33 @@ export default function NotificationOverlay({ isOpen = true, onClose }: Notifica
                 cache: "no-store",
             });
         } catch {
-            // ignore errors; UI already updated optimistically
         }
     }
 
     return (
         <div className="h-screen w-80 bg-white dark:bg-gray-800 rounded-none shadow-lg border-l border-gray-200 dark:border-gray-700 p-2 flex flex-col">
             <div className="flex items-center justify-between px-2 py-2 flex-shrink-0">
-                <strong>Notifications</strong>
+                <div className="flex items-center gap-2">
+                    <strong>Notifications</strong>
+                    {(notifications ?? []).some(n => !n.read_date && ((n as any).id_sender == null)) && (
+                        <button
+                            onClick={async (e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const systemIds = (notifications ?? [])
+                                    .filter(n => !n.read_date && ((n as any).id_sender == null))
+                                    .map(n => n.id);
+                                if (systemIds.length === 0) return;
+                                await Promise.allSettled(systemIds.map(id => markAsRead(id)));
+                            }}
+                            title="Marquer toutes les notifications comme lues"
+                            className="text-sm px-2 py-1 text-primary" 
+                        >
+                            Tout marquer lu
+                        </button>
+                    )}
+                </div>
+
                 <button onClick={onClose} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
                     ×
                 </button>
@@ -131,24 +148,37 @@ export default function NotificationOverlay({ isOpen = true, onClose }: Notifica
                                     <div className="flex-shrink-0">
                                         {isRead ? (
                                             <button
-                                                title="Invitation déjà acceptée"
+                                                title="Notification traitée"
                                                 disabled
                                                 className="bg-gray-400 text-white px-3 py-1 rounded opacity-80 cursor-not-allowed"
                                             >
-                                                Accepté
+                                                Traitée
                                             </button>
                                         ) : (
-                                            <button
-                                                onClick={async (e) => {
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                    await markAsRead(n.id);
-                                                    if (confirmUrl) window.location.href = confirmUrl;
-                                                }}
-                                                className="bg-primary text-white px-3 py-1 rounded"
-                                            >
-                                                Accepter
-                                            </button>
+                                            <div className="flex flex-col items-stretch gap-2">
+                                                <button
+                                                    onClick={async (e) => {
+                                                        e.preventDefault();
+                                                        e.stopPropagation();
+                                                        await markAsRead(n.id);
+                                                        if (confirmUrl) window.location.href = confirmUrl;
+                                                    }}
+                                                    className="bg-primary text-white px-3 py-1 rounded"
+                                                >
+                                                    Accepter
+                                                </button>
+
+                                                <button
+                                                    onClick={async (e) => {
+                                                        e.preventDefault();
+                                                        e.stopPropagation();
+                                                        await markAsRead(n.id);
+                                                    }}
+                                                    className="bg-red-500 text-white px-3 py-1 rounded"
+                                                >
+                                                    Refuser
+                                                </button>
+                                            </div>
                                         )}
                                     </div>
                                 </div>
