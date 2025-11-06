@@ -246,9 +246,6 @@ export default function NewDocumentPageClient(props: NewDocumentPageClientProps)
 
             {/* Content */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Contenu
-              </label>
               <div className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-700">
                 <WysiwygNotepad
                   initialData={content}

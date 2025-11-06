@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
 import Modal from "@/components/ui/modal";
 
@@ -17,6 +17,24 @@ export default function DrawingModal({ isOpen, onClose, onFormatChange }: Drawin
   const [drawings, setDrawings] = useState<any[]>([]);
   const [drawingState, setDrawingState] = useState({ color: "#000000", size: 3, opacity: 1 });
 
+  // Ensure canvas is cleared every time the modal opens
+  useEffect(() => {
+    if (isOpen) {
+      // reset parent drawings state
+      setDrawings([]);
+      // If controller already available, clear canvas immediately
+      const ctrl = canvasCtrlRef.current;
+      if (ctrl) {
+        // prefer atomic clearAndSync if available
+        if (typeof ctrl.clearAndSync === 'function') {
+          ctrl.clearAndSync();
+        } else if (typeof ctrl.clearCanvas === 'function') {
+          ctrl.clearCanvas();
+        }
+      }
+    }
+  }, [isOpen]);
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Dessiner" size="full" className="sm:max-w-4xl">
       <Modal.Content>
@@ -29,7 +47,18 @@ export default function DrawingModal({ isOpen, onClose, onFormatChange }: Drawin
               setDrawings={setDrawings}
               drawingState={drawingState}
               setDrawingState={setDrawingState}
-              onCanvasReady={(ctrl: any) => (canvasCtrlRef.current = ctrl)}
+              onCanvasReady={(ctrl: any) => {
+                canvasCtrlRef.current = ctrl;
+                // If modal is already open when canvas mounts, ensure it's cleared
+                if (isOpen) {
+                  try {
+                    if (typeof ctrl.clearAndSync === 'function') ctrl.clearAndSync();
+                    else if (typeof ctrl.clearCanvas === 'function') ctrl.clearCanvas();
+                  } catch (_e) {
+                    // ignore
+                  }
+                }
+              }}
             />
           </div>
         </div>
@@ -97,11 +126,22 @@ export default function DrawingModal({ isOpen, onClose, onFormatChange }: Drawin
         <button
           type="button"
           className="px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
-          onClick={() => {
+          onClick={async () => {
             try {
               const dataUrl = canvasCtrlRef.current?.exportAsDataURL?.();
               if (dataUrl) {
                 onFormatChange('insertImage', dataUrl);
+                // clear canvas state so reopening shows empty canvas
+                setDrawings([]);
+                try {
+                  const ctrl = canvasCtrlRef.current;
+                  if (ctrl) {
+                    if (typeof ctrl.clearAndSync === 'function') await ctrl.clearAndSync();
+                    else if (typeof ctrl.clearCanvas === 'function') ctrl.clearCanvas();
+                  }
+                } catch (_e) {
+                  // ignore
+                }
                 onClose();
               }
             } catch (e) {

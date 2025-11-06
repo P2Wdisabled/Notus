@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface HeadingMenuProps {
   onFormatChange: (command: string, value: string) => void;
@@ -7,22 +7,49 @@ interface HeadingMenuProps {
 
 export default function HeadingMenu({ onFormatChange }: HeadingMenuProps) {
   const [showHeadingMenu, setShowHeadingMenu] = useState(false);
+  const MENU_ID = 'headingMenu';
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const ce = e as CustomEvent<string>;
+      if (ce.detail !== MENU_ID) setShowHeadingMenu(false);
+    };
+    window.addEventListener('wysiwyg:open-menu', handler as EventListener);
+    return () => window.removeEventListener('wysiwyg:open-menu', handler as EventListener);
+  }, []);
+
+  // Close when clicking outside the heading menu
+  useEffect(() => {
+    if (!showHeadingMenu) return;
+    const onDocMouse = (ev: MouseEvent) => {
+      const target = ev.target as Element | null;
+      if (target && !target.closest('[data-heading-menu]')) {
+        setShowHeadingMenu(false);
+        window.dispatchEvent(new CustomEvent('wysiwyg:open-menu', { detail: '' }));
+      }
+    };
+    document.addEventListener('mousedown', onDocMouse);
+    return () => document.removeEventListener('mousedown', onDocMouse);
+  }, [showHeadingMenu]);
 
   return (
-    <div className="relative">
+    <div className="relative inline-block" data-heading-menu>
       <button
         type="button"
-        onClick={() => setShowHeadingMenu(!showHeadingMenu)}
+        onClick={() => {
+          const next = !showHeadingMenu;
+          setShowHeadingMenu(next);
+          if (next) window.dispatchEvent(new CustomEvent('wysiwyg:open-menu', { detail: MENU_ID }));
+          else window.dispatchEvent(new CustomEvent('wysiwyg:open-menu', { detail: '' }));
+        }}
         className="p-2 rounded transition-colors bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
         title="Titre"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M5 4v3h5v3h4V7h5V4H5zM3 14h18v-2H3v2z"/>
-        </svg>
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M10.5 20V7H5V4h14v3h-5.5v13z"/></svg>
       </button>
 
       {showHeadingMenu && (
-        <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-700 rounded shadow-lg border border-gray-200 dark:border-gray-600 z-50">
+        <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-700 rounded shadow-lg border border-gray-200 dark:border-gray-600 z-50 min-w-max">
           <div className="py-1">
             <button
               type="button"
@@ -30,22 +57,28 @@ export default function HeadingMenu({ onFormatChange }: HeadingMenuProps) {
                 onFormatChange('formatBlock', 'div');
                 setShowHeadingMenu(false);
               }}
-              className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-600"
+              className="w-full px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center justify-between whitespace-nowrap"
             >
-              Normal
+              16px - Normal
             </button>
             {[1, 2, 3, 4, 5, 6].map((level) => (
-              <button
+                <button
                 key={level}
                 type="button"
                 onClick={() => {
                   onFormatChange('formatBlock', `h${level}`);
                   setShowHeadingMenu(false);
                 }}
-                className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-600"
-              >
-                H{level} - {level === 1 ? 'Titre principal' : level === 2 ? 'Sous-titre' : level === 3 ? 'Titre de section' : `Titre niveau ${level}`}
-              </button>
+                className="w-full px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center justify-between whitespace-nowrap"
+                >
+                {level === 1
+                  ? '30px - Titre principal'
+                  : level === 2
+                  ? '24px - Sous-titre'
+                  : level === 3
+                  ? '20px - Titre de section'
+                  : `${level === 4 ? '18px' : level === 5 ? '16px' : '14px'} - Titre niveau ${level}`}
+                </button>
             ))}
           </div>
         </div>

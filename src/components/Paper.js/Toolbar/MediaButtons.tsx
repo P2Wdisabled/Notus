@@ -1,17 +1,35 @@
 "use client";
 
+import { useState } from "react";
+import { ToolbarPopin } from "./ToolbarPopin";
+
 interface MediaButtonsProps {
-  onFormatChange: (command: string) => void;
+  onFormatChange: (command: string, value?: string) => void;
   onShowDrawingModal: () => void;
 }
 
 export default function MediaButtons({ onFormatChange, onShowDrawingModal }: MediaButtonsProps) {
+  const [showImagePopin, setShowImagePopin] = useState(false);
+  const [showLinkPopin, setShowLinkPopin] = useState(false);
+  const handleInsertImage = (u: string) => {
+
+    try { (window as any).restoreWysiwygSelection?.(); } catch {}
+    onFormatChange('insertImage', u);
+  };
+  const handleInsertLink = (u: string) => {
+    try { (window as any).restoreWysiwygSelection?.(); } catch {}
+    onFormatChange('createLink', u);
+  };
+
   return (
-    <>
+    <div className="relative inline-flex items-center gap-2">
       {/* Link */}
       <button
         type="button"
-        onClick={() => onFormatChange('createLink')}
+        onClick={() => {
+          try { (window as any).saveWysiwygSelection?.(); } catch {}
+          setShowLinkPopin((s) => !s);
+        }}
         className="p-2 rounded transition-colors bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
         title="Lien"
       >
@@ -20,12 +38,15 @@ export default function MediaButtons({ onFormatChange, onShowDrawingModal }: Med
         </svg>
       </button>
 
-      {/* Image */}
+      {/* Image (insert by URL for now) */}
       <button
         type="button"
-        onClick={() => onFormatChange('insertImage')}
+        onClick={() => {
+          try { (window as any).saveWysiwygSelection?.(); } catch {}
+          setShowImagePopin((s) => !s);
+        }}
         className="p-2 rounded transition-colors bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
-        title="Image"
+        title="Image (par URL)"
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
           <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
@@ -43,6 +64,22 @@ export default function MediaButtons({ onFormatChange, onShowDrawingModal }: Med
           <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1.003 1.003 0 000-1.42l-2.34-2.34a1.003 1.003 0 00-1.42 0l-1.83 1.83 3.75 3.75 1.84-1.82z"/>
         </svg>
       </button>
-    </>
+
+      {showImagePopin && (
+        <ToolbarPopin
+          mode="image"
+          onClose={() => setShowImagePopin(false)}
+          onInsertUrl={handleInsertImage}
+        />
+      )}
+
+      {showLinkPopin && (
+        <ToolbarPopin
+          mode="link"
+          onClose={() => setShowLinkPopin(false)}
+          onInsertUrl={handleInsertLink}
+        />
+      )}
+    </div>
   );
 }
