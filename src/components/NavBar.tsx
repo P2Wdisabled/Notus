@@ -11,6 +11,7 @@ import { useLocalSession } from "@/hooks/useLocalSession";
 import { useSearch } from "@/contexts/SearchContext";
 import { useGuardedNavigate } from "@/hooks/useGuardedNavigate";
 import LoginRequiredModal from "@/components/LoginRequiredModal";
+//import unreadCount from "./ui/unread-count";
 
 interface NavItem {
   name: string;

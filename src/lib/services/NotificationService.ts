@@ -121,4 +121,13 @@ export class NotificationService {
             return { success: false, error: error instanceof Error ? error.message : "Erreur inconnue" };
         }
     }
+
+    async getUnreadCount(id_receiver: number) {
+        try {
+            return await this.notificationRepository.countUnread(id_receiver);
+        } catch (error) {
+            console.error("❌ Erreur getUnreadCount:", error);
+            return { success: false, error: error instanceof Error ? error.message : "Erreur inconnue" };
+        }
+    }
 }
