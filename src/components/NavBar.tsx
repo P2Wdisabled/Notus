@@ -6,27 +6,40 @@ import { usePathname, useRouter } from "next/navigation";
 import Image  from "next/image";
 import { useSession } from "next-auth/react";
 import AdminButton from "./AdminButton";
+import NotificationOverlay from "./NotificationOverlay";
 import { Logo, Input, Button } from "@/components/ui";
 import { useLocalSession } from "@/hooks/useLocalSession";
 import { useSearch } from "@/contexts/SearchContext";
 import { useGuardedNavigate } from "@/hooks/useGuardedNavigate";
 import LoginRequiredModal from "@/components/LoginRequiredModal";
+//import unreadCount from "./ui/unread-count";
 
 interface NavItem {
   name: string;
   href: string;
+  onClick?: (e: React.MouseEvent) => void;
   icon: (props: { className?: string }) => React.JSX.Element;
+  // when true, this item won't be shown in the mobile drawer
+  mobileHidden?: boolean;
 }
 
 export default function NavBar() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   const router = useRouter();
   const { searchQuery, startSearch, clearSearch } = useSearch();
   const { data: session, status } = useSession();
   const { logout } = useLocalSession();
   const { guardedNavigate } = useGuardedNavigate();
+
+  // Prevent hydration mismatch: only render session-dependent UI after client mount
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
 
   // Extraire les données de session
   const isLoggedIn = status === "authenticated" && session?.user;
@@ -72,7 +85,16 @@ export default function NavBar() {
     { name: "Favoris", href: "/favorites", icon: StarIcon },
     { name: "Paramètres", href: "/settings", icon: GearIcon },
     //{ name: "Dossiers", href: "/folders", icon: FolderIcon },
-    //{ name: "Notifications", href: "/notifications", icon: BellIcon },
+    {
+      name: "Notifications",
+      href: "#",
+      icon: BellIcon,
+      onClick: (e: React.MouseEvent) => {
+        e.preventDefault();
+        handleNotificationOverlay(e);
+      },
+      mobileHidden: true,
+    },
     { name: "Corbeille", href: "/trash", icon: TrashIcon },
   ];
 
@@ -122,15 +144,30 @@ export default function NavBar() {
       setShowLoginModal(true);
       return;
     }
-    
+
     guardedNavigate(href);
+  };
+
+  const handleNotificationOverlay = (e?: React.MouseEvent) => {
+    e?.preventDefault?.();
+    // If user not mounted or not logged in, show login modal instead
+    if (!mounted || !isLoggedIn) {
+      setShowLoginModal(true);
+      return;
+    }
+
+    setShowNotifications((prev) => {
+      const next = !prev;
+      if (next) setIsOpen(false);
+      return next;
+    });
   };
 
   return (
     <>
       {/* Global top bar (mobile + desktop) */}
       <div className="sticky top-0 z-40 bg-background">
-        <div className="w-full px-2 h-14 flex items-center justify-between md:hidden">
+        <div className="w-full px-2 h-16 flex items-center justify-between md:hidden">
           {/* Left: burger + page title */}
           <div className="flex items-center gap-3">
             <button
@@ -141,7 +178,7 @@ export default function NavBar() {
               <MenuIcon />
             </button>
             {/* Mobile page title */}
-            <span className="font-title text-4xl font-regular text-foreground">
+            <span className="font-title text-2xl sm:text-3xl font-regular text-foreground leading-tight">
               {pageTitle}
             </span>
             <button
@@ -156,26 +193,37 @@ export default function NavBar() {
 
           {/* Right: profile (hidden on desktop) */}
           <div className="flex items-center gap-2 md:hidden">
-            {isLoggedIn && (
-              <button
-                type="button"
-                onClick={() => guardedNavigate("/profile")}
-                aria-label="Profil"
-                className="ml-1 inline-flex items-center justify-center w-8 h-8 rounded-full overflow-hidden bg-muted ring-1 ring-border/20 shadow-sm"
-                title={userName || "Profil"}
-              >
-                {localProfileImage ? (
-                  <Image
-                    src={localProfileImage}
-                    alt="Photo de profil"
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full bg-secondary text-secondary-foreground font-semibold flex items-center justify-center">
-                    {getInitials(userName)}
-                  </div>
-                )}
-              </button>
+            {mounted && isLoggedIn && (
+              <>
+                <button
+                  aria-label="Notifications"
+                  onClick={handleNotificationOverlay}
+                  className={`p-2 rounded-md hover:bg-accent text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer ${showNotifications ? 'bg-accent/70' : ''}`}
+                  title="Notifications"
+                >
+                  <BellIcon />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => guardedNavigate("/profile")}
+                  aria-label="Profil"
+                  className="ml-1 inline-flex items-center justify-center w-8 h-8 rounded-full overflow-hidden bg-muted ring-1 ring-border/20 shadow-sm"
+                  title={userName || "Profil"}
+                >
+                  {localProfileImage ? (
+                    <img
+                      src={localProfileImage}
+                      alt="Photo de profil"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-secondary text-secondary-foreground font-semibold flex items-center justify-center">
+                      {getInitials(userName)}
+                    </div>
+                  )}
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -223,21 +271,34 @@ export default function NavBar() {
               <div className="pt-3">{/* <AdminButton /> */}</div>
               {/* Navigation items (mobile) */}
               <div className="px-2">
-                {items.map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={(e) => handleNavItemClick(e, item.href)}
-                    className={`flex items-center gap-3 p-3 rounded-md hover:bg-accent text-foreground ${pathname === item.href ? 'bg-accent/70' : ''}`}
-                  >
-                    <item.icon />
-                    <span className="font-medium">{item.name}</span>
-                  </Link>
-                ))}
+                {items
+                  .filter((i) => !i.mobileHidden)
+                  .map((item) => (
+                    item.onClick ? (
+                      <button
+                        key={item.href}
+                            onClick={(e) => { e.preventDefault(); item.onClick?.(e); setIsOpen(false); }}
+                            className={`w-full flex items-center gap-3 p-3 rounded-md hover:bg-accent text-foreground ${pathname === item.href || (item.name === 'Notifications' && showNotifications) ? 'bg-accent/70' : ''}`}
+                      >
+                        <item.icon />
+                        <span className="font-medium">{item.name}</span>
+                      </button>
+                    ) : (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                            onClick={(e) => handleNavItemClick(e, item.href)}
+                            className={`flex items-center gap-3 p-3 rounded-md hover:bg-accent text-foreground ${pathname === item.href || (item.name === 'Notifications' && showNotifications) ? 'bg-accent/70' : ''}`}
+                      >
+                        <item.icon />
+                        <span className="font-medium">{item.name}</span>
+                      </Link>
+                    )
+                  ))}
               </div>
             </nav>
             <div className="pt-4 space-y-3">
-              {isLoggedIn && (
+            {mounted && isLoggedIn && (
                 <button
                   type="button"
                   onClick={() => guardedNavigate("/profile")}
@@ -272,6 +333,14 @@ export default function NavBar() {
               </Button>
             </div>
           </div>
+          {/* Notification overlay positioned as a top-level fixed panel on mobile to avoid being clipped by the drawer */}
+        </div>
+      )}
+
+      {/* Mobile notification overlay (fixed, not nested inside drawer) */}
+      {showNotifications && (
+        <div className="md:hidden fixed right-0 top-0 z-50">
+          <NotificationOverlay isOpen={showNotifications} onClose={() => setShowNotifications(false)} />
         </div>
       )}
 
@@ -299,21 +368,32 @@ export default function NavBar() {
           {/* Navigation items (desktop) */}
           <div className="mt-4 space-y-1">
             {items.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={(e) => handleNavItemClick(e, item.href)}
-                className={`flex items-center gap-3 p-3 rounded-md hover:bg-accent text-foreground ${pathname === item.href ? 'bg-accent/70' : ''}`}
-              >
-                <item.icon />
-                <span className="font-medium">{item.name}</span>
-              </Link>
+              item.onClick ? (
+                <button
+                  key={item.href}
+                  onClick={(e) => { e.preventDefault(); item.onClick?.(e); }}
+                  className={`w-full flex items-center gap-3 p-3 rounded-md hover:bg-accent text-foreground ${pathname === item.href || (item.name === 'Notifications' && showNotifications) ? 'bg-accent/70' : ''}`}
+                >
+                  <item.icon />
+                  <span className="font-medium">{item.name}</span>
+                </button>
+              ) : (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={(e) => handleNavItemClick(e, item.href)}
+                  className={`flex items-center gap-3 p-3 rounded-md hover:bg-accent text-foreground ${pathname === item.href || (item.name === 'Notifications' && showNotifications) ? 'bg-accent/70' : ''}`}
+                >
+                  <item.icon />
+                  <span className="font-medium">{item.name}</span>
+                </Link>
+              )
             ))}
           </div>
         </nav>
         <div className="p-4 space-y-3">
           {/* <AdminButton /> */}
-          {isLoggedIn && (
+              {mounted && isLoggedIn && (
             <button
               type="button"
               onClick={() => guardedNavigate("/profile")}
@@ -344,6 +424,10 @@ export default function NavBar() {
           </Button>
         </div>
       </aside>
+      {/* Desktop notification overlay (positioned near the sidebar) */}
+      <div className="hidden md:block md:fixed md:left-[16rem] md:top-0 z-40">
+        <NotificationOverlay isOpen={showNotifications} onClose={() => setShowNotifications(false)} />
+      </div>
 
       {/* Modal de connexion pour Notes partagées */}
       <LoginRequiredModal
