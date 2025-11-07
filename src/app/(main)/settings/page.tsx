@@ -10,12 +10,15 @@ export default function SettingsPage() {
   const { isDark, toggleTheme, primaryColor, setPrimaryColor } = useTheme();
 
   return (
-    <div className="min-h-screen bg-background">
+    <main className="min-h-screen bg-background">
       <NavBar />
       <ContentWrapper maxWidth="md">
-        <div className="space-y-6">
-          <h1 className="font-title text-4xl font-regular text-foreground hidden md:block">Paramètres</h1>
+        <section className="space-y-6">
+          <header>
+            <h1 className="font-title text-4xl font-regular text-foreground hidden md:block">Paramètres</h1>
+          </header>
 
+          <section>
           <Card>
             <CardHeader>
               <CardTitle>Apparence</CardTitle>
@@ -52,7 +55,9 @@ export default function SettingsPage() {
               </button>
             </CardContent>
           </Card>
+          </section>
 
+          <section>
           <Card>
             <CardHeader>
               <CardTitle>Couleur principale</CardTitle>
@@ -78,9 +83,10 @@ export default function SettingsPage() {
               </div>
             </CardContent>
           </Card>
-        </div>
+          </section>
+        </section>
       </ContentWrapper>
-    </div>
+    </main>
   );
 }
 

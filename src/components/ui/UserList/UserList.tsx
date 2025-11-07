@@ -42,10 +42,10 @@ export default function UserList({ users, currentUserId }: UserListProps) {
                 <span>
                   {user.name}
                   {user.id === currentUserId && (
-                    <span className="ml-2 text-xs text-gray-400">(vous)</span>
+                    <span className="ml-2 text-xs text-muted-foreground">(vous)</span>
                   )}
                 </span>
-                <span className="text-xs text-gray-400">
+                <span className="text-xs text-muted-foreground">
                   {idx === 0
                     ? "Propriétaire"
                     : user.permission === true

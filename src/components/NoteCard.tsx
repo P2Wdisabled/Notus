@@ -51,7 +51,7 @@ export default function NoteCard({ note, currentUserId, onDelete }: NoteCardProp
       <div className="flex justify-between items-start mb-4">
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
-            <span className="text-white font-bold text-sm">
+            <span className="text-primary-foreground font-bold text-sm">
               {note.first_name?.charAt(0) || "U"}
             </span>
           </div>

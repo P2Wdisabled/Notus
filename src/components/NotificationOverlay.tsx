@@ -73,7 +73,7 @@ export default function NotificationOverlay({ isOpen = true, onClose }: Notifica
     }
 
     return (
-        <div className="h-screen w-80 bg-white dark:bg-gray-800 rounded-none shadow-lg border-l border-gray-200 dark:border-gray-700 p-2 flex flex-col">
+        <aside className="h-screen w-80 bg-card rounded-none shadow-lg border-l border-border p-2 flex flex-col" role="complementary" aria-label="Notifications">
             <div className="flex items-center justify-between px-2 py-2 flex-shrink-0">
                 <div className="flex items-center gap-2">
                     <strong>Notifications</strong>
@@ -96,17 +96,17 @@ export default function NotificationOverlay({ isOpen = true, onClose }: Notifica
                     )}
                 </div>
 
-                <button onClick={onClose} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+                <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
                     ×
                 </button>
             </div>
 
-            <div className="mt-2 flex-1 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700">
+            <div className="mt-2 flex-1 overflow-y-auto divide-y divide-border">
                 {loading && <div className="p-4">Chargement...</div>}
-                {error && <div className="p-4 text-red-500">{error}</div>}
+                {error && <div className="p-4 text-destructive">{error}</div>}
 
                 {!loading && !error && (notifications ?? []).length === 0 && (
-                    <div className="p-4 text-sm text-gray-500">Aucune notification</div>
+                    <div className="p-4 text-sm text-muted-foreground">Aucune notification</div>
                 )}
 
                 {!loading && (notifications ?? []).map((n: Notification) => {
@@ -129,7 +129,7 @@ export default function NotificationOverlay({ isOpen = true, onClose }: Notifica
                         const displayTitle = truncateText(String(docTitle), 50);
 
                         return (
-                            <div key={n.id} className={`px-2 py-2 ${isRead ? "bg-gray-100 dark:bg-gray-700" : ""}`}>
+                            <div key={n.id} className={`px-2 py-2 ${isRead ? "bg-muted" : ""}`}>
                                 <div className="flex items-center gap-3 min-w-0">
                                     <Avatar className="w-10 h-10 flex-shrink-0" title={username}>
                                         <AvatarImage src={avatarUrl || undefined} alt={username} />
@@ -140,17 +140,17 @@ export default function NotificationOverlay({ isOpen = true, onClose }: Notifica
                                         <div className="font-medium text-sm line-clamp-2" title='Partage de note'>
                                             {username} vous a partagé une note
                                         </div>
-                                        <div className="text-xs text-gray-600 dark:text-gray-300 truncate" title={String(docTitle)}>
+                                        <div className="text-xs text-muted-foreground truncate" title={String(docTitle)}>
                                             {displayTitle}
                                         </div>
                                     </div>
 
                                     <div className="flex-shrink-0">
                                         {isRead ? (
-                                            <button
+                                                <button
                                                 title="Notification traitée"
                                                 disabled
-                                                className="bg-gray-400 text-white px-3 py-1 rounded opacity-80 cursor-not-allowed"
+                                                    className="bg-muted text-foreground px-3 py-1 rounded opacity-80 cursor-not-allowed"
                                             >
                                                 Traitée
                                             </button>
@@ -163,7 +163,7 @@ export default function NotificationOverlay({ isOpen = true, onClose }: Notifica
                                                         await markAsRead(n.id);
                                                         if (confirmUrl) window.location.href = confirmUrl;
                                                     }}
-                                                    className="bg-primary text-white px-3 py-1 rounded"
+                                                    className="bg-primary text-primary-foreground px-3 py-1 rounded"
                                                 >
                                                     Accepter
                                                 </button>
@@ -174,7 +174,7 @@ export default function NotificationOverlay({ isOpen = true, onClose }: Notifica
                                                         e.stopPropagation();
                                                         await markAsRead(n.id);
                                                     }}
-                                                    className="bg-red-500 text-white px-3 py-1 rounded"
+                                                    className="bg-destructive text-destructive-foreground px-3 py-1 rounded"
                                                 >
                                                     Refuser
                                                 </button>
@@ -191,7 +191,7 @@ export default function NotificationOverlay({ isOpen = true, onClose }: Notifica
                         : undefined;
 
                     return (
-                        <div key={`item-${n.id}`} className={`${isRead ? "bg-gray-100 dark:bg-gray-700" : ""}`}>
+                        <div key={`item-${n.id}`} className={`${isRead ? "bg-muted" : ""}`}>
                             <NotificationItem
                                 key={n.id}
                                 id_sender={idSender}
@@ -204,6 +204,6 @@ export default function NotificationOverlay({ isOpen = true, onClose }: Notifica
                     );
                 })}
             </div>
-        </div>
+        </aside>
     );
 }

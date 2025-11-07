@@ -839,7 +839,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
                       }
                     }}
                     disabled={hasEditAccess === false}
-                    icon={<Icon name="share" className={hasEditAccess === false ? "w-4 h-4 text-gray-400" : "w-4 h-4 text-primary"} />}
+                    icon={<Icon name="share" className={hasEditAccess === false ? "w-4 h-4 text-muted-foreground" : "w-4 h-4 text-primary"} />}
                   >
                     {hasEditAccess === false ? "Lecture seule" : "Partager"}
                   </MenuItem>
@@ -852,7 +852,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
                       }
                     }}
                     disabled={hasEditAccess === false || isPending}
-                    icon={<Icon name="document" className={hasEditAccess === false || isPending ? "w-4 h-4 text-gray-400" : "w-4 h-4 text-primary"} />}
+                    icon={<Icon name="document" className={hasEditAccess === false || isPending ? "w-4 h-4 text-muted-foreground" : "w-4 h-4 text-primary"} />}
                   >
                     {isPending ? "Sauvegarde..." : hasEditAccess === false ? "Lecture seule" : "Sauvegarder"}
                   </MenuItem>
@@ -1011,8 +1011,8 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
         {/* Saved notification */}
         {showSavedNotification && (
           <div className="fixed bottom-4 left-4 z-50 pointer-events-none">
-            <div className="bg-primary text-white border border-primary rounded-lg px-3 py-2 shadow-lg pointer-events-auto flex items-center">
-              <Icon name="check" className="w-4 h-4 mr-2 text-white" />
+            <div className="bg-primary text-primary-foreground border border-primary rounded-lg px-3 py-2 shadow-lg pointer-events-auto flex items-center">
+              <Icon name="check" className="w-4 h-4 mr-2 text-primary-foreground" />
               <span className="text-sm font-medium">Note enregistrée</span>
             </div>
           </div>

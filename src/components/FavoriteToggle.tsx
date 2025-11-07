@@ -41,7 +41,7 @@ export default function FavoriteToggle({
           className
         )}
       >
-        <Icon name="favorite" filled={isFavorite} className={isFavorite ? "text-primary" : "text-muted-foreground"} />
+        <Icon name="favorite" className={isFavorite ? "text-primary" : "text-muted-foreground"} />
     </button>
   );
 }

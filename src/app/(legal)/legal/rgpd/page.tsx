@@ -17,20 +17,20 @@ export default function RGPDPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
+    <main className="min-h-screen bg-background">
       <div className="max-w-4xl mx-auto px-4 py-8">
         {/* Header Section */}
-        <div className="text-center mb-12">
+        <header className="text-center mb-12">
           <h1 className="text-4xl font-bold text-foreground mb-4">
             Mentions légales RGPD
           </h1>
           <Badge variant="outline" className="text-sm">
             Dernière mise à jour : 18 septembre 2025
           </Badge>
-        </div>
+        </header>
 
         {/* Table des matières - Toujours en haut */}
-        <div className="mb-8">
+        <section className="mb-8">
           <Card>
             <Card.Header>
               <Card.Title className="text-lg text-foreground">Table des matières</Card.Title>
@@ -49,13 +49,13 @@ export default function RGPDPage() {
               </nav>
             </Card.Content>
           </Card>
-        </div>
+        </section>
 
         {/* Contenu principal */}
-        <div className="max-w-4xl mx-auto">
+        <section className="max-w-4xl mx-auto">
             <Card>
               <Card.Content className="p-8">
-                <div className="prose prose-lg max-w-none dark:prose-invert prose-headings:text-foreground prose-p:text-foreground prose-strong:text-foreground prose-li:text-foreground">
+                <div className="prose prose-lg max-w-none prose-headings:text-foreground prose-p:text-foreground prose-strong:text-foreground prose-li:text-foreground">
 
                   <section id="definitions" className="mb-12">
                     <h2 className="text-2xl font-bold text-foreground mb-6 pb-2 border-b border-border">
@@ -944,16 +944,16 @@ export default function RGPDPage() {
                 </div>
               </Card.Content>
             </Card>
-        </div>
+        </section>
 
         {/* Footer avec bouton de retour */}
-        <div className="flex justify-center mt-12">
+        <footer className="flex justify-center mt-12">
           <Button asChild className="py-2 px-4 text-lg">
             <Link href="/">Retour à l'accueil</Link>
           </Button>
-        </div>
+        </footer>
       </div>
-    </div>
+    </main>
   );
 }
 

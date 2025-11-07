@@ -82,12 +82,12 @@ function RegisterPageClient({ serverSession }: RegisterPageClientProps) {
   // Affichage du loading pendant la vérification
   if (loading) {
     return (
-      <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center p-4">
+      <main className="min-h-screen bg-background flex items-center justify-center p-4">
         <LoadingSpinner.Card
           message="Vérification..."
           className="max-w-md w-full"
         />
-      </div>
+      </main>
     );
   }
 
@@ -98,10 +98,10 @@ function RegisterPageClient({ serverSession }: RegisterPageClientProps) {
 
   if (message && message.includes("réussie")) {
     return (
-      <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center p-4">
+      <main className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="max-w-md w-full text-center">
-          <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
-            <span className="text-white text-2xl">✓</span>
+          <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center mx-auto mb-6">
+            <span className="text-primary-foreground text-2xl">✓</span>
           </div>
           <Card.Title className="text-2xl mb-4">
             Inscription réussie !
@@ -114,12 +114,12 @@ function RegisterPageClient({ serverSession }: RegisterPageClientProps) {
             <Link href="/login">Se connecter</Link>
           </Button>
         </Card>
-      </div>
+      </main>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center p-4">
+    <main className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="max-w-md w-full">
         <Card.Header className="text-center">
           <Logo />
@@ -135,10 +135,10 @@ function RegisterPageClient({ serverSession }: RegisterPageClientProps) {
         {/* Séparateur */}
         {/* <div className="relative mb-6">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray dark:border-dark-gray" />
+            <div className="w-full border-t border-border" />
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-white dark:bg-black text-dark-gray dark:text-gray">
+            <span className="px-2 bg-background text-muted-foreground">
               ou
             </span>
           </div>
@@ -215,9 +215,9 @@ function RegisterPageClient({ serverSession }: RegisterPageClientProps) {
 
             {/* Indicateur de conditions du mot de passe */}
             <div className="-mt-4">
-              <div className="w-full h-2 bg-light-gray dark:bg-dark-gray rounded-full overflow-hidden">
+              <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
                 <div
-                  className={`bg-orange dark:bg-dark-purple h-full transition-all duration-300`}
+                  className={`bg-primary h-full transition-all duration-300`}
                   style={{
                     width: `${passwordProgress}%`,
                     opacity: Math.max(0.2, passwordProgress / 100),
@@ -225,7 +225,7 @@ function RegisterPageClient({ serverSession }: RegisterPageClientProps) {
                 />
               </div>
               {passwordRemaining.length > 0 && (
-                <ul className="mt-2 text-xs text-dark-gray dark:text-gray list-disc pl-5 space-y-1">
+                <ul className="mt-2 text-xs text-muted-foreground list-disc pl-5 space-y-1">
                   {passwordRemaining.map((item) => (
                     <li key={item}>{item}</li>
                   ))}
@@ -277,13 +277,13 @@ function RegisterPageClient({ serverSession }: RegisterPageClientProps) {
               <div className="ml-3 text-sm">
                 <label
                   htmlFor="acceptTerms"
-                  className="text-dark-gray dark:text-gray"
+                  className="text-muted-foreground"
                 >
                   Je confirme avoir lu et accepté les{" "}
                   <Link
                     href="/legal/cgu"
                     target="_blank"
-                    className="text-primary hover:text-primary/90 dark:text-primary dark:hover:text-primary/90 underline"
+                    className="text-primary hover:text-primary/90 underline"
                   >
                     conditions générales d&apos;utilisation
                   </Link>{" "}
@@ -291,7 +291,7 @@ function RegisterPageClient({ serverSession }: RegisterPageClientProps) {
                   <Link
                     href="/legal/rgpd"
                     target="_blank"
-                    className="text-primary hover:text-primary/90 dark:text-primary dark:hover:text-primary/90 underline"
+                    className="text-primary hover:text-primary/90 underline"
                   >
                     mentions légales RGPD
                   </Link>
@@ -321,17 +321,17 @@ function RegisterPageClient({ serverSession }: RegisterPageClientProps) {
         </Card.Content>
 
         <Card.Footer className="text-center">
-          <p className="text-dark-gray dark:text-gray">
+          <p className="text-muted-foreground">
             Déjà un compte ?{" "}
             <Button variant="link" asChild>
-              <Link className="text-orange dark:text-dark-purple" href="/login">
+              <Link className="text-primary" href="/login">
                 Se connecter
               </Link>
             </Button>
           </p>
         </Card.Footer>
       </Card>
-    </div>
+    </main>
   );
 }
 

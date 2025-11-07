@@ -28,13 +28,15 @@ export default async function Home() {
   const sharedByMe = normalizedDocuments.filter(doc => doc.user_id === String(currentUserId));
 
   return (
-    <div className="min-h-screen bg-background">
+    <main className="min-h-screen bg-background">
       <NavBar />
       <ContentWrapper maxWidth="lg">
-        <div className="space-y-8">
-          <h2 className="font-title text-4xl font-regular text-foreground hidden md:block">
-            Notes partagées
-          </h2>
+        <section className="space-y-8">
+          <header>
+            <h1 className="font-title text-4xl font-regular text-foreground hidden md:block">
+              Notes partagées
+            </h1>
+          </header>
 
           {!documentsResult.success && session?.user && (
             <Alert variant="error">
@@ -45,7 +47,7 @@ export default async function Home() {
           )}
 
           {/* Section des notes partagées avec moi */}
-          <div className="space-y-4">
+          <section className="space-y-4">
             <h3 className="text-2xl font-semibold text-foreground">
               Partagées avec moi ({sharedWithMe.length})
             </h3>
@@ -60,10 +62,10 @@ export default async function Home() {
                 Aucune note partagée avec vous pour le moment.
               </div>
             )}
-          </div>
+          </section>
 
           {/* Section des notes que j'ai partagées */}
-          <div className="space-y-4">
+          <section className="space-y-4">
             <h3 className="text-2xl font-semibold text-foreground">
               Mes notes partagées ({sharedByMe.length})
             </h3>
@@ -78,10 +80,10 @@ export default async function Home() {
                 Vous n'avez partagé aucune note pour le moment.
               </div>
             )}
-          </div>
-        </div>
+          </section>
+        </section>
       </ContentWrapper>
-    </div>
+    </main>
   );
 }
 

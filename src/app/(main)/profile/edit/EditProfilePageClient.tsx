@@ -200,7 +200,7 @@ export default function EditProfilePageClient({ user }: EditProfilePageClientPro
           <form action={handleSubmit} className="space-y-4">
             <Input
               label="Pseudo"
-              labelClassName="!text-black dark:!text-white text-xl font-title font-bold"
+              labelClassName="!text-foreground text-xl font-title font-bold"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="Pseudo"
@@ -210,7 +210,7 @@ export default function EditProfilePageClient({ user }: EditProfilePageClientPro
             />
             <Input
               label="Nom"
-              labelClassName="!text-black dark:!text-white text-xl font-title font-bold"
+              labelClassName="!text-foreground text-xl font-title font-bold"
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
               placeholder="Nom"
@@ -220,7 +220,7 @@ export default function EditProfilePageClient({ user }: EditProfilePageClientPro
             />
             <Input
               label="Prénom"
-              labelClassName="!text-black dark:!text-white text-xl font-title font-bold"
+              labelClassName="!text-foreground text-xl font-title font-bold"
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
               placeholder="Prénom"
@@ -268,8 +268,8 @@ export default function EditProfilePageClient({ user }: EditProfilePageClientPro
             {message && (
               <p
                 className={`text-sm ${message.toLowerCase().includes("succès")
-                  ? "text-green-600 dark:text-green-400"
-                  : "text-red-600 dark:text-red-400"
+                  ? "text-primary"
+                  : "text-destructive"
                   }`}
               >
                 {message}

@@ -38,12 +38,12 @@ export default async function ProfilePage() {
     : { success: true, documents: [] };
 
   return (
-    <div className="min-h-screen bg-background">
+    <main className="min-h-screen bg-background">
       <NavBar />
 
       {/* Back link */}
       <div className="md:ml-64 md:pl-4 pt-6">
-        <div className="max-w-4xl mx-auto px-4 md:px-6 lg:px-8 pb-4 hidden md:flex gap-4">
+        <header className="max-w-4xl mx-auto px-4 md:px-6 lg:px-8 pb-4 hidden md:flex gap-4">
           <Link
             href="/"
             className="text-foreground font-semibold flex items-center"
@@ -51,7 +51,7 @@ export default async function ProfilePage() {
             <Icon name="arrowLeft" className="h-6 w-6 mr-2" />
           </Link>
           <h2 className="font-title text-4xl font-regular">Mon compte</h2>
-        </div>
+        </header>
       </div>
 
       {/* Cover */}
@@ -75,7 +75,7 @@ export default async function ProfilePage() {
       </div>
 
       <div className="md:ml-64 md:pl-4">
-        <div className="max-w-4xl mx-auto px-4 md:px-6 lg:px-8 -mt-12 md:-mt-16 pb-10">
+        <section className="max-w-4xl mx-auto px-4 md:px-6 lg:px-8 -mt-12 md:-mt-16 pb-10">
           {/* Header */}
           <div className="flex flex-col items-center md:flex-row md:items-end gap-4 relative z-10">
             <div className="w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-background overflow-hidden bg-muted ring-2 ring-border/30 shadow-lg">
@@ -101,7 +101,7 @@ export default async function ProfilePage() {
           </div>
 
           {/* Identity */}
-          <div className="mt-4 text-center md:text-left">
+          <section className="mt-4 text-center md:text-left">
             <h1 className="text-2xl md:text-3xl font-bold text-foreground">
               {displayName}
             </h1>
@@ -115,10 +115,10 @@ export default async function ProfilePage() {
                 {joinDate.getFullYear()}
               </span>
             </div>
-          </div>
+          </section>
 
           {/* Notes section */}
-          <div className="mt-8">
+          <section className="mt-8">
             <h2 className="text-xl font-semibold text-foreground mb-3">
               Mes notes
             </h2>
@@ -151,11 +151,11 @@ export default async function ProfilePage() {
                   ))}
               </div>
             )}
-          </div>
+          </section>
           <div className="flex-1" />
-        </div>
-        </div>
+        </section>
       </div>
+    </main>
   );
 }
 

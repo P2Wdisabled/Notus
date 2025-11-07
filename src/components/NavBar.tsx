@@ -167,7 +167,7 @@ export default function NavBar() {
   return (
     <>
       {/* Global top bar (mobile + desktop) */}
-      <div className="sticky top-0 z-40 bg-background">
+      <header className="sticky top-0 z-40 bg-background">
         <div className="w-full px-2 h-16 flex items-center justify-between md:hidden">
           {/* Left: burger + page title */}
           <div className="flex items-center gap-3">
@@ -228,13 +228,13 @@ export default function NavBar() {
             )}
           </div>
         </div>
-      </div>
+      </header>
 
       {/* Mobile drawer */}
       {isOpen && (
         <div className="md:hidden fixed inset-0 z-50">
           <div
-            className="absolute inset-0 bg-black/30"
+            className="absolute inset-0 bg-foreground/30"
             onClick={() => setIsOpen(false)}
           />
           <div className="absolute left-0 top-0 h-full w-72 bg-background border-r-2 border-border/50 p-4 flex flex-col">

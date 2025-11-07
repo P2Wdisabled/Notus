@@ -25,7 +25,7 @@ export default function SelectionBar({
   const isAllSelected = selectedCount === totalCount;
 
   return (
-    <div className="fixed left-0 right-0 z-20 px-0 md:ml-68 md:px-4 bottom-0 mb-0">
+    <aside className="fixed left-0 right-0 z-20 px-0 md:ml-68 md:px-4 bottom-0 mb-0" role="region" aria-label="Barre de sélection">
       <div className="max-w-4xl mx-auto px-4 md:px-6 lg:px-8 py-3 bg-background text-foreground border-t border-border">
         <div className="flex items-center justify-between gap-4">
           {/* Section gauche : Annuler + Compteur */}
@@ -38,10 +38,10 @@ export default function SelectionBar({
             >
               <Icon name="x" className="w-6 h-6" />
             </Button>
-            <span className="text-sm text-gray-700 dark:text-gray-300 font-medium hidden md:inline">
+            <span className="text-sm text-foreground font-medium hidden md:inline">
               {selectedCount} note{selectedCount > 1 ? 's' : ''} sélectionnée{selectedCount > 1 ? 's' : ''}
             </span>
-            <span className="text-sm text-gray-700 dark:text-gray-300 font-medium md:hidden">
+            <span className="text-sm text-foreground font-medium md:hidden">
               {selectedCount}
             </span>
           </div>
@@ -75,6 +75,6 @@ export default function SelectionBar({
           </div>
         </div>
       </div>
-    </div>
+    </aside>
   );
 }

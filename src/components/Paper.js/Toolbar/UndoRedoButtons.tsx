@@ -24,8 +24,8 @@ export default function UndoRedoButtons({ canUndo, canRedo, onFormatChange }: Un
         disabled={!canUndo}
         className={`p-2 rounded transition-colors ${
           canUndo
-            ? "bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
-            : "bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
+            ? "bg-muted hover:bg-muted/80 text-foreground"
+            : "bg-muted text-muted-foreground cursor-not-allowed"
         }`}
         title="Annuler (Ctrl+Z)"
       >
@@ -45,8 +45,8 @@ export default function UndoRedoButtons({ canUndo, canRedo, onFormatChange }: Un
         disabled={!canRedo}
         className={`p-2 rounded transition-colors ${
           canRedo
-            ? "bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
-            : "bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
+            ? "bg-muted hover:bg-muted/80 text-foreground"
+            : "bg-muted text-muted-foreground cursor-not-allowed"
         }`}
         title="Rétablir (Ctrl+Y ou Ctrl+Shift+Z)"
       >

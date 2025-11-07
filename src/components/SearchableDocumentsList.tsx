@@ -186,7 +186,7 @@ export function SearchableDocumentsList({
     return (
       <Card className="text-center py-12">
         <Card.Content>
-          <div className="text-gray-400 dark:text-gray-500 mb-4">
+          <div className="text-muted-foreground mb-4">
             <Icon name="document" className="w-16 h-16 mx-auto" />
           </div>
           <Card.Title className="text-lg mb-2">
@@ -202,7 +202,7 @@ export function SearchableDocumentsList({
     return (
       <Card className="text-center py-12">
         <Card.Content>
-          <div className="text-gray-400 dark:text-gray-500 mb-4">
+          <div className="text-muted-foreground mb-4">
             <Icon name="search" className="w-16 h-16 mx-auto" />
           </div>
           <Card.Title className="text-lg mb-2">
@@ -216,28 +216,28 @@ export function SearchableDocumentsList({
 
   return (
     <TagsProvider documents={[...localDocuments as unknown as AnyDocument[], ...baseServerDocs as unknown as AnyDocument[]]}>
-      <div className="space-y-3">
+      <section className="space-y-3">
         {message && isMessageVisible && (
-          <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-start justify-between gap-3">
-            <p className="text-sm text-red-600 dark:text-red-400 flex-1">{message}</p>
+          <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg flex items-start justify-between gap-3">
+            <p className="text-sm text-destructive flex-1">{message}</p>
             <button
               type="button"
               onClick={() => setIsMessageVisible(false)}
               aria-label="Fermer le message"
-              className="text-red-500 hover:text-red-700 dark:text-red-300 dark:hover:text-red-200 shrink-0"
+              className="text-destructive hover:opacity-80 shrink-0"
             >
               <Icon name="x" className="w-[18px] h-[18px]" />
             </button>
           </div>
         )}
 
-        <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(300px,1fr))]">
+        <ul className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(300px,1fr))]">
           {filteredDocuments.map((document) => {
             // Un document est local s'il provient du localStorage (pas de user_id)
             // Un document est serveur s'il provient de la base de données (a un user_id)
             const isLocal = !('user_id' in document) || (document as LocalDocument).user_id === undefined;
             return (
-              <div key={String(document.id)} className="w-full">
+              <li key={String(document.id)} className="w-full list-none">
                 <DocumentCard
                   document={document as any}
                   currentUserId={currentUserId}
@@ -258,11 +258,11 @@ export function SearchableDocumentsList({
                     }
                   }}
                 />
-              </div>
+              </li>
             );
           })}
-        </div>
-      </div>
+        </ul>
+      </section>
 
       {/* Barre de sélection */}
       {selectMode && (

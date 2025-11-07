@@ -31,7 +31,7 @@ export default function MediaButtons({ onFormatChange, onShowDrawingModal }: Med
           try { (window as any).saveWysiwygSelection?.(); } catch {}
           setShowLinkPopin((s) => !s);
         }}
-        className="p-2 rounded transition-colors bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
+        className="p-2 rounded transition-colors bg-muted hover:bg-muted/80 text-foreground"
         title="Lien"
       >
         <Icon name="link" className="h-5 w-5" />
@@ -44,7 +44,7 @@ export default function MediaButtons({ onFormatChange, onShowDrawingModal }: Med
           try { (window as any).saveWysiwygSelection?.(); } catch {}
           setShowImagePopin((s) => !s);
         }}
-        className="p-2 rounded transition-colors bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
+        className="p-2 rounded transition-colors bg-muted hover:bg-muted/80 text-foreground"
         title="Image (par URL)"
       >
         <Icon name="image" className="h-5 w-5" />
@@ -54,7 +54,7 @@ export default function MediaButtons({ onFormatChange, onShowDrawingModal }: Med
       <button
         type="button"
         onClick={onShowDrawingModal}
-        className="p-2 rounded transition-colors bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
+        className="p-2 rounded transition-colors bg-muted hover:bg-muted/80 text-foreground"
         title="Dessiner (ouvrir le canvas)"
       >
         <Icon name="pencil" className="h-5 w-5" />

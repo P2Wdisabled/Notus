@@ -24,13 +24,15 @@ export default async function FavoritesPage() {
   const listError = favoritesResult.success ? undefined : (favoritesResult.error || undefined);
 
   return (
-    <div className="min-h-screen bg-background">
+    <main className="min-h-screen bg-background">
       <NavBar />
       <ContentWrapper maxWidth="lg">
-        <div className="space-y-8">
-          <h2 className="font-title text-4xl font-regular text-foreground hidden md:block">
-            Favoris
-          </h2>
+        <section className="space-y-8">
+          <header>
+            <h1 className="font-title text-4xl font-regular text-foreground hidden md:block">
+              Favoris
+            </h1>
+          </header>
 
           {!favoritesResult.success && session?.user && (
             <Alert variant="error">
@@ -46,9 +48,9 @@ export default async function FavoritesPage() {
             error={listError}
             isFavoritesList
           />
-        </div>
+        </section>
       </ContentWrapper>
-    </div>
+    </main>
   );
 }
 

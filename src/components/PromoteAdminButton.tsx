@@ -41,7 +41,7 @@ export default function PromoteAdminButton() {
     <button
       onClick={handlePromoteToAdmin}
       disabled={isPromoting}
-      className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-purple-700 bg-purple-100 hover:bg-purple-200 dark:bg-purple-900 dark:text-purple-200 dark:hover:bg-purple-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+      className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-primary bg-primary/10 hover:bg-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
     >
       {isPromoting ? (
         <Icon name="spinner" className="animate-spin -ml-1 mr-2 h-3 w-3" />

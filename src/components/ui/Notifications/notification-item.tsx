@@ -32,7 +32,7 @@ export default function NotificationItem({
         <button
             type="button"
             onClick={onClick}
-            className="w-full flex flex-row items-center text-left px-3 py-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-black dark:text-white"
+            className="w-full flex flex-row items-center text-left px-3 py-2 rounded hover:bg-muted text-foreground"
         >
             {!isSystem ? (
                 hasAvatar && !imgError ? (
@@ -43,7 +43,7 @@ export default function NotificationItem({
                         onError={() => setImgError(true)}
                     />
                 ) : (
-                    <div className="w-8 h-8 rounded-full mr-3 bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-xs text-gray-500">
+                    <div className="w-8 h-8 rounded-full mr-3 bg-muted flex items-center justify-center text-xs text-muted-foreground">
                     </div>
                 )
             ) : null}
@@ -53,7 +53,7 @@ export default function NotificationItem({
                     <span className="font-medium text-sm">{isSystem ? "Système" : username || "Utilisateur"}</span>
                     {normalizedAvatar ? (
                         <span
-                            className="text-xs text-gray-500 dark:text-gray-300 ml-1 cursor-pointer select-none"
+                            className="text-xs text-muted-foreground ml-1 cursor-pointer select-none"
                             title={normalizedAvatar.slice(0, 200)}
                             onClick={(e) => {
                                 e.stopPropagation();
@@ -64,7 +64,7 @@ export default function NotificationItem({
                         </span>
                     ) : null}
                 </div>
-                <span className="text-sm text-gray-600 dark:text-gray-300 truncate max-w-[260px]" title={message || ""}>
+                <span className="text-sm text-muted-foreground truncate max-w-[260px]" title={message || ""}>
                     {message || ""}
                 </span>
             </div>

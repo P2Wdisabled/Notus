@@ -39,14 +39,14 @@ export default function ListMenu({ onFormatChange }: ListMenuProps) {
           if (next) window.dispatchEvent(new CustomEvent('wysiwyg:open-menu', { detail: MENU_ID }));
           else window.dispatchEvent(new CustomEvent('wysiwyg:open-menu', { detail: '' }));
         }}
-        className="p-2 rounded transition-colors bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
+        className="p-2 rounded transition-colors bg-muted hover:bg-muted/80 text-foreground"
         title="Liste"
       >
         <Icon name="list" className="h-5 w-5" />
       </button>
 
       {showListMenu && (
-        <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-700 rounded shadow-lg border border-gray-200 dark:border-gray-600 z-50">
+        <div className="absolute top-full left-0 mt-1 bg-card rounded shadow-lg border border-border z-50">
           <div className="py-1">
             <button
               title="Liste à puces"
@@ -55,7 +55,7 @@ export default function ListMenu({ onFormatChange }: ListMenuProps) {
                 onFormatChange('insertUnorderedList');
                 setShowListMenu(false);
               }}
-              className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-600"
+              className="w-full px-4 py-2 text-left text-sm hover:bg-muted"
             >
               <Icon name="listBulleted" className="w-6 h-6" />
             </button>
@@ -66,7 +66,7 @@ export default function ListMenu({ onFormatChange }: ListMenuProps) {
                 onFormatChange('insertOrderedList');
                 setShowListMenu(false);
               }}
-              className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-600"
+              className="w-full px-4 py-2 text-left text-sm hover:bg-muted"
             >
               <Icon name="listNumbered" className="w-6 h-6" />
             </button>

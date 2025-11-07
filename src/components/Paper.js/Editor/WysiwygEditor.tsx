@@ -95,8 +95,8 @@ export default function WysiwygEditor({
         {/* Editor */}
         <div className={`flex flex-col relative ${showDebug ? '' : 'w-full'}`}>
           {showDebug && (
-            <div className="bg-gray-50 dark:bg-gray-800 px-3 py-2 border-b border-gray-200 dark:border-gray-700">
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Éditeur WYSIWYG</span>
+            <div className="bg-muted px-3 py-2 border-b border-border">
+              <span className="text-sm font-medium text-foreground">Éditeur WYSIWYG</span>
             </div>
           )}
           <div className="flex-1 relative">
@@ -109,7 +109,7 @@ export default function WysiwygEditor({
               onMouseOver={eventHandlers.handleLinkHover}
               onMouseOut={eventHandlers.handleLinkLeave}
               onDoubleClick={readOnly ? undefined : eventHandlers.handleEditorDoubleClick}
-              className={`wysiwyg-editor ${showDebug ? 'flex-1' : 'w-full'} p-4 border-0 resize-none focus:outline-none bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 prose prose-sm max-w-none prose-h1:text-3xl prose-h1:font-bold prose-h1:text-gray-900 prose-h1:dark:text-gray-100 prose-h2:text-2xl prose-h2:font-bold prose-h2:text-gray-900 prose-h2:dark:text-gray-100 prose-h3:text-xl prose-h3:font-bold prose-h3:text-gray-900 prose-h3:dark:text-gray-100 prose-h4:text-lg prose-h4:font-bold prose-h4:text-gray-900 prose-h4:dark:text-gray-100 prose-h5:text-base prose-h5:font-bold prose-h5:text-gray-900 prose-h5:dark:text-gray-100 prose-h6:text-sm prose-h6:font-bold prose-h6:text-gray-900 prose-h6:dark:text-gray-100 prose-p:text-gray-900 prose-p:dark:text-gray-100 prose-strong:text-gray-900 prose-strong:dark:text-gray-100 prose-em:text-gray-900 prose-em:dark:text-gray-100 prose-a:text-blue-600 prose-a:dark:text-blue-400 prose-a:underline prose-blockquote:text-gray-700 prose-blockquote:dark:text-gray-300 prose-ul:text-gray-900 prose-ul:dark:text-gray-100 prose-ol:text-gray-900 prose-ol:dark:text-gray-100`}
+              className={`wysiwyg-editor ${showDebug ? 'flex-1' : 'w-full'} p-4 border-0 resize-none focus:outline-none bg-card text-foreground prose prose-sm max-w-none prose-a:text-primary prose-a:underline`}
               style={{ 
                 minHeight: '200px', 
                 maxHeight: 'none',

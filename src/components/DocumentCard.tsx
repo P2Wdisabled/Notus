@@ -547,7 +547,7 @@ export default function DocumentCard({
   };
 
   return (
-    <div
+    <article
       className={cn(
         "group relative bg-card border rounded-xl p-5 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-1 animate-fade-in-up cursor-pointer",
         selected && "border-primary ring-2 ring-primary/20 bg-primary/5",
@@ -569,7 +569,7 @@ export default function DocumentCard({
       onClick={handleCardNavigation}
     >
       {/* Header - Zone des tags + Favori */}
-      <div className="flex items-start justify-between mb-3">
+      <header className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2 w-full min-w-0">
           <div
             className="flex-1 min-w-0 max-w-full"
@@ -600,10 +600,10 @@ export default function DocumentCard({
             className="ml-3"
           />
         )}
-      </div>
+      </header>
 
       {/* Content */}
-      <div className="space-y-2">
+      <section className="space-y-2">
         <h3 className="text-lg font-semibold text-card-foreground group-hover:text-primary transition-colors duration-200">
           {document.title}
         </h3>
@@ -622,16 +622,16 @@ export default function DocumentCard({
             )
           ) : (
             !isEmpty ? (
-              <p className="text-gray-600 dark:text-gray-300">{firstLine}</p>
+              <p className="text-muted-foreground">{firstLine}</p>
             ) : (
-              <p className="text-gray-400 dark:text-gray-500 italic">Document vide</p>
+              <p className="text-muted-foreground italic">Document vide</p>
             )
           )}
         </div>
-      </div>
+      </section>
 
       {/* Footer */}
-      <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
+      <footer className="mt-4 pt-3 border-t border-border flex items-center justify-between">
         <time
           dateTime={updatedAtIso}
           className="text-xs text-muted-foreground"
@@ -687,7 +687,7 @@ export default function DocumentCard({
             )}
           </div>
         )}
-      </div>
+      </footer>
 
       {/* Message de suppression */}
       {message && (
@@ -702,7 +702,7 @@ export default function DocumentCard({
         onClose={() => setShowLoginModal(false)}
         message="Vous devez être connecté pour gérer les tags de ce document."
       />
-    </div>
+    </article>
   );
 }
 

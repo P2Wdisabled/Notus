@@ -103,7 +103,7 @@ export default function LinkPopup({ visible, x, y, url, onClose }: LinkPopupProp
   return (
     <div
       data-link-popup
-      className="absolute z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg p-2 pointer-events-auto"
+      className="absolute z-50 bg-card border border-border rounded-lg shadow-lg p-2 pointer-events-auto"
       style={{
         left: `${x}px`,
         top: `${y}px`,
@@ -114,12 +114,12 @@ export default function LinkPopup({ visible, x, y, url, onClose }: LinkPopupProp
       onMouseLeave={handlePopupLeave}
     >
       <div className="flex items-center space-x-2">
-        <span className="text-xs text-gray-600 dark:text-gray-400 truncate max-w-32">
+        <span className="text-xs text-muted-foreground truncate max-w-32">
           {url}
         </span>
         <button
           onClick={() => openLink(url)}
-          className="px-2 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+          className="px-2 py-1 text-xs bg-primary hover:bg-primary/90 text-primary-foreground rounded transition-colors"
         >
           Ouvrir
         </button>

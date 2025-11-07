@@ -43,14 +43,14 @@ export default function HeadingMenu({ onFormatChange }: HeadingMenuProps) {
           if (next) window.dispatchEvent(new CustomEvent('wysiwyg:open-menu', { detail: MENU_ID }));
           else window.dispatchEvent(new CustomEvent('wysiwyg:open-menu', { detail: '' }));
         }}
-        className="p-2 rounded transition-colors bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
+        className="p-2 rounded transition-colors bg-muted hover:bg-muted/80 text-foreground"
         title="Titre"
       >
         <Icon name="heading" className="w-5 h-5" />
       </button>
 
       {showHeadingMenu && (
-        <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-700 rounded shadow-lg border border-gray-200 dark:border-gray-600 z-50 min-w-max">
+        <div className="absolute top-full left-0 mt-1 bg-card rounded shadow-lg border border-border z-50 min-w-max">
           <div className="py-1">
             <button
               type="button"
@@ -58,7 +58,7 @@ export default function HeadingMenu({ onFormatChange }: HeadingMenuProps) {
                 onFormatChange('formatBlock', 'div');
                 setShowHeadingMenu(false);
               }}
-              className="w-full px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center justify-between whitespace-nowrap"
+              className="w-full px-4 py-2 text-sm hover:bg-muted flex items-center justify-between whitespace-nowrap"
             >
               16px - Normal
             </button>
@@ -70,7 +70,7 @@ export default function HeadingMenu({ onFormatChange }: HeadingMenuProps) {
                   onFormatChange('formatBlock', `h${level}`);
                   setShowHeadingMenu(false);
                 }}
-                className="w-full px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center justify-between whitespace-nowrap"
+                className="w-full px-4 py-2 text-sm hover:bg-muted flex items-center justify-between whitespace-nowrap"
                 >
                 {level === 1
                   ? '30px - Titre principal'

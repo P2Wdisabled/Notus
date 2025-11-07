@@ -26,14 +26,14 @@ export default function AlignmentMenu({ onFormatChange }: AlignmentMenuProps) {
       <button
         type="button"
         onClick={() => setShowAlignMenu(!showAlignMenu)}
-        className="p-2 rounded transition-colors bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
+        className="p-2 rounded transition-colors bg-muted hover:bg-muted/80 text-foreground"
         title="Alignement"
       >
         <Icon name="align" className="h-5 w-5" />
       </button>
 
       {showAlignMenu && (
-        <div className="absolute top-full left-1/2 mt-1 transform -translate-x-1/2 bg-white dark:bg-gray-700 rounded shadow-lg border border-gray-200 dark:border-gray-600 z-50">
+        <div className="absolute top-full left-1/2 mt-1 transform -translate-x-1/2 bg-card rounded shadow-lg border border-border z-50">
           <div className="py-1 flex flex-row">
             <button
               title="Aligner à gauche"
@@ -42,7 +42,7 @@ export default function AlignmentMenu({ onFormatChange }: AlignmentMenuProps) {
                 onFormatChange('justifyLeft');
                 setShowAlignMenu(false);
               }}
-              className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-600"
+              className="w-full px-4 py-2 text-left text-sm hover:bg-muted"
             >
               <Icon name="alignLeft" className="w-6 h-6" />
             </button>
@@ -53,7 +53,7 @@ export default function AlignmentMenu({ onFormatChange }: AlignmentMenuProps) {
                 onFormatChange('justifyCenter');
                 setShowAlignMenu(false);
               }}
-              className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-600"
+              className="w-full px-4 py-2 text-left text-sm hover:bg-muted"
             >
               <Icon name="alignCenter" className="w-6 h-6" />
             </button>
@@ -64,7 +64,7 @@ export default function AlignmentMenu({ onFormatChange }: AlignmentMenuProps) {
                 onFormatChange('justifyRight');
                 setShowAlignMenu(false);
               }}
-              className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-600"
+              className="w-full px-4 py-2 text-left text-sm hover:bg-muted"
             >
               <Icon name="alignRight" className="w-6 h-6" />
             </button>
@@ -75,7 +75,7 @@ export default function AlignmentMenu({ onFormatChange }: AlignmentMenuProps) {
                 onFormatChange('justifyFull');
                 setShowAlignMenu(false);
               }}
-              className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-600"
+              className="w-full px-4 py-2 text-left text-sm hover:bg-muted"
             >
               <Icon name="alignJustify" className="w-6 h-6" />
             </button>

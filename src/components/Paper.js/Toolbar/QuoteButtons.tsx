@@ -12,7 +12,7 @@ export default function QuoteButtons({ onFormatChange }: QuoteButtonsProps) {
       <button
         type="button"
         onClick={() => onFormatChange('insertQuote')}
-        className="p-2 rounded transition-colors bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
+        className="p-2 rounded transition-colors bg-muted hover:bg-muted/80 text-foreground"
         title="Citation (Ctrl+Shift+.)"
       >
         <Icon name="quote" className="h-5 w-5" />
@@ -22,7 +22,7 @@ export default function QuoteButtons({ onFormatChange }: QuoteButtonsProps) {
       <button
         type="button"
         onClick={() => onFormatChange('insertHorizontalRule')}
-        className="p-2 rounded transition-colors bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
+        className="p-2 rounded transition-colors bg-muted hover:bg-muted/80 text-foreground"
         title="Ligne horizontale (Ctrl+Shift+-)"
       >
         <Icon name="minus" className="h-5 w-5" />

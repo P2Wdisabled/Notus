@@ -24,8 +24,8 @@ export default function FormatButtons({
         onClick={() => onFormatChange('bold')}
         className={`p-2 rounded transition-colors ${
           isBold
-            ? "bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white"
-            : "bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
+            ? "bg-primary hover:bg-primary/90 text-primary-foreground"
+            : "bg-muted hover:bg-muted/80 text-foreground"
         }`}
         title="Gras (Ctrl+B)"
       >
@@ -38,8 +38,8 @@ export default function FormatButtons({
         onClick={() => onFormatChange('italic')}
         className={`p-2 rounded transition-colors ${
           isItalic
-            ? "bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white"
-            : "bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
+            ? "bg-primary hover:bg-primary/90 text-primary-foreground"
+            : "bg-muted hover:bg-muted/80 text-foreground"
         }`}
         title="Italique (Ctrl+I)"
       >
@@ -52,8 +52,8 @@ export default function FormatButtons({
         onClick={() => onFormatChange('underline')}
         className={`p-2 rounded transition-colors ${
           isUnderline
-            ? "bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white"
-            : "bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
+            ? "bg-primary hover:bg-primary/90 text-primary-foreground"
+            : "bg-muted hover:bg-muted/80 text-foreground"
         }`}
         title="Souligné (Ctrl+U)"
       >
@@ -66,8 +66,8 @@ export default function FormatButtons({
         onClick={() => onFormatChange('strikeThrough')}
         className={`p-2 rounded transition-colors ${
           isStrikethrough
-            ? "bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white"
-            : "bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
+            ? "bg-primary hover:bg-primary/90 text-primary-foreground"
+            : "bg-muted hover:bg-muted/80 text-foreground"
         }`}
         title="Barré"
       >

@@ -8,10 +8,10 @@ export const metadata = {
 
 export default function BannedPage() {
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div className="text-center">
-          <div className="mx-auto h-16 w-16 text-red-500">
+    <main className="min-h-screen bg-background flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+      <section className="max-w-md w-full space-y-8">
+        <header className="text-center">
+          <div className="mx-auto h-16 w-16 text-destructive">
             <Icon name="alert" className="w-full h-full" />
           </div>
           <h2 className="mt-6 text-3xl font-extrabold text-foreground">
@@ -20,7 +20,7 @@ export default function BannedPage() {
           <p className="mt-2 text-sm text-muted-foreground">
             Votre compte a été suspendu par un administrateur.
           </p>
-        </div>
+        </header>
 
         <div className="bg-destructive/10 border border-destructive/20 rounded-md p-4">
           <div className="flex">
@@ -49,8 +49,8 @@ export default function BannedPage() {
             Retour à l'accueil
           </Link>
         </div>
-      </div>
-    </div>
+      </section>
+    </main>
   );
 }
 

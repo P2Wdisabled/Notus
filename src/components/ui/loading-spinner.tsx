@@ -17,7 +17,7 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> & {
   };
 
   const classes = cn(
-    "animate-spin rounded-full border-b-2 border-blue-600",
+    "animate-spin rounded-full border-b-2 border-primary",
     sizes[size],
     className
   );
@@ -36,14 +36,14 @@ const LoadingPage: React.FC<LoadingPageProps> = ({
 }) => (
   <div
     className={cn(
-      "min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center",
+      "min-h-screen bg-background flex items-center justify-center",
       className
     )}
     {...props}
   >
     <div className="text-center">
       <LoadingSpinner size="lg" className="mx-auto mb-4" />
-      <p className="text-gray-600 dark:text-gray-300">{message}</p>
+      <p className="text-muted-foreground">{message}</p>
     </div>
   </div>
 );
@@ -55,13 +55,13 @@ const LoadingCard: React.FC<LoadingPageProps> = ({
 }) => (
   <div
     className={cn(
-      "bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 text-center",
+      "bg-card rounded-2xl shadow-xl p-8 text-center",
       className
     )}
     {...props}
   >
     <LoadingSpinner size="lg" className="mx-auto mb-4" />
-    <p className="text-gray-600 dark:text-gray-300">{message}</p>
+    <p className="text-muted-foreground">{message}</p>
   </div>
 );
 

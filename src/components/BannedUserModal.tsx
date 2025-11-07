@@ -37,8 +37,8 @@ export default function BannedUserModal({
     >
       <Modal.Content>
         <div className="text-center space-y-4">
-          <div className="mx-auto w-16 h-16 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center">
-            <Icon name="alert" className="w-8 h-8 text-red-600 dark:text-red-400" />
+          <div className="mx-auto w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center">
+            <Icon name="alert" className="w-8 h-8 text-destructive" />
           </div>
           <div>
             <h3 className="text-lg font-semibold text-foreground mb-2">
@@ -47,8 +47,8 @@ export default function BannedUserModal({
             <p className="text-muted-foreground mb-4">
               {reason}
             </p>
-            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-3">
-              <p className="text-sm text-red-700 dark:text-red-300">
+            <div className="bg-destructive/10 border border-destructive/20 rounded-md p-3">
+              <p className="text-sm text-destructive">
                 Vous avez été déconnecté automatiquement. Vous serez redirigé vers l'accueil dans quelques secondes.
               </p>
             </div>

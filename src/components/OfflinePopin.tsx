@@ -117,8 +117,8 @@ export default function OfflinePopin() {
 
   return (
     <div className="fixed left-4 bottom-4 z-50 max-w-sm animate-slide-up">
-      <Alert variant="error" className="shadow-lg flex items-start gap-3 pr-10 bg-white dark:bg-gray-800">
-        <div className="mt-0.5 text-red-600 dark:text-red-300">
+      <Alert variant="error" className="shadow-lg flex items-start gap-3 pr-10 bg-card">
+        <div className="mt-0.5 text-destructive">
           <WifiOff className="h-5 w-5" />
         </div>
         <div>
@@ -132,7 +132,7 @@ export default function OfflinePopin() {
         <button
           type="button"
           aria-label="Fermer l'alerte hors ligne"
-          className="absolute top-2 right-2 rounded-xs p-1 text-red-700/70 hover:text-red-700 focus:outline-hidden focus:ring-2 focus:ring-ring"
+          className="absolute top-2 right-2 rounded-xs p-1 text-destructive/80 hover:text-destructive focus:outline-hidden focus:ring-2 focus:ring-ring"
           onClick={() => setIsDismissed(true)}
         >
           <XIcon className="h-4 w-4" />

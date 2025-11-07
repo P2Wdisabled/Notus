@@ -12,7 +12,7 @@ export default function ForgotPasswordPage() {
   );
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <main className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="max-w-md w-full">
         <Card.Header className="text-center">
           <Card.Title className="text-3xl mb-2">Mot de passe oublié</Card.Title>
@@ -70,7 +70,7 @@ export default function ForgotPasswordPage() {
           </p>
         </Card.Footer>
       </Card>
-    </div>
+    </main>
   );
 }
 

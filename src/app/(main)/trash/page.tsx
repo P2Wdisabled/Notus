@@ -16,13 +16,15 @@ export default async function TrashPage() {
   const trashedResult = await getUserTrashDocumentsAction(userId!);
 
   return (
-    <div className="min-h-screen bg-background">
+    <main className="min-h-screen bg-background">
       <NavBar />
       <ContentWrapper maxWidth="lg">
-        <div className="space-y-6">
-          <h2 className="font-title text-4xl font-regular text-foreground hidden md:block">
-            Corbeille
-          </h2>
+        <section className="space-y-6">
+          <header>
+            <h1 className="font-title text-4xl font-regular text-foreground hidden md:block">
+              Corbeille
+            </h1>
+          </header>
 
           {!trashedResult.success && session?.user && (
             <Alert variant="error">
@@ -32,7 +34,7 @@ export default async function TrashPage() {
             </Alert>
           )}
 
-          <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(300px,1fr))]">
+          <section className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(300px,1fr))]">
             {(Array.isArray(trashedResult.documents) ? trashedResult.documents : []).map((t: any) => (
               <Card key={t.id}>
                 <CardHeader>
@@ -49,16 +51,16 @@ export default async function TrashPage() {
                 </CardContent>
               </Card>
             ))}
-          </div>
+          </section>
 
           {trashedResult.success && (!trashedResult.documents || trashedResult.documents.length === 0) && (
             <div className="text-center py-10 text-muted-foreground">
               Aucune note dans la corbeille.
             </div>
           )}
-        </div>
+        </section>
       </ContentWrapper>
-    </div>
+    </main>
   );
 }
 

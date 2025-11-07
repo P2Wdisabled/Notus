@@ -30,6 +30,7 @@ export default function DeleteAccountPage() {
     <div className="min-h-screen bg-background">
       <NavBar />
 
+      <main>
       {/* Back link */}
       <div className="md:ml-64 md:pl-4 pt-10">
         <div className="max-w-4xl mx-auto px-4 md:px-6 lg:px-8 pb-4 hidden md:flex gap-4">
@@ -48,17 +49,17 @@ export default function DeleteAccountPage() {
         <div className="max-w-4xl mx-auto px-4 md:px-6 lg:px-8 pb-10">
           <div className="max-w-2xl mx-auto space-y-8">
             {/* Conditions Section */}
-            <div>
+            <section>
               <h3 className="text-foreground text-2xl font-title font-bold mb-4">
                 Conditions :
               </h3>
               <p className="text-muted-foreground leading-relaxed">
                 Après la suppression de votre compte, vos données seront conservées encore 30 jours après l'activation de la suppression de votre compte. Vos notes personnelles seront supprimées définitivement après ce délai passé. Vous serez également déconnecté de l'application.
               </p>
-            </div>
+            </section>
 
             {/* Delete Account Section */}
-            <div>
+            <section>
               <h3 className="text-foreground text-2xl font-title font-bold mb-4">
                 Supprimer le compte
               </h3>
@@ -114,10 +115,11 @@ export default function DeleteAccountPage() {
                   {isLoading ? "Traitement..." : "Supprimer votre compte"}
                 </Button>
               </div>
-            </div>
+            </section>
           </div>
         </div>
       </div>
+      </main>
       {/* Confirmation Modal */}
       <Modal
         isOpen={confirmOpen}
@@ -131,7 +133,7 @@ export default function DeleteAccountPage() {
             Cette action supprimera votre compte. Vous pourrez le réactiver pendant 30 jours.
           </p>
           {message && (
-            <p className="text-sm text-red-600 text-center max-w-md">{message}</p>
+            <p className="text-sm text-destructive text-center max-w-md">{message}</p>
           )}
           <div className="flex items-center gap-4 mt-2">
             <Button

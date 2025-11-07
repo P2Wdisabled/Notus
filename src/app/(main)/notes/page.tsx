@@ -15,13 +15,15 @@ export default async function Home() {
     : { success: true, documents: [] };
 
   return (
-    <div className="min-h-screen bg-background">
+    <main className="min-h-screen bg-background">
       <NavBar />
       <ContentWrapper maxWidth="lg">
-        <div className="space-y-6">
-          <h2 className="font-title text-4xl font-regular text-foreground hidden md:block">
-            Mes notes personnelles
-          </h2>
+        <section className="space-y-6">
+          <header>
+            <h1 className="font-title text-4xl font-regular text-foreground hidden md:block">
+              Mes notes personnelles
+            </h1>
+          </header>
 
           {!documentsResult.success && session?.user && (
             <Alert variant="error">
@@ -44,9 +46,9 @@ export default async function Home() {
             currentUserId={session?.user?.id ? String(session.user.id) : undefined}
             error={!documentsResult.success ? documentsResult.error : undefined}
           />
-        </div>
+        </section>
       </ContentWrapper>
-    </div>
+    </main>
   );
 }
 

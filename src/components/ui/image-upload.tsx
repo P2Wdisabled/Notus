@@ -201,7 +201,7 @@ export default function ImageUpload({
                   e.stopPropagation();
                   handleRemove();
                 }}
-                className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-sm hover:bg-red-600"
+                className="absolute -top-2 -right-2 w-6 h-6 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center text-sm hover:bg-destructive/90"
               >
                 ×
               </button>

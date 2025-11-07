@@ -10,15 +10,15 @@ export default async function AdminDashboard() {
   const recentUsers: User[] = usersResult.success ? (usersResult.users || []) : [];
 
   return (
-    <div className="space-y-6">
-      <div className="text-center pt-10">
+    <main className="space-y-6">
+      <header className="text-center pt-10">
         <h1 className="text-3xl font-bold text-foreground">
           Tableau de bord administrateur
         </h1>
         <p className="mt-2 text-muted-foreground">
           Gérez votre application Notus depuis cette interface.
         </p>
-      </div>
+      </header>
 
       {/* Statistiques rapides */}
       {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -60,9 +60,9 @@ export default async function AdminDashboard() {
           <div className="p-6">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <div className="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center">
+                <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
                   <svg
-                    className="w-5 h-5 text-white"
+                    className="w-5 h-5 text-primary-foreground"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -81,7 +81,7 @@ export default async function AdminDashboard() {
                   <dt className="text-sm font-medium text-muted-foreground truncate">
                     Système opérationnel
                   </dt>
-                  <dd className="text-2xl font-bold text-green-600 dark:text-green-400">
+                  <dd className="text-2xl font-bold text-primary">
                     En ligne
                   </dd>
                 </dl>
@@ -94,9 +94,9 @@ export default async function AdminDashboard() {
           <div className="p-6">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <div className="w-10 h-10 bg-yellow-500 rounded-lg flex items-center justify-center">
+                <div className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center">
                   <svg
-                    className="w-5 h-5 text-white"
+                    className="w-5 h-5 text-accent-foreground"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -126,7 +126,8 @@ export default async function AdminDashboard() {
       </div> */}
 
       {/* Actions rapides */}
-      <Card className="max-w-4xl mx-auto bg-background">
+      <section className="max-w-4xl mx-auto">
+      <Card className="bg-background">
         <Card.Header>
           <Card.Title className="text-foreground text-center">Actions rapides</Card.Title>
         </Card.Header>
@@ -141,9 +142,11 @@ export default async function AdminDashboard() {
           </div>
         </Card.Content>
       </Card>
+      </section>
 
       {/* Utilisateurs récents */}
-      <Card className="max-w-4xl mx-auto bg-background">
+      <section className="max-w-4xl mx-auto">
+      <Card className="bg-background">
         <Card.Header>
           <div className="flex items-center justify-between">
             <Card.Title className="text-foreground text-2xl font-semibold">Utilisateurs récents</Card.Title>
@@ -235,7 +238,8 @@ export default async function AdminDashboard() {
           )}
         </Card.Content>
       </Card>
-    </div>
+      </section>
+    </main>
   );
 }
 
