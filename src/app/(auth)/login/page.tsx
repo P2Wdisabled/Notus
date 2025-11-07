@@ -2,7 +2,7 @@
 
 import { signIn } from "next-auth/react";
 import Link from "next/link";
-import GoogleSignInButton from "@/components/GoogleSignInButton";
+import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
 import { useLocalSession } from "@/hooks/useLocalSession";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";

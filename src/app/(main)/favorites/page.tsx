@@ -1,9 +1,9 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/../lib/auth";
-import NavBar from "@/components/NavBar";
-import ContentWrapper from "@/components/ContentWrapper";
+import NavBar from "@/components/navigation/NavBar";
+import ContentWrapper from "@/components/common/ContentWrapper";
 import { Alert } from "@/components/ui";
-import { SearchableDocumentsList } from "@/components/SearchableDocumentsList";
+import { SearchableDocumentsList } from "@/components/documents/SearchableDocumentsList";
 import { getFavoritesAction } from "@/lib/actions";
 import { redirect } from "next/navigation";
 

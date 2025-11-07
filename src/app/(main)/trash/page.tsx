@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/../lib/auth";
-import NavBar from "@/components/NavBar";
-import ContentWrapper from "@/components/ContentWrapper";
+import NavBar from "@/components/navigation/NavBar";
+import ContentWrapper from "@/components/common/ContentWrapper";
 import { Card, CardContent, CardHeader, CardTitle, Button, Alert } from "@/components/ui";
 import { getUserTrashDocumentsAction, restoreTrashedDocumentFormAction } from "@/lib/actions";
 import { redirect } from "next/navigation";

@@ -5,9 +5,9 @@ import { useEffect, useState, useCallback } from "react";
 import { useLocalSession } from "@/hooks/useLocalSession";
 import Link from "next/link";
 import Icon from "@/components/Icon";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import TagsManager from "@/components/TagsManager";
+import TagsManager from "@/components/documents/TagsManager";
 
 const LOCAL_DOCS_KEY = "notus.local.documents";
 
@@ -34,6 +34,8 @@ interface EditLocalDocumentPageClientProps {
 export default function EditLocalDocumentPageClient({ params }: EditLocalDocumentPageClientProps) {
   const localSession = useLocalSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isNewQuery = searchParams?.get("isNew") === "1";
   const [document, setDocument] = useState<LocalDocument | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -120,6 +122,17 @@ export default function EditLocalDocumentPageClient({ params }: EditLocalDocumen
     };
     initializeParams();
   }, [params]);
+
+  function handleCancelCreation() {
+    if (!docId) {
+      router.push("/");
+      return;
+    }
+    const docs = loadLocalDocuments();
+    const updated = docs.filter((d) => d.id !== docId);
+    saveLocalDocuments(updated);
+    router.push("/");
+  }
 
   const loadLocalDocuments = (): LocalDocument[] => {
     try {
@@ -274,6 +287,14 @@ export default function EditLocalDocumentPageClient({ params }: EditLocalDocumen
           </Link>
         </div>
 
+        {/* Banner nouvelle note */}
+        {isNewQuery && (
+          <div className="mb-4 rounded-lg p-3 bg-muted flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">Nouvelle note en création (local)</span>
+            <button onClick={handleCancelCreation} className="text-foreground hover:opacity-80">Annuler la création</button>
+          </div>
+        )}
+
         {/* Message de sauvegarde */}
         {showSavedState && (
           <div className="mb-4 rounded-lg p-4 bg-card border border-primary">
@@ -359,12 +380,22 @@ export default function EditLocalDocumentPageClient({ params }: EditLocalDocumen
                     ? "Créer le document"
                     : "Sauvegarder"}
               </Button>
-              <Link
-                href="/"
-                className="px-6 py-3 rounded-lg text-foreground hover:shadow-md hover:border-primary hover:bg-foreground/5 border border-primary cursor-pointer"
-              >
-                Annuler
-              </Link>
+              {isNewQuery ? (
+                <button
+                  type="button"
+                  onClick={handleCancelCreation}
+                  className="px-6 py-3 rounded-lg text-foreground hover:shadow-md hover:border-primary hover:bg-foreground/5 border border-primary cursor-pointer"
+                >
+                  Annuler
+                </button>
+              ) : (
+                <Link
+                  href="/"
+                  className="px-6 py-3 rounded-lg text-foreground hover:shadow-md hover:border-primary hover:bg-foreground/5 border border-primary cursor-pointer"
+                >
+                  Annuler
+                </Link>
+              )}
             </div>
           </div>
         </div>

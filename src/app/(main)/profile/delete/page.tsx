@@ -1,6 +1,6 @@
 "use client";
 
-import NavBar from "@/components/NavBar";
+import NavBar from "@/components/navigation/NavBar";
 import Link from "next/link";
 import { Button, Input, Modal } from "@/components/ui";
 import Icon from "@/components/Icon";

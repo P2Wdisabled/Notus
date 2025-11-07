@@ -1,10 +1,10 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/../lib/auth";
 import { fetchSharedDocumentsAction } from "@/lib/actions/DocumentActions";
-import NavBar from "@/components/NavBar";
-import ContentWrapper from "@/components/ContentWrapper";
+import NavBar from "@/components/navigation/NavBar";
+import ContentWrapper from "@/components/common/ContentWrapper";
 import {Alert} from "@/components/ui";
-import { SearchableDocumentsList } from "@/components/SearchableDocumentsList";
+import { SearchableDocumentsList } from "@/components/documents/SearchableDocumentsList";
 
 export default async function Home() {
   const session = await getServerSession(authOptions);

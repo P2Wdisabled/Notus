@@ -1,0 +1,102 @@
+"use client";
+
+import Link from "next/link";
+import { useLocalSession } from "@/hooks/useLocalSession";
+import { usePathname, useRouter } from "next/navigation";
+import { useSelection } from "@/contexts/SelectionContext";
+import type { Session } from "next-auth";
+import Icon from "@/components/Icon";
+import { useActionState, startTransition, useEffect } from "react";
+import { createDocumentAction } from "@/lib/actions/DocumentActions";
+
+interface FloatingCreateButtonProps {
+  serverSession?: Session | null;
+}
+
+export default function FloatingCreateButton({ serverSession }: FloatingCreateButtonProps) {
+  const { loading, isLoggedIn, userId } = useLocalSession(serverSession);
+  const { isSelectModeActive } = useSelection();
+  const pathname = usePathname();
+  const router = useRouter();
+  const [createState, createAction, creating] = useActionState(
+    createDocumentAction as unknown as (prev: any, fd: FormData) => Promise<any>,
+    null
+  );
+
+  useEffect(() => {
+    const id = createState && (createState as any).documentId;
+    if (id) {
+      router.push(`/documents/${encodeURIComponent(String(id))}?isNew=1`);
+    }
+  }, [createState, router]);
+
+  if (
+    loading || (
+      pathname !== "/" &&
+      pathname !== "/notes" &&
+      pathname !== "/shared"
+    )
+  ) {
+    return null;
+  }
+
+  const getBottomClass = () => {
+    const isHomePage = pathname === "/";
+    const isNotesPage = pathname === "/notes";
+    const hasConnectionWarning = !isLoggedIn && (isHomePage || isNotesPage);
+    if (isSelectModeActive && hasConnectionWarning) { return "bottom-32"; }
+    else { return "bottom-20"; }
+  };
+
+  const bottomClass = getBottomClass();
+
+  async function handleCreate() {
+    if (!isLoggedIn) {
+      const LOCAL_DOCS_KEY = "notus.local.documents";
+      const nowIso = new Date().toISOString();
+      const localId = `local-${Date.now()}`;
+      try {
+        const raw = localStorage.getItem(LOCAL_DOCS_KEY);
+        const docs = raw ? JSON.parse(raw) : [];
+        const newDoc = {
+          id: localId,
+          title: "Sans titre",
+          content: { text: "", drawings: [], textFormatting: {}, timestamp: Date.now() },
+          created_at: nowIso,
+          updated_at: nowIso,
+          tags: [],
+        };
+        const next = Array.isArray(docs) ? [...docs, newDoc] : [newDoc];
+        localStorage.setItem(LOCAL_DOCS_KEY, JSON.stringify(next));
+      } catch (_) {}
+      router.push(`/documents/local/${encodeURIComponent(localId)}?isNew=1`);
+      return;
+    }
+
+    const fd = new FormData();
+    fd.set("title", "Nouvelle note");
+    fd.set("content", "");
+    if (userId) fd.set("userId", String(userId));
+    startTransition(() => { createAction(fd); });
+  }
+
+  return (
+    <div className={`fixed ${bottomClass} left-0 right-0 z-10 px-0 md:ml-68 md:px-4`}>
+      <div className="max-w-4xl mx-auto px-4 md:px-6 lg:px-8">
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={handleCreate}
+            className="whitespace-nowrap bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer px-4 py-2 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 group inline-flex items-center gap-3"
+            title="Créer une note"
+          >
+            <span className="font-title text-xl">{creating ? "Création..." : "Créer une note"}</span>
+            <Icon name="plus" className="w-6 h-6" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+

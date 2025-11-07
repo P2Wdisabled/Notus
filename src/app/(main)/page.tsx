@@ -3,11 +3,11 @@ import { authOptions } from "@/../lib/auth";
 import Link from "next/link";
 import { getUserDocumentsAction } from "@/lib/actions";
 import { fetchSharedDocumentsAction } from "@/lib/actions";
-import Navigation from "@/components/Navigation";
-import NavBar from "@/components/NavBar";
-import ContentWrapper from "@/components/ContentWrapper";
+import Navigation from "@/components/navigation/Navigation";
+import NavBar from "@/components/navigation/NavBar";
+import ContentWrapper from "@/components/common/ContentWrapper";
 import { Button, Card, Alert, LoadingSpinner, Logo } from "@/components/ui";
-import { SearchableDocumentsList } from "@/components/SearchableDocumentsList";
+import { SearchableDocumentsList } from "@/components/documents/SearchableDocumentsList";
 
 export default async function Home() {
   const session = await getServerSession(authOptions);

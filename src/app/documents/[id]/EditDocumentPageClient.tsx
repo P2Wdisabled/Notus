@@ -1,7 +1,7 @@
 "use client";
 import { useActionState, startTransition } from "react";
 import { Button, Modal } from "@/components/ui";
-import MenuItem from "@/components/ui/overlay-menu-item";
+import MenuItem from "@/components/ui/overlay/overlay-menu-item";
 import { Input } from "@/components/ui/input";
 import { updateDocumentAction } from "@/lib/actions";
 import {
@@ -11,13 +11,13 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useLocalSession } from "@/hooks/useLocalSession";
 import WysiwygNotepad from "@/components/Paper.js/WysiwygNotepad";
 import { Document } from "@/lib/types";
-import TagsManager from "@/components/TagsManager";
-import { addShareAction } from "@/lib/actions/DocumentActions";
+import TagsManager from "@/components/documents/TagsManager";
+import { addShareAction, deleteDocumentAction } from "@/lib/actions/DocumentActions";
 import UserListButton from "@/components/ui/UserList/UserListButton";
 import { useGuardedNavigate } from "@/hooks/useGuardedNavigate";
 import { useCollaborativeTitle } from "@/lib/paper.js/useCollaborativeTitle";
@@ -58,6 +58,8 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
 
   // Router
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isNew = searchParams?.get("isNew") === "1";
   const { guardedNavigate, checkConnectivity } = useGuardedNavigate();
 
   // Action state (must be before any conditional returns)
@@ -72,6 +74,11 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     FormData | Record<string, any>
   >(typedUpdateAction, { ok: false, error: "" });
 
+  const [deleteState, deleteAction] = useActionState(
+    deleteDocumentAction as unknown as (prev: any, fd: FormData) => Promise<string>,
+    ""
+  );
+
   const [document, setDocument] = useState<Document | null>(null);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState<NotepadContent>({
@@ -79,6 +86,16 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     drawings: [],
     textFormatting: {},
   });
+
+  async function handleCancelCreation() {
+    const fd = new FormData();
+    if (document?.id) fd.set("documentId", String(document.id));
+    if (userId) fd.set("userId", String(userId));
+    startTransition(() => {
+      deleteAction(fd);
+    });
+    router.push("/");
+  }
   const [tags, setTags] = useState<string[]>([]);
   const [showTagInput, setShowTagInput] = useState(false);
   const [newTag, setNewTag] = useState("");
@@ -944,6 +961,14 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
           <Modal.Footer>
           </Modal.Footer>
         </Modal>
+
+        {/* New doc banner/cancel */}
+        {isNew && hasEditAccess !== false && (
+          <div className="mb-4 rounded-lg p-3 bg-muted flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">Nouvelle note en création</span>
+            <Button variant="ghost" onClick={handleCancelCreation}>Annuler la création</Button>
+          </div>
+        )}
 
         {/* Edit form */}
         <div className="bg-card rounded-2xl border border-border p-6 overflow-hidden">

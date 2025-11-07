@@ -1,9 +1,9 @@
 import { auth } from "@/../auth";
-import NavBar from "@/components/NavBar";
-import ContentWrapper from "@/components/ContentWrapper";
+import NavBar from "@/components/navigation/NavBar";
+import ContentWrapper from "@/components/common/ContentWrapper";
 import Image  from "next/image";
-import { Card, Button } from "@/components/ui";
-import DocumentCard from "@/components/DocumentCard";
+import { Card, Button, BackHeader } from "@/components/ui";
+import DocumentCard from "@/components/documents/DocumentCard";
 import { getUserDocumentsAction, getUserProfileAction } from "@/lib/actions";
 import Link from "next/link";
 import ProfileEditButton from "./ProfileEditButton";
@@ -43,15 +43,7 @@ export default async function ProfilePage() {
 
       {/* Back link */}
       <div className="md:ml-64 md:pl-4 pt-6">
-        <header className="max-w-4xl mx-auto px-4 md:px-6 lg:px-8 pb-4 hidden md:flex gap-4">
-          <Link
-            href="/"
-            className="text-foreground font-semibold flex items-center"
-          >
-            <Icon name="arrowLeft" className="h-6 w-6 mr-2" />
-          </Link>
-          <h2 className="font-title text-4xl font-regular">Mon compte</h2>
-        </header>
+        <BackHeader href="/" title="Mon compte" className="max-w-4xl mx-auto px-4 md:px-6 lg:px-8 pb-4 hidden md:flex gap-4" />
       </div>
 
       {/* Cover */}

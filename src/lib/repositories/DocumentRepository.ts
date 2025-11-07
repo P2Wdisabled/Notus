@@ -108,8 +108,8 @@ export class DocumentRepository extends BaseRepository {
       const { userId, title, content, tags } = data;
 
       const result = await this.query<Document>(
-        `INSERT INTO documents (user_id, title, content, tags)
-         VALUES ($1, $2, $3, $4)
+        `INSERT INTO documents (user_id, title, content, tags, updated_at)
+         VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
          RETURNING id, title, content, tags, created_at, updated_at, user_id`,
         [userId, title, content, tags]
       );
@@ -235,8 +235,8 @@ export class DocumentRepository extends BaseRepository {
       } else {
         // Créer un nouveau document
         const result = await this.query<Document>(
-          `INSERT INTO documents (user_id, title, content, tags)
-           VALUES ($1, $2, $3, $4)
+          `INSERT INTO documents (user_id, title, content, tags, updated_at)
+           VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
            RETURNING id, title, content, tags, created_at, updated_at, user_id`,
           [userId, title, content, Array.isArray(tags) ? tags : []]
         );
@@ -358,15 +358,18 @@ export class DocumentRepository extends BaseRepository {
 
   async fetchSharedWithUser(email: string): Promise<DocumentRepositoryResult<Document[]>> {
     try {
-      const result = await this.query<Document>(
-        `SELECT d.id, d.title, d.content, d.tags, d.created_at, d.updated_at, u.username, u.first_name, u.last_name, d.user_id
+      const result = await this.query<Document & { favori: boolean | null }>(
+        `SELECT d.id, d.title, d.content, d.tags, d.created_at, d.updated_at, u.username, u.first_name, u.last_name, d.user_id,
+                s.favori as favori
            FROM documents d
            JOIN users u ON d.user_id = u.id
            JOIN shares s ON s.id_doc = d.id
            WHERE lower(trim(s.email)) = lower(trim($1))`,
         [email]
       );
-      return { success: true, documents: result.rows };
+      // Inject favori from share link
+      const docs = result.rows.map((r: any) => ({ ...r, favori: r.favori ?? null }));
+      return { success: true, documents: docs as any };
     } catch (error) {
       console.error("❌ Erreur récupération documents partagés:", error);
       return { success: false, error: error instanceof Error ? error.message : "Erreur inconnue" };

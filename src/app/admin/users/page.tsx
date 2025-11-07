@@ -1,5 +1,5 @@
 import { UserService } from "@/lib/services/UserService";
-import UsersTable from "@/components/UsersTable";
+import UsersTable from "@/components/admin/UsersTable";
 
 export default async function AdminUsersPage() {
   const userService = new UserService();

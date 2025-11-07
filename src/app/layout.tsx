@@ -1,13 +1,12 @@
 import "./globals.css";
-import FloatingCreateButton from "@/components/FloatingCreateButton";
-import AuthSessionProvider from "@/components/SessionProvider";
+import FloatingCreateButton from "@/components/documents/FloatingCreateButton";
+import AuthSessionProvider from "@/components/auth/SessionProvider";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { SelectionProvider } from "@/contexts/SelectionContext";
-import ThemeToggle from "@/components/ThemeToggle";
-import PromoteAdminButton from "@/components/PromoteAdminButton";
-import OfflinePopin from "@/components/OfflinePopin";
+import ThemeToggle from "@/components/common/ThemeToggle";
+import OfflinePopin from "@/components/common/OfflinePopin";
 import { SearchProvider } from "@/contexts/SearchContext";
-import UserStatusGuard from "@/components/UserStatusGuard";
+import UserStatusGuard from "@/components/auth/UserStatusGuard";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../lib/auth";
 import Link from "next/link";
@@ -85,7 +84,6 @@ export default async function RootLayout({
                 </div>
                 {session?.user && (
                   <div className="mt-2 md:mt-0">
-                    <PromoteAdminButton />
                   </div>
                 )}
               </div>

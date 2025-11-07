@@ -100,3 +100,15 @@ export {
 
 export { ScrollArea, ScrollBar } from "./scroll-area";
 
+export { default as PageCenter } from "./layout/page-center";
+export type { PageCenterProps } from "./layout/page-center";
+
+export { default as StatusCircle } from "./status-circle";
+export type { StatusCircleProps } from "./status-circle";
+
+export { default as DocumentsGrid, documentsGridClass } from "./layout/documents-grid";
+export type { DocumentsGridProps } from "./layout/documents-grid";
+
+export { default as BackHeader } from "./layout/back-header";
+export type { BackHeaderProps } from "./layout/back-header";
+

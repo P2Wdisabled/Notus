@@ -1,8 +1,8 @@
 "use client";
 
 import { useTheme } from "@/contexts/ThemeContext";
-import NavBar from "@/components/NavBar";
-import ContentWrapper from "@/components/ContentWrapper";
+import NavBar from "@/components/navigation/NavBar";
+import ContentWrapper from "@/components/common/ContentWrapper";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
 import Icon from "@/components/Icon";
 

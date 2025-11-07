@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Button, Card, Alert, LoadingSpinner } from "@/components/ui";
+import { Button, Card, Alert, LoadingSpinner, StatusCircle } from "@/components/ui";
 
 type Status = "loading" | "success" | "error";
 
@@ -64,9 +64,9 @@ export default function VerifyEmailPage() {
       <main className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="max-w-md w-full text-center">
           <Card.Content>
-            <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center mx-auto mb-6">
-              <span className="text-primary-foreground text-2xl">✓</span>
-            </div>
+            <StatusCircle variant="success" className="mb-6" label="Email vérifié">
+              <span className="text-2xl">✓</span>
+            </StatusCircle>
             <Card.Title className="text-2xl mb-4">Email vérifié !</Card.Title>
             <Card.Description className="mb-6">
               {message ||
@@ -90,9 +90,9 @@ export default function VerifyEmailPage() {
     <main className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="max-w-md w-full text-center">
         <Card.Content>
-          <div className="w-16 h-16 bg-destructive rounded-full flex items-center justify-center mx-auto mb-6">
-            <span className="text-destructive-foreground text-2xl">✗</span>
-          </div>
+          <StatusCircle variant="error" className="mb-6" label="Erreur de vérification">
+            <span className="text-2xl">✗</span>
+          </StatusCircle>
           <Card.Title className="text-2xl mb-4">Erreur de vérification</Card.Title>
           <Card.Description className="mb-6">
             {message ||

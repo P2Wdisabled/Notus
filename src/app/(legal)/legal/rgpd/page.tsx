@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Button, Card, Badge, Separator } from "@/components/ui";
+import TableOfContents from "@/components/legal/TableOfContents";
 
 export default function RGPDPage() {
   const sections = [
@@ -36,17 +37,7 @@ export default function RGPDPage() {
               <Card.Title className="text-lg text-foreground">Table des matières</Card.Title>
             </Card.Header>
             <Card.Content>
-              <nav className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
-                {sections.map((section) => (
-                  <a
-                    key={section.id}
-                    href={`#${section.id}`}
-                    className="block text-sm text-muted-foreground hover:text-primary transition-colors py-2 px-3 rounded-md hover:bg-muted/50"
-                  >
-                    {section.title}
-                  </a>
-                ))}
-              </nav>
+              <TableOfContents sections={sections} />
             </Card.Content>
           </Card>
         </section>

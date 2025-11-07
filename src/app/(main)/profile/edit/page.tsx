@@ -1,5 +1,5 @@
 import { auth } from "@/../auth";
-import NavBar from "@/components/NavBar";
+import NavBar from "@/components/navigation/NavBar";
 import EditProfilePageClient from "./EditProfilePageClient";
 import Link from "next/link";
 import Icon from "@/components/Icon";

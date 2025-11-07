@@ -3,7 +3,7 @@
 import { useActionState, useState, useMemo, useEffect } from "react";
 import { registerUser } from "@/lib/actions";
 import Link from "next/link";
-import GoogleSignInButton from "@/components/GoogleSignInButton";
+import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
 import { useLocalSession } from "@/hooks/useLocalSession";
 import { useRouter } from "next/navigation";
 import {
@@ -13,6 +13,7 @@ import {
   Alert,
   LoadingSpinner,
   Logo,
+  StatusCircle,
 } from "@/components/ui";
 
 interface RegisterPageClientProps {
@@ -100,9 +101,9 @@ function RegisterPageClient({ serverSession }: RegisterPageClientProps) {
     return (
       <main className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="max-w-md w-full text-center">
-          <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center mx-auto mb-6">
-            <span className="text-primary-foreground text-2xl">✓</span>
-          </div>
+          <StatusCircle variant="success" className="mb-6" label="Inscription réussie">
+            <span className="text-2xl">✓</span>
+          </StatusCircle>
           <Card.Title className="text-2xl mb-4">
             Inscription réussie !
           </Card.Title>
