@@ -306,7 +306,7 @@ export default function NavBar() {
                 >
                   <div className="flex items-center justify-center w-10 h-10 rounded-full overflow-hidden bg-muted ring-1 ring-border/20 shadow-sm">
                     {localProfileImage ? (
-                      <Image
+                      <img
                         src={localProfileImage}
                         alt="Photo de profil"
                         className="w-full h-full object-cover"
@@ -401,7 +401,7 @@ export default function NavBar() {
             >
               <div className="flex items-center justify-center w-10 h-10 rounded-full overflow-hidden bg-muted ring-1 ring-border/20 shadow-sm">
                 {localProfileImage ? (
-                  <Image
+                  <img
                     src={localProfileImage}
                     alt="Photo de profil"
                     className="w-full h-full object-cover"

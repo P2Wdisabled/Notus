@@ -90,7 +90,7 @@ export default async function ProfilePage() {
           <div className="flex flex-col items-center md:flex-row md:items-end gap-4 relative z-10">
             <div className="w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-background overflow-hidden bg-muted ring-2 ring-border/30 shadow-lg">
               {userProfile?.profile_image ? (
-                <Image
+                <img
                   src={userProfile.profile_image}
                   alt="Photo de profil"
                   className="w-full h-full object-cover"

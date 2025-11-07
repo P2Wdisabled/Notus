@@ -192,7 +192,7 @@ export default function ImageUpload({
         {previewUrl ? (
           <div className="space-y-4">
             <div className="relative inline-block">
-              <Image
+              <img
                 src={previewUrl}
                 alt="Aperçu"
                 className="max-w-full max-h-48 rounded-lg object-cover"

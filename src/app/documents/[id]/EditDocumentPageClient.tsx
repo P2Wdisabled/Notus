@@ -657,6 +657,21 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
       return;
     }
 
+    // Prevent re-inviting someone already in the access list
+    try {
+      const normalizedTarget = String(shareEmail).trim().toLowerCase();
+      const already = (users || []).some((u: any) => {
+        const e = (u.email || u.username || u.email_address || "").toString().trim().toLowerCase();
+        return e === normalizedTarget;
+      });
+      if (already) {
+        setShareError("Cet utilisateur est déjà invité");
+        return;
+      }
+    } catch (e) {
+      // ignore and continue
+    }
+
     setShareLoading(true);
     setShareError(null);
     setShareSuccess(null);
