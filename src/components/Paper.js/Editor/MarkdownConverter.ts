@@ -136,16 +136,18 @@ export class MarkdownConverter {
         if (!align) return content;
         const style = `text-align: ${align}`;
         const tag = el.nodeName;
-        // Set style on the list item itself to avoid adding a nested block that breaks backspace/delete
+        // For list items: keep the bullet outside by wrapping content in an inner div
+        // with the alignment, not styling the <li> itself.
         if (tag === 'LI') {
-          return `<li style="${style}">${content}</li>`;
+          return `<li style="list-style-position: outside;"><div style="${style}">${content}</div></li>`;
         }
-        // Preserve list container styling on UL/OL
+        // For list containers: wrap the entire list in a styled div to preserve alignment
+        // without moving the list markers.
         if (tag === 'UL') {
-          return `<ul style="${style}">${content}</ul>`;
+          return `<div style="${style}"><ul>${content}</ul></div>`;
         }
         if (tag === 'OL') {
-          return `<ol style="${style}">${content}</ol>`;
+          return `<div style="${style}"><ol>${content}</ol></div>`;
         }
         // For other block elements, wrap the whole block
         return `<div style="${style}">${content}</div>`;
@@ -339,6 +341,84 @@ export class MarkdownConverter {
       }
     });
 
+    // CRITICAL FIX: Always preserve strong/b tags as HTML to prevent **text** syntax
+    this.turndownService.addRule('preserveBold', {
+      filter: (node) => {
+        return node.nodeName === 'STRONG' || node.nodeName === 'B';
+      },
+      replacement: (content, node) => {
+        const el = node as HTMLElement;
+        const styles: string[] = [];
+        
+        // Preserve any inline styles
+        if (el.style && el.style.color && el.style.color !== 'rgb(0, 0, 0)') {
+          let color = el.style.color;
+          if (color.startsWith('rgb')) {
+            const rgb = color.match(/\d+/g);
+            if (rgb && rgb.length >= 3) {
+              const r = parseInt(rgb[0], 10), g = parseInt(rgb[1], 10), b = parseInt(rgb[2], 10);
+              color = `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
+            }
+          }
+          styles.push(`color: ${color}`);
+        }
+        
+        if (el.style && el.style.backgroundColor && el.style.backgroundColor !== 'rgba(0, 0, 0, 0)' && el.style.backgroundColor !== 'transparent') {
+          let bg = el.style.backgroundColor;
+          if (bg.startsWith('rgb')) {
+            const rgb = bg.match(/\d+/g);
+            if (rgb && rgb.length >= 3) {
+              const r = parseInt(rgb[0], 10), g = parseInt(rgb[1], 10), b = parseInt(rgb[2], 10);
+              bg = `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
+            }
+          }
+          styles.push(`background-color: ${bg}`);
+        }
+        
+        const styleAttr = styles.length ? ` style="${styles.join('; ')}"` : '';
+        return `<strong${styleAttr}>${content}</strong>`;
+      }
+    });
+
+    // CRITICAL FIX: Always preserve italic/em tags as HTML to prevent *text* syntax
+    this.turndownService.addRule('preserveItalic', {
+      filter: (node) => {
+        return node.nodeName === 'EM' || node.nodeName === 'I';
+      },
+      replacement: (content, node) => {
+        const el = node as HTMLElement;
+        const styles: string[] = [];
+        
+        // Preserve any inline styles
+        if (el.style && el.style.color && el.style.color !== 'rgb(0, 0, 0)') {
+          let color = el.style.color;
+          if (color.startsWith('rgb')) {
+            const rgb = color.match(/\d+/g);
+            if (rgb && rgb.length >= 3) {
+              const r = parseInt(rgb[0], 10), g = parseInt(rgb[1], 10), b = parseInt(rgb[2], 10);
+              color = `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
+            }
+          }
+          styles.push(`color: ${color}`);
+        }
+        
+        if (el.style && el.style.backgroundColor && el.style.backgroundColor !== 'rgba(0, 0, 0, 0)' && el.style.backgroundColor !== 'transparent') {
+          let bg = el.style.backgroundColor;
+          if (bg.startsWith('rgb')) {
+            const rgb = bg.match(/\d+/g);
+            if (rgb && rgb.length >= 3) {
+              const r = parseInt(rgb[0], 10), g = parseInt(rgb[1], 10), b = parseInt(rgb[2], 10);
+              bg = `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
+            }
+          }
+          styles.push(`background-color: ${bg}`);
+        }
+        
+        const styleAttr = styles.length ? ` style="${styles.join('; ')}"` : '';
+        return `<em${styleAttr}>${content}</em>`;
+      }
+    });
+
     // Handle link alignment
     this.turndownService.addRule('linkAlignment', {
       filter: (node) => {
@@ -399,13 +479,98 @@ export class MarkdownConverter {
         return html;
       }
     });
+
+    // CRITICAL FIX: Always preserve strong/b tags as HTML to prevent **text** syntax
+    this.turndownService.addRule('preserveBold', {
+      filter: (node) => {
+        return node.nodeName === 'STRONG' || node.nodeName === 'B';
+      },
+      replacement: (content, node) => {
+        const el = node as HTMLElement;
+        const styles: string[] = [];
+        
+        // Preserve any inline styles
+        if (el.style && el.style.color && el.style.color !== 'rgb(0, 0, 0)') {
+          let color = el.style.color;
+          if (color.startsWith('rgb')) {
+            const rgb = color.match(/\d+/g);
+            if (rgb && rgb.length >= 3) {
+              const r = parseInt(rgb[0], 10), g = parseInt(rgb[1], 10), b = parseInt(rgb[2], 10);
+              color = `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
+            }
+          }
+          styles.push(`color: ${color}`);
+        }
+        
+        if (el.style && el.style.backgroundColor && el.style.backgroundColor !== 'rgba(0, 0, 0, 0)' && el.style.backgroundColor !== 'transparent') {
+          let bg = el.style.backgroundColor;
+          if (bg.startsWith('rgb')) {
+            const rgb = bg.match(/\d+/g);
+            if (rgb && rgb.length >= 3) {
+              const r = parseInt(rgb[0], 10), g = parseInt(rgb[1], 10), b = parseInt(rgb[2], 10);
+              bg = `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
+            }
+          }
+          styles.push(`background-color: ${bg}`);
+        }
+        
+        const styleAttr = styles.length ? ` style="${styles.join('; ')}"` : '';
+        return `<strong${styleAttr}>${content}</strong>`;
+      }
+    });
+
+    // CRITICAL FIX: Always preserve italic/em tags as HTML to prevent *text* syntax
+    this.turndownService.addRule('preserveItalic', {
+      filter: (node) => {
+        return node.nodeName === 'EM' || node.nodeName === 'I';
+      },
+      replacement: (content, node) => {
+        const el = node as HTMLElement;
+        const styles: string[] = [];
+        
+        // Preserve any inline styles
+        if (el.style && el.style.color && el.style.color !== 'rgb(0, 0, 0)') {
+          let color = el.style.color;
+          if (color.startsWith('rgb')) {
+            const rgb = color.match(/\d+/g);
+            if (rgb && rgb.length >= 3) {
+              const r = parseInt(rgb[0], 10), g = parseInt(rgb[1], 10), b = parseInt(rgb[2], 10);
+              color = `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
+            }
+          }
+          styles.push(`color: ${color}`);
+        }
+        
+        if (el.style && el.style.backgroundColor && el.style.backgroundColor !== 'rgba(0, 0, 0, 0)' && el.style.backgroundColor !== 'transparent') {
+          let bg = el.style.backgroundColor;
+          if (bg.startsWith('rgb')) {
+            const rgb = bg.match(/\d+/g);
+            if (rgb && rgb.length >= 3) {
+              const r = parseInt(rgb[0], 10), g = parseInt(rgb[1], 10), b = parseInt(rgb[2], 10);
+              bg = `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
+            }
+          }
+          styles.push(`background-color: ${bg}`);
+        }
+        
+        const styleAttr = styles.length ? ` style="${styles.join('; ')}"` : '';
+        return `<em${styleAttr}>${content}</em>`;
+      }
+    });
   }
 
   // Convert markdown to HTML
   markdownToHtml(md: string): string {
+    // First, clean up any markdown bold/italic that might not be parsed
+    let processedMd = md
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      .replace(/__(.*?)__/g, '<strong>$1</strong>')
+      .replace(/_(.*?)_/g, '<em>$1</em>');
+
     // Defensive: replace any legacy placeholder tokens saved in markdown with explicit blank lines
     const PLACEHOLDER = '[[__EMPTY_PARAGRAPH__]]';
-    const cleanedMd = md.split(PLACEHOLDER).join('\n\n');
+    const cleanedMd = processedMd.split(PLACEHOLDER).join('\n\n');
 
     const html = marked(cleanedMd, {
       breaks: true,
@@ -422,9 +587,10 @@ export class MarkdownConverter {
       .replace(/<h6>/g, '<h6 style="font-size: 0.875rem; font-weight: bold; margin: 0.5rem 0;">')
       .replace(/<blockquote>/g, '<blockquote style="border-left: 4px solid #e5e7eb; padding-left: 1rem; margin: 1rem 0; color: #6b7280; font-style: italic;">')
       .replace(/<hr>/g, '<hr style="border: none; border-top: 1px solid #e5e7eb; margin: 2rem 0;">')
-      .replace(/<ul>/g, '<ul style="margin: 1rem 0; padding-left: 1.5rem; list-style-type: disc; display: block;">')
-      .replace(/<ol>/g, '<ol style="margin: 1rem 0; padding-left: 1.5rem; list-style-type: decimal; display: block;">')
-      .replace(/<li>/g, '<li style="margin: 0.25rem 0; display: list-item; list-style-position: outside;">')
+      // FIXED: Better list styling with proper indentation and line handling
+      .replace(/<ul>/g, '<ul style="margin: 1rem 0; padding-left: 2rem; list-style-type: disc; list-style-position: outside;">')
+      .replace(/<ol>/g, '<ol style="margin: 1rem 0; padding-left: 2rem; list-style-type: decimal; list-style-position: outside;">')
+      .replace(/<li>/g, '<li style="margin: 0.25rem 0; padding-left: 0; display: list-item; list-style-position: outside; text-indent: 0;">')
       .replace(/<a /g, '<a target="_blank" rel="noopener noreferrer" style="color: #3b82f6; text-decoration: underline; cursor: pointer;" ')
       // Handle links with alignment in divs where content is already an <a>
       .replace(/<div style=\"text-align: center\"><a href=\"([^\"]*)\">([\s\S]*?)<\/a><\/div>/g, '<div style=\"text-align: center\"><a href=\"$1\" style=\"color: #3b82f6; text-decoration: underline; cursor: pointer;\">$2</a></div>')
