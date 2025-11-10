@@ -20,6 +20,85 @@ export class MarkdownConverter {
   }
 
   private setupCustomRules() {
+    // HIGH PRIORITY: formatting tags (strong/em/...) that contain a descendant with color/background
+    // Ensure color/background is preserved when another collaborator toggles bold/italic.
+    this.turndownService.addRule('formattingWithChildColor', {
+      filter: (node) => {
+        if (!node || node.nodeType !== 1) return false;
+        const name = node.nodeName;
+        if (!['STRONG','B','EM','I','U','S','DEL'].includes(name)) return false;
+        const el = node as HTMLElement;
+        try {
+          if (el.style && (el.style.color || el.style.backgroundColor)) return true;
+          return !!el.querySelector && !!el.querySelector('[style*="color"], [style*="background-color"], font[color]');
+        } catch {
+          return false;
+        }
+      },
+      replacement: (content, node) => {
+        const el = node as HTMLElement;
+        const candidate = el.querySelector('[style*="color"], [style*="background-color"], font[color]') as HTMLElement | null;
+        const styles: string[] = [];
+        const toHex = (c: string) => {
+          if (!c) return c;
+          if (c.startsWith('rgb')) {
+            const rgb = c.match(/\d+/g);
+            if (rgb && rgb.length >= 3) {
+              const r = parseInt(rgb[0], 10), g = parseInt(rgb[1], 10), b = parseInt(rgb[2], 10);
+              return `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
+            }
+          }
+          return c;
+        };
+
+        if (el.style && el.style.color && el.style.color !== 'rgb(0, 0, 0)') styles.push(`color: ${toHex(el.style.color)}`);
+        if (el.style && el.style.backgroundColor && el.style.backgroundColor !== 'transparent' && el.style.backgroundColor !== 'rgba(0, 0, 0, 0)') {
+          styles.push(`background-color: ${toHex(el.style.backgroundColor)}`);
+        }
+
+        if (candidate) {
+          const cc = (candidate as HTMLElement).style?.color;
+          const cb = (candidate as HTMLElement).style?.backgroundColor;
+          if (cc && cc !== 'rgb(0, 0, 0)') styles.push(`color: ${toHex(cc)}`);
+          if (cb && cb !== 'rgba(0, 0, 0, 0)' && cb !== 'transparent') styles.push(`background-color: ${toHex(cb)}`);
+          if (!styles.length && candidate.nodeName === 'FONT') {
+            const fontColor = candidate.getAttribute('color');
+            if (fontColor) styles.push(`color: ${fontColor}`);
+          }
+        }
+
+        if (!styles.length) return content;
+
+        const tag = node.nodeName.toLowerCase();
+        // put style on the formatting tag itself (avoid outer span)
+        return `<${tag} style="${styles.join('; ')}">${content}</${tag}>`;
+      }
+    });
+
+    // Preserve text color on SPAN elements (patterned after working backgroundColor rule)
+    this.turndownService.addRule('textColor', {
+      filter: (node) => {
+        const el = node as HTMLElement;
+        return node.nodeName === 'SPAN' && !!el.style && !!el.style.color && el.style.color !== 'rgb(0, 0, 0)';
+      },
+      replacement: (content, node) => {
+        const element = node as HTMLElement;
+        let color = element.style.color || '';
+        if (!color) return content;
+        // convert rgb(...) to hex
+        if (color.startsWith('rgb')) {
+          const rgb = color.match(/\d+/g);
+          if (rgb && rgb.length >= 3) {
+            const r = parseInt(rgb[0], 10);
+            const g = parseInt(rgb[1], 10);
+            const b = parseInt(rgb[2], 10);
+            color = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+          }
+        }
+        return `<span style="color: ${color}">${content}</span>`;
+      }
+    });
+
     // Add custom rules for better HTML to Markdown conversion
     this.turndownService.addRule('underline', {
       filter: 'u',
@@ -37,9 +116,9 @@ export class MarkdownConverter {
     // Handle strikethrough via CSS
     this.turndownService.addRule('strikethroughCSS', {
       filter: (node) => {
-        return node.nodeName === 'SPAN' && 
-               node.style && 
-               node.style.textDecoration?.includes('line-through');
+        return node.nodeName === 'SPAN' &&
+          node.style &&
+          node.style.textDecoration?.includes('line-through');
       },
       replacement: (content) => `~~${content}~~`
     });
@@ -49,15 +128,27 @@ export class MarkdownConverter {
         const el = node as HTMLElement;
         if (!el || !el.style || !el.style.textAlign) return false;
         const tag = el.nodeName;
-        // Consider common block-level elements to wrap the entire line
-        return ['DIV', 'P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BLOCKQUOTE'].includes(tag);
+        return ['DIV', 'P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BLOCKQUOTE', 'UL', 'OL', 'LI'].includes(tag);
       },
       replacement: (content, node) => {
-        const align = (node as HTMLElement).style.textAlign;
-        if (align === 'center') return `<div style="text-align: center">${content}</div>`;
-        if (align === 'right') return `<div style="text-align: right">${content}</div>`;
-        if (align === 'justify') return `<div style="text-align: justify">${content}</div>`;
-        return content;
+        const el = node as HTMLElement;
+        const align = el.style.textAlign;
+        if (!align) return content;
+        const style = `text-align: ${align}`;
+        const tag = el.nodeName;
+        // Set style on the list item itself to avoid adding a nested block that breaks backspace/delete
+        if (tag === 'LI') {
+          return `<li style="${style}">${content}</li>`;
+        }
+        // Preserve list container styling on UL/OL
+        if (tag === 'UL') {
+          return `<ul style="${style}">${content}</ul>`;
+        }
+        if (tag === 'OL') {
+          return `<ol style="${style}">${content}</ol>`;
+        }
+        // For other block elements, wrap the whole block
+        return `<div style="${style}">${content}</div>`;
       }
     });
 
@@ -76,55 +167,66 @@ export class MarkdownConverter {
       },
       replacement: (content, node) => {
         const element = node as HTMLElement;
-        let result = content;
         let styles: string[] = [];
-        
-        if (element.style.fontWeight === 'bold') {
-          result = `**${result}**`;
-        }
-        if (element.style.fontStyle === 'italic') {
-          result = `*${result}*`;
-        }
-        if (element.style.textDecoration?.includes('underline')) {
-          result = `<u>${result}</u>`;
-        }
-        if (element.style.textDecoration?.includes('line-through')) {
-          result = `~~${result}~~`;
-        }
+
+        const isBold = element.style.fontWeight === 'bold' || element.style.fontWeight === '700' || (element.style.fontWeight && parseInt(element.style.fontWeight || '0') >= 600);
+        const isItalic = element.style.fontStyle === 'italic';
+        const isUnderline = !!element.style.textDecoration?.includes('underline');
+        const isStrike = !!element.style.textDecoration?.includes('line-through');
+
         if (element.style.color && element.style.color !== 'rgb(0, 0, 0)') {
-          // Convert rgb to hex
           let hexColor = element.style.color;
-          if (element.style.color.startsWith('rgb')) {
-            const rgb = element.style.color.match(/\d+/g);
+          if (hexColor.startsWith('rgb')) {
+            const rgb = hexColor.match(/\d+/g);
             if (rgb && rgb.length >= 3) {
-              const r = parseInt(rgb[0]);
-              const g = parseInt(rgb[1]);
-              const b = parseInt(rgb[2]);
-              hexColor = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+              const r = parseInt(rgb[0], 10), g = parseInt(rgb[1], 10), b = parseInt(rgb[2], 10);
+              hexColor = `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
             }
           }
           styles.push(`color: ${hexColor}`);
         }
+
         if (element.style.backgroundColor && element.style.backgroundColor !== 'rgba(0, 0, 0, 0)' && element.style.backgroundColor !== 'transparent') {
-          // Convert rgb to hex
           let hexBackground = element.style.backgroundColor;
-          if (element.style.backgroundColor.startsWith('rgb')) {
-            const rgb = element.style.backgroundColor.match(/\d+/g);
+          if (hexBackground.startsWith('rgb')) {
+            const rgb = hexBackground.match(/\d+/g);
             if (rgb && rgb.length >= 3) {
-              const r = parseInt(rgb[0]);
-              const g = parseInt(rgb[1]);
-              const b = parseInt(rgb[2]);
-              hexBackground = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+              const r = parseInt(rgb[0], 10), g = parseInt(rgb[1], 10), b = parseInt(rgb[2], 10);
+              hexBackground = `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
             }
           }
           styles.push(`background-color: ${hexBackground}`);
         }
-        
+
+        // If we have color/background, put the style on the outermost formatting tag
         if (styles.length > 0) {
-          result = `<span style="${styles.join('; ')}">${result}</span>`;
+          const tagNames: string[] = [];
+          if (isBold) tagNames.push('strong');
+          if (isItalic) tagNames.push('em');
+          if (isUnderline) tagNames.push('u');
+          if (isStrike) tagNames.push('s');
+
+          // no formatting tags -> keep styled span
+          if (tagNames.length === 0) {
+            return `<span style="${styles.join('; ')}">${content}</span>`;
+          }
+
+          // build nested tags but put styles on the outermost formatting tag
+          const outer = tagNames[0];
+          let opening = `<${outer} style="${styles.join('; ')}">`;
+          for (let i = 1; i < tagNames.length; i++) opening += `<${tagNames[i]}>`;
+          let closing = '';
+          for (let i = tagNames.length - 1; i >= 0; i--) closing += `</${tagNames[i]}>`;
+
+          return `${opening}${content}${closing}`;
         }
-        
-        return result;
+
+        // No color/background -> keep markdown markers for formatting
+        if (isBold) content = `**${content}**`;
+        if (isItalic) content = `*${content}*`;
+        if (isUnderline) content = `<u>${content}</u>`;
+        if (isStrike) content = `~~${content}~~`;
+        return content;
       }
     });
 
@@ -138,6 +240,102 @@ export class MarkdownConverter {
           return `<span style="color: ${color}">${content}</span>`;
         }
         return content;
+      }
+    });
+
+    // Preserve inline formatting tags that carry color/background so color isn't lost when bold/italic is used
+    this.turndownService.addRule('preserveStyleOnFormattingTags', {
+      filter: (node) => {
+        const name = node.nodeName;
+        const el = node as HTMLElement;
+        return ['STRONG', 'B', 'EM', 'I', 'U', 'S', 'DEL'].includes(name) && !!el && !!el.style && (!!el.style.color || !!el.style.backgroundColor);
+      },
+      replacement: (content, node) => {
+        const el = node as HTMLElement;
+        const styles: string[] = [];
+        const toHex = (c: string) => {
+          if (!c) return c;
+          if (c.startsWith('rgb')) {
+            const rgb = c.match(/\d+/g);
+            if (rgb && rgb.length >= 3) {
+              const r = parseInt(rgb[0], 10), g = parseInt(rgb[1], 10), b = parseInt(rgb[2], 10);
+              return `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
+            }
+          }
+          return c;
+        };
+        if (el.style.color && el.style.color !== 'rgb(0, 0, 0)') styles.push(`color: ${toHex(el.style.color)}`);
+        if (el.style.backgroundColor && el.style.backgroundColor !== 'rgba(0, 0, 0, 0)' && el.style.backgroundColor !== 'transparent') {
+          styles.push(`background-color: ${toHex(el.style.backgroundColor)}`);
+        }
+        const styleAttr = styles.length ? ` style="${styles.join('; ')}"` : '';
+        const mapTag = (n: string) => {
+          if (n === 'STRONG' || n === 'B') return 'strong';
+          if (n === 'EM' || n === 'I') return 'em';
+          if (n === 'U') return 'u';
+          if (n === 'S' || n === 'DEL') return 's';
+          return n.toLowerCase();
+        };
+        const tag = mapTag(node.nodeName);
+        // put style directly on the formatting tag (do not wrap with outer span)
+        return `<${tag}${styleAttr}>${content}</${tag}>`;
+      }
+    });
+
+    // NEW: if formatting tag (strong/b/em/...) contains a descendant with color/background,
+    // preserve that color on the output formatting tag so color survives bold toggles.
+    this.turndownService.addRule('preserveChildStyleOnFormatting', {
+      filter: (node) => {
+        const name = node.nodeName;
+        if (!['STRONG', 'B', 'EM', 'I', 'U', 'S', 'DEL'].includes(name)) return false;
+        const el = node as HTMLElement;
+        // look for descendants that carry color/background
+        try {
+          return !!el.querySelector && !!el.querySelector('[style*="color"], [style*="background-color"], font[color]');
+        } catch {
+          return false;
+        }
+      },
+      replacement: (content, node) => {
+        const el = node as HTMLElement;
+        const candidate = el.querySelector('[style*="color"], [style*="background-color"], font[color]') as HTMLElement | null;
+        const styles: string[] = [];
+        const toHex = (c: string) => {
+          if (!c) return c;
+          if (c.startsWith('rgb')) {
+            const rgb = c.match(/\d+/g);
+            if (rgb && rgb.length >= 3) {
+              const r = parseInt(rgb[0]), g = parseInt(rgb[1]), b = parseInt(rgb[2]);
+              return `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
+            }
+          }
+          return c;
+        };
+        if (candidate) {
+          const cStyle = candidate.getAttribute('style') || '';
+          const cc = (candidate as HTMLElement).style?.color;
+          const cb = (candidate as HTMLElement).style?.backgroundColor;
+          if (cc && cc !== 'rgb(0, 0, 0)') styles.push(`color: ${toHex(cc)}`);
+          if (cb && cb !== 'rgba(0, 0, 0, 0)' && cb !== 'transparent') styles.push(`background-color: ${toHex(cb)}`);
+          if (!styles.length && candidate.nodeName === 'FONT') {
+            const fontColor = candidate.getAttribute('color');
+            if (fontColor) styles.push(`color: ${fontColor}`);
+          }
+        }
+        const styleAttr = styles.length ? ` style="${styles.join('; ')}"` : '';
+        const mapTag = (n: string) => {
+          if (n === 'STRONG' || n === 'B') return 'strong';
+          if (n === 'EM' || n === 'I') return 'em';
+          if (n === 'U') return 'u';
+          if (n === 'S' || n === 'DEL') return 's';
+          return n.toLowerCase();
+        };
+        const tag = mapTag(node.nodeName);
+        // put style directly on the formatting tag so it survives toggling
+        if (styleAttr) {
+          return `<${tag}${styleAttr}>${content}</${tag}>`;
+        }
+        return `<${tag}>${content}</${tag}>`;
       }
     });
 
@@ -162,15 +360,15 @@ export class MarkdownConverter {
     this.turndownService.addRule('backgroundColor', {
       filter: (node) => {
         const el = node as HTMLElement;
-        return node.nodeName === 'SPAN' && !!el.style && !!el.style.backgroundColor && 
-               el.style.backgroundColor !== 'rgba(0, 0, 0, 0)' && 
-               el.style.backgroundColor !== 'transparent';
+        return node.nodeName === 'SPAN' && !!el.style && !!el.style.backgroundColor &&
+          el.style.backgroundColor !== 'rgba(0, 0, 0, 0)' &&
+          el.style.backgroundColor !== 'transparent';
       },
       replacement: (content, node) => {
         const element = node as HTMLElement;
         const backgroundColor = element.style.backgroundColor;
         let hexBackground = backgroundColor;
-        
+
         if (backgroundColor.startsWith('rgb')) {
           const rgb = backgroundColor.match(/\d+/g);
           if (rgb && rgb.length >= 3) {
@@ -180,7 +378,7 @@ export class MarkdownConverter {
             hexBackground = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
           }
         }
-        
+
         return `<span style="background-color: ${hexBackground}">${content}</span>`;
       }
     });
@@ -213,7 +411,7 @@ export class MarkdownConverter {
       breaks: true,
       gfm: true,
     }) as string;
-    
+
     // Add custom styles for headings and other elements
     const styledHtml = html
       .replace(/<h1>/g, '<h1 style="font-size: 1.875rem; font-weight: bold; margin: 1rem 0;">')
@@ -235,8 +433,8 @@ export class MarkdownConverter {
       // Handle links with alignment in divs where content is a markdown link [..](..)
       .replace(/<div style=\"text-align: center\">\[([\s\S]*?)\]\(([^\)]*)\)<\/div>/g, '<div style=\"text-align: center\"><a href=\"$2\" style=\"color: #3b82f6; text-decoration: underline; cursor: pointer;\">$1</a></div>')
       .replace(/<div style=\"text-align: right\">\[([\s\S]*?)\]\(([^\)]*)\)<\/div>/g, '<div style=\"text-align: right\"><a href=\"$2\" style=\"color: #3b82f6; text-decoration: underline; cursor: pointer;\">$1</a></div>')
-      .replace(/<div style=\"text-align: justify\">\[([\s\S]*?)\]\(([^\)]*)\)<\/div>/g, '<div style=\"text-align: justify\"><a href=\"$2\" style=\"color: #3b82f6; text-decoration: underline; cursor: pointer;\">$1</a></div>');
-    
+      .replace(/<div style=\"text-align: justify\">\[([\sS]*?)\]\(([^\)]*)\)<\/div>/g, '<div style=\"text-align: justify\"><a href=\"$2\" style=\"color: #3b82f6; text-decoration: underline; cursor: pointer;\">$1</a></div>');
+
     return DOMPurify.sanitize(styledHtml, {
       ADD_ATTR: ['style'],
       ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 's', 'del', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'blockquote', 'a', 'img', 'div', 'span', 'hr', 'details', 'summary'],
@@ -244,8 +442,150 @@ export class MarkdownConverter {
     });
   }
 
+  private normalizeHtmlForTurndown(html: string): string {
+    if (typeof DOMParser === 'undefined') return html;
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+
+      // Helper to promote styles from child spans/font to parent formatting tags
+      const promoteChildStyles = (parentTags: string[]) => {
+        parentTags.forEach(tag => {
+          const nodes = Array.from(doc.querySelectorAll(tag));
+          nodes.forEach((node) => {
+            const el = node as HTMLElement;
+            // find the first descendant that carries color/background or font[color]
+            const candidate = el.querySelector('[style*="color"], [style*="background-color"], font[color]') as HTMLElement | null;
+            if (candidate) {
+              const candidateStyle = candidate.getAttribute('style') || '';
+              const childColor = (candidate as HTMLElement).style?.color;
+              const childBg = (candidate as HTMLElement).style?.backgroundColor;
+              const styles: string[] = [];
+              const toHex = (c: string | undefined) => {
+                if (!c) return '';
+                if (c.startsWith('rgb')) {
+                  const rgb = c.match(/\d+/g);
+                  if (rgb && rgb.length >= 3) {
+                    const r = parseInt(rgb[0], 10), g = parseInt(rgb[1], 10), b = parseInt(rgb[2], 10);
+                    return `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
+                  }
+                }
+                return c;
+              };
+              if (childColor && childColor !== 'rgb(0, 0, 0)') {
+                styles.push(`color: ${toHex(childColor)}`);
+              }
+              if (childBg && childBg !== 'rgba(0, 0, 0, 0)' && childBg !== 'transparent') {
+                styles.push(`background-color: ${toHex(childBg)}`);
+              }
+              // If we found style values, set them on the formatting tag
+              if (styles.length) {
+                const prev = el.getAttribute('style') || '';
+                // merge without duplicating same directives
+                const merged = prev ? `${prev}; ${styles.join('; ')}` : styles.join('; ');
+                el.setAttribute('style', merged);
+                // remove the style from candidate if it's a span/font to avoid double styling
+                if (candidate.tagName === 'SPAN' || candidate.tagName === 'FONT') {
+                  candidate.removeAttribute('style');
+                  if (candidate.tagName === 'FONT' && candidate.getAttribute('color')) {
+                    candidate.removeAttribute('color');
+                  }
+                  // if candidate becomes empty element, unwrap it
+                  if (!candidate.attributes.length && candidate.childNodes.length === 1) {
+                    const child = candidate.childNodes[0];
+                    candidate.parentNode?.replaceChild(child, candidate);
+                  }
+                }
+              }
+            }
+          });
+        });
+      };
+
+      // Normalize tag names: b -> strong, i -> em
+      const swapTag = (oldTag: string, newTag: string) => {
+        const elements = Array.from(doc.getElementsByTagName(oldTag));
+        elements.forEach((el) => {
+          const newEl = doc.createElement(newTag);
+          // copy attributes
+          Array.from(el.attributes).forEach(attr => newEl.setAttribute(attr.name, attr.value));
+          // move children
+          while (el.firstChild) newEl.appendChild(el.firstChild);
+          el.parentNode?.replaceChild(newEl, el);
+        });
+      };
+      swapTag('b', 'strong');
+      swapTag('i', 'em');
+
+      // Promote child styles into these formatting tags so toggles operate consistently
+      promoteChildStyles(['STRONG','EM','U','S','DEL','I','B']);
+
+      // Also, for any <span> with only style and text child, keep it but ensure style has hex color for consistency (optional)
+      const spans = Array.from(doc.querySelectorAll('span[style]')) as HTMLElement[];
+      spans.forEach(s => {
+        const style = s.getAttribute('style') || '';
+        // normalize rgb(...) -> hex for color/background-color when present
+        const colorMatch = style.match(/color:\s*rgb\([^\)]+\)/i);
+        const bgMatch = style.match(/background-color:\s*rgb\([^\)]+\)/i);
+        const normalizeRgbToHex = (m: string | null) => {
+          if (!m) return null;
+          const val = m.split(':')[1].trim();
+          const rgb = val.match(/\d+/g);
+          if (rgb && rgb.length >= 3) {
+            const r = parseInt(rgb[0], 10), g = parseInt(rgb[1], 10), b = parseInt(rgb[2], 10);
+            return `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
+          }
+          return null;
+        };
+        let newStyle = style;
+        if (colorMatch) {
+          const hex = normalizeRgbToHex(colorMatch[0]);
+          if (hex) newStyle = newStyle.replace(colorMatch[0], `color: ${hex}`);
+        }
+        if (bgMatch) {
+          const hex = normalizeRgbToHex(bgMatch[0]);
+          if (hex) newStyle = newStyle.replace(bgMatch[0], `background-color: ${hex}`);
+        }
+        s.setAttribute('style', newStyle);
+      });
+
+      return doc.body.innerHTML;
+    } catch {
+      return html;
+    }
+  }
+
   // Convert HTML to markdown
   htmlToMarkdown(html: string): string {
-    return this.turndownService.turndown(html);
+    // DEBUG: temporary logging to help diagnose color/format loss in collaboration.
+    // This logs only when the input HTML contains inline color/background styles to reduce noise.
+    try {
+      const shouldLog = /style=["'][^"']*(?:color:|background-color:)|<font\s+color=/i.test(html);
+      if (shouldLog) {
+        try {
+          console.groupCollapsed('[MarkdownConverter] htmlToMarkdown — input HTML (truncated if long)');
+          console.log(html.length > 2000 ? html.slice(0, 2000) + '... [truncated]' : html);
+          console.groupEnd();
+        } catch {}
+      }
+
+      // normalize the HTML before turndown to ensure formatting tags carry styles consistently
+      const normalizedHtml = this.normalizeHtmlForTurndown(html);
+
+      const md = this.turndownService.turndown(normalizedHtml);
+
+      if (shouldLog) {
+        try {
+          console.groupCollapsed('[MarkdownConverter] htmlToMarkdown — produced markdown (truncated if long)');
+          console.log(md.length > 4000 ? md.slice(0, 4000) + '... [truncated]' : md);
+          console.groupEnd();
+        } catch {}
+      }
+
+      return md;
+    } catch (e) {
+      console.error('[MarkdownConverter] htmlToMarkdown error', e);
+      return this.turndownService.turndown(html);
+    }
   }
 }
