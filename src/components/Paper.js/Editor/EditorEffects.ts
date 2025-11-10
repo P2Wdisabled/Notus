@@ -133,7 +133,7 @@ export function useEditorEffects({
     setTimeout(() => {
       (isUpdatingFromMarkdown as any)?.current && ((isUpdatingFromMarkdown as any).current = false);
     }, 0);
-  }, [markdown, editorRef, markdownConverter]);
+  }, [markdown, editorRef, markdownConverter, isUpdatingFromMarkdown]);
 
   // Keep overlay in sync on scroll/resize/content changes
   useEffect(() => {
@@ -215,9 +215,10 @@ export function useEditorEffects({
 
   // Cleanup timeout on unmount
   useEffect(() => {
+    const timeoutRef = debounceTimeout.current;
     return () => {
-      if (debounceTimeout.current) {
-        clearTimeout(debounceTimeout.current);
+      if (timeoutRef) {
+        clearTimeout(timeoutRef);
       }
     };
   }, [debounceTimeout]);

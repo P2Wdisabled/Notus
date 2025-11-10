@@ -51,6 +51,7 @@ model Document {
   title      String
   content    String   @default("")
   tags       String[] @default([])
+  favori     Boolean?
   created_at DateTime @default(now()) @map("created_at")
   updated_at DateTime @updatedAt @map("updated_at")
 
@@ -75,6 +76,7 @@ model Share {
   id_doc     Int     @map("id_doc")
   email      String
   permission Boolean @default(false)
+  favori     Boolean?
 
   document Document @relation(fields: [id_doc], references: [id], onDelete: Cascade)
 

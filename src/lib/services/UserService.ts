@@ -2,6 +2,8 @@ import bcrypt from "bcryptjs";
 import { UserRepository } from "../repositories/UserRepository";
 import { EmailService } from "./EmailService";
 import { CreateUserData, UpdateUserProfileData, User, UserRepositoryResult } from "../types";
+import { NotificationService } from "@/lib/services/NotificationService";
+
 
 export class UserService {
   private userRepository: UserRepository;
@@ -218,6 +220,7 @@ export class UserService {
       }
 
       const user = userResult.user!;
+      const notifSvc = new NotificationService();
 
       // Hasher le nouveau mot de passe
       const hashedPassword = await bcrypt.hash(newPassword, 12);
@@ -228,6 +231,8 @@ export class UserService {
       if (!updateResult.success) {
         return { success: false, error: updateResult.error || "Erreur lors de la mise à jour du mot de passe" };
       }
+
+      await notifSvc.sendPasswordChangeNotification(user.id);
 
       return { success: true };
     } catch (error) {

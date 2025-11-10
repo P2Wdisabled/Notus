@@ -19,16 +19,19 @@ interface SearchableDocumentsListProps {
   documents?: AnyDocument[];
   currentUserId?: string;
   error?: string;
+  isFavoritesList?: boolean;
 }
 
 export function SearchableDocumentsList({
   documents: serverDocuments = [],
   currentUserId,
   error,
+  isFavoritesList = false,
 }: SearchableDocumentsListProps) {
   const { filterDocuments, filterLocalDocuments, isSearching } = useSearch();
   const router = useRouter();
   const [localDocuments, setLocalDocuments] = useState<LocalDocument[]>([]);
+  const [runtimeDocuments, setRuntimeDocuments] = useState<AnyDocument[]>(serverDocuments);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [message, formAction, isPending] = useActionState(
     deleteMultipleDocumentsAction,
@@ -69,6 +72,10 @@ export function SearchableDocumentsList({
   }, []);
 
   useEffect(() => {
+    setRuntimeDocuments(serverDocuments);
+  }, [serverDocuments]);
+
+  useEffect(() => {
     // Afficher le message dès qu'il change
     setIsMessageVisible(!!message);
     if (message && !isPending && !message.includes("Erreur")) {
@@ -79,13 +86,15 @@ export function SearchableDocumentsList({
     }
   }, [message, isPending, router]);
 
+  const baseServerDocs: AnyDocument[] = isFavoritesList ? runtimeDocuments : serverDocuments;
+
   const documents: AnyDocument[] = currentUserId 
-    ? [...serverDocuments].sort((a, b) => {
+    ? [...baseServerDocs].sort((a, b) => {
         const dateA = new Date(a.updated_at || a.created_at);
         const dateB = new Date(b.updated_at || b.created_at);
         return dateB.getTime() - dateA.getTime();
       })
-    : ([...localDocuments, ...serverDocuments] as AnyDocument[]).sort((a, b) => {
+    : ([...localDocuments, ...baseServerDocs] as AnyDocument[]).sort((a, b) => {
         const dateA = new Date(a.updated_at || a.created_at);
         const dateB = new Date(b.updated_at || b.created_at);
         return dateB.getTime() - dateA.getTime();
@@ -168,7 +177,7 @@ export function SearchableDocumentsList({
   const filteredDocuments: AnyDocument[] = isSearching
     ? ([
       ...filterLocalDocuments(localDocuments as unknown as AnyDocument[]),
-      ...filterDocuments(serverDocuments as unknown as AnyDocument[]),
+      ...filterDocuments(baseServerDocs as unknown as AnyDocument[]),
     ] as AnyDocument[])
     : documents;
 
@@ -229,7 +238,7 @@ export function SearchableDocumentsList({
   }
 
   return (
-    <TagsProvider documents={[...localDocuments as unknown as AnyDocument[], ...serverDocuments as unknown as AnyDocument[]]}>
+    <TagsProvider documents={[...localDocuments as unknown as AnyDocument[], ...baseServerDocs as unknown as AnyDocument[]]}>
       <div className="space-y-3">
         {message && isMessageVisible && (
           <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-start justify-between gap-3">
@@ -275,6 +284,12 @@ export function SearchableDocumentsList({
                     if (!selectMode) {
                       setSelectMode(true);
                       setSelectedIds([String(firstId)]);
+                    }
+                  }}
+                  onFavoriteChange={(docId, fav) => {
+                    if (isFavoritesList && !fav) {
+                      setRuntimeDocuments((prev) => prev.filter((d) => String(d.id) !== String(docId)));
+                      setSelectedIds((prev) => prev.filter((id) => id !== String(docId)));
                     }
                   }}
                 />

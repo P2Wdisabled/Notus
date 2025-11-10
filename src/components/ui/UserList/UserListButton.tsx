@@ -1,5 +1,6 @@
 import React, { useRef, useState } from "react";
 import UserList from "./UserList";
+import Image  from "next/image";
 
 type User = {
   id: number;
@@ -51,7 +52,7 @@ export default function UserListButton({ users, className }: UserListButtonProps
           {users[0] && (
             <span className="z-10 -ml-2">
               {users[0].avatarUrl && users[0].avatarUrl !== "" && !errored[users[0].id] ? (
-                <img
+                <Image
                   src={users[0].avatarUrl}
                   alt={users[0].name}
                   className="w-12 h-12 rounded-full object-cover"
@@ -68,7 +69,7 @@ export default function UserListButton({ users, className }: UserListButtonProps
           {users[1] && (
             <span className="z-9 -ml-4">
               {users[1].avatarUrl && users[1].avatarUrl !== "" && !errored[users[1].id] ? (
-                <img
+                <Image
                   src={users[1].avatarUrl}
                   alt={users[1].name}
                   className="w-10 h-10 rounded-full object-cover"
@@ -85,7 +86,7 @@ export default function UserListButton({ users, className }: UserListButtonProps
           {users[2] && (
             <span className="z-8 -ml-4">
               {users[2].avatarUrl && users[2].avatarUrl !== "" && !errored[users[2].id] ? (
-                <img
+                <Image
                   src={users[2].avatarUrl}
                   alt={users[2].name}
                   className="w-8 h-8 rounded-full object-cover"

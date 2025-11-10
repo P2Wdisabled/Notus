@@ -1,0 +1,55 @@
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/../lib/auth";
+import NavBar from "@/components/NavBar";
+import ContentWrapper from "@/components/ContentWrapper";
+import { Alert } from "@/components/ui";
+import { SearchableDocumentsList } from "@/components/SearchableDocumentsList";
+import { getFavoritesAction } from "@/lib/actions";
+import { redirect } from "next/navigation";
+
+export default async function FavoritesPage() {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) {
+    redirect("/login");
+  }
+
+  const favoritesResult = await getFavoritesAction();
+
+  const normalizedDocuments = (favoritesResult.success ? favoritesResult.documents || [] : []).map((d: any) => ({
+    ...d,
+    id: String(d.id),
+    user_id: d.user_id != null ? String(d.user_id) : undefined,
+  }));
+
+  const listError = favoritesResult.success ? undefined : (favoritesResult.error || undefined);
+
+  return (
+    <div className="min-h-screen bg-background">
+      <NavBar />
+      <ContentWrapper maxWidth="lg">
+        <div className="space-y-8">
+          <h2 className="font-title text-4xl font-regular text-foreground hidden md:block">
+            Favoris
+          </h2>
+
+          {!favoritesResult.success && session?.user && (
+            <Alert variant="error">
+              <Alert.Description>
+                Erreur lors du chargement des favoris: {favoritesResult.error}
+              </Alert.Description>
+            </Alert>
+          )}
+
+          <SearchableDocumentsList
+            documents={normalizedDocuments}
+            currentUserId={session?.user?.id ? String(session.user.id) : undefined}
+            error={listError}
+            isFavoritesList
+          />
+        </div>
+      </ContentWrapper>
+    </div>
+  );
+}
+
+

@@ -443,8 +443,6 @@ export default function DrawingCanvas({
     }
   }, [
     isInitialized,
-    drawingState,
-    mode,
     onDrawingData,
     onCanvasReady,
     setDrawings,
@@ -508,7 +506,7 @@ export default function DrawingCanvas({
 
       paperScope.view.draw();
     }
-  }, [paperScope, isInitialized, drawings, props.startFresh]);
+  }, [paperScope, isInitialized, drawings, props.startFresh, setDrawings]);
 
   // -------- Canvas setup --------
   useEffect(() => {
@@ -678,15 +676,16 @@ export default function DrawingCanvas({
   }, [paperScope, isInitialized, mode]);
 
   // -------- Socket event handlers --------
+  const sessionUserId = (session as any)?.user?.id;
   const handleDrawingUpdate = useCallback(
     (data: any) => {
-      if (data.userId === (session as any)?.user?.id || localMode) return;
+      if (data.userId === sessionUserId || localMode) return;
 
       if (data.drawings && Array.isArray(data.drawings)) {
         setDrawings(data.drawings);
       }
     },
-    [(session as any)?.user?.id, localMode, setDrawings]
+    [sessionUserId, localMode, setDrawings]
   );
 
   const handleClearCanvas = useCallback(() => {

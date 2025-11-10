@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSession as useNextAuthSession } from "next-auth/react";
 import type { Session } from "next-auth";
 import {
@@ -108,7 +108,7 @@ export function useLocalSession(serverSession: Session | null = null): UseLocalS
   }, [serverSession, nextAuthSession, status]);
 
   // Fonction de migration des documents locaux
-  const migrateLocalDocuments = async (userId: string) => {
+  const migrateLocalDocuments = useCallback(async (userId: string) => {
     if (typeof window === "undefined") return;
     if (migrationInProgress) return;
 
@@ -233,12 +233,12 @@ export function useLocalSession(serverSession: Session | null = null): UseLocalS
         // ignore
       }
     }
-  };
+  }, [migrationInProgress]);
 
   useEffect(() => {
     const activeUserId = (nextAuthSession?.user?.id || serverSession?.user?.id) as unknown as string | undefined;
     if (activeUserId) migrateLocalDocuments(String(activeUserId));
-  }, [nextAuthSession, serverSession, migrationInProgress]);
+  }, [nextAuthSession, serverSession, migrateLocalDocuments]);
 
   const logout = (): void => {
     clearSessionUtils();

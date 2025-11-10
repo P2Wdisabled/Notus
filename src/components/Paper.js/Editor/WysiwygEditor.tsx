@@ -28,12 +28,6 @@ export default function WysiwygEditor({
 }: WysiwygEditorProps) {
   const [markdown, setMarkdown] = useState(content);
   
-  // Sync external content changes only when not updating from user input
-  useEffect(() => {
-    if (content !== markdown) {
-      setMarkdown(content);
-    }
-  }, [content]);
   const [linkPopup, setLinkPopup] = useState<{ visible: boolean; x: number; y: number; url: string }>({
     visible: false,
     x: 0,

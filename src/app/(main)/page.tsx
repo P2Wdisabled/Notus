@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/../lib/auth";
 import Link from "next/link";
 import { getUserDocumentsAction } from "@/lib/actions";
-import { fetchSharedDocumentsAction } from "@/lib/actions/DocumentActions";
+import { fetchSharedDocumentsAction } from "@/lib/actions";
 import Navigation from "@/components/Navigation";
 import NavBar from "@/components/NavBar";
 import ContentWrapper from "@/components/ContentWrapper";
@@ -34,7 +34,7 @@ export default async function Home() {
   const userDocumentIds = new Set(userDocuments.map(d => d.id));
   
   // Filtrer les documents partagés pour ne garder que ceux qui ne sont PAS déjà dans les documents de l'utilisateur
-  const uniqueSharedDocuments = sharedDocuments.filter(d => !userDocumentIds.has(d.id));
+  const uniqueSharedDocuments = sharedDocuments.filter((d: any) => !userDocumentIds.has(d.id));
 
   const allDocuments = [
     ...userDocuments,
