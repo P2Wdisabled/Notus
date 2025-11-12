@@ -110,9 +110,15 @@ export default function WysiwygToolbar({ onFormatChange, showDebug = false, onTo
         setCurrentHighlight("transparent");
       }
 
-      // Check undo/redo availability
-      setCanUndo(document.queryCommandEnabled('undo'));
-      setCanRedo(document.queryCommandEnabled('redo'));
+      // Check undo/redo availability using custom history
+      if ((window as any).canWysiwygUndo && (window as any).canWysiwygRedo) {
+        setCanUndo((window as any).canWysiwygUndo());
+        setCanRedo((window as any).canWysiwygRedo());
+      } else {
+        // Fallback to native commands
+        setCanUndo(document.queryCommandEnabled('undo'));
+        setCanRedo(document.queryCommandEnabled('redo'));
+      }
     }
   }, []);
 
@@ -139,8 +145,14 @@ export default function WysiwygToolbar({ onFormatChange, showDebug = false, onTo
     // Listen for input changes to update undo/redo states
     const handleInput = () => {
       setTimeout(() => {
-        setCanUndo(document.queryCommandEnabled('undo'));
-        setCanRedo(document.queryCommandEnabled('redo'));
+        if ((window as any).canWysiwygUndo && (window as any).canWysiwygRedo) {
+          setCanUndo((window as any).canWysiwygUndo());
+          setCanRedo((window as any).canWysiwygRedo());
+        } else {
+          // Fallback to native commands
+          setCanUndo(document.queryCommandEnabled('undo'));
+          setCanRedo(document.queryCommandEnabled('redo'));
+        }
       }, 10);
     };
 

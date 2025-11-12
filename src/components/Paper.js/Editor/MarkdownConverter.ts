@@ -4,6 +4,46 @@ import TurndownService from "turndown";
 
 export class MarkdownConverter {
   private turndownService: TurndownService;
+  
+  // Helper function to normalize color formats (rgb, lab, hsl, etc.) to hex
+  private normalizeColorToHex(c: string): string {
+    if (!c) return c;
+    
+    // Handle hex format (already hex)
+    if (c.startsWith('#')) {
+      return c;
+    }
+    
+    // Handle rgb/rgba formats
+    if (c.startsWith('rgb')) {
+      const rgb = c.match(/\d+/g);
+      if (rgb && rgb.length >= 3) {
+        const r = parseInt(rgb[0], 10), g = parseInt(rgb[1], 10), b = parseInt(rgb[2], 10);
+        return `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
+      }
+    }
+    
+    // Handle named colors and other formats (lab(), hsl(), hwb(), etc.)
+    // Convert to hex using browser's computed style
+    if (typeof document !== 'undefined') {
+      try {
+        const tempEl = document.createElement('div');
+        tempEl.style.color = c;
+        const computedColor = window.getComputedStyle(tempEl).color;
+        if (computedColor && computedColor.startsWith('rgb')) {
+          const rgb = computedColor.match(/\d+/g);
+          if (rgb && rgb.length >= 3) {
+            const r = parseInt(rgb[0], 10), g = parseInt(rgb[1], 10), b = parseInt(rgb[2], 10);
+            return `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
+          }
+        }
+      } catch (e) {
+        // If conversion fails, return original
+      }
+    }
+    
+    return c;
+  }
 
   constructor() {
     this.turndownService = new TurndownService({
@@ -39,17 +79,7 @@ export class MarkdownConverter {
         const el = node as HTMLElement;
         const candidate = el.querySelector('[style*="color"], [style*="background-color"], font[color]') as HTMLElement | null;
         const styles: string[] = [];
-        const toHex = (c: string) => {
-          if (!c) return c;
-          if (c.startsWith('rgb')) {
-            const rgb = c.match(/\d+/g);
-            if (rgb && rgb.length >= 3) {
-              const r = parseInt(rgb[0], 10), g = parseInt(rgb[1], 10), b = parseInt(rgb[2], 10);
-              return `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
-            }
-          }
-          return c;
-        };
+        const toHex = (c: string) => this.normalizeColorToHex(c);
 
         if (el.style && el.style.color && el.style.color !== 'rgb(0, 0, 0)') styles.push(`color: ${toHex(el.style.color)}`);
         if (el.style && el.style.backgroundColor && el.style.backgroundColor !== 'transparent' && el.style.backgroundColor !== 'rgba(0, 0, 0, 0)') {
@@ -85,16 +115,8 @@ export class MarkdownConverter {
         const element = node as HTMLElement;
         let color = element.style.color || '';
         if (!color) return content;
-        // convert rgb(...) to hex
-        if (color.startsWith('rgb')) {
-          const rgb = color.match(/\d+/g);
-          if (rgb && rgb.length >= 3) {
-            const r = parseInt(rgb[0], 10);
-            const g = parseInt(rgb[1], 10);
-            const b = parseInt(rgb[2], 10);
-            color = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
-          }
-        }
+        // Normalize color to hex (handles rgb, lab, hsl, etc.)
+        color = this.normalizeColorToHex(color);
         return `<span style="color: ${color}">${content}</span>`;
       }
     });
@@ -255,17 +277,7 @@ export class MarkdownConverter {
       replacement: (content, node) => {
         const el = node as HTMLElement;
         const styles: string[] = [];
-        const toHex = (c: string) => {
-          if (!c) return c;
-          if (c.startsWith('rgb')) {
-            const rgb = c.match(/\d+/g);
-            if (rgb && rgb.length >= 3) {
-              const r = parseInt(rgb[0], 10), g = parseInt(rgb[1], 10), b = parseInt(rgb[2], 10);
-              return `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
-            }
-          }
-          return c;
-        };
+        const toHex = (c: string) => this.normalizeColorToHex(c);
         if (el.style.color && el.style.color !== 'rgb(0, 0, 0)') styles.push(`color: ${toHex(el.style.color)}`);
         if (el.style.backgroundColor && el.style.backgroundColor !== 'rgba(0, 0, 0, 0)' && el.style.backgroundColor !== 'transparent') {
           styles.push(`background-color: ${toHex(el.style.backgroundColor)}`);
@@ -302,17 +314,7 @@ export class MarkdownConverter {
         const el = node as HTMLElement;
         const candidate = el.querySelector('[style*="color"], [style*="background-color"], font[color]') as HTMLElement | null;
         const styles: string[] = [];
-        const toHex = (c: string) => {
-          if (!c) return c;
-          if (c.startsWith('rgb')) {
-            const rgb = c.match(/\d+/g);
-            if (rgb && rgb.length >= 3) {
-              const r = parseInt(rgb[0]), g = parseInt(rgb[1]), b = parseInt(rgb[2]);
-              return `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
-            }
-          }
-          return c;
-        };
+        const toHex = (c: string) => this.normalizeColorToHex(c);
         if (candidate) {
           const cStyle = candidate.getAttribute('style') || '';
           const cc = (candidate as HTMLElement).style?.color;
@@ -627,17 +629,7 @@ export class MarkdownConverter {
               const childColor = (candidate as HTMLElement).style?.color;
               const childBg = (candidate as HTMLElement).style?.backgroundColor;
               const styles: string[] = [];
-              const toHex = (c: string | undefined) => {
-                if (!c) return '';
-                if (c.startsWith('rgb')) {
-                  const rgb = c.match(/\d+/g);
-                  if (rgb && rgb.length >= 3) {
-                    const r = parseInt(rgb[0], 10), g = parseInt(rgb[1], 10), b = parseInt(rgb[2], 10);
-                    return `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
-                  }
-                }
-                return c;
-              };
+              const toHex = (c: string | undefined) => c ? this.normalizeColorToHex(c) : '';
               if (childColor && childColor !== 'rgb(0, 0, 0)') {
                 styles.push(`color: ${toHex(childColor)}`);
               }

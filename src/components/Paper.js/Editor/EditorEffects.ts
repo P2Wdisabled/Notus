@@ -13,6 +13,7 @@ export interface EditorEffectsProps {
   debounceTimeout: React.MutableRefObject<NodeJS.Timeout | null>;
   handleEditorChange: () => void;
   isUpdatingFromMarkdown?: React.MutableRefObject<boolean>;
+  isLocalChange?: React.MutableRefObject<boolean>;
 }
 
 export function useEditorEffects({
@@ -25,7 +26,8 @@ export function useEditorEffects({
   formattingHandler,
   debounceTimeout,
   handleEditorChange,
-  isUpdatingFromMarkdown
+  isUpdatingFromMarkdown,
+  isLocalChange
 }: EditorEffectsProps) {
   
   // Note: Initialization is handled in the main component
@@ -34,6 +36,11 @@ export function useEditorEffects({
   useEffect(() => {
     const root = editorRef.current;
     if (!root || !markdown || !markdownConverter.current) return;
+
+    // Don't update HTML if this is a local change (user typing)
+    if (isLocalChange?.current) {
+      return;
+    }
 
     const currentHtml = markdownConverter.current.markdownToHtml(markdown);
     const editorHtml = root.innerHTML;
@@ -145,7 +152,7 @@ export function useEditorEffects({
     setTimeout(() => {
       (isUpdatingFromMarkdown as any)?.current && ((isUpdatingFromMarkdown as any).current = false);
     }, 0);
-  }, [markdown, editorRef, markdownConverter, isUpdatingFromMarkdown]);
+  }, [markdown, editorRef, markdownConverter, isUpdatingFromMarkdown, isLocalChange]);
 
   // Keep overlay in sync on scroll/resize/content changes
   useEffect(() => {

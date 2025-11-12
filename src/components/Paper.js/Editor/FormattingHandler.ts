@@ -392,16 +392,28 @@ export class FormattingHandler {
           }
           break;
         case 'undo':
-          document.execCommand('undo', false);
-          setTimeout(() => {
-            restoreSelection();
-          }, 10);
+          // Use custom undo handler if available
+          if ((window as any).handleWysiwygUndo) {
+            (window as any).handleWysiwygUndo();
+          } else {
+            // Fallback to native command
+            document.execCommand('undo', false);
+            setTimeout(() => {
+              restoreSelection();
+            }, 10);
+          }
           break;
         case 'redo':
-          document.execCommand('redo', false);
-          setTimeout(() => {
-            restoreSelection();
-          }, 10);
+          // Use custom redo handler if available
+          if ((window as any).handleWysiwygRedo) {
+            (window as any).handleWysiwygRedo();
+          } else {
+            // Fallback to native command
+            document.execCommand('redo', false);
+            setTimeout(() => {
+              restoreSelection();
+            }, 10);
+          }
           break;
         case 'insertQuote': {
           const currentElement = range.commonAncestorContainer.nodeType === Node.TEXT_NODE
