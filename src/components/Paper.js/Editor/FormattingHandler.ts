@@ -155,11 +155,112 @@ export class FormattingHandler {
           document.execCommand('underline', false);
           restoreSelection();
           break;
-        case 'strikeThrough':
-          // Use native toggle for reliable add/remove across selections
-          document.execCommand('strikeThrough', false);
+        case 'strikeThrough': {
+          // Save the original range for later use
+          const savedRange = range.cloneRange();
+          
+          // Check if strikethrough is already applied
+          const isStrikethrough = document.queryCommandState('strikeThrough') ||
+            (() => {
+              // Check if selection is inside a strikethrough tag
+              let node: Node | null = range.commonAncestorContainer;
+              if (node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+              let currentElement: HTMLElement | null = node as HTMLElement | null;
+              while (currentElement && currentElement !== this.editorRef.current) {
+                if (currentElement.nodeName === 'S' || 
+                    currentElement.nodeName === 'DEL' || 
+                    currentElement.nodeName === 'STRIKE' ||
+                    (currentElement.style?.textDecoration?.includes('line-through'))) {
+                  return true;
+                }
+                currentElement = currentElement.parentElement as HTMLElement | null;
+              }
+              return false;
+            })();
+
+          if (isStrikethrough) {
+            // Remove strikethrough by unwrapping strikethrough tags
+            try {
+              // First try native command
+              document.execCommand('strikeThrough', false);
+              
+              // Manually unwrap strikethrough tags as fallback
+              setTimeout(() => {
+                const editor = this.editorRef.current;
+                if (!editor) return;
+                
+                // Get all strikethrough elements that intersect with the saved range
+                const nodesToUnwrap: HTMLElement[] = [];
+                
+                // Find all strikethrough tags
+                const strikeTags = editor.querySelectorAll('s, del, strike');
+                strikeTags.forEach((el: Element) => {
+                  const htmlEl = el as HTMLElement;
+                  try {
+                    if (savedRange.intersectsNode(htmlEl)) {
+                      nodesToUnwrap.push(htmlEl);
+                    }
+                  } catch (e) {
+                    // If range is invalid, check if element is in selection area
+                    const rect = htmlEl.getBoundingClientRect();
+                    const editorRect = editor.getBoundingClientRect();
+                    if (rect.top < editorRect.bottom && rect.bottom > editorRect.top) {
+                      nodesToUnwrap.push(htmlEl);
+                    }
+                  }
+                });
+
+                // Also check for inline style strikethrough
+                const allElements = editor.querySelectorAll('*');
+                allElements.forEach((el: Element) => {
+                  const htmlEl = el as HTMLElement;
+                  if (htmlEl.style?.textDecoration?.includes('line-through')) {
+                    try {
+                      if (savedRange.intersectsNode(htmlEl)) {
+                        htmlEl.style.textDecoration = htmlEl.style.textDecoration.replace(/line-through/g, '').trim();
+                        if (!htmlEl.style.textDecoration) {
+                          htmlEl.removeAttribute('style');
+                        }
+                      }
+                    } catch (e) {
+                      // If range check fails, still try to remove if it's in the general area
+                      const rect = htmlEl.getBoundingClientRect();
+                      const editorRect = editor.getBoundingClientRect();
+                      if (rect.top < editorRect.bottom && rect.bottom > editorRect.top) {
+                        htmlEl.style.textDecoration = htmlEl.style.textDecoration.replace(/line-through/g, '').trim();
+                        if (!htmlEl.style.textDecoration) {
+                          htmlEl.removeAttribute('style');
+                        }
+                      }
+                    }
+                  }
+                });
+
+                // Unwrap all strikethrough tags
+                nodesToUnwrap.forEach(strikeEl => {
+                  const parent = strikeEl.parentNode;
+                  if (parent) {
+                    while (strikeEl.firstChild) {
+                      parent.insertBefore(strikeEl.firstChild, strikeEl);
+                    }
+                    parent.removeChild(strikeEl);
+                  }
+                });
+
+                restoreSelection();
+                this.syncMarkdown();
+              }, 10);
+            } catch (e) {
+              // Fallback to native command
+              document.execCommand('strikeThrough', false);
+            }
+          } else {
+            // Apply strikethrough
+            document.execCommand('strikeThrough', false);
+          }
           restoreSelection();
           break;
+        }
         case 'insertOrderedList':
           document.execCommand('insertOrderedList', false);
           restoreSelection();
@@ -245,10 +346,35 @@ export class FormattingHandler {
         case 'justifyLeft':
         case 'justifyCenter':
         case 'justifyRight':
-        case 'justifyFull':
-          document.execCommand(command, false);
+        case 'justifyFull': {
+          // Check if we're inside a list and preserve its type (ol vs ul)
+          let node: Node | null = range.commonAncestorContainer;
+          if (node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+          const listElement = (node as Element)?.closest('ol, ul') as HTMLElement | null;
+          
+          if (listElement) {
+            // For lists, apply alignment directly to preserve list type
+            const alignmentMap: { [key: string]: string } = {
+              'justifyLeft': 'left',
+              'justifyCenter': 'center',
+              'justifyRight': 'right',
+              'justifyFull': 'justify'
+            };
+            
+            const alignment = alignmentMap[command] || 'left';
+            listElement.style.textAlign = alignment;
+            
+            // Sync markdown after alignment change
+            setTimeout(() => {
+              this.syncMarkdown();
+            }, 10);
+          } else {
+            // Not in a list, use standard command
+            document.execCommand(command, false);
+          }
           restoreSelection();
           break;
+        }
         case 'foreColor':
           if (value) {
             document.execCommand('foreColor', false, value);

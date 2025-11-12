@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { MarkdownConverter } from "./MarkdownConverter";
 import { FormattingHandler } from "./FormattingHandler";
 import LinkPopup from "./LinkPopup";
@@ -44,17 +44,25 @@ export default function WysiwygEditor({
   const markdownConverter = useRef<MarkdownConverter | null>(null);
   const formattingHandler = useRef<FormattingHandler | null>(null);
 
+  // Wrapper for onContentChange that also updates local markdown state for debug panel
+  const handleContentChange = useCallback((newMarkdown: string) => {
+    // Update local markdown state for debug panel
+    setMarkdown(newMarkdown);
+    // Call parent's onContentChange
+    onContentChange(newMarkdown);
+  }, [onContentChange]);
+
   // Initialize converter and handler
   useEffect(() => {
     markdownConverter.current = new MarkdownConverter();
     formattingHandler.current = new FormattingHandler(
       editorRef,
-      onContentChange,
+      handleContentChange,
       (html: string) => markdownConverter.current?.htmlToMarkdown(html) || ""
     );
-  }, [onContentChange]);
+  }, [handleContentChange]);
 
-  // Update markdown when content prop changes
+  // Update markdown when content prop changes (from remote updates)
   useEffect(() => {
     setMarkdown(content);
   }, [content]);
@@ -66,7 +74,7 @@ export default function WysiwygEditor({
     isUpdatingFromMarkdown,
     debounceTimeout,
     markdown,
-    onContentChange,
+    onContentChange: handleContentChange,
     setLinkPopup,
     setSelectedImage,
     setImageOverlayRect,
@@ -79,7 +87,7 @@ export default function WysiwygEditor({
     editorRef,
     markdown,
     markdownConverter,
-    onContentChange,
+    onContentChange: handleContentChange,
     selectedImage,
     setImageOverlayRect,
     formattingHandler,
