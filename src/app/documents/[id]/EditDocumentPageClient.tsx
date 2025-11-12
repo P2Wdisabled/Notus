@@ -119,6 +119,14 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   const [users, setUsers] = useState([]);
   const [isOffline, setIsOffline] = useState(false);
   const [offlineBaseline, setOfflineBaseline] = useState<string>("");
+  
+  // État de sauvegarde : 'synchronized' | 'saving' | 'unsynchronized'
+  const [saveStatus, setSaveStatus] = useState<'synchronized' | 'saving' | 'unsynchronized'>('synchronized');
+  const lastSavedContentRef = useRef<string>("");
+  const lastSavedTitleRef = useRef<string>("");
+  const lastSavedTagsRef = useRef<string[]>([]);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isSavingRef = useRef(false);
 
   // Collaborative title synchronization
   const { emitTitleChange, isConnected: isTitleConnected } = useCollaborativeTitle({
@@ -172,6 +180,13 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
         setTitle(result.title);
         setContent(normalizedContent);
         setTags(Array.isArray(result.tags) ? result.tags : []);
+        
+        // Initialiser les refs avec le contenu chargé
+        const contentString = JSON.stringify(normalizedContent);
+        lastSavedContentRef.current = contentString;
+        lastSavedTitleRef.current = result.title;
+        lastSavedTagsRef.current = Array.isArray(result.tags) ? result.tags : [];
+        setSaveStatus('synchronized');
 
         try {
           const cachePayload = {
@@ -207,6 +222,14 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
               setTitle(c.title);
               setContent(normalizeContent(c.content));
               setTags(Array.isArray(c.tags) ? c.tags : []);
+              
+              // Initialiser les refs avec le contenu en cache
+              const cachedContentString = JSON.stringify(normalizeContent(c.content));
+              lastSavedContentRef.current = cachedContentString;
+              lastSavedTitleRef.current = c.title;
+              lastSavedTagsRef.current = Array.isArray(c.tags) ? c.tags : [];
+              setSaveStatus('synchronized');
+              
               setError(null);
               return;
             }
@@ -232,6 +255,14 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
             setTitle(c.title);
             setContent(normalizeContent(c.content));
             setTags(Array.isArray(c.tags) ? c.tags : []);
+            
+            // Initialiser les refs avec le contenu en cache
+            const cachedContentString = JSON.stringify(normalizeContent(c.content));
+            lastSavedContentRef.current = cachedContentString;
+            lastSavedTitleRef.current = c.title;
+            lastSavedTagsRef.current = Array.isArray(c.tags) ? c.tags : [];
+            setSaveStatus('synchronized');
+            
             setError(null);
             return;
           }
@@ -252,7 +283,18 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   useEffect(() => {
     if (document) {
       setTitle(document.title);
-      setContent(normalizeContent(document.content));
+      const normalizedContent = normalizeContent(document.content);
+      setContent(normalizedContent);
+      
+      // Initialiser les refs si elles ne sont pas déjà initialisées
+      if (lastSavedContentRef.current === "") {
+        const contentString = JSON.stringify(normalizedContent);
+        lastSavedContentRef.current = contentString;
+        lastSavedTitleRef.current = document.title;
+        lastSavedTagsRef.current = document.tags || [];
+        setSaveStatus('synchronized');
+      }
+      
       setCanvasCtrl(null);
       fetch(`/api/openDoc/accessList?id=${document.id}`)
         .then(res => res.json())
@@ -318,11 +360,71 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     }
   }, [props.params.id, title, tags, userId, props.session]);
 
+  // Fonction pour déclencher la sauvegarde automatique avec debounce
+  // Note: handleSubmit sera défini plus tard, on utilisera une ref pour l'appeler
+  const handleSubmitRef = useRef<(() => Promise<void>) | null>(null);
+  
+  const triggerAutoSave = useCallback(() => {
+    if (!document?.id || hasEditAccess === false || isSavingRef.current) {
+      return;
+    }
+
+    // Annuler le timeout précédent s'il existe
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    // Marquer comme non synchronisé immédiatement
+    setSaveStatus((prevStatus) => {
+      if (prevStatus !== 'saving') {
+        return 'unsynchronized';
+      }
+      return prevStatus;
+    });
+
+    // Déclencher la sauvegarde après 2 secondes d'inactivité
+    saveTimeoutRef.current = setTimeout(async () => {
+      // Vérifier les changements au moment de la sauvegarde
+      const currentContentString = JSON.stringify(content);
+      const hasChanges = 
+        currentContentString !== lastSavedContentRef.current ||
+        title !== lastSavedTitleRef.current ||
+        JSON.stringify(tags) !== JSON.stringify(lastSavedTagsRef.current);
+
+      if (!hasChanges || isSavingRef.current) {
+        // Pas de changements, remettre à synchronisé
+        setSaveStatus('synchronized');
+        return;
+      }
+
+      try {
+        const onlineOk = await checkConnectivity();
+        if (!onlineOk) {
+          setSaveStatus('unsynchronized');
+          return;
+        }
+
+        isSavingRef.current = true;
+        setSaveStatus('saving');
+        
+        // Appeler handleSubmit via la ref
+        if (handleSubmitRef.current) {
+          await handleSubmitRef.current();
+        }
+      } catch (err) {
+        // Silent error handling for autosave
+        isSavingRef.current = false;
+        setSaveStatus('unsynchronized');
+      }
+    }, 2000); // 2 secondes d'inactivité avant sauvegarde
+  }, [document?.id, hasEditAccess, content, title, tags, checkConnectivity]);
+
   const handleContentChange = useCallback((newContent: any) => {
     const normalized = normalizeContent(newContent);
     setContent(normalized);
     updateLocalStorage(normalized);
-  }, [normalizeContent, updateLocalStorage]);
+    triggerAutoSave();
+  }, [normalizeContent, updateLocalStorage, triggerAutoSave]);
 
   useEffect(() => {
     if (state && (state as any).ok) {
@@ -428,29 +530,34 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     ]
   );
 
-  // -------- Auto-save every 10 seconds (checks connectivity beforehand) --------
+  // Assigner handleSubmit à la ref pour l'auto-save
   useEffect(() => {
-    if (!document?.id || hasEditAccess === false) {
-      return;
+    handleSubmitRef.current = handleSubmit;
+  }, [handleSubmit]);
+
+  // Mettre à jour les refs et le statut après une sauvegarde réussie
+  useEffect(() => {
+    if (state && (state as any).ok) {
+      // Mettre à jour les refs avec le contenu sauvegardé
+      const contentString = JSON.stringify(content);
+      lastSavedContentRef.current = contentString;
+      lastSavedTitleRef.current = title;
+      lastSavedTagsRef.current = [...tags];
+      
+      // Marquer comme synchronisé
+      setSaveStatus('synchronized');
+      isSavingRef.current = false;
     }
+  }, [state, content, title, tags]);
 
-    const intervalId = setInterval(async () => {
-      try {
-        const onlineOk = await checkConnectivity();
-        if (!onlineOk) {
-          return;
-        }
-
-        await handleSubmit();
-      } catch (err) {
-        // Silent error handling for autosave
-      }
-    }, 3000); //Auto-enregistrement après 3 secondes
-
+  // Nettoyer le timeout lors du démontage
+  useEffect(() => {
     return () => {
-      clearInterval(intervalId);
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
     };
-  }, [document?.id, hasEditAccess, handleSubmit, checkConnectivity]);
+  }, []);
 
   // -------- Offline/Online conflict resolution --------
   useEffect(() => {
@@ -595,6 +702,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     if (typeof navigator !== "undefined" && navigator.onLine) {
       persistTags(nextTags);
     }
+    triggerAutoSave();
   };
 
   // -------- Access control --------
@@ -837,6 +945,28 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
                 Mode lecture seule
               </div>
             )}
+            {hasEditAccess !== false && (
+              <div className="ml-4 px-3 py-1 text-sm font-medium rounded-full border flex items-center gap-2">
+                {saveStatus === 'synchronized' && (
+                  <>
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <span className="text-muted-foreground">Synchronisé</span>
+                  </>
+                )}
+                {saveStatus === 'saving' && (
+                  <>
+                    <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
+                    <span className="text-muted-foreground">Enregistrement...</span>
+                  </>
+                )}
+                {saveStatus === 'unsynchronized' && (
+                  <>
+                    <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                    <span className="text-muted-foreground">Non synchronisé</span>
+                  </>
+                )}
+              </div>
+            )}
             <div className="relative inline-block">
               <Button
                 variant="ghost"
@@ -999,6 +1129,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
                   if (emitTitleChange && isTitleConnected) {
                     emitTitleChange(newTitle);
                   }
+                  triggerAutoSave();
                 }}
                 readOnly={hasEditAccess === false}
                 className={`w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-ring bg-transparent text-foreground text-xl font-semibold ${hasEditAccess === false ? 'cursor-default opacity-75' : ''}`}
@@ -1019,6 +1150,10 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
                     setContent(remoteContent);
                     // Persist to localStorage like local edits do
                     updateLocalStorage(remoteContent);
+                    // Mettre à jour les refs car c'est un changement distant (synchronisé)
+                    const contentString = JSON.stringify(remoteContent);
+                    lastSavedContentRef.current = contentString;
+                    setSaveStatus('synchronized');
                   }}
                   placeholder="Commencez à écrire votre document..."
                   className=""
