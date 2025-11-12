@@ -40,6 +40,18 @@ export function useEditorEffects({
 
     // Only update if content is different to avoid infinite loops
     if (editorHtml === currentHtml) return;
+    
+    // Check if the current HTML, when converted to markdown, matches the target markdown
+    // This prevents unnecessary HTML replacement when the markdown was generated from the current HTML
+    try {
+      const currentMarkdown = markdownConverter.current.htmlToMarkdown(editorHtml);
+      if (currentMarkdown === markdown) {
+        // The current HTML already represents the target markdown, no need to replace it
+        return;
+      }
+    } catch (e) {
+      // If conversion fails, proceed with normal update
+    }
 
     // Helpers to preserve caret/selection across HTML refresh
     const getSelectionOffsets = (container: HTMLElement): { start: number; end: number } | null => {
