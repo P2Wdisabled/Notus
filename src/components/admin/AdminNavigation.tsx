@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import Icon, { type IconName } from "@/components/Icon";
 import { cn } from "@/lib/utils";
+import { Logo } from "@/components/ui";
 
 interface NavItem {
   name: string;
@@ -17,9 +18,7 @@ export default function AdminNavigation() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const navigation: NavItem[] = [
-    { name: "Tableau de bord", href: "/admin", icon: "dashboard" },
     { name: "Utilisateurs", href: "/admin/users", icon: "users" },
-    { name: "Documents", href: "/admin/documents", icon: "document" },
     { name: "Requêtes", href: "/admin/requests", icon: "alert" },
     { name: "Stats", href: "/admin/stats", icon: "dashboard" },
     { name: "Paramètres", href: "/admin/settings", icon: "gear" },
@@ -55,10 +54,10 @@ export default function AdminNavigation() {
                 href="/admin"
                 className={cn(
                   "text-xl font-bold text-[var(--foreground)]",
-                  "hover:text-[var(--primary)] transition-colors"
+                  "hover:text-[var(--primary)] transition-colors flex items-center gap-2"
                 )}
               >
-                Notus Admin
+                <Logo width={160} height={46} />
               </Link>
             </div>
             <div className="hidden min-[1200px]:ml-6 min-[1200px]:flex min-[1200px]:space-x-8">

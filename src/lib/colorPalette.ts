@@ -3,11 +3,11 @@
  * 12 couleurs soigneusement sélectionnées pour une interface moderne et élégante
  */
 export const COLOR_PALETTE = [
-  { name: "Violet", value: "#a855f7" }, // Couleur par défaut
+  { name: "Violet Dottxt", value: "#A98BFF" }, // Couleur par défaut
   { name: "Bleu", value: "#3b82f6" },
   { name: "Indigo", value: "#6366f1" },
-  { name: "Rose", value: "#DD05C7" },
-  { name: "Rouge", value: "#ef4444" },
+  { name: "Rose Notus", value: "#DD05C7" },
+  { name: "Rouge Yanotela", value: "#882626" },
   { name: "Orange", value: "#f97316" },
   { name: "Ambre", value: "#f59e0b" },
   { name: "Vert", value: "#10b981" },
