@@ -43,35 +43,41 @@ export function useEditorEffects({
       return;
     }
 
-    // Double-check after a small delay to handle race conditions
-    // This prevents overwriting user input that was just typed
-    const checkLocalChange = () => {
-      if (isLocalChange?.current) {
-        return true;
-      }
-      return false;
-    };
-
     const currentHtml = markdownConverter.current.markdownToHtml(markdown);
     const editorHtml = root.innerHTML;
 
     // Only update if content is different to avoid infinite loops
-    if (editorHtml === currentHtml) return;
+    // Normalize HTML for comparison (remove extra whitespace, normalize attributes)
+    const normalizeHtml = (html: string) => {
+      // Create a temporary div to normalize the HTML
+      const temp = document.createElement('div');
+      temp.innerHTML = html;
+      return temp.innerHTML;
+    };
     
-    // Check if the current HTML, when converted to markdown, matches the target markdown
-    // This prevents unnecessary HTML replacement when the markdown was generated from the current HTML
-    try {
-      const currentMarkdown = markdownConverter.current.htmlToMarkdown(editorHtml);
-      if (currentMarkdown === markdown) {
-        // The current HTML already represents the target markdown, no need to replace it
-        return;
+    const normalizedCurrentHtml = normalizeHtml(currentHtml);
+    const normalizedEditorHtml = normalizeHtml(editorHtml);
+    
+    if (normalizedCurrentHtml === normalizedEditorHtml) {
+      // HTML is the same, but check markdown to be sure for collaborative editing
+      try {
+        const currentMarkdown = markdownConverter.current.htmlToMarkdown(editorHtml);
+        // Normalize both markdowns for comparison (trim whitespace, normalize line endings)
+        const normalizedCurrent = currentMarkdown.trim().replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        const normalizedTarget = markdown.trim().replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        
+        if (normalizedCurrent === normalizedTarget) {
+          // The current HTML already represents the target markdown, no need to replace it
+          return;
+        }
+      } catch (e) {
+        // If conversion fails, proceed with update if HTML is different
+        // (HTML might be different even if markdown comparison fails)
       }
-    } catch (e) {
-      // If conversion fails, proceed with normal update
     }
     
     // Final check before updating - if user started typing, don't overwrite
-    if (checkLocalChange()) {
+    if (isLocalChange?.current) {
       return;
     }
 
