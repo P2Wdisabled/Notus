@@ -40,7 +40,7 @@ export default function FavoriteToggle({
           className
         )}
       >
-        <Icon name="favoriteSolid" className={isFavorite ? "text-primary hover:text-primary/70" : "text-muted-foreground hover:text-primary/70"} />
+        <Icon name="favoriteSolid" className={isFavorite ? "text-primary hover:text-primary/70" : "text-primary/30 hover:text-primary/70"} />
     </button>
   );
 }

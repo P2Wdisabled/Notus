@@ -99,18 +99,18 @@ export default function NavBar() {
       <header className="sticky top-0 z-40 bg-background">
         <div className="w-full px-2 h-16 flex items-center justify-between md:hidden">
           <div className="flex items-center gap-3">
-            <button aria-label="Ouvrir le menu" onClick={() => setIsOpen(!isOpen)} className="md:hidden p-2 rounded-md hover:bg-accent text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer">
+            <button aria-label="Ouvrir le menu" onClick={() => setIsOpen(!isOpen)} className="md:hidden p-2 rounded-md hover:bg-accent/50 text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer">
               <Icon name="menu" className="w-6 h-6" />
             </button>
             <span className="font-title text-2xl sm:text-3xl font-regular text-foreground leading-tight">{pageTitle}</span>
-            <button type="button" className="items-center hidden md:flex" onClick={() => guardedNavigate("/")} aria-label="Accueil">
+            <button type="button" className="items-center hidden md:flex cursor-pointer" onClick={() => guardedNavigate("/")} aria-label="Accueil">
               <Logo width={160} height={46} />
             </button>
           </div>
           <div className="flex items-center gap-2 md:hidden">
             {mounted && isLoggedIn && (
               <>
-                <button aria-label="Notifications" onClick={handleNotificationOverlay} className={`p-2 rounded-md hover:bg-accent text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer ${showNotifications ? 'bg-accent/70' : ''}`} title="Notifications">
+                <button aria-label="Notifications" onClick={handleNotificationOverlay} className={`p-2 rounded-md hover:bg-accent/50 text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer ${showNotifications ? 'bg-accent' : ''}`} title="Notifications">
                   <Icon name="bell" className="w-6 h-6" />
                 </button>
                 <button type="button" onClick={() => guardedNavigate("/profile")} aria-label="Profil" className="ml-1 inline-flex items-center justify-center w-8 h-8 rounded-full overflow-hidden bg-muted ring-1 ring-border/20 shadow-sm" title={userName || "Profil"}>
@@ -131,13 +131,13 @@ export default function NavBar() {
           <div className="absolute inset-0 bg-foreground/30" onClick={() => setIsOpen(false)} />
           <div className="absolute left-0 top-0 h-full w-72 bg-background border-r-2 border-border/50 p-4 flex flex-col">
             <div className="flex items-center justify-end mb-4">
-              <button aria-label="Fermer" onClick={() => setIsOpen(false)} className="p-2 rounded-md hover:bg-accent text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer">
+              <button aria-label="Fermer" onClick={() => setIsOpen(false)} className="p-2 rounded-sm hover:bg-accent/50 text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer">
                 <Icon name="x" className="w-6 h-6" />
               </button>
             </div>
             <nav className="space-y-1 flex-1 overflow-y-auto">
               <div className="flex justify-center mb-3 p-3">
-                <button type="button" onClick={() => { setIsOpen(false); guardedNavigate("/"); }} className="inline-flex items-center" aria-label="Accueil">
+                <button type="button" onClick={() => { setIsOpen(false); guardedNavigate("/"); }} className="inline-flex items-center cursor-pointer" aria-label="Accueil">
                   <Logo width={160} height={46} />
                 </button>
               </div>
@@ -148,12 +148,12 @@ export default function NavBar() {
               <div className="px-2">
                 {items.filter((i) => !i.mobileHidden).map((item) => (
                   item.onClick ? (
-                    <button key={item.href} onClick={(e) => { e.preventDefault(); item.onClick?.(e); setIsOpen(false); }} className={`w-full flex items-center gap-3 p-3 rounded-md hover:bg-accent text-foreground ${pathname === item.href || (item.name === 'Notifications' && showNotifications) ? 'bg-accent/70' : ''}`}>
+                    <button key={item.href} onClick={(e) => { e.preventDefault(); item.onClick?.(e); setIsOpen(false); }} className={`w-full flex items-center gap-3 p-3 rounded-sm hover:bg-accent/50 text-foreground ${pathname === item.href || (item.name === 'Notifications' && showNotifications) ? 'bg-accent' : ''}`}>
                       <Icon name={item.icon} className="w-6 h-6" />
                       <span className="font-medium">{item.name}</span>
                     </button>
                   ) : (
-                    <Link key={item.href} href={item.href} onClick={(e) => handleNavItemClick(e, item.href)} className={`flex items-center gap-3 p-3 rounded-md hover:bg-accent text-foreground ${pathname === item.href || (item.name === 'Notifications' && showNotifications) ? 'bg-accent/70' : ''}`}>
+                    <Link key={item.href} href={item.href} onClick={(e) => handleNavItemClick(e, item.href)} className={`flex items-center gap-3 p-3 rounded-sm hover:bg-accent/50 text-foreground ${pathname === item.href || (item.name === 'Notifications' && showNotifications) ? 'bg-accent' : ''}`}>
                       <Icon name={item.icon} className="w-6 h-6" />
                       <span className="font-medium">{item.name}</span>
                     </Link>
@@ -190,7 +190,7 @@ export default function NavBar() {
 
       <aside className="hidden md:flex md:flex-col md:fixed md:inset-y-0 md:left-0 md:w-64 bg-background border-r-2 border-border/50 z-30">
         <div className="px-4 py-3 pt-10 flex justify-center">
-          <button type="button" onClick={() => guardedNavigate("/")} className="inline-flex items-center" aria-label="Accueil">
+          <button type="button" onClick={() => guardedNavigate("/")} className="inline-flex items-center cursor-pointer" aria-label="Accueil">
             <Logo width={160} height={40} />
           </button>
         </div>
@@ -201,12 +201,12 @@ export default function NavBar() {
           <div className="mt-4 space-y-1">
             {items.map((item) => (
               item.onClick ? (
-                <button key={item.href} onClick={(e) => { e.preventDefault(); item.onClick?.(e); }} className={`w-full flex items-center gap-3 p-3 rounded-md hover:bg-accent text-foreground ${pathname === item.href || (item.name === 'Notifications' && showNotifications) ? 'bg-accent/70' : ''}`}>
+                <button key={item.href} onClick={(e) => { e.preventDefault(); item.onClick?.(e); }} className={`w-full flex items-center gap-3 p-3 rounded-sm hover:bg-accent/50 text-foreground ${pathname === item.href || (item.name === 'Notifications' && showNotifications) ? 'bg-accent' : ''}`}>
                   <Icon name={item.icon} className="w-6 h-6" />
                   <span className="font-medium">{item.name}</span>
                 </button>
               ) : (
-                <Link key={item.href} href={item.href} onClick={(e) => handleNavItemClick(e, item.href)} className={`flex items-center gap-3 p-3 rounded-md hover:bg-accent text-foreground ${pathname === item.href || (item.name === 'Notifications' && showNotifications) ? 'bg-accent/70' : ''}`}>
+                <Link key={item.href} href={item.href} onClick={(e) => handleNavItemClick(e, item.href)} className={`flex items-center gap-3 p-3 rounded-sm hover:bg-accent/50 text-foreground ${pathname === item.href || (item.name === 'Notifications' && showNotifications) ? 'bg-accent' : ''}`}>
                   <Icon name={item.icon} className="w-6 h-6" />
                   <span className="font-medium">{item.name}</span>
                 </Link>
