@@ -36,12 +36,11 @@ export default function FavoriteToggle({
         onTouchStart={(e) => { e.stopPropagation(); }}
         aria-label={isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"}
         className={cn(
-          "inline-flex items-center justify-center h-10 w-10 rounded-md border transition-colors",
-          isFavorite ? "bg-transparent border-none" : "bg-transparent border-none hover:bg-primary/10",
+          "inline-flex items-center justify-center h-8 w-8 rounded-md transition-colors cursor-pointer",
           className
         )}
       >
-        <Icon name={isFavorite ? "favoriteSolid" : "favorite"} className={isFavorite ? "text-primary" : "text-muted-foreground"} />
+        <Icon name="favoriteSolid" className={isFavorite ? "text-primary hover:text-primary/70" : "text-muted-foreground hover:text-primary/70"} />
     </button>
   );
 }
