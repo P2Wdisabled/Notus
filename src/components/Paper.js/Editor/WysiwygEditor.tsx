@@ -164,8 +164,20 @@ export default function WysiwygEditor({
   // Don't save remote updates to history
   useEffect(() => {
     // Don't update if this is a local change (user is typing)
+    // But use a timeout to allow updates after typing stops
     if (isLocalChangeRef.current) {
-      return;
+      // Check again after a delay to allow remote updates to come through
+      const timeoutId = setTimeout(() => {
+        if (content !== markdown && content !== lastSavedMarkdownRef.current) {
+          // Only update if we're not currently typing
+          if (!isLocalChangeRef.current) {
+            setMarkdown(content);
+            lastSavedMarkdownRef.current = content;
+          }
+        }
+      }, 350); // Wait a bit longer than the isLocalChange timeout (300ms)
+      
+      return () => clearTimeout(timeoutId);
     }
     
     if (content !== markdown && content !== lastSavedMarkdownRef.current) {
