@@ -125,7 +125,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       );
 
       if (!notificationResult.success) {
-        console.error("❌ Erreur envoi notification:", notificationResult.error);
+        console.error("❌ Erreur envoi notification:", (notificationResult as { error?: string }).error || "Erreur inconnue");
         // On continue quand même, la notification n'est pas critique
       }
     }

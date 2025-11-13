@@ -7,7 +7,7 @@ export default async function AdminRequestsPage() {
   const requestService = new RequestService();
   await requestService.initializeTables();
   const requestsResult = await requestService.getAllRequests(100, 0);
-  const requests: Request[] = requestsResult.success ? (requestsResult.requests || []) : [];
+  const requests: Request[] = requestsResult.success && requestsResult.requests ? requestsResult.requests : [];
 
   const pendingCount = requests.filter((r) => r.status === "pending").length;
   const inProgressCount = requests.filter((r) => r.status === "in_progress").length;

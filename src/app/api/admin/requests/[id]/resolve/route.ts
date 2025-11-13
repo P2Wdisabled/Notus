@@ -82,7 +82,8 @@ export async function POST(request: Request, { params }: RouteParams) {
     );
 
     if (!notificationResult.success) {
-      console.error("❌ Erreur envoi notification:", notificationResult.error);
+      const errorMessage = 'error' in notificationResult ? notificationResult.error : "Erreur inconnue";
+      console.error("❌ Erreur envoi notification:", errorMessage);
       // On continue quand même, la notification n'est pas critique
     }
 
