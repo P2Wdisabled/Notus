@@ -55,32 +55,45 @@ export default function HeadingMenu({ onFormatChange }: HeadingMenuProps) {
             <button
               type="button"
               onClick={() => {
-                onFormatChange('formatBlock', 'div');
+                onFormatChange('fontSize', '16px');
                 setShowHeadingMenu(false);
               }}
               className="w-full px-4 py-2 text-sm hover:bg-muted flex items-center justify-between whitespace-nowrap"
             >
               16px - Normal
             </button>
-            {[1, 2, 3, 4, 5, 6].map((level) => (
+            {[1, 2, 3, 4, 5, 6].map((level) => {
+              const fontSizeMap: Record<number, string> = {
+                1: '30px',
+                2: '24px',
+                3: '20px',
+                4: '18px',
+                5: '16px',
+                6: '14px'
+              };
+              const fontSize = fontSizeMap[level];
+              const labelMap: Record<number, string> = {
+                1: '30px - Titre principal',
+                2: '24px - Sous-titre',
+                3: '20px - Titre de section',
+                4: '18px - Titre niveau 4',
+                5: '16px - Titre niveau 5',
+                6: '14px - Titre niveau 6'
+              };
+              return (
                 <button
-                key={level}
-                type="button"
-                onClick={() => {
-                  onFormatChange('formatBlock', `h${level}`);
-                  setShowHeadingMenu(false);
-                }}
-                className="w-full px-4 py-2 text-sm hover:bg-muted flex items-center justify-between whitespace-nowrap"
+                  key={level}
+                  type="button"
+                  onClick={() => {
+                    onFormatChange('fontSize', fontSize);
+                    setShowHeadingMenu(false);
+                  }}
+                  className="w-full px-4 py-2 text-sm hover:bg-muted flex items-center justify-between whitespace-nowrap"
                 >
-                {level === 1
-                  ? '30px - Titre principal'
-                  : level === 2
-                  ? '24px - Sous-titre'
-                  : level === 3
-                  ? '20px - Titre de section'
-                  : `${level === 4 ? '18px' : level === 5 ? '16px' : '14px'} - Titre niveau ${level}`}
+                  {labelMap[level]}
                 </button>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
