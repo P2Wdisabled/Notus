@@ -267,13 +267,171 @@ export class FormattingHandler {
           break;
         }
         case 'insertOrderedList':
-          document.execCommand('insertOrderedList', false);
-          restoreSelection();
+        case 'insertUnorderedList': {
+          const listTag = command === 'insertOrderedList' ? 'ol' : 'ul';
+          
+          // Find all block elements or list items that intersect with the selection
+          const blockTags = ['p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'li'];
+          const elementsToConvert: HTMLElement[] = [];
+          
+          const startContainer = range.startContainer;
+          const endContainer = range.endContainer;
+          const commonAncestor = range.commonAncestorContainer;
+          
+          if (commonAncestor.nodeType === Node.ELEMENT_NODE) {
+            // Use TreeWalker to get all block elements and list items in document order
+            const walker = document.createTreeWalker(
+              commonAncestor,
+              NodeFilter.SHOW_ELEMENT,
+              {
+                acceptNode: (node) => {
+                  const tagName = (node as Element).tagName.toLowerCase();
+                  return blockTags.includes(tagName) 
+                    ? NodeFilter.FILTER_ACCEPT 
+                    : NodeFilter.FILTER_SKIP;
+                }
+              }
+            );
+            
+            let node: Node | null;
+            while (node = walker.nextNode()) {
+              const el = node as HTMLElement;
+              
+              // Check if this element intersects with the selection
+              try {
+                const elRange = document.createRange();
+                elRange.selectNodeContents(el);
+                
+                const intersects = range.compareBoundaryPoints(Range.START_TO_END, elRange) < 0 &&
+                                  range.compareBoundaryPoints(Range.END_TO_START, elRange) > 0;
+                
+                if (intersects) {
+                  elementsToConvert.push(el);
+                } else {
+                  // Also check if selection boundaries are within this element
+                  if (el.contains(startContainer) || el.contains(endContainer)) {
+                    elementsToConvert.push(el);
+                  }
+                }
+              } catch (e) {
+                // Fallback: check if element contains selection boundaries
+                if (el.contains(startContainer) || el.contains(endContainer)) {
+                  elementsToConvert.push(el);
+                }
+              }
+            }
+          }
+          
+          // If we found multiple elements, create a separate list for each one
+          if (elementsToConvert.length > 0) {
+            // Find the parent and insertion point
+            const firstEl = elementsToConvert[0];
+            let parent = firstEl.parentElement;
+            let insertBefore: Node | null = firstEl;
+            
+            // If first element is a list item, use the list's parent and insert before the list
+            if (firstEl.tagName.toLowerCase() === 'li') {
+              const listParent = firstEl.closest('ul, ol');
+              if (listParent) {
+                parent = listParent.parentElement;
+                insertBefore = listParent;
+              }
+            }
+            
+            if (parent) {
+              // Store references to new lists for selection restoration
+              const newLists: HTMLElement[] = [];
+              
+              // Create a separate list for each element
+              // Process in reverse order to avoid offset issues when removing elements
+              for (let i = elementsToConvert.length - 1; i >= 0; i--) {
+                const el = elementsToConvert[i];
+                
+                // Create a new list element for this item
+                const listElement = document.createElement(listTag);
+                // Add a data attribute to prevent list combination
+                listElement.setAttribute('data-single-item-list', 'true');
+                
+                // Create a list item
+                let li: HTMLElement;
+                
+                // If it's already a list item, extract its content
+                if (el.tagName.toLowerCase() === 'li') {
+                  li = document.createElement('li');
+                  // Move all children from existing li to new li
+                  while (el.firstChild) {
+                    li.appendChild(el.firstChild);
+                  }
+                } else {
+                  // It's a block element, convert it to a list item
+                  li = document.createElement('li');
+                  // Move all children from block to li
+                  while (el.firstChild) {
+                    li.appendChild(el.firstChild);
+                  }
+                }
+                
+                // If li is empty, add a zero-width space to preserve it
+                if (li.textContent?.trim() === '') {
+                  li.appendChild(document.createTextNode('\u200B'));
+                }
+                
+                // Add the li to the list
+                listElement.appendChild(li);
+                
+                // Insert the new list right before the element (which we'll remove)
+                // This ensures correct positioning
+                if (el.nextSibling) {
+                  parent.insertBefore(listElement, el.nextSibling);
+                } else {
+                  parent.appendChild(listElement);
+                }
+                
+                newLists.unshift(listElement); // Add to beginning since we're processing in reverse
+              }
+              
+              // Remove all converted elements
+              elementsToConvert.forEach((el) => {
+                if (el.parentElement) {
+                  el.parentElement.removeChild(el);
+                }
+              });
+              
+              // If we removed list items, check if their parent list is now empty and remove it
+              elementsToConvert.forEach((el) => {
+                if (el.tagName.toLowerCase() === 'li') {
+                  const oldList = el.closest('ul, ol');
+                  if (oldList && oldList.children.length === 0 && oldList.parentElement) {
+                    oldList.parentElement.removeChild(oldList);
+                  }
+                }
+              });
+              
+              // Restore selection at the end of the last list
+              if (newLists.length > 0) {
+                const lastList = newLists[newLists.length - 1];
+                const lastLi = lastList.lastElementChild;
+                if (lastLi) {
+                  const newRange = document.createRange();
+                  newRange.selectNodeContents(lastLi);
+                  newRange.collapse(false);
+                  selection.removeAllRanges();
+                  selection.addRange(newRange);
+                }
+              }
+              
+              // Sync markdown
+              setTimeout(() => {
+                this.syncMarkdown();
+              }, 10);
+            }
+          } else {
+            // Fallback to native command if no elements found
+            document.execCommand(command, false);
+            restoreSelection();
+          }
           break;
-        case 'insertUnorderedList':
-          document.execCommand('insertUnorderedList', false);
-          restoreSelection();
-          break;
+        }
         case 'formatBlock':
           if (value) {
             // For multi-line selections, we need to apply formatBlock to each block element
@@ -468,7 +626,7 @@ export class FormattingHandler {
           const listElement = (node as Element)?.closest('ol, ul') as HTMLElement | null;
           
           if (listElement) {
-            // For lists, apply alignment directly to preserve list type
+            // For lists, we need to find all list items that intersect with the selection
             const alignmentMap: { [key: string]: string } = {
               'justifyLeft': 'left',
               'justifyCenter': 'center',
@@ -477,12 +635,143 @@ export class FormattingHandler {
             };
             
             const alignment = alignmentMap[command] || 'left';
-            listElement.style.textAlign = alignment;
             
-            // Sync markdown after alignment change
-            setTimeout(() => {
-              this.syncMarkdown();
-            }, 10);
+            // Find all list items that intersect with the selection
+            const listItems: HTMLElement[] = [];
+            const startContainer = range.startContainer;
+            const endContainer = range.endContainer;
+            
+            // Get all list items in the list
+            const allListItems = Array.from(listElement.querySelectorAll('li'));
+            
+            allListItems.forEach((li) => {
+              try {
+                const liRange = document.createRange();
+                liRange.selectNodeContents(li);
+                
+                const intersects = range.compareBoundaryPoints(Range.START_TO_END, liRange) < 0 &&
+                                  range.compareBoundaryPoints(Range.END_TO_START, liRange) > 0;
+                
+                if (intersects) {
+                  listItems.push(li as HTMLElement);
+                } else {
+                  // Also check if selection boundaries are within this list item
+                  if (li.contains(startContainer) || li.contains(endContainer)) {
+                    listItems.push(li as HTMLElement);
+                  }
+                }
+              } catch (e) {
+                // Fallback: check if list item contains selection boundaries
+                if (li.contains(startContainer) || li.contains(endContainer)) {
+                  listItems.push(li as HTMLElement);
+                }
+              }
+            });
+            
+            // If we found list items, create a separate list for each one
+            if (listItems.length > 0) {
+              const listTag = listElement.tagName.toLowerCase();
+              const parent = listElement.parentElement;
+              
+              if (parent) {
+                // Get all list items in order
+                const allListItems = Array.from(listElement.children) as HTMLElement[];
+                
+                // Store the original list's position BEFORE removing items
+                const listNextSibling = listElement.nextSibling;
+                const listPrevSibling = listElement.previousSibling;
+                
+                // Create a set of selected indices for quick lookup
+                const selectedIndices = new Set<number>();
+                listItems.forEach((li) => {
+                  const idx = allListItems.indexOf(li);
+                  if (idx >= 0) {
+                    selectedIndices.add(idx);
+                  }
+                });
+                
+                // Create lists for ALL items (both selected and non-selected) to preserve order
+                // Selected items get alignment, non-selected items don't
+                const allNewLists: { list: HTMLElement; originalIndex: number }[] = [];
+                
+                allListItems.forEach((li, index) => {
+                  const isSelected = selectedIndices.has(index);
+                  
+                  // Create a new list for this item
+                  const newList = document.createElement(listTag);
+                  
+                  // Only apply alignment if this item was selected
+                  if (isSelected) {
+                    newList.style.textAlign = alignment;
+                  }
+                  
+                  // Clone the list item and move it to the new list
+                  const newLi = li.cloneNode(true) as HTMLElement;
+                  newList.appendChild(newLi);
+                  
+                  allNewLists.push({ list: newList, originalIndex: index });
+                });
+                
+                // Remove the original list
+                parent.removeChild(listElement);
+                
+                // Insert all new lists at the original list's position, in order
+                // Process in reverse order to avoid offset issues
+                for (let i = allNewLists.length - 1; i >= 0; i--) {
+                  const { list: newList } = allNewLists[i];
+                  let insertBefore: Node | null = null;
+                  
+                  if (i === allNewLists.length - 1) {
+                    // First list to insert (last in array): insert at the original list's position
+                    if (listNextSibling) {
+                      insertBefore = listNextSibling;
+                    } else if (listPrevSibling) {
+                      insertBefore = listPrevSibling.nextSibling;
+                    }
+                  } else {
+                    // Insert before the previously inserted list
+                    insertBefore = allNewLists[i + 1].list;
+                  }
+                  
+                  if (insertBefore) {
+                    parent.insertBefore(newList, insertBefore);
+                  } else {
+                    parent.appendChild(newList);
+                  }
+                }
+                
+                // Restore selection at the end of the last selected list
+                // Find the last selected list
+                let lastSelectedList: HTMLElement | null = null;
+                for (let i = allNewLists.length - 1; i >= 0; i--) {
+                  if (selectedIndices.has(allNewLists[i].originalIndex)) {
+                    lastSelectedList = allNewLists[i].list;
+                    break;
+                  }
+                }
+                
+                if (lastSelectedList && lastSelectedList.lastElementChild) {
+                  const newRange = document.createRange();
+                  newRange.selectNodeContents(lastSelectedList.lastElementChild);
+                  newRange.collapse(false);
+                  selection.removeAllRanges();
+                  selection.addRange(newRange);
+                }
+                
+                // Sync markdown after alignment change
+                setTimeout(() => {
+                  this.syncMarkdown();
+                }, 10);
+              }
+            } else {
+              // No list items found, apply alignment to the whole list
+              listElement.style.textAlign = alignment;
+              
+              // Sync markdown after alignment change
+              setTimeout(() => {
+                this.syncMarkdown();
+              }, 10);
+            }
           } else {
             // Not in a list, use standard command
             document.execCommand(command, false);

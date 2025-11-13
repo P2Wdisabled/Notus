@@ -73,6 +73,17 @@ export class MarkdownConverter {
   }
 
   private setupCustomRules() {
+    // Preserve custom preserve-list tags (used for single-item list preservation)
+    this.turndownService.addRule('preserveListTag', {
+      filter: (node) => {
+        return node.nodeName === 'PRESERVE-LIST';
+      },
+      replacement: (content, node) => {
+        const el = node as HTMLElement;
+        return el.outerHTML;
+      }
+    });
+    
     // HIGH PRIORITY: formatting tags (strong/em/...) that contain a descendant with color/background
     // Ensure color/background is preserved when another collaborator toggles bold/italic.
     this.turndownService.addRule('formattingWithChildColor', {
@@ -158,6 +169,67 @@ export class MarkdownConverter {
       replacement: (content) => `~~${content}~~`
     });
 
+    // Preserve list items in single-item lists BEFORE they get converted to Markdown
+    // This must come FIRST to catch li elements before default list processing
+    this.turndownService.addRule('preserveListItemInSingleList', {
+      filter: (node) => {
+        const el = node as HTMLElement;
+        if (!el || el.nodeName !== 'LI') return false;
+        // Check if this li is in a list with only one item or with data-single-item-list
+        const parent = el.parentElement;
+        if (!parent || (parent.nodeName !== 'UL' && parent.nodeName !== 'OL')) return false;
+        const hasSingleItemAttr = parent.getAttribute('data-single-item-list') === 'true';
+        return parent.children.length === 1 || hasSingleItemAttr;
+      },
+      replacement: (content, node) => {
+        const el = node as HTMLElement;
+        // Clone the element to get its original HTML before Turndown processes it
+        // This ensures we preserve the HTML content, not the Markdown conversion
+        const clone = el.cloneNode(true) as HTMLElement;
+        // Get the innerHTML of the clone to preserve all HTML content
+        const htmlContent = clone.innerHTML;
+        return `<li>${htmlContent}</li>`;
+      }
+    });
+
+    // Preserve ALL single-item lists as raw HTML to prevent them from being combined
+    // This must come before alignedList rule to have priority
+    // This rule has high priority to catch lists before they get combined
+    // Wrap each list in a div to prevent marked from combining them
+    this.turndownService.addRule('preserveAllLists', {
+      filter: (node) => {
+        const el = node as HTMLElement;
+        if (!el) return false;
+        const tag = el.nodeName;
+        if (tag !== 'UL' && tag !== 'OL') return false;
+        // Preserve ALL lists with only one item OR lists with data-single-item-list attribute
+        const hasSingleItemAttr = el.getAttribute('data-single-item-list') === 'true';
+        return el.children.length === 1 || hasSingleItemAttr;
+      },
+      replacement: (content, node) => {
+        const el = node as HTMLElement;
+        const tag = el.nodeName.toLowerCase();
+        const style = el.style ? el.getAttribute('style') : '';
+        const styleAttr = style ? ` style="${style}"` : '';
+        const dataAttr = el.getAttribute('data-single-item-list') ? ` data-single-item-list="true"` : '';
+        
+        // Build HTML content by manually constructing li elements from children
+        // This bypasses Turndown's content parameter which is already Markdown
+        let htmlContent = '';
+        const listItems = Array.from(el.children);
+        listItems.forEach((li) => {
+          const liEl = li as HTMLElement;
+          // Get the outerHTML of the li to preserve it as HTML
+          // This should contain the original HTML before Turndown processes it
+          htmlContent += liEl.outerHTML;
+        });
+        
+        // Wrap each list in a div to prevent marked from combining adjacent lists
+        // The div acts as a barrier that prevents list merging
+        return `\n\n<div data-list-wrapper="true"><${tag}${styleAttr}${dataAttr}>${htmlContent}</${tag}></div>\n\n`;
+      }
+    });
+
     // Preserve lists with alignment as raw HTML to ensure proper rendering
     // This must come before textAlign rule to have priority
     this.turndownService.addRule('alignedList', {
@@ -172,8 +244,10 @@ export class MarkdownConverter {
         const align = el.style.textAlign;
         if (!align) return content;
         const tag = el.nodeName.toLowerCase();
+        // Use innerHTML to preserve the HTML content instead of Markdown
+        const htmlContent = el.innerHTML;
         // Return as raw HTML to preserve alignment - this will be preserved in markdown
-        return `<${tag} style="text-align: ${align}">${content}</${tag}>`;
+        return `<${tag} style="text-align: ${align}">${htmlContent}</${tag}>`;
       }
     });
 
@@ -648,15 +722,39 @@ export class MarkdownConverter {
 
     // Defensive: replace any legacy placeholder tokens saved in markdown with explicit blank lines
     const PLACEHOLDER = '[[__EMPTY_PARAGRAPH__]]';
-    const cleanedMd = processedMd.split(PLACEHOLDER).join('\n\n');
+    let cleanedMd = processedMd.split(PLACEHOLDER).join('\n\n');
+
+    // Before passing to marked, extract and preserve lists wrapped in divs
+    // Replace them with HTML comments that marked will preserve, then restore them
+    const listPlaceholders: { placeholder: string; content: string }[] = [];
+    let placeholderIndex = 0;
+    
+    // Find all lists wrapped in divs with data-list-wrapper
+    cleanedMd = cleanedMd.replace(/<div[^>]*data-list-wrapper="true"[^>]*>([\s\S]*?)<\/div>/g, (match, listContent) => {
+      const placeholder = `<!-- LIST_PLACEHOLDER_${placeholderIndex} -->`;
+      listPlaceholders.push({
+        placeholder: `LIST_PLACEHOLDER_${placeholderIndex}`,
+        content: listContent.trim()
+      });
+      placeholderIndex++;
+      return placeholder;
+    });
 
     const html = marked(cleanedMd, {
       breaks: true,
       gfm: true,
     }) as string;
 
+    // Restore lists from placeholders
+    let unwrappedHtml = html;
+    listPlaceholders.forEach(({ placeholder, content }) => {
+      // Replace both comment format and any escaped version
+      unwrappedHtml = unwrappedHtml.replace(new RegExp(`<!--\\s*${placeholder}\\s*-->`, 'g'), content);
+      unwrappedHtml = unwrappedHtml.replace(new RegExp(placeholder, 'g'), content);
+    });
+
     // Add custom styles for headings and other elements
-    const styledHtml = html
+    const styledHtml = unwrappedHtml
       .replace(/<h1>/g, '<h1 style="font-size: 1.875rem; font-weight: bold; margin: 1rem 0;">')
       .replace(/<h2>/g, '<h2 style="font-size: 1.5rem; font-weight: bold; margin: 0.875rem 0;">')
       .replace(/<h3>/g, '<h3 style="font-size: 1.25rem; font-weight: bold; margin: 0.75rem 0;">')
@@ -665,6 +763,19 @@ export class MarkdownConverter {
       .replace(/<h6>/g, '<h6 style="font-size: 0.875rem; font-weight: bold; margin: 0.5rem 0;">')
       .replace(/<blockquote>/g, '<blockquote style="border-left: 4px solid #e5e7eb; padding-left: 1rem; margin: 1rem 0; color: #6b7280; font-style: italic;">')
       .replace(/<hr>/g, '<hr style="border: none; border-top: 1px solid #e5e7eb; margin: 2rem 0;">')
+      // Prevent adjacent lists from being combined by adding a separator
+      // This ensures each list remains separate
+      // Use a more robust separator that won't be removed
+      // Also handle lists with data-single-item-list attribute
+      .replace(/<\/ul([^>]*data-single-item-list[^>]*)>\s*(?=<ul)/g, '</ul$1>\n<p style="margin: 0; padding: 0; height: 0; line-height: 0; visibility: hidden;">&nbsp;</p>\n')
+      .replace(/<\/ol([^>]*data-single-item-list[^>]*)>\s*(?=<ol)/g, '</ol$1>\n<p style="margin: 0; padding: 0; height: 0; line-height: 0; visibility: hidden;">&nbsp;</p>\n')
+      .replace(/<\/ul([^>]*data-single-item-list[^>]*)>\s*(?=<ol)/g, '</ul$1>\n<p style="margin: 0; padding: 0; height: 0; line-height: 0; visibility: hidden;">&nbsp;</p>\n')
+      .replace(/<\/ol([^>]*data-single-item-list[^>]*)>\s*(?=<ul)/g, '</ol$1>\n<p style="margin: 0; padding: 0; height: 0; line-height: 0; visibility: hidden;">&nbsp;</p>\n')
+      // Also handle regular lists
+      .replace(/<\/ul>\s*(?=<ul)/g, '</ul>\n<p style="margin: 0; padding: 0; height: 0; line-height: 0; visibility: hidden;">&nbsp;</p>\n')
+      .replace(/<\/ol>\s*(?=<ol)/g, '</ol>\n<p style="margin: 0; padding: 0; height: 0; line-height: 0; visibility: hidden;">&nbsp;</p>\n')
+      .replace(/<\/ul>\s*(?=<ol)/g, '</ul>\n<p style="margin: 0; padding: 0; height: 0; line-height: 0; visibility: hidden;">&nbsp;</p>\n')
+      .replace(/<\/ol>\s*(?=<ul)/g, '</ol>\n<p style="margin: 0; padding: 0; height: 0; line-height: 0; visibility: hidden;">&nbsp;</p>\n')
       // FIXED: Better list styling with proper indentation and line handling
       // Handle lists with existing styles (preserve alignment and other styles)
       .replace(/<ul(\s+[^>]*)?>/g, (match, attrs = '') => {
@@ -845,9 +956,44 @@ export class MarkdownConverter {
       }
 
       // normalize the HTML before turndown to ensure formatting tags carry styles consistently
-      const normalizedHtml = this.normalizeHtmlForTurndown(html);
+      let normalizedHtml = this.normalizeHtmlForTurndown(html);
+      
+      // Before Turndown processes, extract single-item lists and preserve their HTML
+      // This prevents Turndown from converting li elements to Markdown
+      // Use a custom HTML tag that Turndown will preserve
+      const preservedLists: { placeholder: string; html: string }[] = [];
+      let placeholderIndex = 0;
+      
+      // Use regex to find and preserve single-item lists
+      // Match lists with data-single-item-list attribute
+      normalizedHtml = normalizedHtml.replace(/<ul([^>]*data-single-item-list="true"[^>]*)>([\s\S]*?)<\/ul>/gi, (match, attrs, content) => {
+        const placeholder = `<preserve-list id="list_${placeholderIndex}"></preserve-list>`;
+        preservedLists.push({ placeholder, html: `<ul${attrs}>${content}</ul>` });
+        placeholderIndex++;
+        return placeholder;
+      });
+      
+      normalizedHtml = normalizedHtml.replace(/<ol([^>]*data-single-item-list="true"[^>]*)>([\s\S]*?)<\/ol>/gi, (match, attrs, content) => {
+        const placeholder = `<preserve-list id="list_${placeholderIndex}"></preserve-list>`;
+        preservedLists.push({ placeholder, html: `<ol${attrs}>${content}</ol>` });
+        placeholderIndex++;
+        return placeholder;
+      });
 
       let md = this.turndownService.turndown(normalizedHtml);
+      
+      // Restore preserved lists by replacing the preserve-list tags
+      preservedLists.forEach(({ placeholder, html }) => {
+        // Extract the id from placeholder to find it in markdown
+        const idMatch = placeholder.match(/id="([^"]+)"/);
+        if (idMatch) {
+          const id = idMatch[1];
+          // Turndown should preserve the preserve-list tag, so we can find it
+          const placeholderRegex = new RegExp(`<preserve-list[^>]*id="${id}"[^>]*></preserve-list>`, 'gi');
+          const wrappedHtml = `\n\n<div data-list-wrapper="true">${html}</div>\n\n`;
+          md = md.replace(placeholderRegex, wrappedHtml);
+        }
+      });
 
       if (shouldLog) {
         try {
