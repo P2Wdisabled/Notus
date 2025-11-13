@@ -203,8 +203,12 @@ export function useEditorEffects({
   useEffect(() => {
     if (formattingHandler.current) {
       (window as any).applyWysiwygFormatting = (command: string, value?: string) => {
+        console.log('applyWysiwygFormatting called with command:', command, 'value:', value);
         formattingHandler.current?.applyFormatting(command, value);
       };
+      console.log('applyWysiwygFormatting exposed on window');
+    } else {
+      console.log('formattingHandler.current is null, cannot expose applyWysiwygFormatting');
     }
   }, [formattingHandler]);
 

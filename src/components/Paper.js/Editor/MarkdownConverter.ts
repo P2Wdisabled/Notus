@@ -231,6 +231,22 @@ export class MarkdownConverter {
       }
     });
 
+    // Handle spans with fontSize (must come before inlineStyles to have priority)
+    this.turndownService.addRule('spanWithFontSize', {
+      filter: (node) => {
+        const el = node as HTMLElement;
+        return node.nodeName === 'SPAN' && !!el.style && !!el.style.fontSize;
+      },
+      replacement: (content, node) => {
+        const element = node as HTMLElement;
+        const fontSize = element.style.fontSize;
+        if (!fontSize) return content;
+        
+        // Preserve fontSize in a span
+        return `<span style="font-size: ${fontSize}">${content}</span>`;
+      }
+    });
+
     // Handle inline styles
     this.turndownService.addRule('inlineStyles', {
       filter: (node) => {
@@ -241,7 +257,8 @@ export class MarkdownConverter {
           el.style.fontWeight === 'bold' ||
           el.style.fontStyle === 'italic' ||
           !!el.style.color ||
-          !!el.style.backgroundColor
+          !!el.style.backgroundColor ||
+          !!el.style.fontSize
         );
       },
       replacement: (content, node) => {
@@ -252,6 +269,10 @@ export class MarkdownConverter {
         const isItalic = element.style.fontStyle === 'italic';
         const isUnderline = !!element.style.textDecoration?.includes('underline');
         const isStrike = !!element.style.textDecoration?.includes('line-through');
+
+        if (element.style.fontSize) {
+          styles.push(`font-size: ${element.style.fontSize}`);
+        }
 
         if (element.style.color && element.style.color !== 'rgb(0, 0, 0)') {
           let hexColor = element.style.color;

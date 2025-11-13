@@ -31,7 +31,11 @@ export class FormattingHandler {
 
   // Apply formatting to selection
   applyFormatting(command: string, value?: string) {
-    if (!this.editorRef.current) return;
+    console.log('applyFormatting called with command:', command, 'value:', value);
+    if (!this.editorRef.current) {
+      console.log('applyFormatting - editorRef.current is null');
+      return;
+    }
     
     this.editorRef.current.focus();
     
@@ -142,6 +146,7 @@ export class FormattingHandler {
     };
     
     try {
+      console.log('applyFormatting - switch on command:', command);
       switch (command) {
         case 'bold':
           document.execCommand('bold', false);
@@ -501,6 +506,333 @@ export class FormattingHandler {
             restoreSelection();
           }
           break;
+        case 'fontSize': {
+          if (value) {
+            // For fontSize, we need to apply it to all text nodes in the selection
+            // because document.execCommand('fontSize') only affects start and end nodes
+            
+            const fontSizeValue = value.includes('px') ? value : `${value}px`;
+            const startContainer = range.startContainer;
+            const endContainer = range.endContainer;
+            const startOffset = range.startOffset;
+            const endOffset = range.endOffset;
+            
+            // Get the common ancestor
+            const commonAncestor = range.commonAncestorContainer;
+            
+            // Find all block elements that intersect with the selection
+            const blockTags = ['p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'li'];
+            const blockElements: HTMLElement[] = [];
+            
+            console.log('fontSize - startContainer:', startContainer, 'endContainer:', endContainer);
+            console.log('fontSize - commonAncestor:', commonAncestor);
+            
+            if (commonAncestor.nodeType === Node.ELEMENT_NODE) {
+              // Find start and end blocks
+              const startBlock = startContainer.nodeType === Node.TEXT_NODE 
+                ? (startContainer as Text).parentElement?.closest(blockTags.join(','))
+                : (startContainer as Element).closest(blockTags.join(','));
+              const endBlock = endContainer.nodeType === Node.TEXT_NODE 
+                ? (endContainer as Text).parentElement?.closest(blockTags.join(','))
+                : (endContainer as Element).closest(blockTags.join(','));
+              
+              console.log('fontSize - startBlock:', startBlock, 'endBlock:', endBlock);
+              
+              if (startBlock && endBlock) {
+                // Use TreeWalker to get all block elements in document order
+                const walker = document.createTreeWalker(
+                  commonAncestor,
+                  NodeFilter.SHOW_ELEMENT,
+                  {
+                    acceptNode: (node) => {
+                      const tagName = (node as Element).tagName.toLowerCase();
+                      return blockTags.includes(tagName) 
+                        ? NodeFilter.FILTER_ACCEPT 
+                        : NodeFilter.FILTER_SKIP;
+                    }
+                  }
+                );
+                
+                let foundStart = false;
+                let node: Node | null;
+                
+                while (node = walker.nextNode()) {
+                  const blockEl = node as HTMLElement;
+                  
+                  // If we found the start block, start collecting
+                  if (blockEl === startBlock) {
+                    foundStart = true;
+                  }
+                  
+                  // Collect all blocks from start to end (inclusive)
+                  if (foundStart) {
+                    if (!blockElements.includes(blockEl)) {
+                      blockElements.push(blockEl);
+                    }
+                    
+                    // Stop when we reach the end block
+                    if (blockEl === endBlock) {
+                      break; // We're done
+                    }
+                  }
+                }
+                
+                // If we didn't find blocks in order (e.g., nested structures), use range-based detection
+                if (blockElements.length === 0 || (startBlock !== endBlock && blockElements.length < 2)) {
+                  blockElements.length = 0; // Reset
+                  
+                  // Use TreeWalker again to check all blocks
+                  const walker2 = document.createTreeWalker(
+                    commonAncestor,
+                    NodeFilter.SHOW_ELEMENT,
+                    {
+                      acceptNode: (node) => {
+                        const tagName = (node as Element).tagName.toLowerCase();
+                        return blockTags.includes(tagName) 
+                          ? NodeFilter.FILTER_ACCEPT 
+                          : NodeFilter.FILTER_SKIP;
+                      }
+                    }
+                  );
+                  
+                  let node2: Node | null;
+                  while (node2 = walker2.nextNode()) {
+                    const blockEl = node2 as HTMLElement;
+                    try {
+                      const blockRange = document.createRange();
+                      blockRange.selectNodeContents(blockEl);
+                      
+                      // Check if block intersects with selection
+                      const intersects = range.compareBoundaryPoints(Range.START_TO_END, blockRange) < 0 &&
+                                        range.compareBoundaryPoints(Range.END_TO_START, blockRange) > 0;
+                      
+                      if (intersects) {
+                        if (!blockElements.includes(blockEl)) {
+                          blockElements.push(blockEl);
+                        }
+                      }
+                    } catch (e) {
+                      // Check if selection boundaries are within this block
+                      if (blockEl.contains(startContainer) || blockEl.contains(endContainer)) {
+                        if (!blockElements.includes(blockEl)) {
+                          blockElements.push(blockEl);
+                        }
+                      }
+                    }
+                  }
+                  
+                  // Always include start and end blocks
+                  if (startBlock && !blockElements.includes(startBlock as HTMLElement)) {
+                    blockElements.push(startBlock as HTMLElement);
+                  }
+                  if (endBlock && !blockElements.includes(endBlock as HTMLElement)) {
+                    blockElements.push(endBlock as HTMLElement);
+                  }
+                }
+              } else {
+                // Fallback: use range-based detection with TreeWalker
+                const walker = document.createTreeWalker(
+                  commonAncestor,
+                  NodeFilter.SHOW_ELEMENT,
+                  {
+                    acceptNode: (node) => {
+                      const tagName = (node as Element).tagName.toLowerCase();
+                      return blockTags.includes(tagName) 
+                        ? NodeFilter.FILTER_ACCEPT 
+                        : NodeFilter.FILTER_SKIP;
+                    }
+                  }
+                );
+                
+                let node: Node | null;
+                while (node = walker.nextNode()) {
+                  const blockEl = node as HTMLElement;
+                  try {
+                    const blockRange = document.createRange();
+                    blockRange.selectNodeContents(blockEl);
+                    
+                    const intersects = range.compareBoundaryPoints(Range.START_TO_END, blockRange) < 0 &&
+                                      range.compareBoundaryPoints(Range.END_TO_START, blockRange) > 0;
+                    
+                    if (intersects) {
+                      if (!blockElements.includes(blockEl)) {
+                        blockElements.push(blockEl);
+                      }
+                    }
+                  } catch (e) {
+                    if (blockEl.contains(startContainer) || blockEl.contains(endContainer)) {
+                      if (!blockElements.includes(blockEl)) {
+                        blockElements.push(blockEl);
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            
+            console.log('fontSize - blockElements found:', blockElements.length, blockElements);
+            
+            // Now apply fontSize by wrapping selected text in spans (to avoid converting blocks to headings)
+            // We'll wrap text nodes in spans with fontSize instead of applying to block elements
+            
+            // For each block element, find all text nodes within the selection and wrap them
+            blockElements.forEach((blockEl) => {
+              // Check if the entire block is selected
+              // If this block is between startBlock and endBlock (and not one of them), it's fully selected
+              const startBlock = startContainer.nodeType === Node.TEXT_NODE 
+                ? (startContainer as Text).parentElement?.closest(blockTags.join(','))
+                : (startContainer as Element).closest(blockTags.join(','));
+              const endBlock = endContainer.nodeType === Node.TEXT_NODE 
+                ? (endContainer as Text).parentElement?.closest(blockTags.join(','))
+                : (endContainer as Element).closest(blockTags.join(','));
+              console.log('blocks', blockEl, startBlock, endBlock);
+              
+              let entireBlockSelected = false;
+              
+              // If this block is not the start or end block, it's likely fully selected
+              if (startBlock && endBlock && blockEl !== startBlock && blockEl !== endBlock) {
+                entireBlockSelected = true;
+              } else {
+                // For start/end blocks, check if they're fully selected
+                try {
+                  const blockRange = document.createRange();
+                  blockRange.selectNodeContents(blockEl);
+                  
+                  const startBefore = range.compareBoundaryPoints(Range.START_TO_START, blockRange) <= 0;
+                  const endAfter = range.compareBoundaryPoints(Range.END_TO_END, blockRange) >= 0;
+                  
+                  entireBlockSelected = startBefore && endAfter;
+                } catch (e) {
+                  // If we can't determine, assume it's fully selected if it's a middle block
+                  entireBlockSelected = blockEl !== startBlock && blockEl !== endBlock;
+                }
+              }
+              
+              // Get all text nodes in this block
+              const walker = document.createTreeWalker(
+                blockEl,
+                NodeFilter.SHOW_TEXT,
+                null
+              );
+              
+              const textNodesToWrap: { node: Text; startOffset: number; endOffset: number }[] = [];
+              
+              let node: Node | null;
+              while (node = walker.nextNode()) {
+                const textNode = node as Text;
+                
+                // If entire block is selected, wrap all text nodes
+                if (entireBlockSelected) {
+                  textNodesToWrap.push({ node: textNode, startOffset: 0, endOffset: textNode.textContent?.length || 0 });
+                  continue;
+                }
+                
+                // Check if this text node is within the selection range
+                try {
+                  if (range.intersectsNode(textNode)) {
+                    // Calculate which part of the text node is selected
+                    const nodeRange = document.createRange();
+                    nodeRange.selectNodeContents(textNode);
+                    
+                    let nodeStartOffset = 0;
+                    let nodeEndOffset = textNode.textContent?.length || 0;
+                    
+                    // Check if the entire text node is selected
+                    const startBefore = range.compareBoundaryPoints(Range.START_TO_START, nodeRange) <= 0;
+                    const endAfter = range.compareBoundaryPoints(Range.END_TO_END, nodeRange) >= 0;
+                    
+                    if (startBefore && endAfter) {
+                      // Entire node selected
+                      textNodesToWrap.push({ node: textNode, startOffset: 0, endOffset: textNode.textContent?.length || 0 });
+                    } else {
+                      // Partial selection - calculate actual offsets
+                      // If selection starts within this text node
+                      if (startContainer === textNode) {
+                        nodeStartOffset = startOffset;
+                      }
+                      
+                      // If selection ends within this text node
+                      if (endContainer === textNode) {
+                        nodeEndOffset = endOffset;
+                      }
+                      
+                      textNodesToWrap.push({ node: textNode, startOffset: nodeStartOffset, endOffset: nodeEndOffset });
+                    }
+                  }
+                } catch (e) {
+                  // Fallback: if intersectsNode fails, check using range comparison
+                  try {
+                    const nodeRange = document.createRange();
+                    nodeRange.selectNodeContents(textNode);
+                    
+                    const intersects = range.compareBoundaryPoints(Range.START_TO_END, nodeRange) < 0 &&
+                                      range.compareBoundaryPoints(Range.END_TO_START, nodeRange) > 0;
+                    
+                    if (intersects) {
+                      // For fallback, assume entire node is selected
+                      textNodesToWrap.push({ node: textNode, startOffset: 0, endOffset: textNode.textContent?.length || 0 });
+                    }
+                  } catch (e2) {
+                    // Ignore
+                  }
+                }
+              }
+              
+              // Wrap text nodes in spans with fontSize
+              // Process in reverse order to avoid offset issues when modifying DOM
+              for (let i = textNodesToWrap.length - 1; i >= 0; i--) {
+                const { node: textNode, startOffset: nodeStartOffset, endOffset: nodeEndOffset } = textNodesToWrap[i];
+                const parent = textNode.parentElement;
+                if (!parent || parent === this.editorRef.current) continue;
+                
+                // Check if parent is already a span with the same fontSize (avoid double-wrapping)
+                if (parent.tagName === 'SPAN' && parent.style.fontSize === fontSizeValue) {
+                  continue;
+                }
+                
+                // Check if parent already has fontSize applied directly (skip if it's a block element)
+                const isBlockElement = ['P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BLOCKQUOTE', 'LI'].includes(parent.tagName);
+                if (!isBlockElement && parent.style.fontSize === fontSizeValue) {
+                  continue;
+                }
+                
+                const textContent = textNode.textContent || '';
+                const selectedText = textContent.substring(nodeStartOffset, nodeEndOffset);
+                
+                if (selectedText.length === 0) continue;
+                
+                // Create a span with fontSize
+                const span = document.createElement('span');
+                span.style.fontSize = fontSizeValue;
+                span.textContent = selectedText;
+                
+                if (nodeStartOffset === 0 && nodeEndOffset === textContent.length) {
+                  // Entire text node is selected - replace with span
+                  parent.replaceChild(span, textNode);
+                } else {
+                  // Partial selection - split the text node
+                  const beforeText = textContent.substring(0, nodeStartOffset);
+                  const afterText = textContent.substring(nodeEndOffset);
+                  
+                  // Insert nodes in order: before, span, after
+                  if (beforeText) {
+                    const beforeNode = document.createTextNode(beforeText);
+                    parent.insertBefore(beforeNode, textNode);
+                  }
+                  parent.insertBefore(span, textNode);
+                  if (afterText) {
+                    const afterNode = document.createTextNode(afterText);
+                    parent.insertBefore(afterNode, textNode);
+                  }
+                  parent.removeChild(textNode);
+                }
+              }
+            });
+            
+            restoreSelection();
+          }
+          break;
+        }
         case 'undo':
           // Use custom undo handler if available
           if ((window as any).handleWysiwygUndo) {
