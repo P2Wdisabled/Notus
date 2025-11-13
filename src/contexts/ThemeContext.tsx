@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { DEFAULT_COLOR } from "@/lib/colorPalette";
 
 interface ThemeContextType {
   isDark: boolean;
@@ -68,9 +69,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   // Charger la couleur principale sauvegardée
   useEffect(() => {
     const saved = localStorage.getItem("primaryColor");
-    if (saved) {
+    if (saved && /^#([0-9a-fA-F]{6})$/.test(saved)) {
       setPrimaryColor(saved);
       applyPrimaryColor(saved);
+    } else {
+      // Utiliser la couleur par défaut de la palette
+      setPrimaryColor(DEFAULT_COLOR);
+      applyPrimaryColor(DEFAULT_COLOR);
     }
   }, []);
 

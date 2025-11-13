@@ -60,6 +60,7 @@ export default function NavBar() {
     { name: "Notes personnelles", href: "/notes", icon: "note" },
     { name: "Notes partagées", href: "/shared", icon: "share" },
     { name: "Favoris", href: "/favorites", icon: "star" },
+    { name: "Assistance", href: "/assistance", icon: "alert" },
     { name: "Paramètres", href: "/settings", icon: "gear" },
     { name: "Notifications", href: "#", icon: "bell", onClick: (e) => { e.preventDefault(); handleNotificationOverlay(e); }, mobileHidden: true },
     { name: "Corbeille", href: "/trash", icon: "trash" },
@@ -248,6 +249,7 @@ function getPageTitle(pathname: string | null, items: NavItem[]): string {
   if (pathname === "/profile") return "Mon compte";
   if (pathname === "/settings") return "Paramètres";
   if (pathname === "/favorites") return "Favoris";
+  if (pathname === "/assistance") return "Assistance";
   if (pathname === "/trash") return "Corbeille";
   if (pathname.startsWith("/profile/edit")) return "Modifier le profil";
   return "Notus";

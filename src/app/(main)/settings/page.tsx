@@ -5,6 +5,7 @@ import NavBar from "@/components/navigation/NavBar";
 import ContentWrapper from "@/components/common/ContentWrapper";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
 import Icon from "@/components/Icon";
+import ColorPicker from "@/components/common/ColorPicker";
 
 export default function SettingsPage() {
   const { isDark, toggleTheme, primaryColor, setPrimaryColor } = useTheme();
@@ -62,25 +63,12 @@ export default function SettingsPage() {
             <CardHeader>
               <CardTitle>Couleur principale</CardTitle>
             </CardHeader>
-            <CardContent className="flex items-center justify-between gap-4">
-              <div>
+            <CardContent>
+              <div className="mb-4">
                 <div className="text-foreground font-medium">Couleur de l'interface</div>
-                <div className="text-muted-foreground text-sm">Changez la couleur primaire utilisée dans l'application.</div>
+                <div className="text-muted-foreground text-sm">Choisissez une couleur parmi la palette pour personnaliser l'interface.</div>
               </div>
-              <div className="flex items-center gap-3">
-                <input
-                  type="color"
-                  aria-label="Choisir la couleur principale"
-                  value={primaryColor && /^#([0-9a-fA-F]{6})$/.test(primaryColor) ? primaryColor : "#a855f7"}
-                  onChange={(e) => setPrimaryColor(e.target.value)}
-                  className="h-10 w-16 cursor-pointer rounded-md border border-border bg-background p-1"
-                />
-                <div
-                  className="h-10 w-10 rounded-full border border-border"
-                  style={{ backgroundColor: primaryColor && /^#([0-9a-fA-F]{6})$/.test(primaryColor) ? primaryColor : "#a855f7" }}
-                  aria-hidden="true"
-                />
-              </div>
+              <ColorPicker selectedColor={primaryColor} onColorChange={setPrimaryColor} />
             </CardContent>
           </Card>
           </section>

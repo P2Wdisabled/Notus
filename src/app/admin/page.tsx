@@ -131,15 +131,19 @@ export default async function AdminDashboard() {
         <Card.Header>
           <Card.Title className="text-foreground text-center">Actions rapides</Card.Title>
         </Card.Header>
-        <Card.Content className="flex justify-center items-center">
-          <div>
-            <Button asChild className="bg-primary hover:bg-primary/90 text-primary-foreground py-2 px-4">
-              <Link href="/admin/users">
-                <Icon name="users" className="w-4 h-4 mr-2" />
-                Gérer les utilisateurs
-              </Link>
-            </Button>
-          </div>
+        <Card.Content className="flex justify-center items-center gap-4">
+          <Button asChild className="bg-primary hover:bg-primary/90 text-primary-foreground py-2 px-4">
+            <Link href="/admin/users">
+              <Icon name="users" className="w-4 h-4 mr-2" />
+              Gérer les utilisateurs
+            </Link>
+          </Button>
+          <Button asChild className="bg-primary hover:bg-primary/90 text-primary-foreground py-2 px-4">
+            <Link href="/admin/stats">
+              <Icon name="dashboard" className="w-4 h-4 mr-2" />
+              Voir les statistiques
+            </Link>
+          </Button>
         </Card.Content>
       </Card>
       </section>
