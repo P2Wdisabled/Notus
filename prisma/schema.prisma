@@ -41,6 +41,8 @@ model User {
   documents Document[]
   adminActions AdminAction[] @relation("AdminActions")
   targetUserActions AdminAction[] @relation("TargetUserActions")
+  requests UserRequest[]
+  validatedRequests UserRequest[] @relation("ValidatedRequests")
 
   @@map("users")
 }
@@ -145,4 +147,28 @@ model Notification {
 
   @@index([id_receiver], map: "idx_notifications_receiver")
   @@map("notifications")
+}
+
+model UserRequest {
+  id           Int       @id @default(autoincrement())
+  user_id      Int       @map("user_id")
+  type         String    @default("other") // 'help', 'data_restoration', 'other'
+  title        String
+  description  String
+  status       String    @default("pending") // 'pending', 'in_progress', 'resolved', 'rejected'
+  validated    Boolean   @default(false)
+  validated_by Int?      @map("validated_by")
+  validated_at DateTime? @map("validated_at")
+  created_at   DateTime  @default(now()) @map("created_at")
+  updated_at   DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  user      User  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  validator User? @relation("ValidatedRequests", fields: [validated_by], references: [id], onDelete: SetNull)
+
+  @@index([user_id], map: "idx_user_requests_user_id")
+  @@index([status], map: "idx_user_requests_status")
+  @@index([validated], map: "idx_user_requests_validated")
+  @@index([created_at], map: "idx_user_requests_created_at")
+  @@map("user_requests")
 }

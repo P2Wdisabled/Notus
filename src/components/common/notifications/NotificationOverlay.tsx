@@ -5,6 +5,8 @@ import { useSession } from "next-auth/react";
 import NotificationItem from "@/components/ui/notifications/notification-item";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import type { Notification } from "@/lib/types";
+import { Button } from "@/components/ui/button";
+import Icon from "@/components/Icon";
 
 interface NotificationOverlayProps {
     isOpen?: boolean;
@@ -73,10 +75,10 @@ export default function NotificationOverlay({ isOpen = true, onClose }: Notifica
     }
 
     return (
-        <aside className="h-screen w-80 bg-card rounded-none shadow-lg border-l border-border p-2 flex flex-col" role="complementary" aria-label="Notifications">
-            <div className="flex items-center justify-between px-2 py-2 flex-shrink-0">
+        <aside className="h-screen w-80 bg-card rounded-none shadow-lg p-2 flex flex-col" role="complementary" aria-label="Notifications">
+            <div className="flex items-center justify-between p-2 pt-2.5 flex-shrink-0 ">
                 <div className="flex items-center gap-2">
-                    <strong>Notifications</strong>
+                    <h2 className="font-title text-2xl sm:text-3xl font-regular">Notifications</h2>
                     {(notifications ?? []).some(n => !n.read_date && ((n as any).id_sender == null)) && (
                         <button
                             onClick={async (e) => {
@@ -96,9 +98,9 @@ export default function NotificationOverlay({ isOpen = true, onClose }: Notifica
                     )}
                 </div>
 
-                <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
-                    ×
-                </button>
+                <Button onClick={onClose} className="text-foreground hover:bg-primary/70">
+                    <Icon name="x" className="w-6 h-6" />
+                </Button>
             </div>
 
             <div className="mt-2 flex-1 overflow-y-auto divide-y divide-border">
@@ -147,37 +149,38 @@ export default function NotificationOverlay({ isOpen = true, onClose }: Notifica
 
                                     <div className="flex-shrink-0">
                                         {isRead ? (
-                                                <button
+                                            <Button
                                                 title="Notification traitée"
                                                 disabled
                                                     className="bg-muted text-foreground px-3 py-1 rounded opacity-80 cursor-not-allowed"
-                                            >
-                                                Traitée
-                                            </button>
+                                                >
+                                                    
+                                                </Button>
                                         ) : (
-                                            <div className="flex flex-col items-stretch gap-2">
-                                                <button
+                                            <div className="flex flex-row items-stretch gap-2">
+                                                <Button
                                                     onClick={async (e) => {
                                                         e.preventDefault();
                                                         e.stopPropagation();
                                                         await markAsRead(n.id);
                                                         if (confirmUrl) window.location.href = confirmUrl;
                                                     }}
-                                                    className="bg-primary text-primary-foreground px-3 py-1 rounded"
+                                                    className="bg-primary text-primary-foreground p-1 rounded"
                                                 >
-                                                    Accepter
-                                                </button>
+                                                    <Icon name="check" className="w-6 h-6" />
+                                                </Button>
 
-                                                <button
+                                                <Button
                                                     onClick={async (e) => {
                                                         e.preventDefault();
                                                         e.stopPropagation();
                                                         await markAsRead(n.id);
                                                     }}
-                                                    className="bg-destructive text-destructive-foreground px-3 py-1 rounded"
+                                                    className="text-primary p-1 rounded hover:bg-primary/10"
+                                                    variant="ghost"
                                                 >
-                                                    Refuser
-                                                </button>
+                                                    <Icon name="x" className="w-6 h-6" />
+                                                </Button>
                                             </div>
                                         )}
                                     </div>

@@ -51,20 +51,8 @@ export default function NotificationItem({
             <div className="flex flex-col">
                 <div className="flex items-center gap-2">
                     <span className="font-medium text-sm">{isSystem ? "Système" : username || "Utilisateur"}</span>
-                    {normalizedAvatar ? (
-                        <span
-                            className="text-xs text-muted-foreground ml-1 cursor-pointer select-none"
-                            title={normalizedAvatar.slice(0, 200)}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                try { navigator.clipboard.writeText(normalizedAvatar); } catch (err) { }
-                            }}
-                        >
-                            {`len:${normalizedAvatar.length}${normalizedAvatar.startsWith("data:") ? " • data" : ""}`}
-                        </span>
-                    ) : null}
                 </div>
-                <span className="text-sm text-muted-foreground truncate max-w-[260px]" title={message || ""}>
+                <span className="text-sm text-muted-foreground max-w-[260px]" title={message || ""}>
                     {message || ""}
                 </span>
             </div>

@@ -247,7 +247,7 @@ export default function EditProfilePageClient({ user }: EditProfilePageClientPro
                 onChange={(value) => handleImageChange("profile", value)}
                 error={errors.profileImage || undefined}
                 className="mt-6"
-                accept="image/jpeg,image/jpg,image/png,image/gif"
+                accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/avif"
                 maxSize={10 * 1024 * 1024} // 10MB
                 variant="input"
               />
@@ -258,7 +258,7 @@ export default function EditProfilePageClient({ user }: EditProfilePageClientPro
                 onChange={(value) => handleImageChange("banner", value)}
                 error={errors.bannerImage || undefined}
                 className="mt-6"
-                accept="image/jpeg,image/jpg,image/png,image/gif"
+                accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/avif"
                 maxSize={10 * 1024 * 1024} // 10MB
                 recommendedSize="1200x480 pixels"
                 variant="input"
