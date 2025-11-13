@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Button, Card, Badge } from "@/components/ui";
+import TableOfContents from "@/components/legal/TableOfContents";
 
 export default function CGUPage() {
   const sections = [
@@ -16,45 +17,35 @@ export default function CGUPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
+    <main className="min-h-screen bg-background">
       <div className="max-w-4xl mx-auto px-4 py-8">
         {/* Header Section */}
-        <div className="text-center mb-12">
+        <header className="text-center mb-12">
           <h1 className="text-4xl font-bold text-foreground mb-4">
             Conditions Générales d'Utilisation
           </h1>
           <Badge variant="outline" className="text-sm">
             Dernière mise à jour : 18 septembre 2025
           </Badge>
-        </div>
+        </header>
 
         {/* Table des matières - Toujours en haut */}
-        <div className="mb-8">
+        <section className="mb-8">
           <Card>
             <Card.Header>
               <Card.Title className="text-lg text-foreground">Table des matières</Card.Title>
             </Card.Header>
             <Card.Content>
-              <nav className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
-                {sections.map((section) => (
-                  <a
-                    key={section.id}
-                    href={`#${section.id}`}
-                    className="block text-sm text-muted-foreground hover:text-primary transition-colors py-2 px-3 rounded-md hover:bg-muted/50"
-                  >
-                    {section.title}
-                  </a>
-                ))}
-              </nav>
+              <TableOfContents sections={sections} />
             </Card.Content>
           </Card>
-        </div>
+        </section>
 
         {/* Contenu principal */}
-        <div className="max-w-4xl mx-auto">
+        <section className="max-w-4xl mx-auto">
           <Card>
             <Card.Content className="p-8">
-              <div className="prose prose-lg max-w-none dark:prose-invert prose-headings:text-foreground prose-p:text-foreground prose-strong:text-foreground prose-li:text-foreground">
+              <div className="prose prose-lg max-w-none prose-headings:text-foreground prose-p:text-foreground prose-strong:text-foreground prose-li:text-foreground">
 
                 <div className="bg-primary/10 p-6 rounded-lg border-l-4 border-primary mb-8">
                   <p className="text-foreground leading-relaxed text-lg">
@@ -233,16 +224,16 @@ export default function CGUPage() {
               </div>
             </Card.Content>
           </Card>
-        </div>
+        </section>
 
         {/* Footer avec bouton de retour */}
-        <div className="flex justify-center mt-12">
+        <footer className="flex justify-center mt-12">
           <Button asChild className="py-2 px-4 text-lg">
             <Link href="/">Retour à l'accueil</Link>
           </Button>
-        </div>
+        </footer>
       </div>
-    </div>
+    </main>
   );
 }
 

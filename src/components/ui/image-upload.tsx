@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useState, useRef } from "react";
 import Image  from "next/image";
+import Icon from "@/components/Icon";
 
 export interface ImageUploadProps {
   label?: string;
@@ -103,15 +104,15 @@ export default function ImageUpload({
   if (variant === "input") {
     return (
       <div className={`space-y-2 ${className}`}>
-        <label className="block text-black dark:text-white text-xl font-title font-bold">
+        <label className="block text-foreground text-xl font-title font-bold">
           {label}
         </label>
         <div
           className={`relative w-full px-3 py-2 border rounded-lg transition-colors bg-background text-foreground ${
             error
-              ? "border-red-500 focus-within:ring-red-500"
-              : "border-gray-300 dark:border-gray-600"
-          } focus-within:outline-none focus-within:ring-2 focus-within:ring-orange dark:focus-within:ring-dark-purple focus-within:border-transparent`}
+              ? "border-destructive focus-within:ring-destructive"
+              : "border-border"
+          } focus-within:outline-none focus-within:ring-2 focus-within:ring-ring focus-within:border-transparent`}
           onDrop={handleDrop}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
@@ -134,26 +135,23 @@ export default function ImageUpload({
           />
 
           <div className="flex items-center justify-between select-none">
-            <div className="text-dark-gray dark:text-gray text-sm">
+            <div className="text-muted-foreground text-sm">
               {previewUrl
                 ? "Image sélectionnée — cliquez pour changer"
                 : `JPEG, PNG, GIF et moins de ${sizeInMb}MB`}
             </div>
-            <div className="text-dark-gray dark:text-gray">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z" fill="currentColor" />
-                <path d="M20.71 7.04a1.003 1.003 0 000-1.42l-2.34-2.34a1.003 1.003 0 00-1.42 0l-1.83 1.83 3.75 3.75 1.84-1.82z" fill="currentColor" />
-              </svg>
+            <div className="text-muted-foreground">
+              <Icon name="pencil" className="w-4 h-4" />
             </div>
           </div>
         </div>
         {recommendedSize && (
-          <p className="text-sm text-dark-gray dark:text-light-gray">
+          <p className="text-sm text-muted-foreground">
             Format recommandé : {recommendedSize}
           </p>
         )}
         {error && (
-          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+          <p className="text-sm text-destructive">{error}</p>
         )}
       </div>
     );
@@ -162,7 +160,7 @@ export default function ImageUpload({
   // Default: dropzone variant
   return (
     <div className={`space-y-2 ${className}`}>
-      <label className="block text-black dark:text-white text-xl font-title font-bold">
+      <label className="block text-foreground text-xl font-title font-bold">
         {label}
       </label>
 
@@ -171,10 +169,10 @@ export default function ImageUpload({
           relative border-2 border-dashed rounded-lg p-6 text-center transition-colors
           ${
             isDragOver
-              ? "border-orange dark:border-dark-purple bg-orange/10 dark:bg-dark-purple/10"
-              : "border-gray dark:border-dark-gray hover:border-orange dark:hover:border-dark-purple"
+              ? "border-primary bg-primary/10"
+              : "border-border hover:border-primary"
           }
-          ${error ? "border-red-500 dark:border-red-400" : ""}
+          ${error ? "border-destructive" : ""}
         `}
         onDrop={handleDrop}
         onDragOver={handleDragOver}
@@ -192,7 +190,7 @@ export default function ImageUpload({
         {previewUrl ? (
           <div className="space-y-4">
             <div className="relative inline-block">
-              <Image
+              <img
                 src={previewUrl}
                 alt="Aperçu"
                 className="max-w-full max-h-48 rounded-lg object-cover"
@@ -203,36 +201,24 @@ export default function ImageUpload({
                   e.stopPropagation();
                   handleRemove();
                 }}
-                className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-sm hover:bg-red-600"
+                className="absolute -top-2 -right-2 w-6 h-6 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center text-sm hover:bg-destructive/90"
               >
                 ×
               </button>
             </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+            <p className="text-sm text-muted-foreground">
               Cliquez pour changer l'image
             </p>
           </div>
         ) : (
           <div className="space-y-2">
-            <div className="w-12 h-12 mx-auto text-gray-400 dark:text-gray-500">
-              <svg
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                />
-              </svg>
+            <div className="w-12 h-12 mx-auto text-muted-foreground">
+              <Icon name="image" className="w-12 h-12" />
             </div>
-            <p className="text-gray-600 dark:text-gray-400">
+            <p className="text-muted-foreground">
               Glissez-déposez une image ou cliquez pour sélectionner
             </p>
-            <p className="text-sm text-gray-500 dark:text-gray-500">
+            <p className="text-sm text-muted-foreground">
               JPEG, PNG, GIF (max {Math.round(maxSize / 1024 / 1024)}MB)
               {recommendedSize && (
                 <span className="block text-xs mt-1">
@@ -245,7 +231,7 @@ export default function ImageUpload({
       </div>
 
       {error && (
-        <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+        <p className="text-sm text-destructive">{error}</p>
       )}
     </div>
   );

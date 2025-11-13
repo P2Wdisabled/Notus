@@ -17,7 +17,7 @@ export default function ResetPasswordPage() {
 
   if (!token) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <main className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="max-w-md w-full text-center">
           <Card.Header>
             <Card.Title className="text-3xl mb-4">Token invalide</Card.Title>
@@ -31,12 +31,12 @@ export default function ResetPasswordPage() {
             </Button>
           </Card.Footer>
         </Card>
-      </div>
+      </main>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <main className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="max-w-md w-full">
         <Card.Header className="text-center">
           <Card.Title className="text-3xl mb-2">Nouveau mot de passe</Card.Title>
@@ -106,7 +106,7 @@ export default function ResetPasswordPage() {
           </p>
         </Card.Footer>
       </Card>
-    </div>
+    </main>
   );
 }
 

@@ -2,7 +2,7 @@
 
 import { signIn } from "next-auth/react";
 import Link from "next/link";
-import GoogleSignInButton from "@/components/GoogleSignInButton";
+import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
 import { useLocalSession } from "@/hooks/useLocalSession";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -49,12 +49,12 @@ function LoginPageClient({ serverSession }: { serverSession: any }) {
   // Affichage du loading pendant la vérification
   if (loading) {
     return (
-      <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center p-4">
+      <main className="min-h-screen bg-background flex items-center justify-center p-4">
         <LoadingSpinner.Card
           message="Vérification..."
           className="max-w-md w-full"
         />
-      </div>
+      </main>
     );
   }
 
@@ -64,7 +64,7 @@ function LoginPageClient({ serverSession }: { serverSession: any }) {
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center p-4">
+    <main className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="max-w-md w-full">
         <Card.Header className="text-center">
           <Logo />
@@ -160,13 +160,13 @@ function LoginPageClient({ serverSession }: { serverSession: any }) {
               <div className="flex justify-between items-center mb-2">
                 <label
                   htmlFor="password"
-                  className="block text-sm font-medium text-dark-gray dark:text-gray"
+                  className="block text-sm font-medium text-foreground"
                 >
                   Mot de passe
                 </label>
                 <Link
                   href="/forgot-password"
-                  className="text-sm text-dark-gray dark:text-gray hover:text-light-gray dark:hover:text-white font-medium"
+                  className="text-sm text-muted-foreground hover:text-foreground font-medium"
                 >
                   Mot de passe oublié ?
                 </Link>
@@ -185,11 +185,11 @@ function LoginPageClient({ serverSession }: { serverSession: any }) {
               />
             </div>
             <Card.Footer className="text-center">
-              <p className="text-dark-gray dark:text-gray py-4">
+              <p className="text-muted-foreground py-4">
                 Pas encore de compte ?{" "}
                 <Button variant="link" asChild>
                   <Link
-                    className="text-orange dark:text-dark-purple"
+                    className="text-primary"
                     href="/register"
                   >
                     S'inscrire
@@ -202,14 +202,14 @@ function LoginPageClient({ serverSession }: { serverSession: any }) {
               type="submit"
               disabled={isPending}
               loading={isPending}
-              className="w-full text-black dark:text-white"
+              className="w-full"
             >
               {isPending ? "Connexion..." : "Se connecter"}
             </Button>
           </form>
         </Card.Content>
         <Card.Footer className="text-center p-2">
-          <Link href="/" className="text-dark-gray dark:text-gray">
+          <Link href="/" className="text-muted-foreground">
             Continuer en tant que personne anonyme
           </Link>
         </Card.Footer>
@@ -226,7 +226,7 @@ function LoginPageClient({ serverSession }: { serverSession: any }) {
             </DialogDescription>
           </DialogHeader>
           {reactivateError ? (
-            <div className="text-red-600 text-sm">{reactivateError}</div>
+            <div className="text-destructive text-sm">{reactivateError}</div>
           ) : null}
           <DialogFooter>
             <Button
@@ -277,7 +277,7 @@ function LoginPageClient({ serverSession }: { serverSession: any }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </main>
   );
 }
 

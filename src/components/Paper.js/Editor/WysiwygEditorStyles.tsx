@@ -8,17 +8,88 @@ export default function WysiwygEditorStyles() {
         margin: 1rem 0 !important;
         padding-left: 1.5rem !important;
         display: block !important;
+        list-style-position: outside !important;
       }
       .wysiwyg-editor ol {
         list-style-type: decimal !important;
         margin: 1rem 0 !important;
         padding-left: 1.5rem !important;
         display: block !important;
+        list-style-position: outside !important;
       }
       .wysiwyg-editor li {
         margin: 0.25rem 0 !important;
         display: list-item !important;
         list-style-position: outside !important;
+      }
+      /* Handle aligned lists - ensure markers follow alignment */
+      /* Center aligned lists */
+      .wysiwyg-editor ul[style*="text-align: center"],
+      .wysiwyg-editor ul[style*="text-align:center"],
+      .wysiwyg-editor ol[style*="text-align: center"],
+      .wysiwyg-editor ol[style*="text-align:center"] {
+        list-style-position: inside !important;
+        padding-left: 0 !important;
+        text-align: center !important;
+      }
+      .wysiwyg-editor ul[style*="text-align: center"] li,
+      .wysiwyg-editor ul[style*="text-align:center"] li,
+      .wysiwyg-editor ol[style*="text-align: center"] li,
+      .wysiwyg-editor ol[style*="text-align:center"] li {
+        list-style-position: inside !important;
+        text-align: center !important;
+      }
+      
+      /* Right aligned lists */
+      .wysiwyg-editor ul[style*="text-align: right"],
+      .wysiwyg-editor ul[style*="text-align:right"],
+      .wysiwyg-editor ol[style*="text-align: right"],
+      .wysiwyg-editor ol[style*="text-align:right"] {
+        list-style-position: inside !important;
+        padding-left: 0 !important;
+        padding-right: 1.5rem !important;
+        text-align: right !important;
+      }
+      .wysiwyg-editor ul[style*="text-align: right"] li,
+      .wysiwyg-editor ul[style*="text-align:right"] li,
+      .wysiwyg-editor ol[style*="text-align: right"] li,
+      .wysiwyg-editor ol[style*="text-align:right"] li {
+        list-style-position: inside !important;
+        text-align: right !important;
+      }
+      
+      /* Justified lists */
+      .wysiwyg-editor ul[style*="text-align: justify"],
+      .wysiwyg-editor ul[style*="text-align:justify"],
+      .wysiwyg-editor ol[style*="text-align: justify"],
+      .wysiwyg-editor ol[style*="text-align:justify"] {
+        list-style-position: inside !important;
+        padding-left: 0 !important;
+        text-align: justify !important;
+      }
+      .wysiwyg-editor ul[style*="text-align: justify"] li,
+      .wysiwyg-editor ul[style*="text-align:justify"] li,
+      .wysiwyg-editor ol[style*="text-align: justify"] li,
+      .wysiwyg-editor ol[style*="text-align:justify"] li {
+        list-style-position: inside !important;
+        text-align: justify !important;
+      }
+      
+      /* Keep default behavior for left-aligned lists */
+      .wysiwyg-editor ul[style*="text-align: left"],
+      .wysiwyg-editor ul[style*="text-align:left"],
+      .wysiwyg-editor ol[style*="text-align: left"],
+      .wysiwyg-editor ol[style*="text-align:left"] {
+        list-style-position: outside !important;
+        padding-left: 1.5rem !important;
+        text-align: left !important;
+      }
+      .wysiwyg-editor ul[style*="text-align: left"] li,
+      .wysiwyg-editor ul[style*="text-align:left"] li,
+      .wysiwyg-editor ol[style*="text-align: left"] li,
+      .wysiwyg-editor ol[style*="text-align:left"] li {
+        list-style-position: outside !important;
+        text-align: left !important;
       }
       .wysiwyg-editor a {
         color: #3b82f6 !important;

@@ -4,9 +4,10 @@ import WysiwygNotepad from "@/components/Paper.js/WysiwygNotepad";
 import { useEffect, useState, useCallback } from "react";
 import { useLocalSession } from "@/hooks/useLocalSession";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import Icon from "@/components/Icon";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import TagsManager from "@/components/TagsManager";
+import TagsManager from "@/components/documents/TagsManager";
 
 const LOCAL_DOCS_KEY = "notus.local.documents";
 
@@ -33,6 +34,8 @@ interface EditLocalDocumentPageClientProps {
 export default function EditLocalDocumentPageClient({ params }: EditLocalDocumentPageClientProps) {
   const localSession = useLocalSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isNewQuery = searchParams?.get("isNew") === "1";
   const [document, setDocument] = useState<LocalDocument | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -119,6 +122,17 @@ export default function EditLocalDocumentPageClient({ params }: EditLocalDocumen
     };
     initializeParams();
   }, [params]);
+
+  function handleCancelCreation() {
+    if (!docId) {
+      router.push("/");
+      return;
+    }
+    const docs = loadLocalDocuments();
+    const updated = docs.filter((d) => d.id !== docId);
+    saveLocalDocuments(updated);
+    router.push("/");
+  }
 
   const loadLocalDocuments = (): LocalDocument[] => {
     try {
@@ -222,10 +236,10 @@ export default function EditLocalDocumentPageClient({ params }: EditLocalDocumen
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange dark:border-dark-purple mx-auto mb-4"></div>
-          <p className="text-orange dark:text-dark-purple">Chargement...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-primary">Chargement...</p>
         </div>
       </div>
     );
@@ -233,15 +247,15 @@ export default function EditLocalDocumentPageClient({ params }: EditLocalDocumen
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="bg-card rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
+          <h1 className="text-2xl font-bold text-foreground mb-4">
             Erreur
           </h1>
-          <p className="text-gray-600 dark:text-gray-300 mb-6">{error}</p>
+          <p className="text-muted-foreground mb-6">{error}</p>
           <Link
             href="/"
-            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-3 px-6 rounded-lg transition-colors"
           >
             Retour à l'accueil
           </Link>
@@ -260,34 +274,31 @@ export default function EditLocalDocumentPageClient({ params }: EditLocalDocumen
     : "";
 
   return (
-    <div className="h-screen overflow-hidden bg-white dark:bg-black py-8">
+    <div className="h-screen overflow-hidden bg-background py-8">
       <div className="max-w-4xl mx-auto px-4">
         {/* En-tête */}
         <div className="flex items-center justify-between mb-6">
           <Link
             href="/"
-            className="text-black dark:text-white font-semibold flex items-center"
+            className="text-foreground font-semibold flex items-center"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5 mr-2"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fillRule="evenodd"
-                d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z"
-                clipRule="evenodd"
-              />
-            </svg>
+            <Icon name="arrowLeft" className="h-5 w-5 mr-2" />
             Retour
           </Link>
         </div>
 
+        {/* Banner nouvelle note */}
+        {isNewQuery && (
+          <div className="mb-4 rounded-lg p-3 bg-muted flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">Nouvelle note en création (local)</span>
+            <button onClick={handleCancelCreation} className="text-foreground hover:opacity-80">Annuler la création</button>
+          </div>
+        )}
+
         {/* Message de sauvegarde */}
         {showSavedState && (
-          <div className="mb-4 rounded-lg p-4 bg-white dark:bg-black border border-orange dark:border-dark-purple">
-            <p className="text-sm text-orange dark:text-dark-purple">
+          <div className="mb-4 rounded-lg p-4 bg-card border border-primary">
+            <p className="text-sm text-primary">
               {isNewDoc
                 ? "Document créé avec succès !"
                 : "Document sauvegardé avec succès !"}
@@ -296,7 +307,7 @@ export default function EditLocalDocumentPageClient({ params }: EditLocalDocumen
         )}
 
         {/* Contenu */}
-        <div className="bg-white dark:bg-black rounded-2xl border border-gray dark:border-dark-gray p-6 overflow-hidden">
+        <div className="bg-card rounded-2xl border border-border p-6 overflow-hidden">
           <div className="space-y-6">
             {/* Tags */}
             <div className="mb-1">
@@ -317,7 +328,7 @@ export default function EditLocalDocumentPageClient({ params }: EditLocalDocumen
                 type="text"
                 value={title}
                 onChange={(e) => { setTitle(e.target.value); setShowSavedState(false); }}
-                className="w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange dark:focus:ring-primary bg-transparent text-foreground text-xl font-semibold"
+                className="w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-ring bg-transparent text-foreground text-xl font-semibold"
                 placeholder="Titre du document"
                 maxLength={255}
               />
@@ -325,7 +336,7 @@ export default function EditLocalDocumentPageClient({ params }: EditLocalDocumen
 
             {/* Editor */}
             <div>
-              <div className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-700">
+              <div className="border border-border rounded-lg overflow-hidden bg-card">
                 <WysiwygNotepad
                   key={editorKey}
                   initialData={content}
@@ -359,10 +370,7 @@ export default function EditLocalDocumentPageClient({ params }: EditLocalDocumen
                 type="button"
                 onClick={handleSave}
                 disabled={showSavedState}
-                className={`${showSavedState
-                  ? "bg-green-600 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-600"
-                  : "bg-primary hover:bg-primary/90 text-primary-foreground"
-                  } disabled:bg-gray-400 disabled:cursor-not-allowed font-semibold py-3 px-6 rounded-lg transition-colors`}
+                className={`bg-primary hover:bg-primary/90 text-primary-foreground disabled:bg-muted disabled:cursor-not-allowed font-semibold py-3 px-6 rounded-lg transition-colors`}
               >
                 {showSavedState
                   ? isNewDoc
@@ -372,12 +380,22 @@ export default function EditLocalDocumentPageClient({ params }: EditLocalDocumen
                     ? "Créer le document"
                     : "Sauvegarder"}
               </Button>
-              <Link
-                href="/"
-                className="px-6 py-3 rounded-lg text-foreground hover:shadow-md hover:border-primary hover:bg-foreground/5 border border-primary cursor-pointer"
-              >
-                Annuler
-              </Link>
+              {isNewQuery ? (
+                <button
+                  type="button"
+                  onClick={handleCancelCreation}
+                  className="px-6 py-3 rounded-lg text-foreground hover:shadow-md hover:border-primary hover:bg-foreground/5 border border-primary cursor-pointer"
+                >
+                  Annuler
+                </button>
+              ) : (
+                <Link
+                  href="/"
+                  className="px-6 py-3 rounded-lg text-foreground hover:shadow-md hover:border-primary hover:bg-foreground/5 border border-primary cursor-pointer"
+                >
+                  Annuler
+                </Link>
+              )}
             </div>
           </div>
         </div>

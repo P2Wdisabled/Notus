@@ -1,12 +1,14 @@
 import { auth } from "@/../auth";
-import NavBar from "@/components/NavBar";
-import ContentWrapper from "@/components/ContentWrapper";
+import NavBar from "@/components/navigation/NavBar";
+import ContentWrapper from "@/components/common/ContentWrapper";
 import Image  from "next/image";
-import { Card, Button } from "@/components/ui";
-import DocumentCard from "@/components/DocumentCard";
+import { Card, Button, BackHeader } from "@/components/ui";
+import DocumentCard from "@/components/documents/DocumentCard";
 import { getUserDocumentsAction, getUserProfileAction } from "@/lib/actions";
 import Link from "next/link";
 import ProfileEditButton from "./ProfileEditButton";
+import BackofficeEditButton from "./BackofficeEditButton";
+import Icon from "@/components/Icon";
 
 export default async function ProfilePage() {
   const session = await auth();
@@ -37,31 +39,12 @@ export default async function ProfilePage() {
     : { success: true, documents: [] };
 
   return (
-    <div className="min-h-screen bg-background">
+    <main className="min-h-screen bg-background">
       <NavBar />
 
       {/* Back link */}
       <div className="md:ml-64 md:pl-4 pt-6">
-        <div className="max-w-4xl mx-auto px-4 md:px-6 lg:px-8 pb-4 hidden md:flex gap-4">
-          <Link
-            href="/"
-            className="text-foreground font-semibold flex items-center"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-6 w-6 mr-2"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fillRule="evenodd"
-                d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </Link>
-          <h2 className="font-title text-4xl font-regular">Mon compte</h2>
-        </div>
+        <BackHeader href="/" title="Mon compte" className="max-w-4xl mx-auto px-4 md:px-6 lg:px-8 pb-4 hidden md:flex gap-4" />
       </div>
 
       {/* Cover */}
@@ -85,12 +68,12 @@ export default async function ProfilePage() {
       </div>
 
       <div className="md:ml-64 md:pl-4">
-        <div className="max-w-4xl mx-auto px-4 md:px-6 lg:px-8 -mt-12 md:-mt-16 pb-10">
+        <section className="max-w-4xl mx-auto px-4 md:px-6 lg:px-8 -mt-12 md:-mt-16 pb-10">
           {/* Header */}
           <div className="flex flex-col items-center md:flex-row md:items-end gap-4 relative z-10">
             <div className="w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-background overflow-hidden bg-muted ring-2 ring-border/30 shadow-lg">
               {userProfile?.profile_image ? (
-                <Image
+                <img
                   src={userProfile.profile_image}
                   alt="Photo de profil"
                   className="w-full h-full object-cover"
@@ -104,14 +87,12 @@ export default async function ProfilePage() {
             <div className="flex-1" />
             <div className="flex items-center gap-3 justify-center md:justify-start w-full md:w-auto">
               <ProfileEditButton />
-              {/* <Button variant="secondary" className="px-4 py-2">
-              Partager le profil
-            </Button> */}
+              <BackofficeEditButton />
             </div>
           </div>
 
           {/* Identity */}
-          <div className="mt-4 text-center md:text-left">
+          <section className="mt-4 text-center md:text-left">
             <h1 className="text-2xl md:text-3xl font-bold text-foreground">
               {displayName}
             </h1>
@@ -119,16 +100,16 @@ export default async function ProfilePage() {
               @{username || "pseudo"}
             </p>
             <div className="flex items-center justify-center md:justify-start gap-2 mt-2 text-sm text-muted-foreground">
-              <CalendarIcon className="w-4 h-4" />
+              <Icon name="calendar" className="w-4 h-4" />
               <span>
                 A rejoint en {joinDate.toLocaleString("fr-FR", { month: "long" })}{" "}
                 {joinDate.getFullYear()}
               </span>
             </div>
-          </div>
+          </section>
 
           {/* Notes section */}
-          <div className="mt-8">
+          <section className="mt-8">
             <h2 className="text-xl font-semibold text-foreground mb-3">
               Mes notes
             </h2>
@@ -161,31 +142,16 @@ export default async function ProfilePage() {
                   ))}
               </div>
             )}
-          </div>
+          </section>
           <div className="flex-1" />
-        </div>
-        </div>
+        </section>
       </div>
+    </main>
   );
 }
 
 function CalendarIcon(props: { className?: string }) {
-  return (
-    <svg
-      {...props}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-      <line x1="16" y1="2" x2="16" y2="6"></line>
-      <line x1="8" y1="2" x2="8" y2="6"></line>
-      <line x1="3" y1="10" x2="21" y2="10"></line>
-    </svg>
-  );
+  return <Icon name="calendar" className={props.className} />;
 }
 
 function getInitials(name: string | null): string {

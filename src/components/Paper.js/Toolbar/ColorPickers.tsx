@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import Icon from "@/components/Icon";
 
 interface ColorPickersProps {
   currentColor: string;
@@ -39,12 +40,10 @@ export default function ColorPickers({ currentColor, currentHighlight, onFormatC
         <button
           type="button"
           onClick={() => setShowColorPicker(!showColorPicker)}
-          className="p-2 rounded transition-colors bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
+          className="p-2 rounded transition-colors bg-muted hover:bg-muted/80 text-foreground"
           title="Couleur du texte"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M9.62 12L12 5.67 14.38 12M11 3L5.5 17h2.25l1.12-3h6.25l1.12 3h2.25L13 3h-2z"/>
-          </svg>
+          <Icon name="textColor" className="h-5 w-5" />
           <div 
             className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-4 h-1 rounded"
             style={{ backgroundColor: currentColor }}
@@ -52,9 +51,9 @@ export default function ColorPickers({ currentColor, currentHighlight, onFormatC
         </button>
 
         {showColorPicker && (
-          <div className="absolute top-full left-0 mt-1 p-3 bg-white dark:bg-gray-700 rounded shadow-lg border border-gray-200 dark:border-gray-600 z-50">
+          <div className="absolute top-full left-0 mt-1 p-3 bg-card rounded shadow-lg border border-border z-50">
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label className="text-sm font-medium text-foreground">
                 Couleur du texte
               </label>
               <input
@@ -64,7 +63,7 @@ export default function ColorPickers({ currentColor, currentHighlight, onFormatC
                   const color = e.target.value;
                   onFormatChange('foreColor', color);
                 }}
-                className="w-full h-10 rounded border border-gray-300 dark:border-gray-600 cursor-pointer"
+                className="w-full h-10 rounded border border-border cursor-pointer"
                 title="Sélectionner une couleur"
               />
               <button
@@ -73,7 +72,7 @@ export default function ColorPickers({ currentColor, currentHighlight, onFormatC
                   onFormatChange('foreColor', "#000000");
                   setShowColorPicker(false);
                 }}
-                className="px-3 py-1 text-sm bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded transition-colors"
+                className="px-3 py-1 text-sm bg-muted hover:bg-muted/80 rounded transition-colors"
               >
                 Réinitialiser (Noir)
               </button>
@@ -87,13 +86,10 @@ export default function ColorPickers({ currentColor, currentHighlight, onFormatC
         <button
           type="button"
           onClick={() => setShowHighlightPicker(!showHighlightPicker)}
-          className="p-2 rounded transition-colors bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
+          className="p-2 rounded transition-colors bg-muted hover:bg-muted/80 text-foreground"
           title="Couleur de surlignage"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M17.75 7L14 3.25l-10 10V17h3.75l10-10zm2.96-2.96a.996.996 0 000-1.41L18.37.29a.996.996 0 00-1.41 0L15 2.25 18.75 6l1.96-1.96z"/>
-            <path fillOpacity=".36" d="M0 20h24v4H0z"/>
-          </svg>
+          <Icon name="highlighter" className="h-5 w-5" />
           <div 
             className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-4 h-1 rounded"
             style={{ backgroundColor: currentHighlight === "transparent" ? "#ffff00" : currentHighlight }}
@@ -101,9 +97,9 @@ export default function ColorPickers({ currentColor, currentHighlight, onFormatC
         </button>
 
         {showHighlightPicker && (
-          <div className="absolute top-full left-0 mt-1 p-3 bg-white dark:bg-gray-700 rounded shadow-lg border border-gray-200 dark:border-gray-600 z-50">
+          <div className="absolute top-full left-0 mt-1 p-3 bg-card rounded shadow-lg border border-border z-50">
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label className="text-sm font-medium text-foreground">
                 Couleur de surlignage
               </label>
               <input
@@ -113,7 +109,7 @@ export default function ColorPickers({ currentColor, currentHighlight, onFormatC
                   const color = e.target.value;
                   onFormatChange('backColor', color);
                 }}
-                className="w-full h-10 rounded border border-gray-300 dark:border-gray-600 cursor-pointer"
+                className="w-full h-10 rounded border border-border cursor-pointer"
                 title="Sélectionner une couleur de surlignage"
               />
               <button
@@ -122,7 +118,7 @@ export default function ColorPickers({ currentColor, currentHighlight, onFormatC
                   onFormatChange('backColor', "transparent");
                   setShowHighlightPicker(false);
                 }}
-                className="px-3 py-1 text-sm bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded transition-colors"
+                className="px-3 py-1 text-sm bg-muted hover:bg-muted/80 rounded transition-colors"
               >
                 Supprimer le surlignage
               </button>

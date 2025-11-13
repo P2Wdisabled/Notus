@@ -12,6 +12,7 @@ import QuoteButtons from "./QuoteButtons";
 import DrawingModal from "./DrawingModal";
 import ImageEditModal from "./ImageEditModal";
 import ToolbarSeparator from "./ToolbarSeparator";
+import Icon from "@/components/Icon";
 
 interface WysiwygToolbarProps {
   onFormatChange: (command: string, value?: string) => void;
@@ -109,9 +110,15 @@ export default function WysiwygToolbar({ onFormatChange, showDebug = false, onTo
         setCurrentHighlight("transparent");
       }
 
-      // Check undo/redo availability
-      setCanUndo(document.queryCommandEnabled('undo'));
-      setCanRedo(document.queryCommandEnabled('redo'));
+      // Check undo/redo availability using custom history
+      if ((window as any).canWysiwygUndo && (window as any).canWysiwygRedo) {
+        setCanUndo((window as any).canWysiwygUndo());
+        setCanRedo((window as any).canWysiwygRedo());
+      } else {
+        // Fallback to native commands
+        setCanUndo(document.queryCommandEnabled('undo'));
+        setCanRedo(document.queryCommandEnabled('redo'));
+      }
     }
   }, []);
 
@@ -138,8 +145,14 @@ export default function WysiwygToolbar({ onFormatChange, showDebug = false, onTo
     // Listen for input changes to update undo/redo states
     const handleInput = () => {
       setTimeout(() => {
-        setCanUndo(document.queryCommandEnabled('undo'));
-        setCanRedo(document.queryCommandEnabled('redo'));
+        if ((window as any).canWysiwygUndo && (window as any).canWysiwygRedo) {
+          setCanUndo((window as any).canWysiwygUndo());
+          setCanRedo((window as any).canWysiwygRedo());
+        } else {
+          // Fallback to native commands
+          setCanUndo(document.queryCommandEnabled('undo'));
+          setCanRedo(document.queryCommandEnabled('redo'));
+        }
       }, 10);
     };
 
@@ -213,6 +226,24 @@ export default function WysiwygToolbar({ onFormatChange, showDebug = false, onTo
 
       {/* Quote Buttons */}
       <QuoteButtons onFormatChange={onFormatChange} />
+
+      <ToolbarSeparator />
+
+      {/* Debug Button */}
+      {onToggleDebug && (
+        <button
+          type="button"
+          onClick={onToggleDebug}
+          className={`p-2 rounded transition-colors ${
+            showDebug
+              ? "bg-primary hover:bg-primary/90 text-primary-foreground"
+              : "bg-muted hover:bg-muted/80 text-foreground"
+          }`}
+          title="Afficher/Masquer le debug"
+        >
+          <Icon name="gear" className="h-5 w-5" />
+        </button>
+      )}
 
       {/* Modals */}
       <DrawingModal 

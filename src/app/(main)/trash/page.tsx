@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/../lib/auth";
-import NavBar from "@/components/NavBar";
-import ContentWrapper from "@/components/ContentWrapper";
+import NavBar from "@/components/navigation/NavBar";
+import ContentWrapper from "@/components/common/ContentWrapper";
 import { Card, CardContent, CardHeader, CardTitle, Button, Alert } from "@/components/ui";
 import { getUserTrashDocumentsAction, restoreTrashedDocumentFormAction } from "@/lib/actions";
 import { redirect } from "next/navigation";
@@ -16,13 +16,15 @@ export default async function TrashPage() {
   const trashedResult = await getUserTrashDocumentsAction(userId!);
 
   return (
-    <div className="min-h-screen bg-background">
+    <main className="min-h-screen bg-background">
       <NavBar />
       <ContentWrapper maxWidth="lg">
-        <div className="space-y-6">
-          <h2 className="font-title text-4xl font-regular text-foreground hidden md:block">
-            Corbeille
-          </h2>
+        <section className="space-y-6">
+          <header>
+            <h1 className="font-title text-4xl font-regular text-foreground hidden md:block">
+              Corbeille
+            </h1>
+          </header>
 
           {!trashedResult.success && session?.user && (
             <Alert variant="error">
@@ -32,7 +34,7 @@ export default async function TrashPage() {
             </Alert>
           )}
 
-          <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(300px,1fr))]">
+          <section className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(300px,1fr))]">
             {(Array.isArray(trashedResult.documents) ? trashedResult.documents : []).map((t: any) => (
               <Card key={t.id}>
                 <CardHeader>
@@ -49,16 +51,16 @@ export default async function TrashPage() {
                 </CardContent>
               </Card>
             ))}
-          </div>
+          </section>
 
           {trashedResult.success && (!trashedResult.documents || trashedResult.documents.length === 0) && (
             <div className="text-center py-10 text-muted-foreground">
               Aucune note dans la corbeille.
             </div>
           )}
-        </div>
+        </section>
       </ContentWrapper>
-    </div>
+    </main>
   );
 }
 

@@ -13,6 +13,7 @@ export interface EditorEffectsProps {
   debounceTimeout: React.MutableRefObject<NodeJS.Timeout | null>;
   handleEditorChange: () => void;
   isUpdatingFromMarkdown?: React.MutableRefObject<boolean>;
+  isLocalChange?: React.MutableRefObject<boolean>;
 }
 
 export function useEditorEffects({
@@ -25,7 +26,8 @@ export function useEditorEffects({
   formattingHandler,
   debounceTimeout,
   handleEditorChange,
-  isUpdatingFromMarkdown
+  isUpdatingFromMarkdown,
+  isLocalChange
 }: EditorEffectsProps) {
   
   // Note: Initialization is handled in the main component
@@ -35,11 +37,49 @@ export function useEditorEffects({
     const root = editorRef.current;
     if (!root || !markdown || !markdownConverter.current) return;
 
+    // Don't update HTML if this is a local change (user typing)
+    // Check multiple times to handle race conditions
+    if (isLocalChange?.current) {
+      return;
+    }
+
     const currentHtml = markdownConverter.current.markdownToHtml(markdown);
     const editorHtml = root.innerHTML;
 
     // Only update if content is different to avoid infinite loops
-    if (editorHtml === currentHtml) return;
+    // Normalize HTML for comparison (remove extra whitespace, normalize attributes)
+    const normalizeHtml = (html: string) => {
+      // Create a temporary div to normalize the HTML
+      const temp = document.createElement('div');
+      temp.innerHTML = html;
+      return temp.innerHTML;
+    };
+    
+    const normalizedCurrentHtml = normalizeHtml(currentHtml);
+    const normalizedEditorHtml = normalizeHtml(editorHtml);
+    
+    if (normalizedCurrentHtml === normalizedEditorHtml) {
+      // HTML is the same, but check markdown to be sure for collaborative editing
+      try {
+        const currentMarkdown = markdownConverter.current.htmlToMarkdown(editorHtml);
+        // Normalize both markdowns for comparison (trim whitespace, normalize line endings)
+        const normalizedCurrent = currentMarkdown.trim().replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        const normalizedTarget = markdown.trim().replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        
+        if (normalizedCurrent === normalizedTarget) {
+          // The current HTML already represents the target markdown, no need to replace it
+          return;
+        }
+      } catch (e) {
+        // If conversion fails, proceed with update if HTML is different
+        // (HTML might be different even if markdown comparison fails)
+      }
+    }
+    
+    // Final check before updating - if user started typing, don't overwrite
+    if (isLocalChange?.current) {
+      return;
+    }
 
     // Helpers to preserve caret/selection across HTML refresh
     const getSelectionOffsets = (container: HTMLElement): { start: number; end: number } | null => {
@@ -133,7 +173,7 @@ export function useEditorEffects({
     setTimeout(() => {
       (isUpdatingFromMarkdown as any)?.current && ((isUpdatingFromMarkdown as any).current = false);
     }, 0);
-  }, [markdown, editorRef, markdownConverter, isUpdatingFromMarkdown]);
+  }, [markdown, editorRef, markdownConverter, isUpdatingFromMarkdown, isLocalChange]);
 
   // Keep overlay in sync on scroll/resize/content changes
   useEffect(() => {
@@ -163,8 +203,12 @@ export function useEditorEffects({
   useEffect(() => {
     if (formattingHandler.current) {
       (window as any).applyWysiwygFormatting = (command: string, value?: string) => {
+        console.log('applyWysiwygFormatting called with command:', command, 'value:', value);
         formattingHandler.current?.applyFormatting(command, value);
       };
+      console.log('applyWysiwygFormatting exposed on window');
+    } else {
+      console.log('formattingHandler.current is null, cannot expose applyWysiwygFormatting');
     }
   }, [formattingHandler]);
 

@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useMemo, useRef, useState, startTransition } from "react";
 import { Button, Card, Form, Input, Modal, ImageUpload } from "@/components/ui";
+import Icon from "@/components/Icon";
 import { updateUserProfileAction } from "@/lib/actions";
 import { useRouter } from "next/navigation";
 import { useGuardedNavigate } from "@/hooks/useGuardedNavigate";
@@ -176,7 +177,7 @@ export default function EditProfilePageClient({ user }: EditProfilePageClientPro
       <div className="flex flex-col items-center md:flex-row md:items-end gap-4 relative z-10">
         <div className="w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-background overflow-hidden bg-muted ring-2 ring-border/30 shadow-lg">
           {profileImage ? (
-            <Image
+            <img
               src={profileImage}
               alt="Photo de profil"
               className="w-full h-full object-cover"
@@ -199,84 +200,33 @@ export default function EditProfilePageClient({ user }: EditProfilePageClientPro
           <form action={handleSubmit} className="space-y-4">
             <Input
               label="Pseudo"
-              labelClassName="!text-black dark:!text-white text-xl font-title font-bold"
+              labelClassName="!text-foreground text-xl font-title font-bold"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="Pseudo"
               className="bg-card !text-foreground border-0 border-b border-border rounded-none pl-0 pt-0"
               noFocusRing
-              endAdornment={
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z"
-                    fill="currentColor"
-                  />
-                  <path
-                    d="M20.71 7.04a1.003 1.003 0 000-1.42l-2.34-2.34a1.003 1.003 0 00-1.42 0l-1.83 1.83 3.75 3.75 1.84-1.82z"
-                    fill="currentColor"
-                  />
-                </svg>
-              }
+              endAdornment={<Icon name="pencil" className="w-4 h-4" />}
             />
             <Input
               label="Nom"
-              labelClassName="!text-black dark:!text-white text-xl font-title font-bold"
+              labelClassName="!text-foreground text-xl font-title font-bold"
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
               placeholder="Nom"
               className="bg-card !text-foreground border-0 border-b border-border rounded-none pl-0 pt-0"
               noFocusRing
-              endAdornment={
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z"
-                    fill="currentColor"
-                  />
-                  <path
-                    d="M20.71 7.04a1.003 1.003 0 000-1.42l-2.34-2.34a1.003 1.003 0 00-1.42 0l-1.83 1.83 3.75 3.75 1.84-1.82z"
-                    fill="currentColor"
-                  />
-                </svg>
-              }
+              endAdornment={<Icon name="pencil" className="w-4 h-4" />}
             />
             <Input
               label="Prénom"
-              labelClassName="!text-black dark:!text-white text-xl font-title font-bold"
+              labelClassName="!text-foreground text-xl font-title font-bold"
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
               placeholder="Prénom"
               className="bg-card !text-foreground border-0 border-b border-border rounded-none pl-0 pt-0"
               noFocusRing
-              endAdornment={
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z"
-                    fill="currentColor"
-                  />
-                  <path
-                    d="M20.71 7.04a1.003 1.003 0 000-1.42l-2.34-2.34a1.003 1.003 0 00-1.42 0l-1.83 1.83 3.75 3.75 1.84-1.82z"
-                    fill="currentColor"
-                  />
-                </svg>
-              }
+              endAdornment={<Icon name="pencil" className="w-4 h-4" />}
             />
             {/* <Input
               label="Adresse mail"
@@ -297,7 +247,7 @@ export default function EditProfilePageClient({ user }: EditProfilePageClientPro
                 onChange={(value) => handleImageChange("profile", value)}
                 error={errors.profileImage || undefined}
                 className="mt-6"
-                accept="image/jpeg,image/jpg,image/png,image/gif"
+                accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/avif"
                 maxSize={10 * 1024 * 1024} // 10MB
                 variant="input"
               />
@@ -308,7 +258,7 @@ export default function EditProfilePageClient({ user }: EditProfilePageClientPro
                 onChange={(value) => handleImageChange("banner", value)}
                 error={errors.bannerImage || undefined}
                 className="mt-6"
-                accept="image/jpeg,image/jpg,image/png,image/gif"
+                accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/avif"
                 maxSize={10 * 1024 * 1024} // 10MB
                 recommendedSize="1200x480 pixels"
                 variant="input"
@@ -318,8 +268,8 @@ export default function EditProfilePageClient({ user }: EditProfilePageClientPro
             {message && (
               <p
                 className={`text-sm ${message.toLowerCase().includes("succès")
-                  ? "text-green-600 dark:text-green-400"
-                  : "text-red-600 dark:text-red-400"
+                  ? "text-primary"
+                  : "text-destructive"
                   }`}
               >
                 {message}
@@ -365,22 +315,7 @@ export default function EditProfilePageClient({ user }: EditProfilePageClientPro
         <div className="flex flex-col items-center text-center gap-5 bg-card">
           <h3 className="font-title text-3xl">Profil mis à jour</h3>
           <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center shadow-md">
-            <svg
-              width="22"
-              height="22"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              className="text-foreground"
-            >
-              <path
-                d="M20 6L9 17l-5-5"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+            <Icon name="check" className="w-[22px] h-[22px] text-foreground" />
           </div>
 
           <div className="flex items-center gap-4 mt-2">

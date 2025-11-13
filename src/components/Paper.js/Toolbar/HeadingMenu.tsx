@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import Icon from "@/components/Icon";
 
 interface HeadingMenuProps {
   onFormatChange: (command: string, value: string) => void;
@@ -42,44 +43,57 @@ export default function HeadingMenu({ onFormatChange }: HeadingMenuProps) {
           if (next) window.dispatchEvent(new CustomEvent('wysiwyg:open-menu', { detail: MENU_ID }));
           else window.dispatchEvent(new CustomEvent('wysiwyg:open-menu', { detail: '' }));
         }}
-        className="p-2 rounded transition-colors bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"
+        className="p-2 rounded transition-colors bg-muted hover:bg-muted/80 text-foreground"
         title="Titre"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M10.5 20V7H5V4h14v3h-5.5v13z"/></svg>
+        <Icon name="heading" className="w-5 h-5" />
       </button>
 
       {showHeadingMenu && (
-        <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-700 rounded shadow-lg border border-gray-200 dark:border-gray-600 z-50 min-w-max">
+        <div className="absolute top-full left-0 mt-1 bg-card rounded shadow-lg border border-border z-50 min-w-max">
           <div className="py-1">
             <button
               type="button"
               onClick={() => {
-                onFormatChange('formatBlock', 'div');
+                onFormatChange('fontSize', '16px');
                 setShowHeadingMenu(false);
               }}
-              className="w-full px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center justify-between whitespace-nowrap"
+              className="w-full px-4 py-2 text-sm hover:bg-muted flex items-center justify-between whitespace-nowrap"
             >
               16px - Normal
             </button>
-            {[1, 2, 3, 4, 5, 6].map((level) => (
+            {[1, 2, 3, 4, 5, 6].map((level) => {
+              const fontSizeMap: Record<number, string> = {
+                1: '30px',
+                2: '24px',
+                3: '20px',
+                4: '18px',
+                5: '16px',
+                6: '14px'
+              };
+              const fontSize = fontSizeMap[level];
+              const labelMap: Record<number, string> = {
+                1: '30px - Titre principal',
+                2: '24px - Sous-titre',
+                3: '20px - Titre de section',
+                4: '18px - Titre niveau 4',
+                5: '16px - Titre niveau 5',
+                6: '14px - Titre niveau 6'
+              };
+              return (
                 <button
-                key={level}
-                type="button"
-                onClick={() => {
-                  onFormatChange('formatBlock', `h${level}`);
-                  setShowHeadingMenu(false);
-                }}
-                className="w-full px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center justify-between whitespace-nowrap"
+                  key={level}
+                  type="button"
+                  onClick={() => {
+                    onFormatChange('fontSize', fontSize);
+                    setShowHeadingMenu(false);
+                  }}
+                  className="w-full px-4 py-2 text-sm hover:bg-muted flex items-center justify-between whitespace-nowrap"
                 >
-                {level === 1
-                  ? '30px - Titre principal'
-                  : level === 2
-                  ? '24px - Sous-titre'
-                  : level === 3
-                  ? '20px - Titre de section'
-                  : `${level === 4 ? '18px' : level === 5 ? '16px' : '14px'} - Titre niveau ${level}`}
+                  {labelMap[level]}
                 </button>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

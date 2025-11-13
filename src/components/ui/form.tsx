@@ -49,17 +49,17 @@ const FormLabel: React.FC<FormLabelProps> = ({
 }) => (
   <label
     htmlFor={htmlFor}
-    className={cn("block text-sm font-medium text-gray-700 dark:text-gray-300", className)}
+    className={cn("block text-sm font-medium text-foreground", className)}
     {...props}
   >
     {children}
-    {required && <span className="text-red-500 ml-1">*</span>}
+    {required && <span className="text-destructive ml-1">*</span>}
   </label>
 );
 
 const FormError: React.FC<React.ComponentProps<"p">> = ({ children, className = "", ...props }) => (
   <p
-    className={cn("text-sm text-red-600 dark:text-red-400", className)}
+    className={cn("text-sm text-destructive", className)}
     {...props}
   >
     {children}
@@ -68,7 +68,7 @@ const FormError: React.FC<React.ComponentProps<"p">> = ({ children, className = 
 
 const FormHelperText: React.FC<React.ComponentProps<"p">> = ({ children, className = "", ...props }) => (
   <p
-    className={cn("text-sm text-gray-500 dark:text-gray-400", className)}
+    className={cn("text-sm text-muted-foreground", className)}
     {...props}
   >
     {children}

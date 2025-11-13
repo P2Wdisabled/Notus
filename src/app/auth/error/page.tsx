@@ -21,10 +21,10 @@ export default function AuthErrorPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center p-4">
+    <main className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="max-w-md w-full">
         <Card.Header className="text-center">
-          <Card.Title className="text-2xl mb-4 text-red-600 dark:text-red-400">
+          <Card.Title className="text-2xl mb-4 text-destructive">
             Erreur d'authentification
           </Card.Title>
         </Card.Header>
@@ -35,7 +35,7 @@ export default function AuthErrorPage() {
           </Alert>
 
           <div className="text-center space-y-2">
-            <p className="text-dark-gray dark:text-gray">
+            <p className="text-muted-foreground">
               Veuillez réessayer ou contacter le support si le problème persiste.
             </p>
           </div>
@@ -55,7 +55,7 @@ export default function AuthErrorPage() {
           </Button>
         </Card.Footer>
       </Card>
-    </div>
+    </main>
   );
 }
 

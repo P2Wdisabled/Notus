@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { MarkdownConverter } from "./MarkdownConverter";
 import { FormattingHandler } from "./FormattingHandler";
 import LinkPopup from "./LinkPopup";
@@ -8,6 +8,7 @@ import DebugPanel from "./DebugPanel";
 import WysiwygEditorStyles from "./WysiwygEditorStyles";
 import { useEditorEventHandlers } from "./EditorEventHandlers";
 import { useEditorEffects } from "./EditorEffects";
+import { useUndoRedoHistory } from "./useUndoRedoHistory";
 
 interface WysiwygEditorProps {
   content: string;
@@ -40,24 +41,152 @@ export default function WysiwygEditor({
   const editorRef = useRef<HTMLDivElement | null>(null);
   const isUpdatingFromMarkdown = useRef(false);
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
+  const lastSavedMarkdownRef = useRef<string>(content);
+  const isLocalChangeRef = useRef<boolean>(false);
   
   const markdownConverter = useRef<MarkdownConverter | null>(null);
   const formattingHandler = useRef<FormattingHandler | null>(null);
+
+  // Undo/Redo history
+  const undoRedoHistory = useUndoRedoHistory(50);
+
+  // Initialize history with initial content
+  useEffect(() => {
+    undoRedoHistory.initialize(content);
+    lastSavedMarkdownRef.current = content;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only on mount
+
+  // Wrapper for onContentChange that also updates local markdown state for debug panel
+  const handleContentChange = useCallback((newMarkdown: string, skipHistory: boolean = false) => {
+    // Mark as local change to prevent EditorEffects from replacing HTML
+    isLocalChangeRef.current = true;
+    
+    // Update local markdown state for debug panel
+    setMarkdown(newMarkdown);
+    
+    // Save to history if content actually changed and we're not undoing/redoing
+    if (!skipHistory && newMarkdown !== lastSavedMarkdownRef.current) {
+      undoRedoHistory.saveState(newMarkdown);
+      lastSavedMarkdownRef.current = newMarkdown;
+    }
+    
+    // Call parent's onContentChange
+    onContentChange(newMarkdown);
+    
+    // Reset flag after a longer delay to prevent race conditions with remote updates
+    // This ensures that local typing is not overwritten by incoming updates
+    setTimeout(() => {
+      isLocalChangeRef.current = false;
+    }, 300);
+  }, [onContentChange, undoRedoHistory]);
+
+  // Handle undo
+  const handleUndo = useCallback(() => {
+    const previousMarkdown = undoRedoHistory.undo();
+    if (previousMarkdown !== null && editorRef.current && markdownConverter.current) {
+      isUpdatingFromMarkdown.current = true;
+      const html = markdownConverter.current.markdownToHtml(previousMarkdown);
+      editorRef.current.innerHTML = html;
+      setMarkdown(previousMarkdown);
+      lastSavedMarkdownRef.current = previousMarkdown;
+      handleContentChange(previousMarkdown, true);
+      
+      // Restore cursor position
+      setTimeout(() => {
+        isUpdatingFromMarkdown.current = false;
+        // Place cursor at end
+        const sel = window.getSelection();
+        if (sel && editorRef.current) {
+          const range = document.createRange();
+          range.selectNodeContents(editorRef.current);
+          range.collapse(false);
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+      }, 0);
+    }
+  }, [undoRedoHistory, handleContentChange]);
+
+  // Handle redo
+  const handleRedo = useCallback(() => {
+    const nextMarkdown = undoRedoHistory.redo();
+    if (nextMarkdown !== null && editorRef.current && markdownConverter.current) {
+      isUpdatingFromMarkdown.current = true;
+      const html = markdownConverter.current.markdownToHtml(nextMarkdown);
+      editorRef.current.innerHTML = html;
+      setMarkdown(nextMarkdown);
+      lastSavedMarkdownRef.current = nextMarkdown;
+      handleContentChange(nextMarkdown, true);
+      
+      // Restore cursor position
+      setTimeout(() => {
+        isUpdatingFromMarkdown.current = false;
+        // Place cursor at end
+        const sel = window.getSelection();
+        if (sel && editorRef.current) {
+          const range = document.createRange();
+          range.selectNodeContents(editorRef.current);
+          range.collapse(false);
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+      }, 0);
+    }
+  }, [undoRedoHistory, handleContentChange]);
+
+  // Expose undo/redo functions globally
+  useEffect(() => {
+    (window as any).handleWysiwygUndo = handleUndo;
+    (window as any).handleWysiwygRedo = handleRedo;
+    (window as any).canWysiwygUndo = () => undoRedoHistory.canUndo();
+    (window as any).canWysiwygRedo = () => undoRedoHistory.canRedo();
+    
+    return () => {
+      delete (window as any).handleWysiwygUndo;
+      delete (window as any).handleWysiwygRedo;
+      delete (window as any).canWysiwygUndo;
+      delete (window as any).canWysiwygRedo;
+    };
+  }, [handleUndo, handleRedo, undoRedoHistory]);
 
   // Initialize converter and handler
   useEffect(() => {
     markdownConverter.current = new MarkdownConverter();
     formattingHandler.current = new FormattingHandler(
       editorRef,
-      onContentChange,
+      (md: string) => handleContentChange(md, false),
       (html: string) => markdownConverter.current?.htmlToMarkdown(html) || ""
     );
-  }, [onContentChange]);
+  }, [handleContentChange]);
 
-  // Update markdown when content prop changes
+  // Update markdown when content prop changes (from remote updates)
+  // Don't save remote updates to history
   useEffect(() => {
-    setMarkdown(content);
-  }, [content]);
+    // Don't update if this is a local change (user is typing)
+    // But use a timeout to allow updates after typing stops
+    if (isLocalChangeRef.current) {
+      // Check again after a delay to allow remote updates to come through
+      const timeoutId = setTimeout(() => {
+        if (content !== markdown && content !== lastSavedMarkdownRef.current) {
+          // Only update if we're not currently typing
+          if (!isLocalChangeRef.current) {
+            setMarkdown(content);
+            lastSavedMarkdownRef.current = content;
+          }
+        }
+      }, 350); // Wait a bit longer than the isLocalChange timeout (300ms)
+      
+      return () => clearTimeout(timeoutId);
+    }
+    
+    if (content !== markdown && content !== lastSavedMarkdownRef.current) {
+      setMarkdown(content);
+      // Update history to reflect remote change, but don't add it as a new state
+      // This keeps the history in sync with the actual content
+      lastSavedMarkdownRef.current = content;
+    }
+  }, [content, markdown]);
 
   // Use custom hooks for event handlers and effects
   const eventHandlers = useEditorEventHandlers({
@@ -66,7 +195,7 @@ export default function WysiwygEditor({
     isUpdatingFromMarkdown,
     debounceTimeout,
     markdown,
-    onContentChange,
+    onContentChange: handleContentChange,
     setLinkPopup,
     setSelectedImage,
     setImageOverlayRect,
@@ -79,13 +208,14 @@ export default function WysiwygEditor({
     editorRef,
     markdown,
     markdownConverter,
-    onContentChange,
+    onContentChange: handleContentChange,
     selectedImage,
     setImageOverlayRect,
     formattingHandler,
     debounceTimeout,
     handleEditorChange: eventHandlers.handleEditorChange,
-    isUpdatingFromMarkdown
+    isUpdatingFromMarkdown,
+    isLocalChange: isLocalChangeRef
   });
 
   return (
@@ -93,10 +223,10 @@ export default function WysiwygEditor({
       <WysiwygEditorStyles />
       <div className="flex relative select-none">
         {/* Editor */}
-        <div className={`flex flex-col relative ${showDebug ? '' : 'w-full'}`}>
+        <div className={`flex flex-col relative w-full`}>
           {showDebug && (
-            <div className="bg-gray-50 dark:bg-gray-800 px-3 py-2 border-b border-gray-200 dark:border-gray-700">
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Éditeur WYSIWYG</span>
+            <div className="bg-muted px-3 py-2 border-b border-border">
+              <span className="text-sm font-medium text-foreground">Éditeur WYSIWYG</span>
             </div>
           )}
           <div className="flex-1 relative">
@@ -109,7 +239,7 @@ export default function WysiwygEditor({
               onMouseOver={eventHandlers.handleLinkHover}
               onMouseOut={eventHandlers.handleLinkLeave}
               onDoubleClick={readOnly ? undefined : eventHandlers.handleEditorDoubleClick}
-              className={`wysiwyg-editor ${showDebug ? 'flex-1' : 'w-full'} p-4 border-0 resize-none focus:outline-none bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 prose prose-sm max-w-none prose-h1:text-3xl prose-h1:font-bold prose-h1:text-gray-900 prose-h1:dark:text-gray-100 prose-h2:text-2xl prose-h2:font-bold prose-h2:text-gray-900 prose-h2:dark:text-gray-100 prose-h3:text-xl prose-h3:font-bold prose-h3:text-gray-900 prose-h3:dark:text-gray-100 prose-h4:text-lg prose-h4:font-bold prose-h4:text-gray-900 prose-h4:dark:text-gray-100 prose-h5:text-base prose-h5:font-bold prose-h5:text-gray-900 prose-h5:dark:text-gray-100 prose-h6:text-sm prose-h6:font-bold prose-h6:text-gray-900 prose-h6:dark:text-gray-100 prose-p:text-gray-900 prose-p:dark:text-gray-100 prose-strong:text-gray-900 prose-strong:dark:text-gray-100 prose-em:text-gray-900 prose-em:dark:text-gray-100 prose-a:text-blue-600 prose-a:dark:text-blue-400 prose-a:underline prose-blockquote:text-gray-700 prose-blockquote:dark:text-gray-300 prose-ul:text-gray-900 prose-ul:dark:text-gray-100 prose-ol:text-gray-900 prose-ol:dark:text-gray-100`}
+              className={`wysiwyg-editor ${showDebug ? 'flex-1' : 'w-full'} p-4 border-0 resize-none focus:outline-none bg-card text-foreground prose prose-sm max-w-none prose-a:text-primary prose-a:underline`}
               style={{ 
                 minHeight: '200px', 
                 maxHeight: 'none',
@@ -139,7 +269,12 @@ export default function WysiwygEditor({
         </div>
 
         {/* Debug Panel */}
-        <DebugPanel showDebug={showDebug} markdown={markdown} />
+        <DebugPanel 
+          showDebug={showDebug} 
+          markdown={markdown}
+          editorRef={editorRef}
+          markdownConverter={markdownConverter.current}
+        />
         
         {/* Link Popup */}
         <LinkPopup 

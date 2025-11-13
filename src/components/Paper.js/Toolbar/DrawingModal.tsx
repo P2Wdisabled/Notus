@@ -38,7 +38,7 @@ export default function DrawingModal({ isOpen, onClose, onFormatChange }: Drawin
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Dessiner" size="full" className="sm:max-w-4xl">
       <Modal.Content>
-        <div ref={drawingModalContentRef} className="w-full max-h-[80vh] relative bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded overflow-hidden">
+        <div ref={drawingModalContentRef} className="w-full max-h-[80vh] relative bg-card border border-border rounded overflow-hidden">
           <div className="relative w-full h-[50vh] sm:h-[60vh] md:h-[65vh]">
             <ClientOnlyDrawingCanvas
               mode="draw"
@@ -73,7 +73,7 @@ export default function DrawingModal({ isOpen, onClose, onFormatChange }: Drawin
                 setDrawingState((s) => ({ ...s, color }));
                 canvasCtrlRef.current?.setDrawingState?.({ color });
               }}
-              className="h-9 w-12 p-1 rounded border border-gray-300 dark:border-gray-600 bg-transparent"
+              className="h-9 w-12 p-1 rounded border border-border bg-transparent"
             />
           </div>
           <div className="flex items-center gap-3">
@@ -90,7 +90,7 @@ export default function DrawingModal({ isOpen, onClose, onFormatChange }: Drawin
               }}
               className="flex-1"
             />
-            <span className="text-xs text-gray-500 w-8 text-right">{drawingState.size}</span>
+            <span className="text-xs text-muted-foreground w-8 text-right">{drawingState.size}</span>
           </div>
           <div className="flex items-center gap-3">
             <label className="text-sm shrink-0">Opacité</label>
@@ -107,14 +107,14 @@ export default function DrawingModal({ isOpen, onClose, onFormatChange }: Drawin
               }}
               className="flex-1"
             />
-            <span className="text-xs text-gray-500 w-10 text-right">{Math.round(drawingState.opacity * 100)}%</span>
+            <span className="text-xs text-muted-foreground w-10 text-right">{Math.round(drawingState.opacity * 100)}%</span>
           </div>
         </div>
       </Modal.Content>
       <Modal.Footer>
         <button
           type="button"
-          className="px-3 py-2 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600"
+          className="px-3 py-2 rounded bg-muted hover:bg-muted/80"
           onClick={() => {
             // Reset
             setDrawings([]);
@@ -125,7 +125,7 @@ export default function DrawingModal({ isOpen, onClose, onFormatChange }: Drawin
         </button>
         <button
           type="button"
-          className="px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
+          className="px-3 py-2 rounded bg-primary text-primary-foreground hover:bg-primary/90"
           onClick={async () => {
             try {
               const dataUrl = canvasCtrlRef.current?.exportAsDataURL?.();

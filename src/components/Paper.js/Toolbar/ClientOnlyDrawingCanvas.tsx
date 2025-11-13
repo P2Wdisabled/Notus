@@ -43,8 +43,8 @@ export default function ClientOnlyDrawingCanvas({ mode, ...props }: ClientOnlyDr
   if (!isClient) {
     return (
       <div className={`relative ${props.className || ""}`}>
-        <div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800">
-          <p className="text-gray-500 dark:text-gray-400">
+        <div className="w-full h-full flex items-center justify-center bg-muted">
+          <p className="text-muted-foreground">
             Chargement du canvas...
           </p>
         </div>

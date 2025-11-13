@@ -1,10 +1,10 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/../lib/auth";
 import { getUserDocumentsAction } from "@/lib/actions";
-import NavBar from "@/components/NavBar";
-import ContentWrapper from "@/components/ContentWrapper";
+import NavBar from "@/components/navigation/NavBar";
+import ContentWrapper from "@/components/common/ContentWrapper";
 import { Alert} from "@/components/ui";
-import { SearchableDocumentsList } from "@/components/SearchableDocumentsList";
+import { SearchableDocumentsList } from "@/components/documents/SearchableDocumentsList";
 
 export default async function Home() {
   const session = await getServerSession(authOptions);
@@ -15,13 +15,15 @@ export default async function Home() {
     : { success: true, documents: [] };
 
   return (
-    <div className="min-h-screen bg-background">
+    <main className="min-h-screen bg-background">
       <NavBar />
       <ContentWrapper maxWidth="lg">
-        <div className="space-y-6">
-          <h2 className="font-title text-4xl font-regular text-foreground hidden md:block">
-            Mes notes personnelles
-          </h2>
+        <section className="space-y-6">
+          <header>
+            <h1 className="font-title text-4xl font-regular text-foreground hidden md:block">
+              Mes notes personnelles
+            </h1>
+          </header>
 
           {!documentsResult.success && session?.user && (
             <Alert variant="error">
@@ -44,9 +46,9 @@ export default async function Home() {
             currentUserId={session?.user?.id ? String(session.user.id) : undefined}
             error={!documentsResult.success ? documentsResult.error : undefined}
           />
-        </div>
+        </section>
       </ContentWrapper>
-    </div>
+    </main>
   );
 }
 

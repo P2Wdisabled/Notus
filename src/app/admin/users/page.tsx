@@ -1,5 +1,5 @@
 import { UserService } from "@/lib/services/UserService";
-import UsersTable from "@/components/UsersTable";
+import UsersTable from "@/components/admin/UsersTable";
 
 export default async function AdminUsersPage() {
   const userService = new UserService();
@@ -7,25 +7,25 @@ export default async function AdminUsersPage() {
   const users = usersResult.success ? (usersResult.users || []) : [];
 
   return (
-    <div className="space-y-6">
-      <div className="text-center pt-10">
+    <main className="space-y-6">
+      <header className="text-center pt-10">
         <h1 className="text-3xl font-bold text-foreground">
           Gestion des utilisateurs
         </h1>
-        <p className="mt-2 text-gray-600 dark:text-gray-400">
+        <p className="mt-2 text-muted-foreground">
           Gérez les comptes utilisateurs, bannissez ou débannissez des
           utilisateurs.
         </p>
-      </div>
+      </header>
 
-      <div className="bg-background shadow rounded-lg">
+      <section className="bg-background shadow rounded-lg">
         <div className="px-4 py-5 sm:p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg leading-6 font-medium text-foreground">
               Liste des utilisateurs ({users.length})
             </h3>
             {/* <div className="flex space-x-2">
-              <button className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+              <button className="inline-flex items-center px-3 py-2 border border-border shadow-sm text-sm leading-4 font-medium rounded-md text-foreground bg-card hover:bg-muted focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring">
                 <svg
                   className="w-4 h-4 mr-2"
                   fill="none"
@@ -41,7 +41,7 @@ export default async function AdminUsersPage() {
                 </svg>
                 Filtrer
               </button>
-              <button className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+              <button className="inline-flex items-center px-3 py-2 border border-border shadow-sm text-sm leading-4 font-medium rounded-md text-foreground bg-card hover:bg-muted focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring">
                 <svg
                   className="w-4 h-4 mr-2"
                   fill="none"
@@ -62,8 +62,8 @@ export default async function AdminUsersPage() {
 
           <UsersTable users={users} />
         </div>
-      </div>
-    </div>
+      </section>
+    </main>
   );
 }
 

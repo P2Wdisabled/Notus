@@ -136,7 +136,7 @@ export default function ImageEditModal({
               onMouseDown={handleCropMouseDown}
               onMouseMove={handleCropMouseMove}
               onMouseUp={handleCropMouseUp}
-              className="relative w-full max-h-[60vh] overflow-hidden bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded"
+              className="relative w-full max-h-[60vh] overflow-hidden bg-muted border border-border rounded"
               style={{ aspectRatio: `${imageInfo.naturalWidth}/${imageInfo.naturalHeight}` } as any}
             >
               <img
@@ -148,13 +148,13 @@ export default function ImageEditModal({
               />
               {cropRect && (
                 <div
-                  className="absolute border-2 border-blue-500 bg-blue-500/10"
+                  className="absolute border-2 border-primary bg-primary/10"
                   style={{ left: `${cropRect.x}px`, top: `${cropRect.y}px`, width: `${cropRect.width}px`, height: `${cropRect.height}px` }}
                 />
               )}
             </div>
 
-            <div className="space-y-2">
+              <div className="space-y-2">
               <label className="text-sm">Largeur d'affichage</label>
               <div className="flex items-center gap-3">
                 <input
@@ -168,7 +168,7 @@ export default function ImageEditModal({
                 <span className="text-xs w-12 text-right">{widthPercent}%</span>
                 <button
                   type="button"
-                  className="px-3 py-1 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600"
+                  className="px-3 py-1 rounded bg-muted hover:bg-muted/80"
                   onClick={() => setWidthPercent(100)}
                 >
                   100%
@@ -176,26 +176,26 @@ export default function ImageEditModal({
               </div>
             </div>
 
-            <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span>Astuce: cliquez-glissez sur l'image pour définir la zone à recadrer.</span>
               <button type="button" className="underline" onClick={resetCrop}>Sélection complète</button>
             </div>
           </div>
         ) : (
-          <div className="text-sm text-gray-600 dark:text-gray-300">Aucune image sélectionnée.</div>
+          <div className="text-sm text-muted-foreground">Aucune image sélectionnée.</div>
         )}
       </Modal.Content>
       <Modal.Footer>
         <button
           type="button"
-          className="px-3 py-2 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600"
+          className="px-3 py-2 rounded bg-muted hover:bg-muted/80"
           onClick={onClose}
         >
           Annuler
         </button>
         <button
           type="button"
-          className="px-3 py-2 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600"
+          className="px-3 py-2 rounded bg-muted hover:bg-muted/80"
           onClick={applyResizeOnly}
           disabled={!canEditImage}
         >
@@ -203,7 +203,7 @@ export default function ImageEditModal({
         </button>
         <button
           type="button"
-          className="px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
+          className="px-3 py-2 rounded bg-primary text-primary-foreground hover:bg-primary/90"
           onClick={applyCropAndReplace}
           disabled={!canEditImage}
         >

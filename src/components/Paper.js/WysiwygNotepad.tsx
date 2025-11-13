@@ -56,13 +56,22 @@ export default function WysiwygNotepad({
       isConnected, 
       hasRoomId: !!roomId 
     });
-    // Important: do NOT set local markdown here to avoid re-rendering the editor while typing.
-    // The editor manages its own state; we only set markdown on remote updates.
     
     // Emit to other clients if connected and has roomId
     if (roomId && emitChange && isConnected) {
       console.log('📝 Emitting to other clients');
       emitChange(newMarkdown);
+    }
+    
+    // Also apply the change locally after a delay to normalize the markdown
+    // This ensures the sender sees the same normalized markdown as receivers
+    // The delay allows the markdown to be processed and normalized through the same path as remote updates
+    if (roomId && isConnected) {
+      setTimeout(() => {
+        // Apply the markdown locally to ensure it's normalized the same way
+        // This will trigger the same normalization process as remote updates
+        setMarkdown(newMarkdown);
+      }, 100);
     }
     
     // Notify parent with the expected format

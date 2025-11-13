@@ -1,7 +1,7 @@
 "use client";
 import { useActionState, startTransition } from "react";
 import { Button, Modal } from "@/components/ui";
-import MenuItem from "@/components/ui/overlay-menu-item";
+import MenuItem from "@/components/ui/overlay/overlay-menu-item";
 import { Input } from "@/components/ui/input";
 import { updateDocumentAction } from "@/lib/actions";
 import {
@@ -11,17 +11,18 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useLocalSession } from "@/hooks/useLocalSession";
 import WysiwygNotepad from "@/components/Paper.js/WysiwygNotepad";
 import { Document } from "@/lib/types";
-import TagsManager from "@/components/TagsManager";
-import { addShareAction } from "@/lib/actions/DocumentActions";
+import TagsManager from "@/components/documents/TagsManager";
+import { addShareAction, deleteDocumentAction } from "@/lib/actions/DocumentActions";
 import UserListButton from "@/components/ui/UserList/UserListButton";
 import { useGuardedNavigate } from "@/hooks/useGuardedNavigate";
 import { useCollaborativeTitle } from "@/lib/paper.js/useCollaborativeTitle";
 import sanitizeLinks from "@/lib/sanitizeLinks";
+import Icon from "@/components/Icon";
 
 interface EditDocumentPageClientProps {
   session?: any;
@@ -57,6 +58,8 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
 
   // Router
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isNew = searchParams?.get("isNew") === "1";
   const { guardedNavigate, checkConnectivity } = useGuardedNavigate();
 
   // Action state (must be before any conditional returns)
@@ -71,6 +74,11 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     FormData | Record<string, any>
   >(typedUpdateAction, { ok: false, error: "" });
 
+  const [deleteState, deleteAction] = useActionState(
+    deleteDocumentAction as unknown as (prev: any, fd: FormData) => Promise<string>,
+    ""
+  );
+
   const [document, setDocument] = useState<Document | null>(null);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState<NotepadContent>({
@@ -78,6 +86,16 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     drawings: [],
     textFormatting: {},
   });
+
+  async function handleCancelCreation() {
+    const fd = new FormData();
+    if (document?.id) fd.set("documentId", String(document.id));
+    if (userId) fd.set("userId", String(userId));
+    startTransition(() => {
+      deleteAction(fd);
+    });
+    router.push("/");
+  }
   const [tags, setTags] = useState<string[]>([]);
   const [showTagInput, setShowTagInput] = useState(false);
   const [newTag, setNewTag] = useState("");
@@ -101,6 +119,14 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   const [users, setUsers] = useState([]);
   const [isOffline, setIsOffline] = useState(false);
   const [offlineBaseline, setOfflineBaseline] = useState<string>("");
+  
+  // État de sauvegarde : 'synchronized' | 'saving' | 'unsynchronized'
+  const [saveStatus, setSaveStatus] = useState<'synchronized' | 'saving' | 'unsynchronized'>('synchronized');
+  const lastSavedContentRef = useRef<string>("");
+  const lastSavedTitleRef = useRef<string>("");
+  const lastSavedTagsRef = useRef<string[]>([]);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isSavingRef = useRef(false);
 
   // Collaborative title synchronization
   const { emitTitleChange, isConnected: isTitleConnected } = useCollaborativeTitle({
@@ -154,6 +180,13 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
         setTitle(result.title);
         setContent(normalizedContent);
         setTags(Array.isArray(result.tags) ? result.tags : []);
+        
+        // Initialiser les refs avec le contenu chargé
+        const contentString = JSON.stringify(normalizedContent);
+        lastSavedContentRef.current = contentString;
+        lastSavedTitleRef.current = result.title;
+        lastSavedTagsRef.current = Array.isArray(result.tags) ? result.tags : [];
+        setSaveStatus('synchronized');
 
         try {
           const cachePayload = {
@@ -189,6 +222,14 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
               setTitle(c.title);
               setContent(normalizeContent(c.content));
               setTags(Array.isArray(c.tags) ? c.tags : []);
+              
+              // Initialiser les refs avec le contenu en cache
+              const cachedContentString = JSON.stringify(normalizeContent(c.content));
+              lastSavedContentRef.current = cachedContentString;
+              lastSavedTitleRef.current = c.title;
+              lastSavedTagsRef.current = Array.isArray(c.tags) ? c.tags : [];
+              setSaveStatus('synchronized');
+              
               setError(null);
               return;
             }
@@ -214,6 +255,14 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
             setTitle(c.title);
             setContent(normalizeContent(c.content));
             setTags(Array.isArray(c.tags) ? c.tags : []);
+            
+            // Initialiser les refs avec le contenu en cache
+            const cachedContentString = JSON.stringify(normalizeContent(c.content));
+            lastSavedContentRef.current = cachedContentString;
+            lastSavedTitleRef.current = c.title;
+            lastSavedTagsRef.current = Array.isArray(c.tags) ? c.tags : [];
+            setSaveStatus('synchronized');
+            
             setError(null);
             return;
           }
@@ -234,7 +283,18 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   useEffect(() => {
     if (document) {
       setTitle(document.title);
-      setContent(normalizeContent(document.content));
+      const normalizedContent = normalizeContent(document.content);
+      setContent(normalizedContent);
+      
+      // Initialiser les refs si elles ne sont pas déjà initialisées
+      if (lastSavedContentRef.current === "") {
+        const contentString = JSON.stringify(normalizedContent);
+        lastSavedContentRef.current = contentString;
+        lastSavedTitleRef.current = document.title;
+        lastSavedTagsRef.current = document.tags || [];
+        setSaveStatus('synchronized');
+      }
+      
       setCanvasCtrl(null);
       fetch(`/api/openDoc/accessList?id=${document.id}`)
         .then(res => res.json())
@@ -300,11 +360,71 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     }
   }, [props.params.id, title, tags, userId, props.session]);
 
+  // Fonction pour déclencher la sauvegarde automatique avec debounce
+  // Note: handleSubmit sera défini plus tard, on utilisera une ref pour l'appeler
+  const handleSubmitRef = useRef<(() => Promise<void>) | null>(null);
+  
+  const triggerAutoSave = useCallback(() => {
+    if (!document?.id || hasEditAccess === false || isSavingRef.current) {
+      return;
+    }
+
+    // Annuler le timeout précédent s'il existe
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    // Marquer comme non synchronisé immédiatement
+    setSaveStatus((prevStatus) => {
+      if (prevStatus !== 'saving') {
+        return 'unsynchronized';
+      }
+      return prevStatus;
+    });
+
+    // Déclencher la sauvegarde après 2 secondes d'inactivité
+    saveTimeoutRef.current = setTimeout(async () => {
+      // Vérifier les changements au moment de la sauvegarde
+      const currentContentString = JSON.stringify(content);
+      const hasChanges = 
+        currentContentString !== lastSavedContentRef.current ||
+        title !== lastSavedTitleRef.current ||
+        JSON.stringify(tags) !== JSON.stringify(lastSavedTagsRef.current);
+
+      if (!hasChanges || isSavingRef.current) {
+        // Pas de changements, remettre à synchronisé
+        setSaveStatus('synchronized');
+        return;
+      }
+
+      try {
+        const onlineOk = await checkConnectivity();
+        if (!onlineOk) {
+          setSaveStatus('unsynchronized');
+          return;
+        }
+
+        isSavingRef.current = true;
+        setSaveStatus('saving');
+        
+        // Appeler handleSubmit via la ref
+        if (handleSubmitRef.current) {
+          await handleSubmitRef.current();
+        }
+      } catch (err) {
+        // Silent error handling for autosave
+        isSavingRef.current = false;
+        setSaveStatus('unsynchronized');
+      }
+    }, 2000); // 2 secondes d'inactivité avant sauvegarde
+  }, [document?.id, hasEditAccess, content, title, tags, checkConnectivity]);
+
   const handleContentChange = useCallback((newContent: any) => {
     const normalized = normalizeContent(newContent);
     setContent(normalized);
     updateLocalStorage(normalized);
-  }, [normalizeContent, updateLocalStorage]);
+    triggerAutoSave();
+  }, [normalizeContent, updateLocalStorage, triggerAutoSave]);
 
   useEffect(() => {
     if (state && (state as any).ok) {
@@ -410,29 +530,34 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     ]
   );
 
-  // -------- Auto-save every 10 seconds (checks connectivity beforehand) --------
+  // Assigner handleSubmit à la ref pour l'auto-save
   useEffect(() => {
-    if (!document?.id || hasEditAccess === false) {
-      return;
+    handleSubmitRef.current = handleSubmit;
+  }, [handleSubmit]);
+
+  // Mettre à jour les refs et le statut après une sauvegarde réussie
+  useEffect(() => {
+    if (state && (state as any).ok) {
+      // Mettre à jour les refs avec le contenu sauvegardé
+      const contentString = JSON.stringify(content);
+      lastSavedContentRef.current = contentString;
+      lastSavedTitleRef.current = title;
+      lastSavedTagsRef.current = [...tags];
+      
+      // Marquer comme synchronisé
+      setSaveStatus('synchronized');
+      isSavingRef.current = false;
     }
+  }, [state, content, title, tags]);
 
-    const intervalId = setInterval(async () => {
-      try {
-        const onlineOk = await checkConnectivity();
-        if (!onlineOk) {
-          return;
-        }
-
-        await handleSubmit();
-      } catch (err) {
-        // Silent error handling for autosave
-      }
-    }, 3000); //Auto-enregistrement après 3 secondes
-
+  // Nettoyer le timeout lors du démontage
+  useEffect(() => {
     return () => {
-      clearInterval(intervalId);
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
     };
-  }, [document?.id, hasEditAccess, handleSubmit, checkConnectivity]);
+  }, []);
 
   // -------- Offline/Online conflict resolution --------
   useEffect(() => {
@@ -577,6 +702,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     if (typeof navigator !== "undefined" && navigator.onLine) {
       persistTags(nextTags);
     }
+    triggerAutoSave();
   };
 
   // -------- Access control --------
@@ -695,10 +821,10 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   // -------- Conditional rendering (after all Hooks) --------
   if (sessionLoading) {
     return (
-      <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange dark:border-dark-purple mx-auto mb-4"></div>
-          <p className="text-orange dark:text-dark-purple">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-primary">
             Chargement de la session...
           </p>
         </div>
@@ -708,17 +834,17 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
 
   if (!isLoggedIn) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="bg-card rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
+          <h1 className="text-2xl font-bold text-foreground mb-4">
             Accès refusé
           </h1>
-          <p className="text-gray-600 dark:text-gray-300 mb-6">
+          <p className="text-muted-foreground mb-6">
             Vous devez être connecté pour modifier un document.
           </p>
           <Link
             href="/login"
-            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-3 px-6 rounded-lg transition-colors"
           >
             Se connecter
           </Link>
@@ -729,10 +855,10 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange dark:border-dark-purple mx-auto mb-4"></div>
-          <p className="text-orange dark:text-dark-purple">Chargement...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-primary">Chargement...</p>
         </div>
       </div>
     );
@@ -740,15 +866,15 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
 
   if (error) {
     return (
-      <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-black rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
-          <h1 className="text-2xl font-bold text-black dark:text-white mb-4">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="bg-card rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
+          <h1 className="text-2xl font-bold text-foreground mb-4">
             Erreur
           </h1>
-          <p className="text-black dark:text-white mb-6">{error}</p>
+          <p className="text-foreground mb-6">{error}</p>
           <Link
             href="/"
-            className="bg-orange hover:bg-orange dark:bg-dark-purple dark:hover:bg-dark-purple text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-3 px-6 rounded-lg transition-colors"
           >
             Retour à l'accueil
           </Link>
@@ -759,17 +885,17 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
 
   if (!document) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="bg-card rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
+          <h1 className="text-2xl font-bold text-foreground mb-4">
             Document non trouvé
           </h1>
-          <p className="text-gray-600 dark:text-gray-300 mb-6">
+          <p className="text-muted-foreground mb-6">
             Ce document n'existe pas ou a été supprimé.
           </p>
           <Link
             href="/"
-            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-3 px-6 rounded-lg transition-colors"
           >
             Retour à l'accueil
           </Link>
@@ -781,17 +907,17 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   // Check if user has any access (read or edit)
   if (hasReadAccess === false) {
     return (
-      <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-black rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
-          <h1 className="text-2xl font-bold text-black dark:text-white mb-4">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="bg-card rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
+          <h1 className="text-2xl font-bold text-foreground mb-4">
             Accès refusé
           </h1>
-          <p className="text-gray-600 dark:text-gray-300 mb-6">
+          <p className="text-muted-foreground mb-6">
             Vous n'êtes pas autorisé à accéder à ce document.
           </p>
           <Link
             href="/"
-            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-3 px-6 rounded-lg transition-colors"
           >
             Retour à l'accueil
           </Link>
@@ -801,33 +927,44 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-black py-8">
+      <div className="min-h-screen bg-background py-8">
       <div className="max-w-4xl mx-auto px-4">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <Link
             href="/"
-            className="text-black dark:text-white font-semibold flex items-center"
+            className="text-foreground font-semibold flex items-center"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5 mr-2"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fillRule="evenodd"
-                d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z"
-                clipRule="evenodd"
-              />
-            </svg>
+            <Icon name="arrowLeft" className="h-5 w-5 mr-2" />
             Retour
           </Link>
           <div className="flex flex-row justify-center items-center">
             <UserListButton users={users} className="self-center" />
             {hasEditAccess === false && (
-              <div className="ml-4 px-3 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 text-sm font-medium rounded-full border border-yellow-200 dark:border-yellow-700">
+              <div className="ml-4 px-3 py-1 bg-muted text-foreground text-sm font-medium rounded-full border border-border">
                 Mode lecture seule
+              </div>
+            )}
+            {hasEditAccess !== false && (
+              <div className="ml-4 px-3 py-1 text-sm font-medium rounded-full border flex items-center gap-2">
+                {saveStatus === 'synchronized' && (
+                  <>
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <span className="text-muted-foreground">Synchronisé</span>
+                  </>
+                )}
+                {saveStatus === 'saving' && (
+                  <>
+                    <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
+                    <span className="text-muted-foreground">Enregistrement...</span>
+                  </>
+                )}
+                {saveStatus === 'unsynchronized' && (
+                  <>
+                    <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                    <span className="text-muted-foreground">Non synchronisé</span>
+                  </>
+                )}
               </div>
             )}
             <div className="relative inline-block">
@@ -837,21 +974,10 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
                 onClick={toggleMenu}
                 className="md:mr-0 mr-8"
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-6 w-6"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                >
-                  <circle cx="12" cy="5" r="2" className="fill-black dark:fill-white" />
-                  <circle cx="12" cy="12" r="2" className="fill-black dark:fill-white" />
-                  <circle cx="12" cy="19" r="2" className="fill-black dark:fill-white" />
-                </svg>
+                <Icon name="dotsVertical" className="h-6 w-6" />
               </Button>
               {isMenuOpen && (
-                <div
-                  className="absolute right-0 top-full z-40 rounded-lg shadow-lg p-4 min-w-[13rem] bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700"
-                >
+                <div className="absolute right-0 top-full z-40 rounded-lg shadow-lg p-4 min-w-[13rem] bg-background border border-border">
                   <MenuItem
                     onClick={() => {
                       if (hasEditAccess !== false) {
@@ -860,11 +986,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
                       }
                     }}
                     disabled={hasEditAccess === false}
-                    icon={
-                      <svg width="18" height="16" viewBox="0 0 18 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M16.59 7.5L12 2.91V5.37L11.14 5.5C6.83 6.11 3.91 8.37 2.24 11.83C4.56 10.19 7.44 9.4 11 9.4H12V12.09M10 10.42C5.53 10.63 2.33 12.24 0 15.5C1 10.5 4 5.5 11 4.5V0.5L18 7.5L11 14.5V10.4C10.67 10.4 10.34 10.41 10 10.42Z" fill={hasEditAccess === false ? "#999" : "#DD05C7"} />
-                      </svg>
-                    }
+                    icon={<Icon name="share" className={hasEditAccess === false ? "w-4 h-4 text-muted-foreground" : "w-4 h-4 text-primary"} />}
                   >
                     {hasEditAccess === false ? "Lecture seule" : "Partager"}
                   </MenuItem>
@@ -877,13 +999,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
                       }
                     }}
                     disabled={hasEditAccess === false || isPending}
-                    icon={
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M19 21H5C3.89543 21 3 20.1046 3 19V5C3 3.89543 3.89543 3 5 3H16L21 8V19C21 20.1046 20.1046 21 19 21Z" stroke={hasEditAccess === false || isPending ? "#999" : "#DD05C7"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        <path d="M17 21V13H7V21" stroke={hasEditAccess === false || isPending ? "#999" : "#DD05C7"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        <path d="M7 3V8H15" stroke={hasEditAccess === false || isPending ? "#999" : "#DD05C7"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    }
+                    icon={<Icon name="document" className={hasEditAccess === false || isPending ? "w-4 h-4 text-muted-foreground" : "w-4 h-4 text-primary"} />}
                   >
                     {isPending ? "Sauvegarde..." : hasEditAccess === false ? "Lecture seule" : "Sauvegarder"}
                   </MenuItem>
@@ -915,7 +1031,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
               />
 
               <div>
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="text-sm font-medium text-foreground mb-1">
                   Permissions
                 </label>
                 <DropdownMenu>
@@ -927,13 +1043,13 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
                   <DropdownMenuContent>
                     <DropdownMenuItem
                       onClick={() => setPermission("read")}
-                      className={permission === "read" ? "bg-gray-100 dark:bg-gray-700" : ""}
+                      className={permission === "read" ? "bg-muted" : ""}
                     >
                       Peut lire
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onClick={() => setPermission("write")}
-                      className={permission === "write" ? "bg-gray-100 dark:bg-gray-700" : ""}
+                      className={permission === "write" ? "bg-muted" : ""}
                     >
                       Peut modifier
                     </DropdownMenuItem>
@@ -965,10 +1081,10 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
               </div>
 
               {shareError && (
-                <p className="text-sm text-red-600 dark:text-red-400 mt-2">{shareError}</p>
+                <p className="text-sm text-destructive mt-2">{shareError}</p>
               )}
               {shareSuccess && (
-                <p className="text-sm text-green-600 dark:text-green-400 mt-2">{shareSuccess}</p>
+                <p className="text-sm text-primary mt-2">{shareSuccess}</p>
               )}
             </div>
           </Modal.Content>
@@ -976,8 +1092,16 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
           </Modal.Footer>
         </Modal>
 
+        {/* New doc banner/cancel */}
+        {isNew && hasEditAccess !== false && (
+          <div className="mb-4 rounded-lg p-3 bg-muted flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">Nouvelle note en création</span>
+            <Button variant="ghost" onClick={handleCancelCreation}>Annuler la création</Button>
+          </div>
+        )}
+
         {/* Edit form */}
-        <div className="bg-white dark:bg-black rounded-2xl border border-gray dark:border-dark-gray p-6 overflow-hidden">
+        <div className="bg-card rounded-2xl border border-border p-6 overflow-hidden">
           <form className="space-y-6">
             {/* Tags */}
             <div className="mb-1">
@@ -1005,9 +1129,10 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
                   if (emitTitleChange && isTitleConnected) {
                     emitTitleChange(newTitle);
                   }
+                  triggerAutoSave();
                 }}
                 readOnly={hasEditAccess === false}
-                className={`w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange dark:focus:ring-primary bg-transparent text-foreground text-xl font-semibold ${hasEditAccess === false ? 'cursor-default opacity-75' : ''}`}
+                className={`w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-ring bg-transparent text-foreground text-xl font-semibold ${hasEditAccess === false ? 'cursor-default opacity-75' : ''}`}
                 placeholder="Titre du document"
                 maxLength={255}
               />
@@ -1015,7 +1140,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
 
             {/* Content */}
             <div>
-              <div className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-700">
+              <div className="border border-border rounded-lg overflow-hidden bg-card">
                 <WysiwygNotepad
                   key={`doc-${document.id}-${document.updated_at}`}
                   initialData={content}
@@ -1025,6 +1150,10 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
                     setContent(remoteContent);
                     // Persist to localStorage like local edits do
                     updateLocalStorage(remoteContent);
+                    // Mettre à jour les refs car c'est un changement distant (synchronisé)
+                    const contentString = JSON.stringify(remoteContent);
+                    lastSavedContentRef.current = contentString;
+                    setSaveStatus('synchronized');
                   }}
                   placeholder="Commencez à écrire votre document..."
                   className=""
@@ -1042,10 +1171,8 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
         {/* Saved notification */}
         {showSavedNotification && (
           <div className="fixed bottom-4 left-4 z-50 pointer-events-none">
-            <div className="bg-primary text-white border border-primary rounded-lg px-3 py-2 shadow-lg pointer-events-auto flex items-center">
-              <svg className="w-4 h-4 mr-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
+            <div className="bg-primary text-primary-foreground border border-primary rounded-lg px-3 py-2 shadow-lg pointer-events-auto flex items-center">
+              <Icon name="check" className="w-4 h-4 mr-2 text-primary-foreground" />
               <span className="text-sm font-medium">Note enregistrée</span>
             </div>
           </div>

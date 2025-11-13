@@ -3,11 +3,11 @@ import { authOptions } from "@/../lib/auth";
 import Link from "next/link";
 import { getUserDocumentsAction } from "@/lib/actions";
 import { fetchSharedDocumentsAction } from "@/lib/actions";
-import Navigation from "@/components/Navigation";
-import NavBar from "@/components/NavBar";
-import ContentWrapper from "@/components/ContentWrapper";
+import Navigation from "@/components/navigation/Navigation";
+import NavBar from "@/components/navigation/NavBar";
+import ContentWrapper from "@/components/common/ContentWrapper";
 import { Button, Card, Alert, LoadingSpinner, Logo } from "@/components/ui";
-import { SearchableDocumentsList } from "@/components/SearchableDocumentsList";
+import { SearchableDocumentsList } from "@/components/documents/SearchableDocumentsList";
 
 export default async function Home() {
   const session = await getServerSession(authOptions);
@@ -56,13 +56,15 @@ export default async function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <main className="min-h-screen bg-background">
       <NavBar />
       <ContentWrapper maxWidth="lg">
-        <div className="space-y-6">
-          <h2 className="font-title text-4xl font-regular text-foreground hidden md:block">
-            Mes notes
-          </h2>
+        <section className="space-y-6">
+          <header>
+            <h1 className="font-title text-4xl font-regular text-foreground hidden md:block">
+              Mes notes
+            </h1>
+          </header>
 
           {!documentsResult.success && session?.user && (
             <Alert variant="error">
@@ -85,9 +87,9 @@ export default async function Home() {
             currentUserId={session?.user?.id ? String(session.user.id) : undefined}
             error={!documentsResult.success ? documentsResult.error : undefined}
           />
-        </div>
+        </section>
       </ContentWrapper>
-    </div>
+    </main>
   );
 }
 
