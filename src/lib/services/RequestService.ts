@@ -29,7 +29,7 @@ export class RequestService {
     }
   }
 
-  async getAllRequests(limit: number = 100, offset: number = 0): Promise<RequestRepositoryResult<Request[]>> {
+  async getAllRequests(limit: number = 100, offset: number = 0): Promise<RequestRepositoryResult<Request>> {
     try {
       return await this.requestRepository.getAllRequests(limit, offset);
     } catch (error) {
@@ -38,7 +38,7 @@ export class RequestService {
     }
   }
 
-  async getRequestsByUser(userId: number): Promise<RequestRepositoryResult<Request[]>> {
+  async getRequestsByUser(userId: number): Promise<RequestRepositoryResult<Request>> {
     try {
       return await this.requestRepository.getRequestsByUser(userId);
     } catch (error) {

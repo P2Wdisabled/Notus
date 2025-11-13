@@ -3,7 +3,7 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
-type ElementTag = keyof JSX.IntrinsicElements;
+type ElementTag = keyof React.JSX.IntrinsicElements;
 
 export interface PageCenterProps<TTag extends ElementTag = "main"> {
   as?: TTag;

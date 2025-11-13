@@ -168,7 +168,7 @@ export class RequestRepository extends BaseRepository {
     }
   }
 
-  async getAllRequests(limit: number = 100, offset: number = 0): Promise<RequestRepositoryResult<Request[]>> {
+  async getAllRequests(limit: number = 100, offset: number = 0): Promise<RequestRepositoryResult<Request>> {
     try {
       const result = await this.query<Request & { user_email: string; user_name: string; validator_email: string; validator_name: string }>(
         `SELECT r.*, 
@@ -203,7 +203,7 @@ export class RequestRepository extends BaseRepository {
     }
   }
 
-  async getRequestsByUser(userId: number): Promise<RequestRepositoryResult<Request[]>> {
+  async getRequestsByUser(userId: number): Promise<RequestRepositoryResult<Request>> {
     try {
       const result = await this.query<Request>(
         `SELECT * FROM user_requests 
