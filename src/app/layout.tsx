@@ -7,6 +7,7 @@ import ThemeToggle from "@/components/common/ThemeToggle";
 import OfflinePopin from "@/components/common/OfflinePopin";
 import { SearchProvider } from "@/contexts/SearchContext";
 import UserStatusGuard from "@/components/auth/UserStatusGuard";
+import DynamicFavicon from "@/components/common/DynamicFavicon";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../lib/auth";
 import Link from "next/link";
@@ -44,6 +45,7 @@ export default async function RootLayout({
       </head>
       <body className="antialiased">
         <ThemeProvider>
+          <DynamicFavicon />
           <AuthSessionProvider session={session}>
             <UserStatusGuard>
               <SearchProvider>
