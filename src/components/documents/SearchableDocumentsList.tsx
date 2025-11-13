@@ -164,10 +164,13 @@ export function SearchableDocumentsList({
           </div>
         )}
         <DocumentsGrid>
-          {filteredDocuments.map((document) => {
+          {filteredDocuments.map((document, index) => {
             const isLocal = !('user_id' in document) || (document as LocalDocument).user_id === undefined;
+            // Compose a stable, unique key using source and index as a tiebreaker so
+            // documents with identical numeric ids (possibly differing types) do not collide.
+            const listKey = `${isLocal ? 'local' : 'server'}-${String(document.id)}-${index}`;
             return (
-              <li key={String(document.id)} className="w-full list-none">
+              <li key={listKey} className="w-full list-none">
                 <DocumentCard
                   document={document as any}
                   currentUserId={currentUserId}
