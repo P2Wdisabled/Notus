@@ -38,9 +38,19 @@ export function useEditorEffects({
     if (!root || !markdown || !markdownConverter.current) return;
 
     // Don't update HTML if this is a local change (user typing)
+    // Check multiple times to handle race conditions
     if (isLocalChange?.current) {
       return;
     }
+
+    // Double-check after a small delay to handle race conditions
+    // This prevents overwriting user input that was just typed
+    const checkLocalChange = () => {
+      if (isLocalChange?.current) {
+        return true;
+      }
+      return false;
+    };
 
     const currentHtml = markdownConverter.current.markdownToHtml(markdown);
     const editorHtml = root.innerHTML;
@@ -58,6 +68,11 @@ export function useEditorEffects({
       }
     } catch (e) {
       // If conversion fails, proceed with normal update
+    }
+    
+    // Final check before updating - if user started typing, don't overwrite
+    if (checkLocalChange()) {
+      return;
     }
 
     // Helpers to preserve caret/selection across HTML refresh

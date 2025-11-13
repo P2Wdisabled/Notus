@@ -54,6 +54,7 @@ export default function WysiwygEditor({
   useEffect(() => {
     undoRedoHistory.initialize(content);
     lastSavedMarkdownRef.current = content;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only on mount
 
   // Wrapper for onContentChange that also updates local markdown state for debug panel
@@ -73,10 +74,11 @@ export default function WysiwygEditor({
     // Call parent's onContentChange
     onContentChange(newMarkdown);
     
-    // Reset flag after a short delay
+    // Reset flag after a longer delay to prevent race conditions with remote updates
+    // This ensures that local typing is not overwritten by incoming updates
     setTimeout(() => {
       isLocalChangeRef.current = false;
-    }, 100);
+    }, 300);
   }, [onContentChange, undoRedoHistory]);
 
   // Handle undo
@@ -161,6 +163,11 @@ export default function WysiwygEditor({
   // Update markdown when content prop changes (from remote updates)
   // Don't save remote updates to history
   useEffect(() => {
+    // Don't update if this is a local change (user is typing)
+    if (isLocalChangeRef.current) {
+      return;
+    }
+    
     if (content !== markdown && content !== lastSavedMarkdownRef.current) {
       setMarkdown(content);
       // Update history to reflect remote change, but don't add it as a new state
@@ -204,7 +211,7 @@ export default function WysiwygEditor({
       <WysiwygEditorStyles />
       <div className="flex relative select-none">
         {/* Editor */}
-        <div className={`flex flex-col relative ${showDebug ? '' : 'w-full'}`}>
+        <div className={`flex flex-col relative w-full`}>
           {showDebug && (
             <div className="bg-muted px-3 py-2 border-b border-border">
               <span className="text-sm font-medium text-foreground">Éditeur WYSIWYG</span>

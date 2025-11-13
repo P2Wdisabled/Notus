@@ -271,8 +271,118 @@ export class FormattingHandler {
           break;
         case 'formatBlock':
           if (value) {
-            document.execCommand('formatBlock', false, value);
-            restoreSelection();
+            // For multi-line selections, we need to apply formatBlock to each block element
+            // Find all block elements that intersect with the selection
+            const blockElements: HTMLElement[] = [];
+            const startNode = range.startContainer.nodeType === Node.TEXT_NODE 
+              ? range.startContainer.parentElement 
+              : range.startContainer as HTMLElement;
+            const endNode = range.endContainer.nodeType === Node.TEXT_NODE 
+              ? range.endContainer.parentElement 
+              : range.endContainer as HTMLElement;
+            
+            if (!startNode || !endNode) {
+              document.execCommand('formatBlock', false, value);
+              restoreSelection();
+              break;
+            }
+            
+            // Get the common ancestor
+            const commonAncestor = range.commonAncestorContainer.nodeType === Node.TEXT_NODE
+              ? range.commonAncestorContainer.parentElement
+              : range.commonAncestorContainer as HTMLElement;
+            
+            if (!commonAncestor) {
+              document.execCommand('formatBlock', false, value);
+              restoreSelection();
+              break;
+            }
+            
+            // Find all block elements between start and end
+            const blockTags = ['p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'li'];
+            const allElements = commonAncestor.querySelectorAll(blockTags.join(','));
+            
+            allElements.forEach((el) => {
+              const blockEl = el as HTMLElement;
+              // Check if this block element intersects with the selection
+              try {
+                const blockRange = document.createRange();
+                blockRange.selectNodeContents(blockEl);
+                
+                // Check if selection intersects with this block
+                const intersects = range.compareBoundaryPoints(Range.START_TO_END, blockRange) < 0 &&
+                                  range.compareBoundaryPoints(Range.END_TO_START, blockRange) > 0;
+                
+                // Also check if selection boundaries are within this block
+                const containsStart = blockEl.contains(startNode);
+                const containsEnd = blockEl.contains(endNode);
+                
+                if (intersects || containsStart || containsEnd) {
+                  if (!blockElements.includes(blockEl)) {
+                    blockElements.push(blockEl);
+                  }
+                }
+              } catch (e) {
+                // If range comparison fails, check containment
+                if (blockEl.contains(startNode) || blockEl.contains(endNode)) {
+                  if (!blockElements.includes(blockEl)) {
+                    blockElements.push(blockEl);
+                  }
+                }
+              }
+            });
+            
+            // Also check if startNode or endNode themselves are block elements
+            if (startNode && blockTags.includes(startNode.tagName.toLowerCase()) && !blockElements.includes(startNode)) {
+              blockElements.push(startNode);
+            }
+            if (endNode && blockTags.includes(endNode.tagName.toLowerCase()) && !blockElements.includes(endNode)) {
+              blockElements.push(endNode);
+            }
+            
+            // Apply formatBlock to each block element
+            if (blockElements.length > 0) {
+              blockElements.forEach((blockEl) => {
+                try {
+                  // Create a range for this block element
+                  const blockRange = document.createRange();
+                  blockRange.selectNodeContents(blockEl);
+                  
+                  // Set selection to this block
+                  const sel = window.getSelection();
+                  if (sel) {
+                    sel.removeAllRanges();
+                    sel.addRange(blockRange);
+                    // Apply formatBlock
+                    document.execCommand('formatBlock', false, value);
+                  }
+                } catch (e) {
+                  // If execCommand fails, manually wrap content
+                  try {
+                    const newEl = document.createElement(value);
+                    // Copy styles if needed
+                    if (blockEl.style.cssText) {
+                      newEl.style.cssText = blockEl.style.cssText;
+                    }
+                    // Move all children
+                    while (blockEl.firstChild) {
+                      newEl.appendChild(blockEl.firstChild);
+                    }
+                    // Replace old element with new one
+                    blockEl.parentNode?.replaceChild(newEl, blockEl);
+                  } catch (e2) {
+                    // Ignore errors
+                  }
+                }
+              });
+              
+              // Restore original selection
+              restoreSelection();
+            } else {
+              // Fallback to standard behavior
+              document.execCommand('formatBlock', false, value);
+              restoreSelection();
+            }
           }
           break;
         case 'createLink':

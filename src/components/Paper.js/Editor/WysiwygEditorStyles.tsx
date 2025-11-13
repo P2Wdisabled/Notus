@@ -8,16 +8,28 @@ export default function WysiwygEditorStyles() {
         margin: 1rem 0 !important;
         padding-left: 1.5rem !important;
         display: block !important;
+        list-style-position: outside !important;
       }
       .wysiwyg-editor ol {
         list-style-type: decimal !important;
         margin: 1rem 0 !important;
         padding-left: 1.5rem !important;
         display: block !important;
+        list-style-position: outside !important;
       }
       .wysiwyg-editor li {
         margin: 0.25rem 0 !important;
         display: list-item !important;
+        list-style-position: outside !important;
+      }
+      /* Ensure list markers stay outside even when list has text-align */
+      .wysiwyg-editor ul[style*="text-align"],
+      .wysiwyg-editor ol[style*="text-align"] {
+        list-style-position: outside !important;
+        padding-left: 1.5rem !important;
+      }
+      .wysiwyg-editor ul[style*="text-align"] li,
+      .wysiwyg-editor ol[style*="text-align"] li {
         list-style-position: outside !important;
       }
       .wysiwyg-editor a {

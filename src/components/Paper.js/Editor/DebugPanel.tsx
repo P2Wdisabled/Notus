@@ -62,7 +62,7 @@ export default function DebugPanel({ showDebug, markdown, editorRef, markdownCon
         }}
       />
 
-      <div className="flex flex-col border-l border-border" style={{ width: `${(1 - splitRatio) * 100}%` }}>
+      <div className="flex flex-col border-l border-border" style={{ width: '100%' }}>
         <div className="bg-muted px-3 py-2 border-b border-border">
           <span className="text-sm font-medium text-foreground">Variable Markdown (Debug)</span>
         </div>

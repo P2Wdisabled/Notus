@@ -56,6 +56,19 @@ export class MarkdownConverter {
       linkReferenceStyle: 'full',
     });
 
+    // Override escape method to prevent escaping of list markers (- and .)
+    // This prevents \- and 1\. from appearing in markdown output
+    const originalEscape = this.turndownService.escape.bind(this.turndownService);
+    this.turndownService.escape = (text: string) => {
+      // Don't escape dashes and dots that are list markers
+      // These patterns match list markers at the start of lines
+      const escaped = originalEscape(text);
+      // Remove escape characters before dashes and dots that are list markers
+      return escaped
+        .replace(/^(\s*)\\- /gm, '$1- ')  // Fix \- at start of line (unordered list)
+        .replace(/^(\s*)(\d+)\\. /gm, '$1$2. ');  // Fix 1\. at start of line (ordered list)
+    };
+
     this.setupCustomRules();
   }
 
@@ -145,6 +158,31 @@ export class MarkdownConverter {
       replacement: (content) => `~~${content}~~`
     });
 
+    // Handle divs containing lists with alignment (must come before textAlign rule)
+    // This rule unwraps lists from divs and applies alignment directly to the list
+    this.turndownService.addRule('alignedListContainer', {
+      filter: (node) => {
+        const el = node as HTMLElement;
+        if (!el || el.nodeName !== 'DIV' || !el.style || !el.style.textAlign) return false;
+        // Check if this div contains a single ul or ol
+        const children = Array.from(el.children);
+        return children.length === 1 && (children[0].nodeName === 'UL' || children[0].nodeName === 'OL');
+      },
+      replacement: (content, node) => {
+        const el = node as HTMLElement;
+        const align = el.style.textAlign;
+        if (!align) return content;
+        // The content parameter contains the HTML of the list element itself
+        // We need to extract just the inner content (the <li> elements) and wrap it
+        const listElement = el.children[0] as HTMLElement;
+        const listTag = listElement.nodeName.toLowerCase();
+        // Get the inner HTML of the list (the <li> elements)
+        const listContent = listElement.innerHTML;
+        // Return the list with alignment style applied directly
+        return `<${listTag} style="text-align: ${align}">${listContent}</${listTag}>`;
+      }
+    });
+
     this.turndownService.addRule('textAlign', {
       filter: (node) => {
         const el = node as HTMLElement;
@@ -163,13 +201,10 @@ export class MarkdownConverter {
         if (tag === 'LI') {
           return `<li style="list-style-position: outside;"><div style="${style}">${content}</div></li>`;
         }
-        // For list containers: wrap the entire list in a styled div to preserve alignment
-        // without moving the list markers.
-        if (tag === 'UL') {
-          return `<div style="${style}"><ul>${content}</ul></div>`;
-        }
-        if (tag === 'OL') {
-          return `<div style="${style}"><ol>${content}</ol></div>`;
+        // For list containers: apply alignment directly to the list element
+        // instead of wrapping in a div to avoid markdown conversion issues
+        if (tag === 'UL' || tag === 'OL') {
+          return `<${tag.toLowerCase()} style="${style}">${content}</${tag.toLowerCase()}>`;
         }
         // For other block elements, wrap the whole block
         return `<div style="${style}">${content}</div>`;
@@ -730,7 +765,7 @@ export class MarkdownConverter {
       // normalize the HTML before turndown to ensure formatting tags carry styles consistently
       const normalizedHtml = this.normalizeHtmlForTurndown(html);
 
-      const md = this.turndownService.turndown(normalizedHtml);
+      let md = this.turndownService.turndown(normalizedHtml);
 
       if (shouldLog) {
         try {
