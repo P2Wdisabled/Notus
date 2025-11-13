@@ -158,6 +158,25 @@ export class MarkdownConverter {
       replacement: (content) => `~~${content}~~`
     });
 
+    // Preserve lists with alignment as raw HTML to ensure proper rendering
+    // This must come before textAlign rule to have priority
+    this.turndownService.addRule('alignedList', {
+      filter: (node) => {
+        const el = node as HTMLElement;
+        if (!el || !el.style || !el.style.textAlign) return false;
+        const tag = el.nodeName;
+        return tag === 'UL' || tag === 'OL';
+      },
+      replacement: (content, node) => {
+        const el = node as HTMLElement;
+        const align = el.style.textAlign;
+        if (!align) return content;
+        const tag = el.nodeName.toLowerCase();
+        // Return as raw HTML to preserve alignment - this will be preserved in markdown
+        return `<${tag} style="text-align: ${align}">${content}</${tag}>`;
+      }
+    });
+
     // Handle divs containing lists with alignment (must come before textAlign rule)
     // This rule unwraps lists from divs and applies alignment directly to the list
     this.turndownService.addRule('alignedListContainer', {
@@ -203,6 +222,7 @@ export class MarkdownConverter {
         }
         // For list containers: apply alignment directly to the list element
         // instead of wrapping in a div to avoid markdown conversion issues
+        // This rule should not match if alignedList rule already handled it
         if (tag === 'UL' || tag === 'OL') {
           return `<${tag.toLowerCase()} style="${style}">${content}</${tag.toLowerCase()}>`;
         }
@@ -625,8 +645,49 @@ export class MarkdownConverter {
       .replace(/<blockquote>/g, '<blockquote style="border-left: 4px solid #e5e7eb; padding-left: 1rem; margin: 1rem 0; color: #6b7280; font-style: italic;">')
       .replace(/<hr>/g, '<hr style="border: none; border-top: 1px solid #e5e7eb; margin: 2rem 0;">')
       // FIXED: Better list styling with proper indentation and line handling
-      .replace(/<ul>/g, '<ul style="margin: 1rem 0; padding-left: 2rem; list-style-type: disc; list-style-position: outside;">')
-      .replace(/<ol>/g, '<ol style="margin: 1rem 0; padding-left: 2rem; list-style-type: decimal; list-style-position: outside;">')
+      // Handle lists with existing styles (preserve alignment and other styles)
+      .replace(/<ul(\s+[^>]*)?>/g, (match, attrs = '') => {
+        // Check if style attribute already exists
+        if (attrs && attrs.includes('style=')) {
+          // Extract existing style
+          const styleMatch = attrs.match(/style=["']([^"']*)["']/);
+          if (styleMatch) {
+            const existingStyle = styleMatch[1];
+            // Merge with our default styles, but preserve text-align
+            const defaultStyles = 'margin: 1rem 0; padding-left: 2rem; list-style-type: disc; list-style-position: outside;';
+            // If text-align is in existing style, preserve it
+            if (existingStyle.includes('text-align:')) {
+              return `<ul${attrs}>`;
+            }
+            // Otherwise, merge styles
+            const mergedStyle = `${existingStyle}; ${defaultStyles}`;
+            return `<ul style="${mergedStyle}">`;
+          }
+        }
+        // No style attribute, add default
+        return '<ul style="margin: 1rem 0; padding-left: 2rem; list-style-type: disc; list-style-position: outside;">';
+      })
+      .replace(/<ol(\s+[^>]*)?>/g, (match, attrs = '') => {
+        // Check if style attribute already exists
+        if (attrs && attrs.includes('style=')) {
+          // Extract existing style
+          const styleMatch = attrs.match(/style=["']([^"']*)["']/);
+          if (styleMatch) {
+            const existingStyle = styleMatch[1];
+            // Merge with our default styles, but preserve text-align
+            const defaultStyles = 'margin: 1rem 0; padding-left: 2rem; list-style-type: decimal; list-style-position: outside;';
+            // If text-align is in existing style, preserve it
+            if (existingStyle.includes('text-align:')) {
+              return `<ol${attrs}>`;
+            }
+            // Otherwise, merge styles
+            const mergedStyle = `${existingStyle}; ${defaultStyles}`;
+            return `<ol style="${mergedStyle}">`;
+          }
+        }
+        // No style attribute, add default
+        return '<ol style="margin: 1rem 0; padding-left: 2rem; list-style-type: decimal; list-style-position: outside;">';
+      })
       .replace(/<li>/g, '<li style="margin: 0.25rem 0; padding-left: 0; display: list-item; list-style-position: outside; text-indent: 0;">')
       .replace(/<a /g, '<a target="_blank" rel="noopener noreferrer" style="color: #3b82f6; text-decoration: underline; cursor: pointer;" ')
       // Handle links with alignment in divs where content is already an <a>
