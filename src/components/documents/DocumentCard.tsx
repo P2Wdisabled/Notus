@@ -117,7 +117,17 @@ export default function DocumentCard({
   const isOwner = ('user_id' in document) ? (document as any).user_id === currentUserId : false;
   const updatedDate = new Date((document as any).updated_at || new Date());
   const [accessList, setAccessList] = useState<any[]>([]);
-  const [isFavorite, setIsFavorite] = useState<boolean>(Boolean((document as any).favori === true));
+  // Normalize favori which can come from different sources (document.favori or Share.favori)
+  // and may be truthy but not strictly `true` in some codepaths. Keep local state
+  // synchronized when the prop changes.
+  const [isFavorite, setIsFavorite] = useState<boolean>(Boolean((document as any).favori));
+  useEffect(() => {
+    try {
+      setIsFavorite(Boolean((document as any).favori));
+    } catch (e) {
+      // ignore
+    }
+  }, [(document as any).favori]);
   const formattedDate = updatedDate.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
   const updatedAtIso = (
     typeof (document as any).updated_at === 'string'

@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/../lib/auth";
 import { fetchSharedDocumentsAction } from "@/lib/actions/DocumentActions";
+import { getFavoritesAction } from "@/lib/actions";
 import NavBar from "@/components/navigation/NavBar";
 import ContentWrapper from "@/components/common/ContentWrapper";
 import {Alert} from "@/components/ui";
@@ -20,12 +21,20 @@ export default async function Home() {
     user_id: d.user_id != null ? String(d.user_id) : undefined,
   }));
 
+  // Also fetch current user's favorites so we can mark shared documents
+  // as favorite when appropriate (some shared docs may have favori on the share row)
+  const favoritesResult = session?.user?.email ? await getFavoritesAction() : { success: true, documents: [] };
+  const favoriteIds = new Set<string>((favoritesResult.success ? favoritesResult.documents || [] : []).map((f: any) => String(f.id)));
+
+  // Ensure favori flag is present and normalized for the UI
+  const normalizedDocumentsWithFav = normalizedDocuments.map((d: any) => ({ ...d, favori: favoriteIds.has(String(d.id)) ? true : (d.favori ?? false) }));
+
   const listError = documentsResult.success ? undefined : (documentsResult.error || undefined);
 
   // Séparer les documents en deux catégories
   const currentUserId = session?.user?.id;
-  const sharedWithMe = normalizedDocuments.filter(doc => doc.user_id !== String(currentUserId));
-  const sharedByMe = normalizedDocuments.filter(doc => doc.user_id === String(currentUserId));
+  const sharedWithMe = normalizedDocumentsWithFav.filter(doc => doc.user_id !== String(currentUserId));
+  const sharedByMe = normalizedDocumentsWithFav.filter(doc => doc.user_id === String(currentUserId));
 
   return (
     <main className="min-h-screen bg-background">
