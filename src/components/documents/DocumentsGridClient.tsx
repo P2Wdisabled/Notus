@@ -119,6 +119,25 @@ export default function DocumentsGridClient({ documents: serverDocuments = [], c
           onCancel={() => { setSelectMode(false); setSelectedIds([]); }}
           onToggleAll={toggleAll}
           onBulkDelete={handleBulkDelete}
+          onAddToDossier={currentUserId ? async (dossierId: number, documentIds: string[]) => {
+            try {
+              const response = await fetch(`/api/dossiers/${dossierId}/documents`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ documentIds }),
+              });
+              if (response.ok) {
+                setSelectMode(false);
+                setSelectedIds([]);
+              } else {
+                const data = await response.json();
+                console.error("Erreur:", data.error);
+              }
+            } catch (error) {
+              console.error("Erreur lors de l'ajout au dossier:", error);
+            }
+          } : undefined}
+          selectedDocumentIds={selectedIds}
           currentUserId={String(currentUserId || "")}
         />
       )}
