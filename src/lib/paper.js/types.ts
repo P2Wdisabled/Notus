@@ -23,6 +23,15 @@ export interface TitleUpdateData {
   ts?: number;
 }
 
+export interface CursorPositionData {
+  clientId: string;
+  username: string;
+  offset: number;
+  x: number;
+  y: number;
+  ts: number;
+}
+
 export interface RoomState {
   drawing: DrawingData[];
   text: string;
@@ -130,6 +139,7 @@ export interface ClientToServerEvents {
   'title-update': (roomId: string, data: TitleUpdateData & { clientId: string; ts: number }) => void;
   'text-formatting-update': (data: any) => void;
   'clear-canvas': () => void;
+  'cursor-position': (roomId: string, data: CursorPositionData) => void;
 }
 
 // Server-to-client events
@@ -142,4 +152,5 @@ export interface ServerToClientEvents {
   'clear-canvas': () => void;
   'user-joined': (userId: string) => void;
   'user-left': (userId: string) => void;
+  'cursor-position': (data: CursorPositionData) => void;
 }

@@ -39,6 +39,10 @@ export function initializeSocketServer(httpServer: HTTPServer) {
     socket.on('drawing-data', (roomId: string, data: any) => {
       socket.to(roomId).emit('drawing-data', data);
     });
+
+    socket.on('cursor-position', (roomId: string, data: any) => {
+      socket.to(roomId).emit('cursor-position', data);
+    });
   });
 
   return io;
