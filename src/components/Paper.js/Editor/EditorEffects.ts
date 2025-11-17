@@ -37,6 +37,73 @@ export function useEditorEffects({
     const root = editorRef.current;
     if (!root || !markdown || !markdownConverter.current) return;
 
+    // Always capture selection first, before any checks
+    // This is important for collaborative editing to adjust cursor position
+    const getSelectionOffsets = (container: HTMLElement): { start: number; end: number } | null => {
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) return null;
+      const range = sel.getRangeAt(0);
+      
+      // Helper to check if a node is within the container
+      const isNodeInContainer = (node: Node): boolean => {
+        if (node === container) return true;
+        if (node.nodeType === Node.TEXT_NODE || node.nodeType === Node.ELEMENT_NODE) {
+          return container.contains(node);
+        }
+        return false;
+      };
+      
+      // Ensure selection belongs to this editor
+      if (!isNodeInContainer(range.startContainer) || !isNodeInContainer(range.endContainer)) {
+        return null;
+      }
+
+      const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+      let start = -1;
+      let end = -1;
+      let offset = 0;
+      let node: Node | null = walker.nextNode();
+      
+      while (node) {
+        const textLen = (node.textContent || '').length;
+        if (node === range.startContainer) {
+          start = offset + range.startOffset;
+        }
+        if (node === range.endContainer) {
+          end = offset + range.endOffset;
+        }
+        // If we found both positions, we can break early
+        if (start >= 0 && end >= 0) break;
+        offset += textLen;
+        node = walker.nextNode();
+      }
+      
+      // If we didn't find the positions in text nodes, try a fallback
+      if (start < 0 || end < 0) {
+        // Fallback: calculate based on the range position relative to container
+        try {
+          const preCaretRange = range.cloneRange();
+          preCaretRange.selectNodeContents(container);
+          preCaretRange.setEnd(range.startContainer, range.startOffset);
+          start = preCaretRange.toString().length;
+          
+          const preEndRange = range.cloneRange();
+          preEndRange.selectNodeContents(container);
+          preEndRange.setEnd(range.endContainer, range.endOffset);
+          end = preEndRange.toString().length;
+        } catch {
+          return null;
+        }
+      }
+      
+      if (start < 0 || end < 0) return null;
+      return { start, end };
+    };
+
+    // Capture selection BEFORE checking isLocalChange
+    const prevSelection = getSelectionOffsets(root);
+    const hasActiveSelection = prevSelection !== null;
+
     // Don't update HTML if this is a local change (user typing)
     // Check multiple times to handle race conditions
     if (isLocalChange?.current) {
@@ -81,30 +148,7 @@ export function useEditorEffects({
       return;
     }
 
-    // Helpers to preserve caret/selection across HTML refresh
-    const getSelectionOffsets = (container: HTMLElement): { start: number; end: number } | null => {
-      const sel = window.getSelection();
-      if (!sel || sel.rangeCount === 0) return null;
-      const range = sel.getRangeAt(0);
-      // Ensure selection belongs to this editor
-      if (!container.contains(range.startContainer) || !container.contains(range.endContainer)) return null;
-
-      const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
-      let start = -1;
-      let end = -1;
-      let offset = 0;
-      let node: Node | null = walker.nextNode();
-      while (node) {
-        const textLen = (node.textContent || '').length;
-        if (node === range.startContainer) start = offset + range.startOffset;
-        if (node === range.endContainer) end = offset + range.endOffset;
-        offset += textLen;
-        node = walker.nextNode();
-      }
-      if (start < 0 || end < 0) return null;
-      return { start, end };
-    };
-
+    // Helper to set selection offsets
     const setSelectionOffsets = (container: HTMLElement, selStart: number, selEnd: number) => {
       const totalLength = container.textContent ? container.textContent.length : 0;
       const clamp = (v: number) => Math.max(0, Math.min(v, totalLength));
@@ -156,18 +200,151 @@ export function useEditorEffects({
       }
     };
 
-    // If the editor is focused, preserve selection; otherwise, simple swap
-    const isFocused = document.activeElement === root || root.contains(document.activeElement as Node);
-    const prevSelection = isFocused ? getSelectionOffsets(root) : null;
+    // prevSelection and hasActiveSelection are already captured above
+
+    // Get the old text content from the editor (this is what the cursor position is based on)
+    // We use textContent instead of markdown because cursor positions are based on text, not markdown formatting
+    const oldTextContent = root.textContent || '';
+    // Get the new text content from the new HTML
+    const newTextContent = (() => {
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = currentHtml;
+      return tempDiv.textContent || '';
+    })();
+
+    // Function to adjust cursor position based on text changes
+    // When text is added/removed before the cursor, we need to shift it accordingly
+    const adjustCursorPosition = (
+      oldText: string,
+      newText: string,
+      cursorPos: number
+    ): number => {
+      // Normalize texts (handle line endings and whitespace)
+      const normalize = (text: string) => text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+      const oldNorm = normalize(oldText);
+      const newNorm = normalize(newText);
+      
+      // If texts are identical, no adjustment needed
+      if (oldNorm === newNorm) {
+        return cursorPos;
+      }
+      
+      // Clamp cursor position to valid range
+      const clampedPos = Math.max(0, Math.min(cursorPos, oldNorm.length));
+      
+      // Find the longest common prefix (unchanged text at the beginning)
+      let prefixLength = 0;
+      const minLength = Math.min(oldNorm.length, newNorm.length);
+      while (prefixLength < minLength && oldNorm[prefixLength] === newNorm[prefixLength]) {
+        prefixLength++;
+      }
+      
+      // If cursor is before the first change, no adjustment needed
+      if (clampedPos <= prefixLength) {
+        return clampedPos;
+      }
+      
+      // Find the longest common suffix (unchanged text at the end)
+      let suffixLength = 0;
+      const maxSuffixCheck = Math.min(
+        oldNorm.length - prefixLength,
+        newNorm.length - prefixLength
+      );
+      
+      while (
+        suffixLength < maxSuffixCheck &&
+        oldNorm[oldNorm.length - 1 - suffixLength] === newNorm[newNorm.length - 1 - suffixLength]
+      ) {
+        suffixLength++;
+      }
+      
+      // Calculate change boundaries
+      const oldChangeStart = prefixLength;
+      const oldChangeEnd = oldNorm.length - suffixLength;
+      const newChangeStart = prefixLength;
+      const newChangeEnd = newNorm.length - suffixLength;
+      
+      // Calculate the length difference in the changed region
+      const oldChangeLength = Math.max(0, oldChangeEnd - oldChangeStart);
+      const newChangeLength = Math.max(0, newChangeEnd - newChangeStart);
+      const changeDelta = newChangeLength - oldChangeLength;
+      
+      // Adjust cursor based on its position relative to the change
+      if (clampedPos <= oldChangeStart) {
+        // Cursor is before the change - no adjustment
+        return clampedPos;
+      } else if (clampedPos >= oldChangeEnd) {
+        // Cursor is after the change - adjust by the delta
+        // This is the most common case: text was added/removed before the cursor
+        const adjusted = clampedPos + changeDelta;
+        return Math.max(0, Math.min(adjusted, newNorm.length));
+      } else {
+        // Cursor is inside the changed region
+        // Place cursor at the start of the new change region
+        return newChangeStart;
+      }
+    };
 
     // Apply new HTML
     // Mark that we're updating from markdown to avoid feedback loops
     (isUpdatingFromMarkdown as any)?.current && ((isUpdatingFromMarkdown as any).current = true);
     root.innerHTML = currentHtml;
 
-    if (prevSelection) {
-      // restore selection on next tick to ensure DOM is ready
-      setTimeout(() => setSelectionOffsets(root, prevSelection.start, prevSelection.end), 0);
+    if (hasActiveSelection && prevSelection) {
+      // Use requestAnimationFrame for better synchronization with DOM updates
+      // Then use setTimeout to ensure the DOM is fully ready
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          try {
+            // Adjust cursor positions based on text changes
+            // This ensures that when another user adds/removes text, the cursor
+            // position is adjusted accordingly (shifted right if text is added before,
+            // shifted left if text is removed before)
+            let adjustedStart = prevSelection.start;
+            let adjustedEnd = prevSelection.end;
+            
+            // Only adjust if text content actually changed
+            if (oldTextContent !== newTextContent) {
+              adjustedStart = adjustCursorPosition(oldTextContent, newTextContent, prevSelection.start);
+              adjustedEnd = adjustCursorPosition(oldTextContent, newTextContent, prevSelection.end);
+              
+              // Debug logging (can be removed in production)
+              console.log('🔄 Ajustement du curseur:', {
+                oldTextLength: oldTextContent.length,
+                newTextLength: newTextContent.length,
+                oldCursor: prevSelection.start,
+                adjustedCursor: adjustedStart,
+                delta: adjustedStart - prevSelection.start,
+                oldText: oldTextContent.substring(Math.max(0, prevSelection.start - 10), prevSelection.start + 10),
+                newText: newTextContent.substring(Math.max(0, adjustedStart - 10), adjustedStart + 10)
+              });
+            }
+            
+            setSelectionOffsets(root, adjustedStart, adjustedEnd);
+            // Ensure the editor maintains focus if it had it before
+            const isFocused = document.activeElement === root || root.contains(document.activeElement as Node);
+            if (!isFocused) {
+              // Try to restore focus if the selection was active (user was typing)
+              // This helps maintain the cursor position during collaborative editing
+              root.focus();
+            }
+          } catch (e) {
+            // If restoration fails, try a simpler approach: place cursor at the end
+            try {
+              const sel = window.getSelection();
+              if (sel && root) {
+                const range = document.createRange();
+                range.selectNodeContents(root);
+                range.collapse(false); // Collapse to end
+                sel.removeAllRanges();
+                sel.addRange(range);
+              }
+            } catch {
+              // Ignore errors
+            }
+          }
+        }, 10); // Small delay to ensure DOM is ready
+      });
     }
     // Clear the flag after update
     setTimeout(() => {
