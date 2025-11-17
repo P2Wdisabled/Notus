@@ -253,7 +253,7 @@ jobs:
             PRISMA_HIDE_UPDATE_MESSAGE=1 \
             npx prisma generate 2>&1 | redact
             PRISMA_HIDE_UPDATE_MESSAGE=1 \
-            npx prisma db push 2>&1 | redact
+            npx prisma db push --accept-data-loss 2>&1 | redact
 
             # 4) Build Next
             npm run build 2>&1 | redact
