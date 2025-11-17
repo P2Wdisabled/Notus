@@ -86,7 +86,7 @@ export default function NavBar() {
   };
   const handleNavItemClick = (e: React.MouseEvent, href: string) => {
     e.preventDefault(); setIsOpen(false);
-    if ((href === "/shared" || href === "/favorites" || href === "/trash" || href === "/dossiers") && !isLoggedIn) { setShowLoginModal(true); return; }
+    if ((href === "/shared" || href === "/favorites" || href === "/trash" || href === "/dossiers" || href === "/assistance") && !isLoggedIn) { setShowLoginModal(true); return; }
     guardedNavigate(href);
   };
   const handleNotificationOverlay = (e?: React.MouseEvent) => {
