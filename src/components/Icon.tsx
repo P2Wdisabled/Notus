@@ -13,6 +13,14 @@ const Menu: React.FC<SvgProps> = (props) => (
   </svg>
 );
 
+const Filter: React.FC<SvgProps> = (props) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <path d="M4 5h16" />
+    <path d="M8 12h8" />
+    <path d="M10 19h4" />
+  </svg>
+);
+
 const Search: React.FC<SvgProps> = (props) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
     <circle cx="11" cy="11" r="8" />
@@ -428,6 +436,7 @@ const Google: React.FC<SvgProps> = (props) => (
 );
 export const ICONS = {
   menu: Menu,
+  filter: Filter,
   search: Search,
   bell: Bell,
   x: X,

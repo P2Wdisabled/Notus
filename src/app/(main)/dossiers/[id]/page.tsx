@@ -138,6 +138,7 @@ export default function DossierDetailPage() {
     ...doc,
     id: String(doc.id),
     user_id: session.user?.id ? String(session.user.id) : undefined,
+    dossierIds: [dossier.id],
   }));
 
   return (

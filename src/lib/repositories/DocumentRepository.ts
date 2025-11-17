@@ -123,17 +123,92 @@ export class DocumentRepository extends BaseRepository {
 
   async getUserDocuments(userId: number, limit: number = 20, offset: number = 0): Promise<DocumentRepositoryResult<Document[]>> {
     try {
-      const result = await this.query<Document>(
-        `SELECT d.id, d.user_id, d.title, d.content, d.tags, d.created_at, d.updated_at, u.username, u.first_name, u.last_name
+      const result = await this.query(
+        `SELECT 
+            d.id,
+            d.user_id,
+            d.title,
+            d.content,
+            d.tags,
+            d.favori,
+            d.created_at,
+            d.updated_at,
+            u.username,
+            u.first_name,
+            u.last_name,
+            COALESCE(
+              json_agg(
+                DISTINCT jsonb_build_object('email', s.email, 'permission', s.permission)
+              ) FILTER (WHERE s.id IS NOT NULL),
+              '[]'
+            ) AS shared_with,
+            COALESCE(
+              json_agg(DISTINCT dd.dossier_id) FILTER (WHERE dd.dossier_id IS NOT NULL),
+              '[]'
+            ) AS dossier_ids
          FROM documents d
          JOIN users u ON d.user_id = u.id
+         LEFT JOIN shares s ON s.id_doc = d.id
+         LEFT JOIN dossier_documents dd ON dd.document_id = d.id
          WHERE d.user_id = $1
+         GROUP BY d.id, d.user_id, d.title, d.content, d.tags, d.favori, d.created_at, d.updated_at, u.username, u.first_name, u.last_name
          ORDER BY d.updated_at DESC
          LIMIT $2 OFFSET $3`,
         [userId, limit, offset]
       );
 
-      return { success: true, documents: result.rows };
+      const parseJsonArray = (raw: unknown): any[] => {
+        if (Array.isArray(raw)) return raw;
+        if (typeof raw === "string") {
+          try {
+            return JSON.parse(raw);
+          } catch (e) {
+            return [];
+          }
+        }
+        if (raw && typeof raw === "object" && "toJSON" in (raw as any)) {
+          try {
+            const asJson = (raw as any).toJSON();
+            return Array.isArray(asJson) ? asJson : [];
+          } catch {
+            return [];
+          }
+        }
+        return [];
+      };
+
+      const documents: Document[] = result.rows.map((row: any) => {
+        const sharedWithRaw = parseJsonArray(row.shared_with);
+        const sharedWith = sharedWithRaw
+          .map((entry) => ({
+            email: typeof entry?.email === "string" ? entry.email : null,
+            permission: typeof entry?.permission === "boolean" ? entry.permission : Boolean(entry?.permission),
+          }))
+          .filter((entry) => Boolean(entry.email)) as { email: string; permission: boolean }[];
+
+        const dossierIds = parseJsonArray(row.dossier_ids)
+          .map((id) => Number(id))
+          .filter((id) => !Number.isNaN(id));
+
+        return {
+          id: row.id,
+          user_id: row.user_id,
+          title: row.title,
+          content: row.content,
+          tags: row.tags || [],
+          created_at: row.created_at,
+          updated_at: row.updated_at,
+          username: row.username ?? undefined,
+          first_name: row.first_name ?? undefined,
+          last_name: row.last_name ?? undefined,
+          sharedWith,
+          dossierIds,
+          favori: row.favori ?? null,
+          shared: sharedWith.length > 0,
+        };
+      });
+
+      return { success: true, documents };
     } catch (error) {
       console.error("❌ Erreur récupération documents:", error);
       return { success: false, error: error instanceof Error ? error.message : "Erreur inconnue" };
