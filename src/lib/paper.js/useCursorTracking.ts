@@ -28,7 +28,6 @@ export function useCursorTracking({
   const { socket, isConnected } = useSocket(roomId);
   const [remoteCursors, setRemoteCursors] = useState<Map<string, RemoteCursor>>(new Map());
   const cursorUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const lastCursorPositionRef = useRef<{ offset: number; x: number; y: number } | null>(null);
 
   // Fonction pour obtenir la position du curseur dans l'éditeur
   const getCursorPosition = useCallback((): { offset: number; x: number; y: number } | null => {
@@ -84,18 +83,6 @@ export function useCursorTracking({
 
     const position = getCursorPosition();
     if (!position) return;
-
-    // Éviter d'envoyer trop souvent si la position n'a pas changé
-    if (
-      lastCursorPositionRef.current &&
-      lastCursorPositionRef.current.offset === position.offset &&
-      Math.abs(lastCursorPositionRef.current.x - position.x) < 2 &&
-      Math.abs(lastCursorPositionRef.current.y - position.y) < 2
-    ) {
-      return;
-    }
-
-    lastCursorPositionRef.current = position;
 
     const cursorData: CursorPositionData = {
       clientId,

@@ -1,5 +1,6 @@
 "use client";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { adjustCursorPositionForTextChange } from "../../../lib/paper.js/cursorUtils";
 
 interface RemoteCursor {
   clientId: string;
@@ -131,6 +132,13 @@ function getPositionFromOffset(editor: HTMLDivElement, offset: number): { x: num
 export default function CursorOverlay({ editorRef, remoteCursors }: CursorOverlayProps) {
   const [contentVersion, setContentVersion] = useState(0);
   const [hoveredCursor, setHoveredCursor] = useState<string | null>(null);
+  const previousTextRef = useRef<string | null>(null);
+
+  // Offsets ajustés côté client pour tenir compte des modifications locales
+  // (on ne modifie pas la Map d'origine pour rester pure)
+  const [adjustedOffsets, setAdjustedOffsets] = useState<Map<string, number>>(
+    () => new Map()
+  );
 
   useEffect(() => {
     if (!editorRef.current) return;
@@ -161,6 +169,70 @@ export default function CursorOverlay({ editorRef, remoteCursors }: CursorOverla
     };
   }, [editorRef]);
 
+  // Ajuster les offsets des curseurs distants lorsque le contenu texte de l'éditeur change.
+  // Cela permet que, si NOUS insérons/supprimons du texte avant un curseur distant,
+  // sa position suive correctement dans notre vue.
+  useEffect(() => {
+    if (!editorRef.current) return;
+
+    const editor = editorRef.current;
+    const newText = editor.textContent || "";
+    const oldText =
+      previousTextRef.current !== null ? previousTextRef.current : newText;
+
+    // Première initialisation : on enregistre juste le texte courant
+    if (previousTextRef.current === null) {
+      previousTextRef.current = newText;
+      // Initialiser les offsets à ceux reçus du serveur
+      setAdjustedOffsets(() => {
+        const initial = new Map<string, number>();
+        remoteCursors.forEach((cursor) => {
+          initial.set(cursor.clientId, cursor.offset);
+        });
+        return initial;
+      });
+      return;
+    }
+
+    // Si le texte n'a pas changé mais que les remoteCursors ont changé,
+    // on synchronise simplement les offsets avec ceux reçus du serveur.
+    // Cela évite de conserver un offset ajusté obsolète quand l'autre
+    // utilisateur déplace son curseur sans modifier le texte.
+    if (oldText === newText) {
+      setAdjustedOffsets(() => {
+        const synced = new Map<string, number>();
+        remoteCursors.forEach((cursor) => {
+          synced.set(cursor.clientId, cursor.offset);
+        });
+        return synced;
+      });
+      return;
+    }
+
+    // Ajuster tous les curseurs en fonction de la différence oldText → newText
+    setAdjustedOffsets((prev) => {
+      const updated = new Map<string, number>();
+
+      remoteCursors.forEach((cursor) => {
+        const previousOffset = prev.has(cursor.clientId)
+          ? (prev.get(cursor.clientId) as number)
+          : cursor.offset;
+
+        const newOffset = adjustCursorPositionForTextChange(
+          oldText,
+          newText,
+          previousOffset
+        );
+
+        updated.set(cursor.clientId, newOffset);
+      });
+
+      return updated;
+    });
+
+    previousTextRef.current = newText;
+  }, [contentVersion, editorRef, remoteCursors]);
+
   const cursorsWithPositions = useMemo(() => {
     if (!editorRef.current || remoteCursors.size === 0) {
       return [];
@@ -174,13 +246,17 @@ export default function CursorOverlay({ editorRef, remoteCursors }: CursorOverla
     }> = [];
 
     remoteCursors.forEach((cursor) => {
-      const position = editor ? getPositionFromOffset(editor, cursor.offset) : null;
+      const effectiveOffset =
+        adjustedOffsets.get(cursor.clientId) ?? cursor.offset;
+      const position = editor
+        ? getPositionFromOffset(editor, effectiveOffset)
+        : null;
       const color = getColorForClientId(cursor.clientId);
       result.push({ cursor, position, color });
     });
 
     return result;
-  }, [editorRef, remoteCursors, contentVersion]);
+  }, [editorRef, remoteCursors, contentVersion, adjustedOffsets]);
 
   if (!editorRef.current || cursorsWithPositions.length === 0) {
     return null;
