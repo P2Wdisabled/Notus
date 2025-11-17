@@ -1,6 +1,7 @@
 import { useEffect, useCallback } from "react";
 import { MarkdownConverter } from "./MarkdownConverter";
 import { FormattingHandler } from "./FormattingHandler";
+import { adjustCursorPositionForTextChange } from "../../../lib/paper.js/cursorUtils";
 
 export interface EditorEffectsProps {
   editorRef: React.RefObject<HTMLDivElement | null>;
@@ -212,79 +213,6 @@ export function useEditorEffects({
       return tempDiv.textContent || '';
     })();
 
-    // Function to adjust cursor position based on text changes
-    // When text is added/removed before the cursor, we need to shift it accordingly
-    const adjustCursorPosition = (
-      oldText: string,
-      newText: string,
-      cursorPos: number
-    ): number => {
-      // Normalize texts (handle line endings and whitespace)
-      const normalize = (text: string) => text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-      const oldNorm = normalize(oldText);
-      const newNorm = normalize(newText);
-      
-      // If texts are identical, no adjustment needed
-      if (oldNorm === newNorm) {
-        return cursorPos;
-      }
-      
-      // Clamp cursor position to valid range
-      const clampedPos = Math.max(0, Math.min(cursorPos, oldNorm.length));
-      
-      // Find the longest common prefix (unchanged text at the beginning)
-      let prefixLength = 0;
-      const minLength = Math.min(oldNorm.length, newNorm.length);
-      while (prefixLength < minLength && oldNorm[prefixLength] === newNorm[prefixLength]) {
-        prefixLength++;
-      }
-      
-      // If cursor is before the first change, no adjustment needed
-      if (clampedPos <= prefixLength) {
-        return clampedPos;
-      }
-      
-      // Find the longest common suffix (unchanged text at the end)
-      let suffixLength = 0;
-      const maxSuffixCheck = Math.min(
-        oldNorm.length - prefixLength,
-        newNorm.length - prefixLength
-      );
-      
-      while (
-        suffixLength < maxSuffixCheck &&
-        oldNorm[oldNorm.length - 1 - suffixLength] === newNorm[newNorm.length - 1 - suffixLength]
-      ) {
-        suffixLength++;
-      }
-      
-      // Calculate change boundaries
-      const oldChangeStart = prefixLength;
-      const oldChangeEnd = oldNorm.length - suffixLength;
-      const newChangeStart = prefixLength;
-      const newChangeEnd = newNorm.length - suffixLength;
-      
-      // Calculate the length difference in the changed region
-      const oldChangeLength = Math.max(0, oldChangeEnd - oldChangeStart);
-      const newChangeLength = Math.max(0, newChangeEnd - newChangeStart);
-      const changeDelta = newChangeLength - oldChangeLength;
-      
-      // Adjust cursor based on its position relative to the change
-      if (clampedPos <= oldChangeStart) {
-        // Cursor is before the change - no adjustment
-        return clampedPos;
-      } else if (clampedPos >= oldChangeEnd) {
-        // Cursor is after the change - adjust by the delta
-        // This is the most common case: text was added/removed before the cursor
-        const adjusted = clampedPos + changeDelta;
-        return Math.max(0, Math.min(adjusted, newNorm.length));
-      } else {
-        // Cursor is inside the changed region
-        // Place cursor at the start of the new change region
-        return newChangeStart;
-      }
-    };
-
     // Apply new HTML
     // Mark that we're updating from markdown to avoid feedback loops
     (isUpdatingFromMarkdown as any)?.current && ((isUpdatingFromMarkdown as any).current = true);
@@ -305,8 +233,8 @@ export function useEditorEffects({
             
             // Only adjust if text content actually changed
             if (oldTextContent !== newTextContent) {
-              adjustedStart = adjustCursorPosition(oldTextContent, newTextContent, prevSelection.start);
-              adjustedEnd = adjustCursorPosition(oldTextContent, newTextContent, prevSelection.end);
+              adjustedStart = adjustCursorPositionForTextChange(oldTextContent, newTextContent, prevSelection.start);
+              adjustedEnd = adjustCursorPositionForTextChange(oldTextContent, newTextContent, prevSelection.end);
               
               // Debug logging (can be removed in production)
               console.log('🔄 Ajustement du curseur:', {
