@@ -182,3 +182,10 @@ export interface Notification {
   sender_last_name?: string;
   avatar?: string;
 }
+
+export interface NotificationContextValue {
+  unreadCount: number;
+  setUnreadCountSync: (n: number) => void;
+  adjustUnreadCount: (delta: number) => void;
+  refresh: () => Promise<void>;
+}

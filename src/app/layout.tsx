@@ -3,6 +3,7 @@ import FloatingCreateButton from "@/components/documents/FloatingCreateButton";
 import AuthSessionProvider from "@/components/auth/SessionProvider";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { SelectionProvider } from "@/contexts/SelectionContext";
+import { NotificationProvider } from "@/contexts/NotificationContext";
 import ThemeToggle from "@/components/common/ThemeToggle";
 import OfflinePopin from "@/components/common/OfflinePopin";
 import { SearchProvider } from "@/contexts/SearchContext";
@@ -47,18 +48,20 @@ export default async function RootLayout({
         <ThemeProvider>
           <DynamicFavicon />
           <AuthSessionProvider session={session}>
-            <UserStatusGuard>
-              <SearchProvider>
-                <SelectionProvider>
-                  <main id="main-content">
-                    {children}
-                  </main>
-                  <FloatingCreateButton serverSession={session} />
-                  <ThemeToggle />
-                  <OfflinePopin />
-                </SelectionProvider>
-              </SearchProvider>
-            </UserStatusGuard>
+            <NotificationProvider>
+              <UserStatusGuard>
+                <SearchProvider>
+                  <SelectionProvider>
+                    <main id="main-content">
+                      {children}
+                    </main>
+                    <FloatingCreateButton serverSession={session} />
+                    <ThemeToggle />
+                    <OfflinePopin />
+                  </SelectionProvider>
+                </SearchProvider>
+              </UserStatusGuard>
+            </NotificationProvider>
           </AuthSessionProvider>
         </ThemeProvider>
 

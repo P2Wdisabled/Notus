@@ -9,9 +9,11 @@ import NotificationOverlay from "@/components/common/notifications/NotificationO
 import { Logo, Input, Button } from "@/components/ui";
 import Icon, { type IconName } from "@/components/Icon";
 import { useLocalSession } from "@/hooks/useLocalSession";
+import { useNotification } from "@/contexts/NotificationContext";
 import { useSearch } from "@/contexts/SearchContext";
 import { useGuardedNavigate } from "@/hooks/useGuardedNavigate";
 import LoginRequiredModal from "@/components/auth/LoginRequiredModal";
+import BadgeIcon from "../ui/notifications/badge-icon";
 
 interface NavItem {
   name: string;
@@ -19,6 +21,7 @@ interface NavItem {
   onClick?: (e: React.MouseEvent) => void;
   icon: IconName;
   mobileHidden?: boolean;
+  unreadNotifications?: number;
 }
 
 export default function NavBar() {
@@ -56,6 +59,8 @@ export default function NavBar() {
     fetchProfileImage();
   }, [isLoggedIn, profileImage]);
 
+  const { unreadCount, refresh } = useNotification();
+
   const items: NavItem[] = [
     { name: "Notes personnelles", href: "/notes", icon: "note" },
     { name: "Notes partagées", href: "/shared", icon: "share" },
@@ -63,7 +68,7 @@ export default function NavBar() {
     { name: "Dossiers", href: "/dossiers", icon: "folder" },
     { name: "Assistance", href: "/assistance", icon: "alert" },
     { name: "Paramètres", href: "/settings", icon: "gear" },
-    { name: "Notifications", href: "#", icon: "bell", onClick: (e) => { e.preventDefault(); handleNotificationOverlay(e); }, mobileHidden: true },
+    { name: "Notifications", href: "#", icon: "bell", onClick: (e) => { e.preventDefault(); handleNotificationOverlay(e); }, mobileHidden: true, unreadNotifications: unreadCount },
     { name: "Corbeille", href: "/trash", icon: "trash" },
   ];
 
@@ -112,7 +117,7 @@ export default function NavBar() {
             {mounted && isLoggedIn && (
               <>
                 <button aria-label="Notifications" onClick={handleNotificationOverlay} className={`p-2 rounded-md hover:bg-accent/50 text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer ${showNotifications ? 'bg-accent' : ''}`} title="Notifications">
-                  <Icon name="bell" className="w-6 h-6" />
+                  <BadgeIcon name="bell" count={unreadCount} />
                 </button>
                 <button type="button" onClick={() => guardedNavigate("/profile")} aria-label="Profil" className="ml-1 inline-flex items-center justify-center w-8 h-8 rounded-full overflow-hidden bg-muted ring-1 ring-border/20 shadow-sm" title={userName || "Profil"}>
                   {localProfileImage ? (
@@ -150,12 +155,17 @@ export default function NavBar() {
                 {items.filter((i) => !i.mobileHidden).map((item) => (
                   item.onClick ? (
                     <button key={item.href} onClick={(e) => { e.preventDefault(); item.onClick?.(e); setIsOpen(false); }} className={`w-full flex items-center gap-3 p-3 rounded-sm hover:bg-accent/50 text-foreground ${pathname === item.href || (item.name === 'Notifications' && showNotifications) ? 'bg-accent' : ''}`}>
-                      <Icon name={item.icon} className="w-6 h-6" />
+                      <div className="relative">
+                        {/* show badge only for Notifications item */}
+                        <BadgeIcon name={item.icon} count={item.name === "Notifications" ? item.unreadNotifications ?? undefined : undefined} />
+                      </div>
                       <span className="font-medium">{item.name}</span>
                     </button>
                   ) : (
                     <Link key={item.href} href={item.href} onClick={(e) => handleNavItemClick(e, item.href)} className={`flex items-center gap-3 p-3 rounded-sm hover:bg-accent/50 text-foreground ${pathname === item.href || (item.name === 'Notifications' && showNotifications) ? 'bg-accent' : ''}`}>
-                      <Icon name={item.icon} className="w-6 h-6" />
+                      <div className="relative">
+                        <BadgeIcon name={item.icon} count={item.name === "Notifications" ? item.unreadNotifications ?? undefined : undefined} />
+                      </div>
                       <span className="font-medium">{item.name}</span>
                     </Link>
                   )
@@ -203,12 +213,16 @@ export default function NavBar() {
             {items.map((item) => (
               item.onClick ? (
                 <button key={item.href} onClick={(e) => { e.preventDefault(); item.onClick?.(e); }} className={`w-full flex items-center gap-3 p-3 rounded-sm hover:bg-accent/50 text-foreground ${pathname === item.href || (item.name === 'Notifications' && showNotifications) ? 'bg-accent' : ''}`}>
-                  <Icon name={item.icon} className="w-6 h-6" />
+                  <div className="relative">
+                    <BadgeIcon name={item.icon} count={item.name === "Notifications" ? item.unreadNotifications ?? undefined : undefined} />
+                  </div>
                   <span className="font-medium">{item.name}</span>
                 </button>
               ) : (
                 <Link key={item.href} href={item.href} onClick={(e) => handleNavItemClick(e, item.href)} className={`flex items-center gap-3 p-3 rounded-sm hover:bg-accent/50 text-foreground ${pathname === item.href || (item.name === 'Notifications' && showNotifications) ? 'bg-accent' : ''}`}>
-                  <Icon name={item.icon} className="w-6 h-6" />
+                  <div className="relative">
+                    <BadgeIcon name={item.icon} count={item.name === "Notifications" ? item.unreadNotifications ?? undefined : undefined} />
+                  </div>
                   <span className="font-medium">{item.name}</span>
                 </Link>
               )

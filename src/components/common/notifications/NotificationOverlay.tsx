@@ -7,6 +7,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import type { Notification } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import Icon from "@/components/Icon";
+import { useNotification } from "@/contexts/NotificationContext";
 
 interface NotificationOverlayProps {
     isOpen?: boolean;
@@ -23,6 +24,7 @@ export default function NotificationOverlay({ isOpen = true, onClose }: Notifica
     const [notifications, setNotifications] = useState<Notification[] | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const { adjustUnreadCount, refresh } = useNotification();
 
     useEffect(() => {
         if (!isOpen) return;
@@ -64,12 +66,15 @@ export default function NotificationOverlay({ isOpen = true, onClose }: Notifica
         if (!notificationId) return;
         setNotifications(prev => prev ? prev.map(n => n.id === notificationId ? { ...n, read_date: new Date() } : n) : prev);
         try {
-            await fetch("/api/notification/mark-read", {
+            const res = await fetch("/api/notification/mark-read", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ notificationId }),
                 cache: "no-store",
             });
+            if (res.ok) {
+                try { adjustUnreadCount(-1); } catch {}
+            }
         } catch {
         }
     }
