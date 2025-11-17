@@ -21,6 +21,7 @@ interface SearchableDocumentsListProps {
   currentUserId?: string;
   error?: string;
   isFavoritesList?: boolean;
+  onRemoveFromDossier?: (documentIds: string[]) => void;
 }
 
 export function SearchableDocumentsList({
@@ -28,6 +29,7 @@ export function SearchableDocumentsList({
   currentUserId,
   error,
   isFavoritesList = false,
+  onRemoveFromDossier,
 }: SearchableDocumentsListProps) {
   const { filterDocuments, filterLocalDocuments, isSearching } = useSearch();
   const router = useRouter();
@@ -201,6 +203,35 @@ export function SearchableDocumentsList({
           onCancel={() => { setSelectMode(false); setSelectedIds([]); }}
           onToggleAll={toggleAll}
           onBulkDelete={handleBulkDelete}
+          onAddToDossier={currentUserId && !onRemoveFromDossier ? async (dossierId: number, documentIds: string[]) => {
+            try {
+              const response = await fetch(`/api/dossiers/${dossierId}/documents`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ documentIds }),
+              });
+              if (response.ok) {
+                setSelectMode(false);
+                setSelectedIds([]);
+                router.refresh();
+              } else {
+                const data = await response.json();
+                console.error("Erreur:", data.error);
+              }
+            } catch (error) {
+              console.error("Erreur lors de l'ajout au dossier:", error);
+            }
+          } : undefined}
+          onRemoveFromDossier={onRemoveFromDossier ? async (documentIds: string[]) => {
+            try {
+              await onRemoveFromDossier(documentIds);
+              setSelectMode(false);
+              setSelectedIds([]);
+            } catch (error) {
+              console.error("Erreur lors du retrait du dossier:", error);
+            }
+          } : undefined}
+          selectedDocumentIds={selectedIds}
           currentUserId={currentUserId}
         />
       )}

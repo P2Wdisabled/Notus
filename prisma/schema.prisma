@@ -43,6 +43,7 @@ model User {
   targetUserActions AdminAction[] @relation("TargetUserActions")
   requests UserRequest[]
   validatedRequests UserRequest[] @relation("ValidatedRequests")
+  dossiers Dossier[]
 
   @@map("users")
 }
@@ -60,6 +61,7 @@ model Document {
   // Relations
   user  User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
   Share Share[]
+  dossiers DossierDocument[]
 
   @@map("documents")
 }
@@ -171,4 +173,35 @@ model UserRequest {
   @@index([validated], map: "idx_user_requests_validated")
   @@index([created_at], map: "idx_user_requests_created_at")
   @@map("user_requests")
+}
+
+model Dossier {
+  id         Int      @id @default(autoincrement())
+  user_id    Int      @map("user_id")
+  nom        String
+  created_at DateTime @default(now()) @map("created_at")
+  updated_at DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user      User              @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  documents DossierDocument[]
+
+  @@index([user_id], map: "idx_dossiers_user_id")
+  @@map("dossiers")
+}
+
+model DossierDocument {
+  id          Int      @id @default(autoincrement())
+  dossier_id  Int      @map("dossier_id")
+  document_id Int      @map("document_id")
+  created_at  DateTime @default(now()) @map("created_at")
+
+  // Relations
+  dossier  Dossier  @relation(fields: [dossier_id], references: [id], onDelete: Cascade)
+  document Document  @relation(fields: [document_id], references: [id], onDelete: Cascade)
+
+  @@unique([dossier_id, document_id], map: "idx_dossier_document_unique")
+  @@index([dossier_id], map: "idx_dossier_document_dossier_id")
+  @@index([document_id], map: "idx_dossier_document_document_id")
+  @@map("dossier_documents")
 }

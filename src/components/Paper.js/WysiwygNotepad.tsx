@@ -3,6 +3,7 @@ import { useState, useCallback } from "react";
 import WysiwygEditor from "./Editor/WysiwygEditor";
 import WysiwygToolbar from "./Toolbar/WysiwygToolbar";
 import { useCollaborativeNote } from "@/lib/paper.js/useCollaborativeNote";
+import { useLocalSession } from "@/hooks/useLocalSession";
 
 interface WysiwygNotepadProps {
   initialData?: { text: string };
@@ -27,7 +28,8 @@ export default function WysiwygNotepad({
 }: WysiwygNotepadProps) {
   const [markdown, setMarkdown] = useState(initialData.text || "");
   const [debugMode, setDebugMode] = useState(showDebug);
-  const { emitLocalChange: emitChange, isConnected } = useCollaborativeNote({
+  const { username } = useLocalSession();
+  const { emitLocalChange: emitChange, isConnected, clientId } = useCollaborativeNote({
     roomId,
     onRemoteContent: (remote: string) => {
       console.log('📝 WysiwygNotepad received remote content:', { 
@@ -118,6 +120,9 @@ export default function WysiwygNotepad({
           className="h-full"
           showDebug={debugMode}
           readOnly={readOnly}
+          roomId={roomId}
+          username={username || undefined}
+          clientId={clientId}
         />
       </div>
     </div>

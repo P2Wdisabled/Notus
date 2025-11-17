@@ -9,6 +9,8 @@ import WysiwygEditorStyles from "./WysiwygEditorStyles";
 import { useEditorEventHandlers } from "./EditorEventHandlers";
 import { useEditorEffects } from "./EditorEffects";
 import { useUndoRedoHistory } from "./useUndoRedoHistory";
+import { useCursorTracking } from "@/lib/paper.js/useCursorTracking";
+import CursorOverlay from "./CursorOverlay";
 
 interface WysiwygEditorProps {
   content: string;
@@ -17,6 +19,9 @@ interface WysiwygEditorProps {
   className?: string;
   showDebug?: boolean;
   readOnly?: boolean;
+  roomId?: string;
+  username?: string;
+  clientId?: string;
 }
 
 export default function WysiwygEditor({
@@ -26,6 +31,9 @@ export default function WysiwygEditor({
   className = "",
   showDebug = false,
   readOnly = false,
+  roomId,
+  username,
+  clientId,
 }: WysiwygEditorProps) {
   const [markdown, setMarkdown] = useState(content);
   
@@ -47,8 +55,26 @@ export default function WysiwygEditor({
   const markdownConverter = useRef<MarkdownConverter | null>(null);
   const formattingHandler = useRef<FormattingHandler | null>(null);
 
+  // Generate clientId if not provided
+  const clientIdRef = useRef<string>(clientId || (() => {
+    if (typeof crypto !== 'undefined' && 'getRandomValues' in crypto) {
+      const arr = new Uint8Array(16);
+      crypto.getRandomValues(arr);
+      return Array.from(arr, (b) => b.toString(16).padStart(2, '0')).join('');
+    }
+    return Math.random().toString(36).slice(2) + Date.now().toString(36);
+  })());
+
   // Undo/Redo history
   const undoRedoHistory = useUndoRedoHistory(50);
+
+  // Cursor tracking for collaborative editing
+  const { remoteCursors } = useCursorTracking({
+    roomId,
+    editorRef,
+    clientId: clientIdRef.current,
+    username: username || 'Utilisateur',
+  });
 
   // Initialize history with initial content
   useEffect(() => {
@@ -251,6 +277,14 @@ export default function WysiwygEditor({
               data-placeholder={placeholder}
               onClick={eventHandlers.handleEditorClick}
             />
+            
+            {/* Cursor overlay for collaborative editing */}
+            {roomId && !readOnly && (
+              <CursorOverlay 
+                editorRef={editorRef}
+                remoteCursors={remoteCursors}
+              />
+            )}
             
             {/* Inline image resize handle overlay */}
             <ImageOverlay 

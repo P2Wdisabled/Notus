@@ -60,6 +60,7 @@ export default function NavBar() {
     { name: "Notes personnelles", href: "/notes", icon: "note" },
     { name: "Notes partagées", href: "/shared", icon: "share" },
     { name: "Favoris", href: "/favorites", icon: "star" },
+    { name: "Dossiers", href: "/dossiers", icon: "folder" },
     { name: "Assistance", href: "/assistance", icon: "alert" },
     { name: "Paramètres", href: "/settings", icon: "gear" },
     { name: "Notifications", href: "#", icon: "bell", onClick: (e) => { e.preventDefault(); handleNotificationOverlay(e); }, mobileHidden: true },
@@ -85,7 +86,7 @@ export default function NavBar() {
   };
   const handleNavItemClick = (e: React.MouseEvent, href: string) => {
     e.preventDefault(); setIsOpen(false);
-    if ((href === "/shared" || href === "/favorites" || href === "/trash") && !isLoggedIn) { setShowLoginModal(true); return; }
+    if ((href === "/shared" || href === "/favorites" || href === "/trash" || href === "/dossiers" || href === "/assistance") && !isLoggedIn) { setShowLoginModal(true); return; }
     guardedNavigate(href);
   };
   const handleNotificationOverlay = (e?: React.MouseEvent) => {
@@ -249,6 +250,7 @@ function getPageTitle(pathname: string | null, items: NavItem[]): string {
   if (pathname === "/profile") return "Mon compte";
   if (pathname === "/settings") return "Paramètres";
   if (pathname === "/favorites") return "Favoris";
+  if (pathname === "/dossiers") return "Dossiers";
   if (pathname === "/assistance") return "Assistance";
   if (pathname === "/trash") return "Corbeille";
   if (pathname.startsWith("/profile/edit")) return "Modifier le profil";
