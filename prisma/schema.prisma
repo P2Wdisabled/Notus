@@ -162,7 +162,7 @@ model UserRequest {
   validated_by Int?      @map("validated_by")
   validated_at DateTime? @map("validated_at")
   created_at   DateTime  @default(now()) @map("created_at")
-  updated_at   DateTime  @updatedAt @map("updated_at")
+  updated_at   DateTime?  @updatedAt @map("updated_at")
 
   // Relations
   user      User  @relation(fields: [user_id], references: [id], onDelete: Cascade)
