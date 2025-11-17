@@ -56,14 +56,31 @@ export default function NotificationOverlay({ isOpen = true, onClose }: Notifica
         fetchNotifications();
     }, [isOpen, session]);
 
+    async function deleteNotification(notificationId: number) {
+        if (!notificationId) return false;
+        try {
+            const url = `/api/notification/detete?id=${encodeURIComponent(String(notificationId))}`;
+            const res = await fetch(url, { method: "DELETE" });
+            if (!res || !res.ok) return false;
+            const found = (notifications ?? []).find(x => x.id === notificationId);
+            const wasUnread = found && !found.read_date;
+            setNotifications(prev => prev ? prev.filter(x => x.id !== notificationId) : prev);
+            if (wasUnread) { try { adjustUnreadCount(-1); } catch {} }
+            return true;
+        } catch (e) {
+            console.error("deleteNotification error", e);
+            return false;
+        }
+    }
+
     useEffect(() => {
         if (!isOpen) return;
     }, [notifications, loading, error, isOpen]);
 
     if (!isOpen) return null;
 
-    async function markAsRead(notificationId: number) {
-        if (!notificationId) return;
+    async function markAsRead(notificationId: number): Promise<boolean> {
+        if (!notificationId) return false;
         setNotifications(prev => prev ? prev.map(n => n.id === notificationId ? { ...n, read_date: new Date() } : n) : prev);
         try {
             const res = await fetch("/api/notification/mark-read", {
@@ -74,9 +91,12 @@ export default function NotificationOverlay({ isOpen = true, onClose }: Notifica
             });
             if (res.ok) {
                 try { adjustUnreadCount(-1); } catch {}
+                return true;
             }
-        } catch {
+        } catch (e) {
+            console.error("markAsRead error", e);
         }
+        return false;
     }
 
     return (
@@ -154,20 +174,30 @@ export default function NotificationOverlay({ isOpen = true, onClose }: Notifica
 
                                     <div className="flex-shrink-0">
                                         {isRead ? (
-                                            <Button
-                                                title="Notification traitée"
-                                                disabled
-                                                    className="bg-muted text-foreground px-3 py-1 rounded opacity-80 cursor-not-allowed"
+                                            <div className="flex items-center">
+                                                <button
+                                                    type="button"
+                                                    onClick={async (e) => {
+                                                        e.preventDefault();
+                                                        e.stopPropagation();
+                                                        await deleteNotification(n.id);
+                                                    }}
+                                                    className="ml-2 p-1 rounded hover:bg-accent/50 text-muted-foreground"
+                                                    title="Supprimer la notification"
+                                                    aria-label="Supprimer la notification"
                                                 >
-                                                    
-                                                </Button>
+                                                    <Icon name="trash" className="w-5 h-5" />
+                                                </button>
+                                            </div>
                                         ) : (
                                             <div className="flex flex-row items-stretch gap-2">
                                                 <Button
                                                     onClick={async (e) => {
                                                         e.preventDefault();
                                                         e.stopPropagation();
-                                                        await markAsRead(n.id);
+                                                        const ok = await markAsRead(n.id);
+                                                        // remove the share notification from the list after accept
+                                                        setNotifications(prev => prev ? prev.filter(x => x.id !== n.id) : prev);
                                                         if (confirmUrl) window.location.href = confirmUrl;
                                                     }}
                                                     className="bg-primary text-primary-foreground p-1 rounded"
@@ -179,7 +209,9 @@ export default function NotificationOverlay({ isOpen = true, onClose }: Notifica
                                                     onClick={async (e) => {
                                                         e.preventDefault();
                                                         e.stopPropagation();
-                                                        await markAsRead(n.id);
+                                                        const ok = await markAsRead(n.id);
+                                                        // remove share invite after decline
+                                                        setNotifications(prev => prev ? prev.filter(x => x.id !== n.id) : prev);
                                                     }}
                                                     className="text-primary p-1 rounded hover:bg-primary/10"
                                                     variant="ghost"
@@ -203,10 +235,21 @@ export default function NotificationOverlay({ isOpen = true, onClose }: Notifica
                             <NotificationItem
                                 key={n.id}
                                 id_sender={idSender}
+                                notificationId={n.id}
                                 avatar={avatarUrl}
                                 username={String(username)}
                                 message={messageText}
-                                onClick={() => { if (!isRead) markAsRead(n.id); }}
+                                isRead={isRead}
+                                onClick={() => { if (!isRead) void markAsRead(n.id); }}
+                                onMarkRead={(id) => { void markAsRead(id); }}
+                                onDelete={(id) => {
+                                    const found = (notifications ?? []).find(x => x.id === id);
+                                    const wasUnread = found && !found.read_date;
+                                    if (wasUnread) {
+                                        try { adjustUnreadCount(-1); } catch {}
+                                    }
+                                    setNotifications(prev => prev ? prev.filter(x => x.id !== id) : prev);
+                                }}
                             />
                         </div>
                     );

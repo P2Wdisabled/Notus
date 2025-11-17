@@ -1,11 +1,16 @@
 import React from "react";
+import Icon from "@/components/Icon";
 
 interface NotificationItemProps {
     avatar?: string | null;
     username: string;
     id_sender?: number | null;
     message: string;
+    notificationId?: number; // id of the notification to delete
     onClick?: () => void;
+    onDelete?: (id: number) => void; // optional callback after successful delete
+    onMarkRead?: (id: number) => void; // optional callback to mark as read
+    isRead?: boolean;
 }
 
 export default function NotificationItem({
@@ -13,7 +18,11 @@ export default function NotificationItem({
     username,
     id_sender,
     message,
+    notificationId,
     onClick,
+    onDelete,
+    onMarkRead,
+    isRead = false,
 }: NotificationItemProps) {
     const isSystem = typeof id_sender !== "undefined"
         ? id_sender === null
@@ -23,15 +32,70 @@ export default function NotificationItem({
     const hasAvatar = !!normalizedAvatar && normalizedAvatar !== "null" && normalizedAvatar !== "undefined";
 
     const [imgError, setImgError] = React.useState(false);
+    const [deleting, setDeleting] = React.useState(false);
+    const [marking, setMarking] = React.useState(false);
 
     React.useEffect(() => {
         setImgError(false);
     }, [normalizedAvatar]);
 
+    const handleDeleteClick = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (deleting) return;
+        performDelete();
+    };
+
+    const performDelete = async () => {
+        if (!notificationId || deleting) return;
+        setDeleting(true);
+        try {
+            const url = `/api/notification/detete?id=${encodeURIComponent(String(notificationId))}`;
+            const res = await fetch(url, { method: "DELETE", headers: { "Content-Type": "application/json" } });
+            if (!res.ok) {
+                let body: any = null;
+                try { body = await res.json(); } catch {}
+                const errMsg = body?.error || `Server returned ${res.status}`;
+                console.error("Failed to delete notification:", errMsg);
+                alert("Impossible de supprimer la notification : " + errMsg);
+                return;
+            }
+            onDelete?.(notificationId);
+        } catch (err) {
+            console.error("Failed to delete notification", err);
+            alert("Impossible de supprimer la notification");
+        } finally {
+            setDeleting(false);
+        }
+    };
+
+    const handleMarkRead = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!notificationId || marking || isRead) return;
+        setMarking(true);
+        try {
+            onMarkRead?.(notificationId);
+        } catch (err) {
+            console.error("mark read failed", err);
+        } finally {
+            setMarking(false);
+        }
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onClick?.();
+        }
+    };
+
     return (
-        <button
-            type="button"
+        <>
+        <div
+            role="button"
+            tabIndex={0}
             onClick={onClick}
+            onKeyDown={handleKeyDown}
             className="w-full flex flex-row items-center text-left px-3 py-2 rounded hover:bg-muted text-foreground"
         >
             {!isSystem ? (
@@ -48,14 +112,42 @@ export default function NotificationItem({
                 )
             ) : null}
 
-            <div className="flex flex-col">
-                <div className="flex items-center gap-2">
+            <div className="flex-1 flex flex-col">
+                <div className="flex items-center justify-between gap-2">
                     <span className="font-medium text-sm">{isSystem ? "Système" : username || "Utilisateur"}</span>
+                    <div className="flex items-center gap-2">
+                        {!isRead && (
+                            <button
+                                type="button"
+                                onClick={handleMarkRead}
+                                className="p-1 rounded hover:bg-accent/50 text-muted-foreground"
+                                title="Marquer comme lu"
+                                aria-label="Marquer comme lu"
+                                disabled={marking}
+                            >
+                                <Icon name="check" className="w-4 h-4" />
+                            </button>
+                        )}
+
+                        {/* Trash button */}
+                        <button
+                            type="button"
+                            onClick={handleDeleteClick}
+                            className={`ml-2 p-1 rounded hover:bg-accent/50 text-muted-foreground ${deleting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            title="Supprimer la notification"
+                            aria-label="Supprimer la notification"
+                            disabled={deleting}
+                        >
+                            <Icon name="trash" className="w-4 h-4" />
+                        </button>
+                    </div>
                 </div>
                 <span className="text-sm text-muted-foreground max-w-[260px]" title={message || ""}>
                     {message || ""}
                 </span>
             </div>
-        </button>
+        </div>
+        {/* immediate delete — no confirmation popin */}
+        </>
     );
 }
