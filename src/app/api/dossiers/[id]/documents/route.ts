@@ -1,12 +1,15 @@
+import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { auth } from "../../../../../../auth";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await context.params;
+
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json(
@@ -15,7 +18,7 @@ export async function POST(
       );
     }
 
-    const dossierId = parseInt(params.id);
+    const dossierId = parseInt(id);
     const userId = parseInt(session.user.id);
 
     if (isNaN(dossierId)) {
@@ -95,10 +98,12 @@ export async function POST(
 }
 
 export async function DELETE(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await context.params;
+
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json(
@@ -107,7 +112,7 @@ export async function DELETE(
       );
     }
 
-    const dossierId = parseInt(params.id);
+    const dossierId = parseInt(id);
     const userId = parseInt(session.user.id);
 
     if (isNaN(dossierId)) {
