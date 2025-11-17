@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import NotificationItem from "@/components/ui/Notifications/notification-item";
+import NotificationItem from "@/components/ui/notifications/notification-item";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import type { Notification } from "@/lib/types";
 import { Button } from "@/components/ui/button";
