@@ -39,6 +39,7 @@ model User {
 
   // Relations personnalisées
   documents Document[]
+  documentAttachments DocumentAttachment[]
   adminActions AdminAction[] @relation("AdminActions")
   targetUserActions AdminAction[] @relation("TargetUserActions")
   requests UserRequest[]
@@ -62,8 +63,28 @@ model Document {
   user  User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
   Share Share[]
   dossiers DossierDocument[]
+  attachments DocumentAttachment[]
 
   @@map("documents")
+}
+
+model DocumentAttachment {
+  id         Int      @id @default(autoincrement())
+  document_id Int?    @map("document_id")
+  user_id    Int      @map("user_id")
+  file_name  String   @map("file_name")
+  file_type  String   @map("file_type")
+  file_size  Int      @map("file_size")
+  file_data  String   @map("file_data") // base64 compressé
+  created_at DateTime @default(now()) @map("created_at")
+
+  // Relations
+  document Document? @relation(fields: [document_id], references: [id], onDelete: Cascade)
+  user     User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([document_id], map: "idx_document_attachments_document_id")
+  @@index([user_id], map: "idx_document_attachments_user_id")
+  @@map("document_attachments")
 }
 
 model VerificationToken {

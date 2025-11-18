@@ -62,6 +62,12 @@ export function useEditorEventHandlers({
 
   // Handle link hover to show popup
   const handleLinkHover = useCallback((e: React.MouseEvent) => {
+    // Ne pas afficher le popup pour les fichiers joints
+    const target = e.target as HTMLElement;
+    if (target.closest('.wysiwyg-file-attachment')) {
+      return;
+    }
+    
     // If there's a scheduled hide, cancel it because we're hovering a link now
     try {
       if (popupHideTimerRef.current) {
@@ -69,7 +75,6 @@ export function useEditorEventHandlers({
         popupHideTimerRef.current = null;
       }
     } catch (_) {}
-    const target = e.target as HTMLElement;
     const link = target.closest('a');
     if (link && editorRef.current) {
       const linkRect = link.getBoundingClientRect();
@@ -119,10 +124,35 @@ export function useEditorEventHandlers({
     };
   }, []);
 
-  // Handle editor clicks to track selected image
+  // Handle editor clicks to track selected image or video
   const handleEditorClick = useCallback((e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     const img = target?.closest('img');
+    const video = target?.closest('video');
+    
+    // Permettre la sélection des vidéos (pour suppression)
+    if (editorRef.current && video && editorRef.current.contains(video)) {
+      if (selectedImage && selectedImage !== video) {
+        selectedImage.removeAttribute('data-selected-image');
+      }
+      (video as HTMLVideoElement).setAttribute('data-selected-image', 'true');
+      setSelectedImage(video as HTMLVideoElement);
+      // Update overlay rect
+      requestAnimationFrame(() => {
+        if (editorRef.current) {
+          const videoRect = (video as HTMLVideoElement).getBoundingClientRect();
+          const contRect = editorRef.current.getBoundingClientRect();
+          setImageOverlayRect({
+            left: videoRect.left - contRect.left,
+            top: videoRect.top - contRect.top,
+            width: videoRect.width,
+            height: videoRect.height,
+          });
+        }
+      });
+      return;
+    }
+    
     if (editorRef.current && img && editorRef.current.contains(img)) {
       if (selectedImage && selectedImage !== img) {
         selectedImage.removeAttribute('data-selected-image');
@@ -155,6 +185,13 @@ export function useEditorEventHandlers({
   const handleEditorDoubleClick = useCallback((e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     const img = target?.closest('img');
+    const video = target?.closest('video');
+    
+    // Ne pas permettre l'édition des vidéos (seulement les images)
+    if (video) {
+      return;
+    }
+    
     if (editorRef.current && img && editorRef.current.contains(img)) {
       if (selectedImage && selectedImage !== img) {
         selectedImage.removeAttribute('data-selected-image');
@@ -172,6 +209,14 @@ export function useEditorEventHandlers({
 
   // Handle paste events to clean up content
   const handlePaste = useCallback((e: React.ClipboardEvent) => {
+    // Empêcher le paste dans les fichiers joints
+    const target = e.target as HTMLElement;
+    if (target.closest('.wysiwyg-file-attachment')) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    
     e.preventDefault();
     
     const clipboardData = e.clipboardData;
@@ -186,13 +231,23 @@ export function useEditorEventHandlers({
           if (node && node.nodeType === Node.TEXT_NODE) node = node.parentElement;
           const el = node as Element | null;
           if (el) {
-            const anchor = el.closest && el.closest('a');
-            if (anchor && anchor.parentNode) {
+            // Si on est dans un fichier joint, sortir avant de coller
+            const fileContainer = el.closest('.wysiwyg-file-attachment');
+            if (fileContainer && fileContainer.parentNode) {
               const newRange = document.createRange();
-              newRange.setStartAfter(anchor);
+              newRange.setStartAfter(fileContainer);
               newRange.collapse(true);
               sel.removeAllRanges();
               sel.addRange(newRange);
+            } else {
+              const anchor = el.closest && el.closest('a');
+              if (anchor && anchor.parentNode) {
+                const newRange = document.createRange();
+                newRange.setStartAfter(anchor);
+                newRange.collapse(true);
+                sel.removeAllRanges();
+                sel.addRange(newRange);
+              }
             }
           }
         }
@@ -229,6 +284,55 @@ export function useEditorEventHandlers({
         const sel = window.getSelection();
         if (sel && sel.rangeCount === 1) {
           const range = sel.getRangeAt(0);
+          
+          // Gérer la suppression des images ou vidéos sélectionnées
+          const selectedMedia = editorRef.current?.querySelector('[data-selected-image="true"]') as HTMLElement;
+          if (selectedMedia && (selectedMedia.tagName === 'IMG' || selectedMedia.tagName === 'VIDEO')) {
+            e.preventDefault();
+            const brAfter = selectedMedia.nextSibling;
+            selectedMedia.remove();
+            // Si un <br> suit le média, le supprimer aussi
+            if (brAfter && brAfter.nodeName === 'BR') {
+              brAfter.remove();
+            }
+            // Réinitialiser la sélection
+            setSelectedImage(null);
+            setImageOverlayRect(null);
+            // Synchroniser le markdown
+            setTimeout(() => {
+              try { (handleEditorChange as any)(); } catch (_e) {}
+            }, 0);
+            return;
+          }
+          
+          // Gérer la suppression des fichiers joints sélectionnés
+          const selectedFile = editorRef.current?.querySelector('.wysiwyg-file-attachment[data-selected-file="true"]') as HTMLElement;
+          if (selectedFile) {
+            e.preventDefault();
+            selectedFile.remove();
+            // Synchroniser le markdown
+            setTimeout(() => {
+              try { (handleEditorChange as any)(); } catch (_e) {}
+            }, 0);
+            return;
+          }
+          
+          // Gérer la suppression des fichiers joints (sélection par range)
+          if (!range.collapsed) {
+            const fileContainer = (range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE 
+              ? range.commonAncestorContainer 
+              : range.commonAncestorContainer.parentElement)?.closest('.wysiwyg-file-attachment') as HTMLElement;
+            if (fileContainer) {
+              e.preventDefault();
+              fileContainer.remove();
+              // Synchroniser le markdown
+              setTimeout(() => {
+                try { (handleEditorChange as any)(); } catch (_e) {}
+              }, 0);
+              return;
+            }
+          }
+          
           if (range.collapsed) {
             let node: Node | null = range.startContainer;
             if (node && node.nodeType === Node.TEXT_NODE) node = node.parentElement;
@@ -350,7 +454,65 @@ export function useEditorEventHandlers({
       e.preventDefault();
       formattingHandler.current.applyFormatting('insertHorizontalRule');
     }
-  }, [formattingHandler, handleEditorChange, editorRef, markdownConverter, onContentChange]);
+    // Handle Delete key - permettre suppression images, vidéos et fichiers joints
+    else if (e.key === 'Delete' && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+      try {
+        // Gérer la suppression des images ou vidéos sélectionnées
+        const selectedMedia = editorRef.current?.querySelector('[data-selected-image="true"]') as HTMLElement;
+        if (selectedMedia && (selectedMedia.tagName === 'IMG' || selectedMedia.tagName === 'VIDEO')) {
+          e.preventDefault();
+          const brAfter = selectedMedia.nextSibling;
+          selectedMedia.remove();
+          // Si un <br> suit le média, le supprimer aussi
+          if (brAfter && brAfter.nodeName === 'BR') {
+            brAfter.remove();
+          }
+          // Réinitialiser la sélection
+          setSelectedImage(null);
+          setImageOverlayRect(null);
+          // Synchroniser le markdown
+          setTimeout(() => {
+            try { (handleEditorChange as any)(); } catch (_e) {}
+          }, 0);
+          return;
+        }
+        
+        // Gérer la suppression des fichiers joints sélectionnés
+        const selectedFile = editorRef.current?.querySelector('.wysiwyg-file-attachment[data-selected-file="true"]') as HTMLElement;
+        if (selectedFile) {
+          e.preventDefault();
+          selectedFile.remove();
+          // Synchroniser le markdown
+          setTimeout(() => {
+            try { (handleEditorChange as any)(); } catch (_e) {}
+          }, 0);
+          return;
+        }
+        
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount === 1) {
+          const range = sel.getRangeAt(0);
+          if (!range.collapsed) {
+            // Gérer la suppression des fichiers joints (sélection par range)
+            const fileContainer = (range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE 
+              ? range.commonAncestorContainer 
+              : range.commonAncestorContainer.parentElement)?.closest('.wysiwyg-file-attachment') as HTMLElement;
+            if (fileContainer) {
+              e.preventDefault();
+              fileContainer.remove();
+              // Synchroniser le markdown
+              setTimeout(() => {
+                try { (handleEditorChange as any)(); } catch (_e) {}
+              }, 0);
+              return;
+            }
+          }
+        }
+      } catch (_e) {
+        // ignore
+      }
+    }
+  }, [formattingHandler, handleEditorChange, editorRef, markdownConverter, onContentChange, setSelectedImage, setImageOverlayRect]);
 
   return {
     handleEditorChange: handleEditorChangeCallback,

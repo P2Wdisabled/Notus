@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { MarkdownConverter } from "./MarkdownConverter";
 import { FormattingHandler } from "./FormattingHandler";
 import { adjustCursorPositionForTextChange } from "../../../lib/paper.js/cursorUtils";
@@ -316,6 +316,360 @@ export function useEditorEffects({
       console.log('formattingHandler.current is null, cannot expose applyWysiwygFormatting');
     }
   }, [formattingHandler]);
+
+  // Cache pour les fichiers déjà chargés (évite les rechargements)
+  const fileDataCache = useRef<Map<string, string>>(new Map());
+
+  // Handle file download links and load files from API
+  useEffect(() => {
+    const handleFileClick = async (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      
+      // Handle file attachment container or link (for non-image/video files)
+      const fileContainer = target.closest('.wysiwyg-file-attachment') as HTMLElement;
+      const fileLink = target.classList.contains('wysiwyg-file-link') ? target : fileContainer?.querySelector('.wysiwyg-file-link');
+      
+      if (fileContainer || fileLink) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // Si on clique sur le container ou le lien, sélectionner le fichier pour suppression
+        if (fileContainer) {
+          // Désélectionner les autres fichiers
+          const allFiles = editorRef.current?.querySelectorAll('.wysiwyg-file-attachment[data-selected-file="true"]');
+          allFiles?.forEach((file) => {
+            file.removeAttribute('data-selected-file');
+          });
+          
+          // Sélectionner ce fichier
+          fileContainer.setAttribute('data-selected-file', 'true');
+          
+          // Si on clique sur le lien, télécharger le fichier
+          if (target.classList.contains('wysiwyg-file-link')) {
+            // Continuer avec le téléchargement
+          } else {
+            // Si on clique sur le container, juste sélectionner (pas de téléchargement)
+            return;
+          }
+        }
+        
+        // Sinon, télécharger le fichier
+        const linkElement = fileLink as HTMLElement;
+        const attachmentId = linkElement?.getAttribute('data-attachment-id') || fileContainer?.getAttribute('data-attachment-id');
+        const fileName = linkElement?.getAttribute('data-file-name') || fileContainer?.getAttribute('data-file-name');
+        let fileData = linkElement?.getAttribute('data-file-data');
+        
+        if (attachmentId && fileName) {
+          try {
+            if (!fileData) {
+              // Vérifier le cache d'abord
+              if (fileDataCache.current.has(attachmentId)) {
+                fileData = fileDataCache.current.get(attachmentId)!;
+                if (linkElement) linkElement.setAttribute('data-file-data', fileData);
+              } else {
+                // Charger depuis l'API si pas encore chargé
+                const response = await fetch(`/api/attachments/${attachmentId}`);
+                const result = await response.json();
+                if (result.success && result.file) {
+                  fileData = result.file.data;
+                  if (linkElement) linkElement.setAttribute('data-file-data', fileData);
+                  fileDataCache.current.set(attachmentId, fileData);
+                }
+              }
+            }
+            
+            if (fileData) {
+              // Télécharger tous les fichiers non-image/non-vidéo
+              const link = document.createElement('a');
+              link.href = fileData;
+              link.download = fileName;
+              link.click();
+            }
+          } catch (err) {
+            console.error('Erreur téléchargement fichier:', err);
+          }
+        }
+      }
+    };
+
+    // Load files from API when editor content is loaded (batch mode)
+    const loadFilesFromAPI = async () => {
+      if (!editorRef.current) return;
+      
+      // Collecter tous les IDs d'attachement qui doivent être chargés
+      const attachmentIdsToLoad = new Set<string>();
+      const attachmentElementMap = new Map<string, { element: HTMLElement; type: 'img' | 'video' | 'link' }>();
+      
+      // Images
+      const images = editorRef.current.querySelectorAll('img[data-attachment-id]:not([data-loaded])');
+      images.forEach((img) => {
+        const imgEl = img as HTMLImageElement;
+        const attachmentId = imgEl.getAttribute('data-attachment-id');
+        // Charger si l'ID existe et que l'image n'a pas de src valide (vide ou pas de data:)
+        if (attachmentId && (!imgEl.src || imgEl.src === '' || !imgEl.src.startsWith('data:'))) {
+          // Vérifier le cache d'abord
+          if (fileDataCache.current.has(attachmentId)) {
+            const cachedData = fileDataCache.current.get(attachmentId)!;
+            imgEl.src = cachedData;
+            imgEl.setAttribute('data-loaded', 'true');
+            imgEl.removeAttribute('data-loading');
+          } else {
+            attachmentIdsToLoad.add(attachmentId);
+            attachmentElementMap.set(attachmentId, { element: imgEl, type: 'img' });
+          }
+        }
+      });
+      
+      // Videos
+      const videos = editorRef.current.querySelectorAll('video[data-attachment-id]:not([data-loaded])');
+      videos.forEach((video) => {
+        const videoEl = video as HTMLVideoElement;
+        const attachmentId = videoEl.getAttribute('data-attachment-id');
+        // Charger si l'ID existe et que la vidéo n'a pas de src valide (vide ou pas de data:)
+        if (attachmentId && (!videoEl.src || videoEl.src === '' || !videoEl.src.startsWith('data:'))) {
+          // Vérifier le cache d'abord
+          if (fileDataCache.current.has(attachmentId)) {
+            const cachedData = fileDataCache.current.get(attachmentId)!;
+            videoEl.src = cachedData;
+            videoEl.setAttribute('data-loaded', 'true');
+            videoEl.removeAttribute('data-loading');
+          } else {
+            attachmentIdsToLoad.add(attachmentId);
+            attachmentElementMap.set(attachmentId, { element: videoEl, type: 'video' });
+          }
+        }
+      });
+      
+      // File links
+      const fileLinks = editorRef.current.querySelectorAll('a.wysiwyg-file-link[data-attachment-id]:not([data-file-data])');
+      fileLinks.forEach((link) => {
+        const linkEl = link as HTMLAnchorElement;
+        const attachmentId = linkEl.getAttribute('data-attachment-id');
+        if (attachmentId) {
+          // Vérifier le cache d'abord
+          if (fileDataCache.current.has(attachmentId)) {
+            const cachedData = fileDataCache.current.get(attachmentId)!;
+            linkEl.setAttribute('data-file-data', cachedData);
+          } else {
+            attachmentIdsToLoad.add(attachmentId);
+            attachmentElementMap.set(attachmentId, { element: linkEl, type: 'link' });
+          }
+        }
+      });
+      
+      // Si aucun fichier à charger, on sort
+      if (attachmentIdsToLoad.size === 0) return;
+      
+      // Charger tous les fichiers en une seule requête batch
+      try {
+        const response = await fetch('/api/attachments/batch', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            attachmentIds: Array.from(attachmentIdsToLoad),
+          }),
+        });
+        
+        const result = await response.json();
+        
+        if (result.success && result.files) {
+          // Créer un map pour accès rapide
+          const filesMap = new Map(result.files.map((file: any) => [file.id.toString(), file]));
+          
+          // Appliquer les données aux éléments correspondants
+          attachmentElementMap.forEach(({ element, type }, attachmentId) => {
+            const file = filesMap.get(attachmentId);
+            if (file && file.data) {
+              // Mettre en cache
+              fileDataCache.current.set(attachmentId, file.data);
+              
+              if (type === 'img' && element instanceof HTMLImageElement) {
+                // Vérifier que le data URL est valide
+                if (file.data && file.data.startsWith('data:')) {
+                  element.src = file.data;
+                  element.setAttribute('data-loaded', 'true');
+                  element.removeAttribute('data-loading');
+                } else {
+                  console.error('Données de fichier invalides pour l\'image:', attachmentId, file);
+                }
+              } else if (type === 'video' && element instanceof HTMLVideoElement) {
+                if (file.data && file.data.startsWith('data:')) {
+                  element.src = file.data;
+                  element.setAttribute('data-loaded', 'true');
+                  element.removeAttribute('data-loading');
+                } else {
+                  console.error('Données de fichier invalides pour la vidéo:', attachmentId, file);
+                }
+              } else if (type === 'link' && (element instanceof HTMLAnchorElement || element instanceof HTMLSpanElement)) {
+                element.setAttribute('data-file-data', file.data);
+              }
+            } else {
+              console.warn('Fichier non trouvé dans la réponse batch pour l\'ID:', attachmentId);
+            }
+          });
+        } else {
+          console.error('Erreur chargement fichiers batch:', result);
+        }
+      } catch (err) {
+        console.error('Erreur chargement fichiers batch:', err);
+      }
+    };
+
+    // Empêcher complètement l'édition du nom des fichiers joints
+    const preventFileEdit = (e: Event) => {
+      const target = e.target as HTMLElement;
+      const fileContainer = target.closest('.wysiwyg-file-attachment') as HTMLElement;
+      if (fileContainer) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        // Restaurer immédiatement le nom du fichier
+        const fileName = fileContainer.getAttribute('data-file-name');
+        const fileLink = fileContainer.querySelector('.wysiwyg-file-link') as HTMLElement;
+        if (fileName && fileLink) {
+          fileLink.textContent = fileName;
+        }
+        // Empêcher le focus sur les éléments de fichier
+        if (document.activeElement && fileContainer.contains(document.activeElement)) {
+          (document.activeElement as HTMLElement).blur();
+        }
+        return false;
+      }
+    };
+
+    // Empêcher le focus sur les fichiers joints
+    const preventFileFocus = (e: FocusEvent) => {
+      const target = e.target as HTMLElement;
+      const fileContainer = target.closest('.wysiwyg-file-attachment') as HTMLElement;
+      if (fileContainer) {
+        e.preventDefault();
+        e.stopPropagation();
+        (target as HTMLElement).blur();
+        // Déplacer le curseur après le fichier
+        const selection = window.getSelection();
+        if (selection && fileContainer.parentNode) {
+          const range = document.createRange();
+          range.setStartAfter(fileContainer);
+          range.collapse(true);
+          selection.removeAllRanges();
+          selection.addRange(range);
+        }
+        return false;
+      }
+    };
+
+    const editor = editorRef.current;
+    if (editor) {
+      editor.addEventListener('click', handleFileClick);
+      
+      // Empêcher complètement l'édition des fichiers joints
+      editor.addEventListener('beforeinput', preventFileEdit, true); // capture phase
+      editor.addEventListener('input', preventFileEdit, true);
+      editor.addEventListener('focusin', preventFileFocus, true);
+      editor.addEventListener('focus', preventFileFocus, true);
+      
+      // Empêcher toutes les touches dans les fichiers joints
+      editor.addEventListener('keydown', (e: KeyboardEvent) => {
+        const target = e.target as HTMLElement;
+        const fileContainer = target.closest('.wysiwyg-file-attachment') as HTMLElement;
+        if (fileContainer) {
+          // Permettre seulement Delete/Backspace pour supprimer le fichier entier (si sélectionné)
+          if (e.key === 'Delete' || e.key === 'Backspace') {
+            // Vérifier si le fichier est sélectionné, sinon empêcher
+            if (!fileContainer.hasAttribute('data-selected-file')) {
+              e.preventDefault();
+              e.stopPropagation();
+              e.stopImmediatePropagation();
+              return false;
+            }
+          } else {
+            // Empêcher toute autre touche
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            return false;
+          }
+        }
+      }, true); // capture phase
+      
+      // Surveiller les changements de contenu et restaurer immédiatement le nom
+      const restoreFileName = () => {
+        if (!editorRef.current) return;
+        const fileContainers = editorRef.current.querySelectorAll('.wysiwyg-file-attachment');
+        fileContainers.forEach((container) => {
+          const fileContainer = container as HTMLElement;
+          const fileName = fileContainer.getAttribute('data-file-name');
+          const fileLink = fileContainer.querySelector('.wysiwyg-file-link') as HTMLElement;
+          if (fileName && fileLink) {
+            // Forcer le contenu à être exactement le nom du fichier
+            if (fileLink.textContent !== fileName) {
+              fileLink.textContent = fileName;
+            }
+            // S'assurer que contenteditable est false
+            fileLink.setAttribute('contenteditable', 'false');
+            fileContainer.setAttribute('contenteditable', 'false');
+          }
+        });
+      };
+      
+      // Debounce pour éviter trop d'appels batch
+      let loadFilesTimeout: NodeJS.Timeout | null = null;
+      
+      // Load files when content changes (debounced)
+      const observer = new MutationObserver((mutations) => {
+        let shouldRestore = false;
+        mutations.forEach((mutation) => {
+          // Si le contenu d'un fichier joint change, restaurer immédiatement
+          if (mutation.type === 'characterData' || mutation.type === 'childList') {
+            const target = mutation.target as HTMLElement;
+            if (target.closest?.('.wysiwyg-file-attachment')) {
+              shouldRestore = true;
+            }
+            if (mutation.addedNodes) {
+              Array.from(mutation.addedNodes).forEach((node) => {
+                if (node.nodeType === Node.TEXT_NODE && (node.parentElement?.closest('.wysiwyg-file-attachment'))) {
+                  shouldRestore = true;
+                }
+              });
+            }
+          }
+        });
+        
+        if (shouldRestore) {
+          restoreFileName(); // Restaurer immédiatement
+        }
+        
+        if (loadFilesTimeout) {
+          clearTimeout(loadFilesTimeout);
+        }
+        loadFilesTimeout = setTimeout(() => {
+          loadFilesFromAPI();
+          restoreFileName(); // Restaurer aussi après le chargement
+        }, 300); // Attendre 300ms après le dernier changement
+      });
+      observer.observe(editor, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['contenteditable'] });
+      
+      // Initial load (avec un petit délai pour s'assurer que le DOM est prêt)
+      setTimeout(() => {
+        loadFilesFromAPI();
+        restoreFileName();
+      }, 100);
+      
+      return () => {
+        editor.removeEventListener('click', handleFileClick);
+        editor.removeEventListener('beforeinput', preventFileEdit);
+        editor.removeEventListener('input', preventFileEdit);
+        editor.removeEventListener('focusin', preventFileFocus);
+        editor.removeEventListener('focus', preventFileFocus);
+        observer.disconnect();
+        if (loadFilesTimeout) {
+          clearTimeout(loadFilesTimeout);
+        }
+      };
+    }
+  }, [editorRef]);
 
   // Helpers to edit currently selected image
   const applyImageEditInternal = useCallback((payload: { src?: string; widthPercent?: number; widthPx?: number }) => {

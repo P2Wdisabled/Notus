@@ -608,6 +608,162 @@ export class FormattingHandler {
             }
           }
           break;
+        case 'insertFile':
+          if (value) {
+            try {
+              const fileData = JSON.parse(value);
+              const { attachmentId, name, type } = fileData;
+              
+              // If current selection is inside a link, move caret outside before inserting
+              this.ensureSelectionOutsideLink(range, selection);
+              
+              const updatedRange = selection.getRangeAt(0);
+              updatedRange.deleteContents();
+              
+              // Déterminer le type de fichier
+              const isImage = type.startsWith('image/');
+              const isVideo = type.startsWith('video/') || type.startsWith('audio/');
+              
+              // Fonction pour charger le fichier depuis l'API
+              const loadFileFromAPI = async (element: HTMLElement) => {
+                try {
+                  const response = await fetch(`/api/attachments/${attachmentId}`);
+                  const result = await response.json();
+                  if (result.success && result.file && result.file.data) {
+                    // Vérifier que le data URL est valide
+                    if (result.file.data.startsWith('data:')) {
+                      if (element instanceof HTMLImageElement) {
+                        element.src = result.file.data;
+                        element.removeAttribute('data-loading');
+                      } else if (element instanceof HTMLVideoElement) {
+                        element.src = result.file.data;
+                        element.removeAttribute('data-loading');
+                      } else if (element instanceof HTMLAnchorElement || element instanceof HTMLSpanElement) {
+                        element.setAttribute('data-file-data', result.file.data);
+                      }
+                    } else {
+                      console.error('Data URL invalide pour le fichier:', attachmentId, result.file);
+                    }
+                  } else {
+                    console.error('Erreur récupération fichier:', result);
+                  }
+                } catch (err) {
+                  console.error('Erreur chargement fichier:', err);
+                }
+              };
+              
+              if (isImage) {
+                // Juste l'image en preview, pas de container
+                const img = document.createElement('img');
+                img.alt = name;
+                img.style.maxWidth = '100%';
+                img.style.height = 'auto';
+                img.style.display = 'block';
+                img.style.margin = '1rem 0';
+                img.setAttribute('data-file-name', name);
+                img.setAttribute('data-file-type', type);
+                img.setAttribute('data-attachment-id', attachmentId.toString());
+                img.setAttribute('data-loading', 'true');
+                
+                // Charger le fichier depuis l'API
+                loadFileFromAPI(img);
+                
+                updatedRange.insertNode(img);
+                
+                const br = document.createElement('br');
+                img.parentNode?.insertBefore(br, img.nextSibling);
+                
+                const afterRange = document.createRange();
+                afterRange.setStartAfter(br);
+                afterRange.collapse(true);
+                selection.removeAllRanges();
+                selection.addRange(afterRange);
+              } else if (isVideo) {
+                // Juste la vidéo en preview, pas de container
+                const video = document.createElement('video');
+                video.controls = true;
+                video.style.maxWidth = '100%';
+                video.style.height = 'auto';
+                video.style.display = 'block';
+                video.style.margin = '1rem 0';
+                video.setAttribute('data-file-name', name);
+                video.setAttribute('data-file-type', type);
+                video.setAttribute('data-attachment-id', attachmentId.toString());
+                video.setAttribute('data-loading', 'true');
+                
+                // Charger le fichier depuis l'API
+                loadFileFromAPI(video);
+                
+                updatedRange.insertNode(video);
+                
+                const br = document.createElement('br');
+                video.parentNode?.insertBefore(br, video.nextSibling);
+                
+                const afterRange = document.createRange();
+                afterRange.setStartAfter(br);
+                afterRange.collapse(true);
+                selection.removeAllRanges();
+                selection.addRange(afterRange);
+              } else {
+                // Block avec nom cliquable pour les autres fichiers
+                const container = document.createElement('div');
+                container.className = 'wysiwyg-file-attachment';
+                container.setAttribute('data-file-name', name);
+                container.setAttribute('data-file-type', type);
+                container.setAttribute('data-attachment-id', attachmentId.toString());
+                container.setAttribute('contenteditable', 'false'); // Non éditable
+                container.setAttribute('spellcheck', 'false');
+                container.setAttribute('autocomplete', 'off');
+                container.setAttribute('tabindex', '-1'); // Empêcher le focus
+                container.style.margin = '1rem 0';
+                container.style.padding = '0.75rem';
+                container.style.border = '1px solid #e5e7eb';
+                container.style.borderRadius = '0.5rem';
+                container.style.backgroundColor = '#f9fafb';
+                container.style.cursor = 'pointer';
+                
+                const fileLink = document.createElement('span'); // Utiliser span au lieu de <a> pour éviter le popup
+                fileLink.textContent = name;
+                fileLink.className = 'wysiwyg-file-link';
+                fileLink.setAttribute('data-attachment-id', attachmentId.toString());
+                fileLink.setAttribute('data-file-name', name);
+                fileLink.style.color = '#3b82f6';
+                fileLink.style.textDecoration = 'underline';
+                fileLink.style.cursor = 'pointer';
+                fileLink.style.fontSize = '0.875rem';
+                fileLink.style.fontWeight = '500';
+                fileLink.setAttribute('contenteditable', 'false'); // Non éditable
+                fileLink.setAttribute('spellcheck', 'false');
+                fileLink.setAttribute('autocomplete', 'off');
+                // Empêcher le focus
+                fileLink.setAttribute('tabindex', '-1');
+                
+                // Charger le fichier depuis l'API
+                loadFileFromAPI(fileLink);
+                
+                container.appendChild(fileLink);
+                
+                updatedRange.insertNode(container);
+                
+                const br = document.createElement('br');
+                container.parentNode?.insertBefore(br, container.nextSibling);
+                
+                const afterRange = document.createRange();
+                afterRange.setStartAfter(br);
+                afterRange.collapse(true);
+                selection.removeAllRanges();
+                selection.addRange(afterRange);
+              }
+              
+              setTimeout(() => {
+                this.syncMarkdown();
+              }, 0);
+            } catch (e) {
+              console.error('Erreur insertion fichier:', e);
+            }
+            restoreSelection();
+          }
+          break;
         case 'indent':
           document.execCommand('indent', false);
           restoreSelection();

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ToolbarPopin } from "./ToolbarPopin";
+import FileUploadButton from "./FileUploadButton";
 import Icon from "@/components/Icon";
 
 interface MediaButtonsProps {
@@ -20,6 +21,17 @@ export default function MediaButtons({ onFormatChange, onShowDrawingModal }: Med
   const handleInsertLink = (u: string) => {
     try { (window as any).restoreWysiwygSelection?.(); } catch {}
     onFormatChange('createLink', u);
+  };
+
+  const handleFileSelect = (attachmentId: number, fileName: string, fileType: string) => {
+    try { (window as any).restoreWysiwygSelection?.(); } catch {}
+    // Passer les données du fichier à la fonction d'insertion
+    const fileData = {
+      attachmentId: attachmentId,
+      name: fileName,
+      type: fileType
+    };
+    onFormatChange('insertFile', JSON.stringify(fileData));
   };
 
   return (
@@ -59,6 +71,9 @@ export default function MediaButtons({ onFormatChange, onShowDrawingModal }: Med
       >
         <Icon name="pencil" className="h-5 w-5" />
       </button>
+
+      {/* File Upload */}
+      <FileUploadButton onFileSelect={handleFileSelect} />
 
       {showImagePopin && (
         <ToolbarPopin

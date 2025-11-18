@@ -174,6 +174,49 @@ export default function WysiwygEditorStyles() {
         outline: 2px solid #3b82f6 !important;
         outline-offset: 2px !important;
       }
+      .wysiwyg-editor .wysiwyg-file-attachment {
+        margin: 1rem 0 !important;
+        padding: 0.75rem !important;
+        border: 1px solid #e5e7eb !important;
+        border-radius: 0.5rem !important;
+        background-color: #f9fafb !important;
+        user-select: none !important;
+        -webkit-user-select: none !important;
+        -moz-user-select: none !important;
+        -ms-user-select: none !important;
+      }
+      .wysiwyg-editor .wysiwyg-file-attachment[data-selected-file="true"] {
+        outline: 2px solid #3b82f6 !important;
+        outline-offset: 2px !important;
+      }
+      .wysiwyg-editor .wysiwyg-file-download-btn {
+        padding: 0.375rem 0.75rem !important;
+        font-size: 0.875rem !important;
+        background-color: #3b82f6 !important;
+        color: #ffffff !important;
+        border: none !important;
+        border-radius: 0.375rem !important;
+        cursor: pointer !important;
+      }
+      .wysiwyg-editor .wysiwyg-file-download-btn:hover {
+        background-color: #2563eb !important;
+      }
+      .wysiwyg-editor .wysiwyg-file-link {
+        color: #3b82f6 !important;
+        text-decoration: underline !important;
+        cursor: pointer !important;
+        user-select: none !important;
+        -webkit-user-select: none !important;
+        -moz-user-select: none !important;
+        -ms-user-select: none !important;
+      }
+      .wysiwyg-editor .wysiwyg-file-link:hover {
+        color: #2563eb !important;
+      }
+      .wysiwyg-editor video {
+        max-width: 100% !important;
+        height: auto !important;
+      }
       /* Dark mode styles */
       .dark .wysiwyg-editor h1,
       .dark .wysiwyg-editor h2,

@@ -21,6 +21,9 @@ export default function ImageOverlay({
 
   if (!imageOverlayRect) return null;
 
+  // Ne pas afficher le handle de redimension pour les vidéos
+  const isVideo = selectedImage?.tagName === 'VIDEO' || selectedImage?.closest('video');
+
   return (
     <div
       className="pointer-events-none"
@@ -32,7 +35,8 @@ export default function ImageOverlay({
         height: imageOverlayRect.height 
       }}
     >
-      {/* Right-middle resize handle */}
+      {/* Right-middle resize handle - masqué pour les vidéos */}
+      {!isVideo && (
       <div
         role="button"
         className="pointer-events-auto"
@@ -77,6 +81,7 @@ export default function ImageOverlay({
           document.addEventListener('mouseup', onUp);
         }}
       />
+      )}
     </div>
   );
 }
