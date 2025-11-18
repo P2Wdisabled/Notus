@@ -14,6 +14,7 @@ import { useSearch } from "@/contexts/SearchContext";
 import { useGuardedNavigate } from "@/hooks/useGuardedNavigate";
 import LoginRequiredModal from "@/components/auth/LoginRequiredModal";
 import BadgeIcon from "../ui/notifications/badge-icon";
+import NotesFilterModal from "@/components/documents/NotesFilterModal";
 
 interface NavItem {
   name: string;
@@ -30,7 +31,7 @@ export default function NavBar() {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const router = useRouter();
-  const { searchQuery, startSearch, clearSearch } = useSearch();
+  const { searchQuery, startSearch, clearSearch, hasActiveFilters } = useSearch();
   const { data: session, status } = useSession();
   const { logout } = useLocalSession();
   const { guardedNavigate } = useGuardedNavigate();
@@ -43,6 +44,7 @@ export default function NavBar() {
   const username = (session?.user as any)?.username || null;
   const profileImage = (session?.user as any)?.profileImage || null;
   const [localProfileImage, setLocalProfileImage] = useState<string | null>(profileImage);
+  const [showFiltersModal, setShowFiltersModal] = useState(false);
   useEffect(() => { setLocalProfileImage(profileImage); }, [profileImage]);
   useEffect(() => {
     const fetchProfileImage = async () => {
@@ -62,8 +64,6 @@ export default function NavBar() {
   const { unreadCount, refresh } = useNotification();
 
   const items: NavItem[] = [
-    { name: "Notes personnelles", href: "/notes", icon: "note" },
-    { name: "Notes partagées", href: "/shared", icon: "share" },
     { name: "Favoris", href: "/favorites", icon: "star" },
     { name: "Dossiers", href: "/dossiers", icon: "folder" },
     { name: "Assistance", href: "/assistance", icon: "alert" },
@@ -91,7 +91,7 @@ export default function NavBar() {
   };
   const handleNavItemClick = (e: React.MouseEvent, href: string) => {
     e.preventDefault(); setIsOpen(false);
-    if ((href === "/shared" || href === "/favorites" || href === "/trash" || href === "/dossiers" || href === "/assistance") && !isLoggedIn) { setShowLoginModal(true); return; }
+    if ((href === "/favorites" || href === "/trash" || href === "/dossiers" || href === "/assistance") && !isLoggedIn) { setShowLoginModal(true); return; }
     guardedNavigate(href);
   };
   const handleNotificationOverlay = (e?: React.MouseEvent) => {
@@ -148,7 +148,19 @@ export default function NavBar() {
                 </button>
               </div>
               <div className="px-3 mb-3">
-                <Input placeholder="Rechercher..." value={searchQuery} onChange={handleSearchChange} onKeyDown={handleDesktopSearchKeyDown} />
+                <div className="flex items-center gap-2">
+                  <Input className="flex-1" placeholder="Rechercher..." value={searchQuery} onChange={handleSearchChange} onKeyDown={handleDesktopSearchKeyDown} />
+                  <button
+                    type="button"
+                    onClick={() => { setShowFiltersModal(true); setIsOpen(false); }}
+                    className={`inline-flex items-center justify-center h-10 w-10 rounded-md border border-border transition-colors ${hasActiveFilters ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-accent/50"}`}
+                    aria-pressed={hasActiveFilters}
+                    aria-label="Ouvrir les filtres"
+                    title="Filtrer les notes"
+                  >
+                    <Icon name="filter" className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
               <div className="pt-3"></div>
               <div className="px-2">
@@ -207,7 +219,19 @@ export default function NavBar() {
         </div>
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
           <div className="mt-3">
-            <Input placeholder="Rechercher..." value={searchQuery} onChange={handleSearchChange} onKeyDown={handleDesktopSearchKeyDown} />
+            <div className="flex items-center gap-2">
+              <Input className="flex-1" placeholder="Rechercher..." value={searchQuery} onChange={handleSearchChange} onKeyDown={handleDesktopSearchKeyDown} />
+              <button
+                type="button"
+                onClick={() => setShowFiltersModal(true)}
+                className={`inline-flex items-center justify-center h-10 w-10 rounded-md border border-border transition-colors ${hasActiveFilters ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-accent/50"}`}
+                aria-pressed={hasActiveFilters}
+                aria-label="Ouvrir les filtres"
+                title="Filtrer les notes"
+              >
+                <Icon name="filter" className="w-4 h-4" />
+              </button>
+            </div>
           </div>
           <div className="mt-4 space-y-1">
             {items.map((item) => (
@@ -252,6 +276,7 @@ export default function NavBar() {
       </div>
 
       <LoginRequiredModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} message="Vous devez être connecté pour avoir accès aux notes partagées." />
+      <NotesFilterModal isOpen={showFiltersModal} onClose={() => setShowFiltersModal(false)} />
     </>
   );
 }

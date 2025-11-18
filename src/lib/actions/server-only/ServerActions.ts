@@ -368,10 +368,9 @@ export async function restoreTrashedDocumentAction(prevState: unknown, formData:
     if (!result.success) {
       return result.error || "Erreur lors de la restauration";
     }
-    // Revalidate trash and notes pages so UI reflects changes immediately
+    // Revalidate trash page so UI reflects changes immediately
     try {
       revalidatePath("/trash");
-      revalidatePath("/notes");
     } catch {}
     return "Document restauré avec succès";
   } catch (error: unknown) {

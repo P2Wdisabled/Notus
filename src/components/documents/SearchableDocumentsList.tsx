@@ -31,7 +31,7 @@ export function SearchableDocumentsList({
   isFavoritesList = false,
   onRemoveFromDossier,
 }: SearchableDocumentsListProps) {
-  const { filterDocuments, filterLocalDocuments, isSearching } = useSearch();
+  const { filterDocuments, filterLocalDocuments, isSearching, hasActiveFilters } = useSearch();
   const router = useRouter();
   const [localDocuments, setLocalDocuments] = useState<LocalDocument[]>([]);
   const [runtimeDocuments, setRuntimeDocuments] = useState<AnyDocument[]>(serverDocuments);
@@ -126,8 +126,10 @@ export function SearchableDocumentsList({
     );
   }
 
-  const filteredDocuments: AnyDocument[] = isSearching
-    ? ([...filterLocalDocuments(localDocuments as unknown as AnyDocument[]), ...filterDocuments(baseServerDocs as unknown as AnyDocument[])] as AnyDocument[])
+  const hasSearchOrFilters = isSearching || hasActiveFilters;
+
+  const filteredDocuments: AnyDocument[] = hasSearchOrFilters
+    ? ([...filterLocalDocuments(localDocuments as unknown as AnyDocument[], { currentUserId }), ...filterDocuments(baseServerDocs as unknown as AnyDocument[], { currentUserId })] as AnyDocument[])
     : documents;
 
   if (documents.length === 0) {
@@ -142,13 +144,13 @@ export function SearchableDocumentsList({
     );
   }
 
-  if (isSearching && filteredDocuments.length === 0) {
+  if (hasSearchOrFilters && filteredDocuments.length === 0) {
     return (
       <Card className="text-center py-12">
         <Card.Content>
           <div className="text-muted-foreground mb-4"><Icon name="search" className="w-16 h-16 mx-auto" /></div>
           <Card.Title className="text-lg mb-2">Aucun résultat trouvé</Card.Title>
-          <Card.Description>Essayez avec d'autres mots-clés</Card.Description>
+          <Card.Description>Essayez d&apos;ajuster votre recherche ou vos filtres.</Card.Description>
         </Card.Content>
       </Card>
     );

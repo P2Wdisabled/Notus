@@ -7,9 +7,16 @@ type TagStat = { count: number; sample: string };
 
 interface TagsContextValue {
   getSuggestedTag: (prefix: string, exclude: string[]) => string | null;
+  getAllTags: () => string[];
 }
 
-const TagsContext = createContext<TagsContextValue | undefined>(undefined);
+const EMPTY_TAGS: string[] = [];
+const defaultTagsContextValue: TagsContextValue = {
+  getSuggestedTag: () => null,
+  getAllTags: () => EMPTY_TAGS,
+};
+
+const TagsContext = createContext<TagsContextValue>(defaultTagsContextValue);
 
 interface TagsProviderProps {
   documents: AnyDocument[];
@@ -33,6 +40,11 @@ export function TagsProvider({ documents, children }: TagsProviderProps) {
     return map;
   }, [documents]);
 
+  const allTags = useMemo(() => {
+    const tags = Array.from(stats.values()).map((stat) => stat.sample);
+    return tags.sort((a, b) => a.localeCompare(b, "fr"));
+  }, [stats]);
+
   const value: TagsContextValue = {
     getSuggestedTag: (prefix: string, exclude: string[]) => {
       const p = (prefix || "").trim().toLowerCase();
@@ -46,17 +58,12 @@ export function TagsProvider({ documents, children }: TagsProviderProps) {
       }
       return best ? best.stat.sample : null;
     },
+    getAllTags: () => allTags,
   };
 
   return <TagsContext.Provider value={value}>{children}</TagsContext.Provider>;
 }
 
 export function useTagsContext(): TagsContextValue {
-  const ctx = useContext(TagsContext);
-  if (!ctx) {
-    return {
-      getSuggestedTag: () => null,
-    };
-  }
-  return ctx;
+  return useContext(TagsContext);
 }

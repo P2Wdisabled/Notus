@@ -39,6 +39,8 @@ export interface Document {
     permission: boolean;
   }[];
   favori_share?: boolean | null;
+  dossierIds?: number[];
+  shared?: boolean;
 }
 
 export interface UserSession {

@@ -30,20 +30,13 @@ export default function FloatingCreateButton({ serverSession }: FloatingCreateBu
     }
   }, [createState, router]);
 
-  if (
-    loading || (
-      pathname !== "/" &&
-      pathname !== "/notes" &&
-      pathname !== "/shared"
-    )
-  ) {
+  if (loading || pathname !== "/") {
     return null;
   }
 
   const getBottomClass = () => {
     const isHomePage = pathname === "/";
-    const isNotesPage = pathname === "/notes";
-    const hasConnectionWarning = !isLoggedIn && (isHomePage || isNotesPage);
+    const hasConnectionWarning = !isLoggedIn && isHomePage;
     if (isSelectModeActive && hasConnectionWarning) { return "bottom-32"; }
     else { return "bottom-20"; }
   };

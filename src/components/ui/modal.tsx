@@ -56,17 +56,19 @@ const Modal: React.FC<ModalProps> & {
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className={`${sizes[size]} ${className}`}>
-        <DialogHeader>
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="sr-only">
             {title || "Modal"}
           </DialogTitle>
         </DialogHeader>
         {title && (
-          <h2 className="text-2xl font-title font-bold text-center text-foreground mb-4">
+          <h2 className="text-2xl font-title font-bold text-center text-foreground mb-4 flex-shrink-0">
             {title}
           </h2>
         )}
-        {children}
+        <div className="overflow-y-auto flex-1 min-h-0">
+          {children}
+        </div>
       </DialogContent>
     </Dialog>
   );

@@ -36,7 +36,7 @@ export default function TagsManager({
   const [showLoginModal, setShowLoginModal] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const { startSearch } = useSearch();
+  const { filterByTag } = useSearch();
   const { getSuggestedTag } = useTagsContext();
   const suggested = newTag.trim() ? getSuggestedTag(newTag, tags) : null;
 
@@ -102,7 +102,18 @@ export default function TagsManager({
           </Button>
         )}
         {tags.map((tag) => (
-          <Badge key={tag} variant="purple" size="md" className="flex-shrink-0 pr-1 group cursor-pointer" onClick={(e) => { e.stopPropagation(); startSearch(tag); }} title={`Filtrer par tag: ${tag}`} aria-label={`Filtrer par tag: ${tag}`}>
+          <Badge
+            key={tag}
+            variant="purple"
+            size="md"
+            className="flex-shrink-0 pr-1 group cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+              filterByTag(tag);
+            }}
+            title={`Filtrer par tag: ${tag}`}
+            aria-label={`Filtrer par tag: ${tag}`}
+          >
             <span className="mr-1 max-w-[200px] truncate" title={tag}>{tag}</span>
             <button type="button" className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-md text-accent hover:bg-accent/20 transition-colors" aria-label={`Supprimer le tag ${tag}`} onClick={(e) => { e.stopPropagation(); removeTag(tag); }}>
               <Icon name="x" className="h-4 w-4" />
