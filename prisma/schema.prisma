@@ -76,11 +76,12 @@ model VerificationToken {
 }
 
 model Share {
-  id         Int     @id @default(autoincrement())
-  id_doc     Int     @map("id_doc")
+  id         Int       @id @default(autoincrement())
+  id_doc     Int       @map("id_doc")
   email      String
-  permission Boolean @default(false)
+  permission Boolean   @default(false)
   favori     Boolean?
+  share_at   DateTime? @default(now()) @map("share_at")
 
   document Document @relation(fields: [id_doc], references: [id], onDelete: Cascade)
 

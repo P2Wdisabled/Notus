@@ -35,27 +35,33 @@ export default function RequestDetailPageClient({ request: initialRequest }: Req
   const router = useRouter();
   const [request, setRequest] = useState(initialRequest);
   const [message, setMessage] = useState("");
-  const [isSending, setIsSending] = useState(false);
+  const [showMessageField, setShowMessageField] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
   const [statusUpdateSuccess, setStatusUpdateSuccess] = useState(false);
+  const [messageSent, setMessageSent] = useState(false);
 
   const handleStatusChange = async (newStatus: Request["status"]) => {
-    if (newStatus === request.status) return;
+    if (newStatus === request.status && !message.trim()) return;
 
     setError(null);
     setIsUpdatingStatus(true);
 
     try {
+      const body: { status: string; message?: string } = {
+        status: newStatus,
+      };
+
+      if (showMessageField && message.trim()) {
+        body.message = message.trim();
+      }
+
       const response = await fetch(`/api/admin/requests/${request.id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          status: newStatus,
-        }),
+        body: JSON.stringify(body),
       });
 
       const data = await response.json();
@@ -66,49 +72,18 @@ export default function RequestDetailPageClient({ request: initialRequest }: Req
 
       setRequest(data.request);
       setStatusUpdateSuccess(true);
+      const hadMessage = !!(showMessageField && message.trim());
+      setMessageSent(hadMessage);
+      setMessage("");
+      setShowMessageField(false);
       setTimeout(() => {
         setStatusUpdateSuccess(false);
+        setMessageSent(false);
       }, 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Une erreur est survenue");
     } finally {
       setIsUpdatingStatus(false);
-    }
-  };
-
-  const handleSendMessage = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!message.trim()) return;
-
-    setError(null);
-    setIsSending(true);
-
-    try {
-      const response = await fetch(`/api/admin/requests/${request.id}/message`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          message: message.trim(),
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || "Erreur lors de l'envoi du message");
-      }
-
-      setSuccess(true);
-      setMessage("");
-      setTimeout(() => {
-        setSuccess(false);
-      }, 3000);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Une erreur est survenue");
-    } finally {
-      setIsSending(false);
     }
   };
 
@@ -119,9 +94,9 @@ export default function RequestDetailPageClient({ request: initialRequest }: Req
           <div className="flex items-center gap-3 mb-3">
             <Button
               type="button"
-              variant="outline"
+              variant="ghostPurple"
               onClick={() => router.push("/admin/requests")}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 px-4"
             >
               <Icon name="arrowLeft" className="w-4 h-4" />
               Retour
@@ -143,38 +118,16 @@ export default function RequestDetailPageClient({ request: initialRequest }: Req
         <div className="p-3 bg-success/10 border border-success/20 rounded-lg text-success text-sm">
           <div className="flex items-center gap-2">
             <Icon name="circleCheck" className="w-4 h-4" />
-            <span>Statut mis à jour avec succès !</span>
+            <span>
+              {messageSent
+                ? "Statut mis à jour et message envoyé avec succès !"
+                : "Statut mis à jour avec succès !"}
+            </span>
           </div>
         </div>
       )}
 
-      <section className="border border-border rounded-lg p-4 bg-card">
-        <h3 className="text-lg font-semibold text-foreground mb-4">Modifier le statut</h3>
-        <div className="flex items-center gap-4">
-          <label htmlFor="status-select" className="text-sm font-medium text-foreground">
-            Statut de la requête
-          </label>
-          <Select
-            value={request.status}
-            onValueChange={(value) => handleStatusChange(value as Request["status"])}
-            disabled={isUpdatingStatus}
-          >
-            <SelectTrigger id="status-select" className="w-48" aria-label="Choisir le statut">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="pending">En attente</SelectItem>
-              <SelectItem value="in_progress">En cours</SelectItem>
-              <SelectItem value="resolved">Résolu</SelectItem>
-            </SelectContent>
-          </Select>
-          {isUpdatingStatus && (
-            <Icon name="spinner" className="w-4 h-4 animate-spin text-muted-foreground" />
-          )}
-        </div>
-      </section>
-
-      <dl className="space-y-4">
+<dl className="space-y-4">
         <div>
           <dt className="text-sm font-medium text-muted-foreground mb-1">Utilisateur</dt>
           <dd className="text-sm text-foreground">
@@ -222,70 +175,82 @@ export default function RequestDetailPageClient({ request: initialRequest }: Req
           </dd>
         </div>
       </dl>
-
-      <div className="border-t border-border pt-6 mt-6">
-        <h3 className="text-lg font-semibold text-foreground mb-4">
-          Envoyer un message à l'utilisateur
-        </h3>
-
-        {success && (
-          <div className="mb-4 p-3 bg-success/10 border border-success/20 rounded-lg text-success text-sm">
-            <div className="flex items-center gap-2">
-              <Icon name="circleCheck" className="w-4 h-4" />
-              <span>Message envoyé avec succès !</span>
-            </div>
+      {error && (
+        <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm">
+          <div className="flex items-center gap-2">
+            <Icon name="alert" className="w-4 h-4" />
+            <span>{error}</span>
           </div>
-        )}
+        </div>
+      )}
 
-        {error && (
-          <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm">
-            <div className="flex items-center gap-2">
-              <Icon name="alert" className="w-4 h-4" />
-              <span>{error}</span>
-            </div>
-          </div>
-        )}
-
-        <form onSubmit={handleSendMessage} className="space-y-4">
-          <div>
-            <label htmlFor="message" className="block text-sm font-medium text-foreground mb-2">
-              Message
+      <section className="border border-border rounded-lg p-4 bg-card">
+        <h3 className="text-lg font-semibold text-foreground mb-4">Modifier le statut</h3>
+        <div className="space-y-4">
+          <div className="flex items-center gap-4">
+            <label htmlFor="status-select" className="text-sm font-medium text-foreground">
+              Statut de la requête
             </label>
-            <Textarea
-              id="message"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder="Écrivez votre message à l'utilisateur..."
-              rows={6}
-              required
-              className="bg-card text-foreground border-border resize-none"
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              Ce message sera envoyé comme notification à l'utilisateur.
-            </p>
+            <Select
+              value={request.status}
+              onValueChange={(value) => handleStatusChange(value as Request["status"])}
+              disabled={isUpdatingStatus}
+            >
+              <SelectTrigger id="status-select" className="w-48" aria-label="Choisir le statut">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pending">En attente</SelectItem>
+                <SelectItem value="in_progress">En cours</SelectItem>
+                <SelectItem value="resolved">Résolu</SelectItem>
+              </SelectContent>
+            </Select>
+            {isUpdatingStatus && (
+              <Icon name="spinner" className="w-4 h-4 animate-spin text-muted-foreground" />
+            )}
           </div>
 
-          <div className="flex gap-3 justify-end">
-            <Button
-              type="submit"
-              variant="primary"
-              disabled={isSending || !message.trim()}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowMessageField(!showMessageField)}
+              className="flex items-center gap-2 text-sm text-foreground hover:text-primary transition-colors"
+              aria-label={showMessageField ? "Masquer le champ message" : "Afficher le champ message"}
             >
-              {isSending ? (
+              {showMessageField ? (
                 <>
-                  <Icon name="spinner" className="w-4 h-4 mr-2 animate-spin" />
-                  Envoi...
+                  <Icon name="minus" className="w-4 h-4" />
+                  <span>Masquer le message</span>
                 </>
               ) : (
                 <>
-                  <Icon name="check" className="w-4 h-4 mr-2" />
-                  Envoyer le message
+                  <Icon name="plus" className="w-4 h-4" />
+                  <span>Ajouter un message (optionnel)</span>
                 </>
               )}
-            </Button>
+            </button>
           </div>
-        </form>
-      </div>
+
+          {showMessageField && (
+            <div className="mt-4">
+              <label htmlFor="message" className="block text-sm font-medium text-foreground mb-2">
+                Message à l'utilisateur
+              </label>
+              <Textarea
+                id="message"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="Écrivez votre message à l'utilisateur (optionnel)..."
+                rows={6}
+                className="bg-card text-foreground border-border resize-none"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Ce message sera envoyé comme notification à l'utilisateur lors de la mise à jour du statut.
+              </p>
+            </div>
+          )}
+        </div>
+      </section>
     </article>
   );
 }

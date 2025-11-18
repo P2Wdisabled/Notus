@@ -1,6 +1,6 @@
 import { Card } from "@/components/ui";
 import { BaseRepository } from "@/lib/repositories/BaseRepository";
-import StatCard from "@/components/admin/StatCard";
+import StatsContent from "@/components/admin/StatsContent";
 
 class StatsRepository extends BaseRepository {
   async initializeTables(): Promise<void> {
@@ -15,8 +15,8 @@ class StatsRepository extends BaseRepository {
     }
   }
 
-  private async ensureSharesCreatedAt(): Promise<void> {
-    await this.addColumnIfNotExists("shares", "created_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
+  private async ensureSharesShareAt(): Promise<void> {
+    await this.addColumnIfNotExists("shares", "share_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
   }
 
   async getTotalUsers(): Promise<number> {
@@ -57,19 +57,22 @@ class StatsRepository extends BaseRepository {
   }
 
   async getSharesCreatedSince(days: number): Promise<number> {
-    // S'assurer que la colonne created_at existe
-    await this.ensureSharesCreatedAt();
+    // S'assurer que la colonne share_at existe
+    await this.ensureSharesShareAt();
     
     // Vérifier si la colonne existe avant de faire la requête
     try {
       const result = await this.query<{ count: string }>(
-        "SELECT COUNT(*) as count FROM shares WHERE created_at >= NOW() - INTERVAL '1 day' * $1",
+        `SELECT COUNT(*) as count 
+         FROM shares s
+         JOIN documents d ON s.id_doc = d.id
+         WHERE COALESCE(s.share_at, d.created_at) >= NOW() - INTERVAL '1 day' * $1`,
         [days]
       );
       return parseInt(result.rows[0]?.count || "0", 10);
     } catch (error) {
       // Si la colonne n'existe toujours pas, retourner le total
-      console.warn("⚠️ Colonne created_at non disponible pour shares, utilisation du total");
+      console.warn("⚠️ Colonne share_at non disponible pour shares, utilisation du total");
       return await this.getTotalShares();
     }
   }
@@ -179,115 +182,7 @@ export default async function AdminStatsPage() {
           </Card>
         </section>
       ) : (
-        <>
-          {/* Statistiques utilisateurs */}
-          <section className="max-w-4xl mx-auto">
-            <Card className="bg-background">
-              <Card.Header>
-                <Card.Title className="text-foreground text-2xl font-semibold">
-                  Utilisateurs
-                </Card.Title>
-              </Card.Header>
-              <Card.Content>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <StatCard
-                    title="Total utilisateurs"
-                    value={stats.users.total}
-                    icon="users"
-                  />
-                  <StatCard
-                    title="Utilisateurs vérifiés"
-                    value={stats.users.verified}
-                    icon="circleCheck"
-                    subtitle={`${Math.round((stats.users.verified / stats.users.total) * 100) || 0}% du total`}
-                  />
-                  <StatCard
-                    title="Utilisateurs bannis"
-                    value={stats.users.banned}
-                    icon="alert"
-                  />
-                  <StatCard
-                    title="Administrateurs"
-                    value={stats.users.admins}
-                    icon="shieldCheck"
-                  />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                  <StatCard
-                    title="Nouveaux utilisateurs (7 jours)"
-                    value={stats.users.last7Days}
-                    icon="users"
-                  />
-                  <StatCard
-                    title="Nouveaux utilisateurs (30 jours)"
-                    value={stats.users.last30Days}
-                    icon="users"
-                  />
-                </div>
-              </Card.Content>
-            </Card>
-          </section>
-
-          {/* Statistiques documents */}
-          <section className="max-w-4xl mx-auto">
-            <Card className="bg-background">
-              <Card.Header>
-                <Card.Title className="text-foreground text-2xl font-semibold">
-                  Documents
-                </Card.Title>
-              </Card.Header>
-              <Card.Content>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <StatCard
-                    title="Total documents"
-                    value={stats.documents.total}
-                    icon="document"
-                  />
-                  <StatCard
-                    title="Documents créés (7 jours)"
-                    value={stats.documents.last7Days}
-                    icon="document"
-                  />
-                  <StatCard
-                    title="Documents créés (30 jours)"
-                    value={stats.documents.last30Days}
-                    icon="document"
-                  />
-                </div>
-              </Card.Content>
-            </Card>
-          </section>
-
-          {/* Statistiques partages */}
-          <section className="max-w-4xl mx-auto">
-            <Card className="bg-background">
-              <Card.Header>
-                <Card.Title className="text-foreground text-2xl font-semibold">
-                  Partages
-                </Card.Title>
-              </Card.Header>
-              <Card.Content>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <StatCard
-                    title="Total partages"
-                    value={stats.shares.total}
-                    icon="share"
-                  />
-                  <StatCard
-                    title="Partages créés (7 jours)"
-                    value={stats.shares.last7Days}
-                    icon="share"
-                  />
-                  <StatCard
-                    title="Partages créés (30 jours)"
-                    value={stats.shares.last30Days}
-                    icon="share"
-                  />
-                </div>
-              </Card.Content>
-            </Card>
-          </section>
-        </>
+        <StatsContent stats={stats} />
       )}
     </main>
   );
