@@ -20,7 +20,7 @@ export default function AdminNavigation() {
   const navigation: NavItem[] = [
     { name: "Utilisateurs", href: "/admin/users", icon: "users" },
     { name: "Requêtes", href: "/admin/requests", icon: "alert" },
-    { name: "Stats", href: "/admin/stats", icon: "dashboard" },
+    { name: "Stats", href: "/admin/stats", icon: "chartBar" },
     { name: "Paramètres", href: "/admin/settings", icon: "gear" },
   ];
 

@@ -128,7 +128,7 @@ export default function NotificationOverlay({ isOpen = true, onClose }: Notifica
                 </Button>
             </div>
 
-            <div className="mt-2 flex-1 overflow-y-auto divide-y divide-border">
+            <div className="mt-2 flex-1 overflow-y-auto scroller divide-y divide-border">
                 {loading && <div className="p-4">Chargement...</div>}
                 {error && <div className="p-4 text-destructive">{error}</div>}
 

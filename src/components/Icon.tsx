@@ -43,8 +43,8 @@ const X: React.FC<SvgProps> = (props) => (
 
 const Home: React.FC<SvgProps> = (props) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
-    <path d="M3 9l9-7 9 7" />
-    <path d="M9 22V12h6v10" />
+    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+    <polyline points="9 22 9 12 15 12 15 22" />
   </svg>
 );
 
@@ -304,10 +304,10 @@ const Alert: React.FC<SvgProps> = (props) => (
 
 const Users: React.FC<SvgProps> = (props) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
-    <path d="M12 4.354a4 4 0 110 5.292" />
-    <path d="M15 21H3v-1a6 6 0 0112 0v1z" />
-    <path d="M15 21h6v-1a6 6 0 00-9-5.197" />
-    <path d="M22.5 6.5a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
   </svg>
 );
 
@@ -434,6 +434,14 @@ const Google: React.FC<SvgProps> = (props) => (
     <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
   </svg>
 );
+
+const ChartBar: React.FC<SvgProps> = (props) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <line x1="12" y1="20" x2="12" y2="10" />
+    <line x1="18" y1="20" x2="18" y2="4" />
+    <line x1="6" y1="20" x2="6" y2="16" />
+  </svg>
+);
 export const ICONS = {
   menu: Menu,
   filter: Filter,
@@ -501,6 +509,7 @@ export const ICONS = {
   eyeOff: EyeOff,
   google: Google,
   userListBadge: UserListBadge,
+  chartBar: ChartBar,
 } as const;
 
 export type IconName = keyof typeof ICONS;

@@ -74,6 +74,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
     const { id } = await params;
     const body = await request.json();
+    const { status, message } = body;
     await requestService.initializeTables();
     await notificationService.initializeTables();
 
@@ -87,10 +88,14 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     }
 
     const oldStatus = requestBeforeUpdate.request.status;
-    const newStatus = body.status;
+    const newStatus = status;
 
     // Mettre à jour la requête
-    const result = await requestService.updateRequest(parseInt(id), body);
+    const updateData: { status?: string } = {};
+    if (status) {
+      updateData.status = status;
+    }
+    const result = await requestService.updateRequest(parseInt(id), updateData);
 
     if (!result.success) {
       return NextResponse.json(
@@ -99,22 +104,66 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       );
     }
 
-    // Si le statut passe à "resolved", envoyer une notification automatique
-    if (newStatus === "resolved" && oldStatus !== "resolved" && result.request) {
+    // Envoyer une notification si le statut a changé ou si un message est fourni
+    const statusChanged = newStatus && String(newStatus) !== String(oldStatus);
+    const hasMessage = message && typeof message === "string" && message.trim();
+    
+    // Envoyer une notification si le statut a changé (même sans message) ou si un message est fourni
+    if ((statusChanged || hasMessage) && result.request) {
       const typeLabels: Record<string, string> = {
         help: "Demande d'aide",
         data_restoration: "Restauration de données",
         other: "Autre",
       };
 
+      const statusLabels: Record<string, string> = {
+        pending: "En attente",
+        in_progress: "En cours",
+        resolved: "Résolu",
+        rejected: "Rejeté",
+      };
+
+      const statusLabel = statusLabels[newStatus] || newStatus;
+      
+      // Construire le message : toujours mentionner le changement de statut si le statut a changé, puis ajouter le message personnalisé s'il existe
+      let notificationMessageText: string;
+      
+      if (statusChanged) {
+        // Le statut a changé
+        const statusChangeText = `Le statut de votre requête "${result.request.title}" a été modifié : ${statusLabel}.`;
+        
+        if (hasMessage) {
+          // Combiner le changement de statut avec le message personnalisé
+          notificationMessageText = `${statusChangeText}\n\n${message.trim()}`;
+        } else {
+          // Message par défaut selon le nouveau statut
+          if (newStatus === "resolved") {
+            notificationMessageText = `Votre requête "${result.request.title}" a été résolue.`;
+          } else {
+            notificationMessageText = statusChangeText;
+          }
+        }
+      } else if (hasMessage) {
+        // Pas de changement de statut mais un message est fourni
+        notificationMessageText = message.trim();
+      } else {
+        // Ne devrait pas arriver ici, mais au cas où
+        notificationMessageText = `Mise à jour de votre requête "${result.request.title}".`;
+      }
+
+      // Déterminer le type de notification
+      const notificationType = statusChanged && newStatus === "resolved" 
+        ? "request-resolved" 
+        : "request-response";
+
       const notificationMessage = {
-        type: "request-resolved",
+        type: notificationType,
         requestId: result.request.id,
         requestTitle: result.request.title,
         requestType: result.request.type,
         requestTypeLabel: typeLabels[result.request.type] || "Autre",
-        status: "resolved",
-        message: `Votre requête "${result.request.title}" a été résolue.`,
+        status: newStatus || result.request.status,
+        message: notificationMessageText,
         from: "Administration",
       };
 
@@ -125,7 +174,8 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       );
 
       if (!notificationResult.success) {
-        console.error("❌ Erreur envoi notification:", (notificationResult as { error?: string }).error || "Erreur inconnue");
+        const errorMessage = 'error' in notificationResult ? notificationResult.error : "Erreur inconnue";
+        console.error("❌ Erreur envoi notification:", errorMessage);
         // On continue quand même, la notification n'est pas critique
       }
     }

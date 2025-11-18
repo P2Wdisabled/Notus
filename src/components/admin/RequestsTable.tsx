@@ -2,7 +2,6 @@
 
 import { Fragment } from "react";
 import { useRouter } from "next/navigation";
-import Icon from "@/components/Icon";
 import { Badge } from "@/components/ui";
 import type { Request } from "@/lib/repositories/RequestRepository";
 
@@ -48,22 +47,31 @@ export default function RequestsTable({ requests }: RequestsTableProps) {
             <th className="px-6 py-3 text-left text-xs font-medium text-foreground uppercase tracking-wider">
               Statut
             </th>
-            <th className="px-6 py-3 text-center text-xs font-medium text-foreground uppercase tracking-wider">
-              Actions
-            </th>
           </tr>
         </thead>
         <tbody className="bg-background divide-y divide-border">
           {requests.length === 0 ? (
             <tr>
-              <td colSpan={4} className="px-6 py-8 text-center text-muted-foreground">
+              <td colSpan={3} className="px-6 py-8 text-center text-muted-foreground">
                 Aucune requête trouvée
               </td>
             </tr>
           ) : (
             requests.map((request) => (
               <Fragment key={request.id}>
-                <tr className="hover:bg-muted/50 transition-colors">
+                <tr
+                  onClick={() => router.push(`/admin/requests/${request.id}`)}
+                  className="hover:bg-muted/50 transition-colors cursor-pointer"
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      router.push(`/admin/requests/${request.id}`);
+                    }
+                  }}
+                  aria-label={`Voir les détails de la requête ${request.id}`}
+                >
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
                     {typeLabels[request.type]}
                   </td>
@@ -77,18 +85,6 @@ export default function RequestsTable({ requests }: RequestsTableProps) {
                     <Badge variant={statusVariants[request.status]} size="sm">
                       {statusLabels[request.status]}
                     </Badge>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex items-center justify-center">
-                      <button
-                        type="button"
-                        onClick={() => router.push(`/admin/requests/${request.id}`)}
-                        className="text-primary hover:text-primary/80"
-                        aria-label="Voir les détails"
-                      >
-                        <Icon name="eye" className="w-4 h-4" />
-                      </button>
-                    </div>
                   </td>
                 </tr>
               </Fragment>
