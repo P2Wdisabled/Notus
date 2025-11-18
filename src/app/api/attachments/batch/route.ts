@@ -43,8 +43,14 @@ export async function POST(request: NextRequest) {
     // Décompresser et convertir tous les fichiers
     const files = attachments.map(attachment => {
       try {
+        // Convertir la base64 en Buffer puis en Uint8Array pour pako
         const compressedBuffer = Buffer.from(attachment.file_data, 'base64');
-        const decompressed = pako.ungzip(compressedBuffer);
+        const compressedUint8Array = new Uint8Array(compressedBuffer);
+        
+        // Décompresser avec pako (attend un Uint8Array)
+        const decompressed = pako.ungzip(compressedUint8Array);
+        
+        // Convertir en base64 pour l'affichage
         const base64 = Buffer.from(decompressed).toString('base64');
         const dataUrl = `data:${attachment.file_type};base64,${base64}`;
 
@@ -57,7 +63,20 @@ export async function POST(request: NextRequest) {
         };
       } catch (err) {
         console.error(`Erreur décompression fichier ${attachment.id}:`, err);
-        return null;
+        // Si la décompression échoue, essayer de retourner les données telles quelles (peut-être pas compressées)
+        try {
+          const dataUrl = `data:${attachment.file_type};base64,${attachment.file_data}`;
+          return {
+            id: attachment.id,
+            file_name: attachment.file_name,
+            file_type: attachment.file_type,
+            file_size: attachment.file_size,
+            data: dataUrl,
+          };
+        } catch (fallbackErr) {
+          console.error(`Erreur fallback fichier ${attachment.id}:`, fallbackErr);
+          return null;
+        }
       }
     }).filter(file => file !== null);
 

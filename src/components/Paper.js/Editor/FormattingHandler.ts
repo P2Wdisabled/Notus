@@ -634,9 +634,11 @@ export class FormattingHandler {
                     if (result.file.data.startsWith('data:')) {
                       if (element instanceof HTMLImageElement) {
                         element.src = result.file.data;
+                        element.setAttribute('data-loaded', 'true');
                         element.removeAttribute('data-loading');
                       } else if (element instanceof HTMLVideoElement) {
                         element.src = result.file.data;
+                        element.setAttribute('data-loaded', 'true');
                         element.removeAttribute('data-loading');
                       } else if (element instanceof HTMLAnchorElement || element instanceof HTMLSpanElement) {
                         element.setAttribute('data-file-data', result.file.data);
@@ -664,11 +666,13 @@ export class FormattingHandler {
                 img.setAttribute('data-file-type', type);
                 img.setAttribute('data-attachment-id', attachmentId.toString());
                 img.setAttribute('data-loading', 'true');
-                
-                // Charger le fichier depuis l'API
-                loadFileFromAPI(img);
+                // Définir un src vide pour éviter les erreurs du navigateur
+                img.src = '';
                 
                 updatedRange.insertNode(img);
+                
+                // Charger le fichier depuis l'API après insertion
+                loadFileFromAPI(img);
                 
                 const br = document.createElement('br');
                 img.parentNode?.insertBefore(br, img.nextSibling);

@@ -30,6 +30,10 @@ export function useEditorEffects({
   isUpdatingFromMarkdown,
   isLocalChange
 }: EditorEffectsProps) {
+  // Cache pour les fichiers déjà chargés (évite les rechargements)
+  const fileDataCache = useRef<Map<string, string>>(new Map());
+  // Ref pour stocker la fonction loadFilesFromAPI
+  const loadFilesFromAPIRef = useRef<(() => Promise<void>) | null>(null);
   
   // Note: Initialization is handled in the main component
 
@@ -218,6 +222,14 @@ export function useEditorEffects({
     (isUpdatingFromMarkdown as any)?.current && ((isUpdatingFromMarkdown as any).current = true);
     root.innerHTML = currentHtml;
 
+    // Charger les fichiers (images avec src vide) après la mise à jour du HTML
+    // Utiliser un petit délai pour s'assurer que le DOM est prêt
+    setTimeout(() => {
+      if (loadFilesFromAPIRef.current) {
+        loadFilesFromAPIRef.current();
+      }
+    }, 100);
+
     if (hasActiveSelection && prevSelection) {
       // Use requestAnimationFrame for better synchronization with DOM updates
       // Then use setTimeout to ensure the DOM is fully ready
@@ -317,9 +329,6 @@ export function useEditorEffects({
     }
   }, [formattingHandler]);
 
-  // Cache pour les fichiers déjà chargés (évite les rechargements)
-  const fileDataCache = useRef<Map<string, string>>(new Map());
-
   // Handle file download links and load files from API
   useEffect(() => {
     const handleFileClick = async (e: MouseEvent) => {
@@ -394,19 +403,31 @@ export function useEditorEffects({
 
     // Load files from API when editor content is loaded (batch mode)
     const loadFilesFromAPI = async () => {
+      // Stocker la référence pour pouvoir l'appeler depuis d'autres effets
+      loadFilesFromAPIRef.current = loadFilesFromAPI;
       if (!editorRef.current) return;
       
       // Collecter tous les IDs d'attachement qui doivent être chargés
       const attachmentIdsToLoad = new Set<string>();
       const attachmentElementMap = new Map<string, { element: HTMLElement; type: 'img' | 'video' | 'link' }>();
       
-      // Images
-      const images = editorRef.current.querySelectorAll('img[data-attachment-id]:not([data-loaded])');
-      images.forEach((img) => {
+      // Images - détecter toutes les images avec data-attachment-id, même celles marquées comme chargées si le src est vide
+      const allImages = editorRef.current.querySelectorAll('img[data-attachment-id]');
+      allImages.forEach((img) => {
         const imgEl = img as HTMLImageElement;
         const attachmentId = imgEl.getAttribute('data-attachment-id');
-        // Charger si l'ID existe et que l'image n'a pas de src valide (vide ou pas de data:)
-        if (attachmentId && (!imgEl.src || imgEl.src === '' || !imgEl.src.startsWith('data:'))) {
+        // Vérifier l'attribut src directement (peut être vide ou absent)
+        const srcAttr = imgEl.getAttribute('src');
+        const hasValidSrc = srcAttr && srcAttr !== '' && srcAttr.startsWith('data:');
+        const isLoaded = imgEl.hasAttribute('data-loaded');
+        
+        // Charger si l'ID existe et que l'image n'a pas de src valide (même si marquée comme chargée)
+        if (attachmentId && !hasValidSrc) {
+          // Si l'image est marquée comme chargée mais n'a pas de src valide, réinitialiser
+          if (isLoaded) {
+            imgEl.removeAttribute('data-loaded');
+          }
+          
           // Vérifier le cache d'abord
           if (fileDataCache.current.has(attachmentId)) {
             const cachedData = fileDataCache.current.get(attachmentId)!;
@@ -425,8 +446,12 @@ export function useEditorEffects({
       videos.forEach((video) => {
         const videoEl = video as HTMLVideoElement;
         const attachmentId = videoEl.getAttribute('data-attachment-id');
-        // Charger si l'ID existe et que la vidéo n'a pas de src valide (vide ou pas de data:)
-        if (attachmentId && (!videoEl.src || videoEl.src === '' || !videoEl.src.startsWith('data:'))) {
+        // Vérifier l'attribut src directement (peut être vide ou absent)
+        const srcAttr = videoEl.getAttribute('src');
+        const hasValidSrc = srcAttr && srcAttr !== '' && srcAttr.startsWith('data:');
+        
+        // Charger si l'ID existe et que la vidéo n'a pas de src valide
+        if (attachmentId && !hasValidSrc) {
           // Vérifier le cache d'abord
           if (fileDataCache.current.has(attachmentId)) {
             const cachedData = fileDataCache.current.get(attachmentId)!;
@@ -649,13 +674,45 @@ export function useEditorEffects({
           restoreFileName(); // Restaurer aussi après le chargement
         }, 300); // Attendre 300ms après le dernier changement
       });
-      observer.observe(editor, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['contenteditable'] });
+      observer.observe(editor, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['contenteditable', 'src'] });
       
       // Initial load (avec un petit délai pour s'assurer que le DOM est prêt)
       setTimeout(() => {
         loadFilesFromAPI();
         restoreFileName();
       }, 100);
+      
+      // Charger les fichiers quand le markdown change (pour les images avec src vide)
+      // Le MutationObserver devrait déjà détecter les changements, mais on force un check après un délai
+      const checkAndLoadFiles = () => {
+        if (editorRef.current) {
+          // Vérifier s'il y a des images avec data-attachment-id mais sans src valide
+          const imagesToLoad = editorRef.current.querySelectorAll('img[data-attachment-id]');
+          let needsLoad = false;
+          imagesToLoad.forEach((img) => {
+            const imgEl = img as HTMLImageElement;
+            const attachmentId = imgEl.getAttribute('data-attachment-id');
+            const srcAttr = imgEl.getAttribute('src');
+            const hasValidSrc = srcAttr && srcAttr !== '' && srcAttr.startsWith('data:');
+            const isLoaded = imgEl.hasAttribute('data-loaded');
+            
+            if (attachmentId && !hasValidSrc && !isLoaded) {
+              needsLoad = true;
+            }
+          });
+          
+          // Charger une seule fois si nécessaire
+          if (needsLoad) {
+            loadFilesFromAPI();
+          }
+        }
+      };
+      
+      // Observer les changements de markdown pour charger les fichiers
+      // Utiliser un effet qui se déclenche quand le markdown change
+      const markdownCheckTimeout = setTimeout(() => {
+        checkAndLoadFiles();
+      }, 300);
       
       return () => {
         editor.removeEventListener('click', handleFileClick);
@@ -667,9 +724,26 @@ export function useEditorEffects({
         if (loadFilesTimeout) {
           clearTimeout(loadFilesTimeout);
         }
+        if (markdownCheckTimeout) {
+          clearTimeout(markdownCheckTimeout);
+        }
       };
     }
   }, [editorRef]);
+
+  // Charger les fichiers quand le markdown change (pour les images avec src vide)
+  useEffect(() => {
+    if (!editorRef.current || !markdown) return;
+    
+    // Attendre un peu pour que le DOM soit mis à jour après la conversion markdown → HTML
+    const timeoutId = setTimeout(() => {
+      if (loadFilesFromAPIRef.current) {
+        loadFilesFromAPIRef.current();
+      }
+    }, 300);
+    
+    return () => clearTimeout(timeoutId);
+  }, [markdown, editorRef]);
 
   // Helpers to edit currently selected image
   const applyImageEditInternal = useCallback((payload: { src?: string; widthPercent?: number; widthPx?: number }) => {
