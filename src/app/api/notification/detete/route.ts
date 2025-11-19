@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/../lib/auth";
 import { NotificationService } from "@/lib/services/NotificationService";
+import { BaseRepository } from "@/lib/repositories/BaseRepository";
 
 export async function DELETE(request: Request) {
   try {
@@ -28,6 +29,26 @@ export async function DELETE(request: Request) {
     const notificationId = parseInt(String(idParam), 10);
     if (Number.isNaN(notificationId)) {
       return NextResponse.json({ success: false, error: "ID invalide" }, { status: 400 });
+    }
+
+    const userId = parseInt(session.user.id);
+    
+    // Vérifier que la notification appartient à l'utilisateur
+    const repo = new BaseRepository();
+    const notifCheck = await repo.query<{ id_receiver: number }>(
+      `SELECT id_receiver FROM notifications WHERE id = $1`,
+      [notificationId]
+    );
+    
+    if (!notifCheck.rows || notifCheck.rows.length === 0) {
+      return NextResponse.json({ success: false, error: "Notification non trouvée" }, { status: 404 });
+    }
+    
+    if (notifCheck.rows[0].id_receiver !== userId) {
+      return NextResponse.json(
+        { success: false, error: "Accès refusé - Cette notification ne vous appartient pas" },
+        { status: 403 }
+      );
     }
 
     const notifSvc = new NotificationService();

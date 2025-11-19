@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { auth } from "../../../../auth";
 import { RequestService } from "@/lib/services/RequestService";
+import { UserService } from "@/lib/services/UserService";
 
 const requestService = new RequestService();
+const userService = new UserService();
 
 export async function POST(request: Request) {
   try {
@@ -74,8 +76,30 @@ export async function GET(request: Request) {
 
     let result;
     if (userId) {
-      result = await requestService.getRequestsByUser(parseInt(userId));
+      // Vérifier que l'utilisateur demande ses propres requêtes ou qu'il est admin
+      const requestedUserId = parseInt(userId);
+      const sessionUserId = parseInt(session.user.id);
+      const isAdmin = await userService.isUserAdmin(sessionUserId);
+      
+      if (requestedUserId !== sessionUserId && !isAdmin) {
+        return NextResponse.json(
+          { success: false, error: "Accès refusé - Vous ne pouvez voir que vos propres requêtes" },
+          { status: 403 }
+        );
+      }
+      
+      result = await requestService.getRequestsByUser(requestedUserId);
     } else {
+      // Récupérer toutes les requêtes nécessite d'être admin
+      const isAdmin = await userService.isUserAdmin(parseInt(session.user.id));
+      
+      if (!isAdmin) {
+        return NextResponse.json(
+          { success: false, error: "Accès refusé - Droits administrateur requis" },
+          { status: 403 }
+        );
+      }
+      
       const limit = parseInt(searchParams.get("limit") || "100");
       const offset = parseInt(searchParams.get("offset") || "0");
       result = await requestService.getAllRequests(limit, offset);

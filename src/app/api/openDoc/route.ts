@@ -1,10 +1,20 @@
 import { NextResponse } from "next/server";
 import { DocumentService } from "@/lib/services/DocumentService";
+import { auth } from "../../../auth";
+import { prisma } from "@/lib/prisma";
 
 const documentService = new DocumentService();
 
 export async function GET(request: Request) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { success: false, error: "Non authentifié" },
+        { status: 401 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
 
@@ -23,16 +33,44 @@ export async function GET(request: Request) {
       );
     }
 
+    await documentService.initializeTables();
     const result = await documentService.getDocumentById(documentId);
 
-    if (!result.success) {
+    if (!result.success || !result.document) {
       return NextResponse.json(
         { success: false, error: result.error || "Document non trouvé" },
         { status: 404 }
       );
     }
 
-    const doc = result.document!;
+    const doc = result.document;
+    const userId = parseInt(session.user.id);
+    const userEmail = session.user.email;
+
+    // Vérifier que l'utilisateur est propriétaire ou a accès via partage
+    const isOwner = Number(doc.user_id) === userId;
+    
+    if (!isOwner && userEmail) {
+      // Vérifier si l'utilisateur a accès via partage
+      const share = await prisma.share.findFirst({
+        where: {
+          id_doc: documentId,
+          email: userEmail.toLowerCase().trim(),
+        },
+      });
+
+      if (!share) {
+        return NextResponse.json(
+          { success: false, error: "Accès refusé - Vous n'avez pas accès à ce document" },
+          { status: 403 }
+        );
+      }
+    } else if (!isOwner) {
+      return NextResponse.json(
+        { success: false, error: "Accès refusé - Vous n'avez pas accès à ce document" },
+        { status: 403 }
+      );
+    }
 
     // Retourner le titre, le contenu, les tags et la date de mise à jour
     const response = {

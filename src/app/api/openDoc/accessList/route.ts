@@ -1,10 +1,19 @@
 import { NextResponse } from "next/server";
 import { DocumentService } from "@/lib/services/DocumentService";
+import { auth } from "../../../../../auth";
 
 const documentService = new DocumentService();
 
 export async function GET(request: Request) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { success: false, error: "Non authentifié" },
+        { status: 401 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
 
@@ -20,6 +29,28 @@ export async function GET(request: Request) {
       return NextResponse.json(
         { success: false, error: "ID du document invalide" },
         { status: 400 }
+      );
+    }
+
+    // Vérifier que l'utilisateur est propriétaire du document
+    await documentService.initializeTables();
+    const docResult = await documentService.getDocumentById(documentId);
+    
+    if (!docResult.success || !docResult.document) {
+      return NextResponse.json(
+        { success: false, error: "Document non trouvé" },
+        { status: 404 }
+      );
+    }
+
+    const document = docResult.document;
+    const userId = parseInt(session.user.id);
+    
+    // Vérifier que l'utilisateur est propriétaire du document
+    if (Number(document.user_id) !== userId) {
+      return NextResponse.json(
+        { success: false, error: "Accès refusé - Vous devez être propriétaire du document pour voir la liste d'accès" },
+        { status: 403 }
       );
     }
 

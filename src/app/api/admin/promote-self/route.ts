@@ -13,6 +13,15 @@ export async function POST() {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     }
 
+    // Vérifier si l'utilisateur est déjà admin
+    const isAdmin = await userService.isUserAdmin(parseInt(session.user.id));
+    if (!isAdmin) {
+      return NextResponse.json(
+        { error: "Accès refusé - Droits administrateur requis pour promouvoir" },
+        { status: 403 }
+      );
+    }
+
     // Promouvoir l'utilisateur connecté en admin
     const result = await userService.toggleUserAdmin(parseInt(session.user.id), true);
 
