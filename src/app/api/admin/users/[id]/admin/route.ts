@@ -12,15 +12,19 @@ const userService = new UserService();
 
 export async function PATCH(request: Request, { params }: RouteParams) {
   try {
+    // 1. Vérifier l'authentification via les cookies/session
     const session = await auth();
-
-    // Vérifier si l'utilisateur est connecté
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     }
 
-    // Vérifier si l'utilisateur est admin
-    const isAdmin = await userService.isUserAdmin(parseInt(session.user.id));
+    const sessionUserId = parseInt(session.user.id);
+    if (isNaN(sessionUserId) || sessionUserId <= 0) {
+      return NextResponse.json({ error: "Session invalide" }, { status: 401 });
+    }
+
+    // 2. Vérifier que l'utilisateur est admin AVANT toute autre opération
+    const isAdmin = await userService.isUserAdmin(sessionUserId);
     if (!isAdmin) {
       return NextResponse.json(
         { error: "Accès refusé - Droits administrateur requis" },
@@ -28,6 +32,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       );
     }
 
+    // 3. Maintenant que l'admin est vérifié, on peut lire les paramètres
     const { id } = await params;
     const { isAdmin: newAdminStatus } = await request.json();
 
@@ -38,15 +43,24 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       );
     }
 
+    // Validation de l'ID utilisateur cible
+    const targetUserId = parseInt(id);
+    if (isNaN(targetUserId) || targetUserId <= 0) {
+      return NextResponse.json(
+        { error: "ID utilisateur invalide" },
+        { status: 400 }
+      );
+    }
+
     // Empêcher un admin de se rétrograder lui-même
-    if (parseInt(id) === parseInt(session.user.id) && !newAdminStatus) {
+    if (targetUserId === sessionUserId && !newAdminStatus) {
       return NextResponse.json(
         { error: "Vous ne pouvez pas vous rétrograder vous-même" },
         { status: 400 }
       );
     }
 
-    const result = await userService.toggleUserAdmin(parseInt(id), newAdminStatus);
+    const result = await userService.toggleUserAdmin(targetUserId, newAdminStatus);
 
     if (!result.success) {
       return NextResponse.json({ error: result.error }, { status: 400 });
