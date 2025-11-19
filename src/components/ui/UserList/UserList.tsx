@@ -22,17 +22,17 @@ interface UserListProps {
   currentUserId?: string | number;
   documentId: number;
   onChanged?: () => Promise<void> | void;
+  isOwner?: boolean;
 }
 
-export default function UserList({ users, currentUserId, documentId, onChanged }: UserListProps) {
+export default function UserList({ users, currentUserId, documentId, onChanged, isOwner }: UserListProps) {
   const [menuOpen, setMenuOpen] = useState<number | null>(null);
   const [localUsers, setLocalUsers] = useState<User[]>(users);
   const [loadingEmail, setLoadingEmail] = useState<string | null>(null);
   const ownerId = localUsers && localUsers.length > 0 ? (localUsers[0].id !== null ? Number(localUsers[0].id) : null) : null;
   const connectedId = typeof currentUserId !== 'undefined' && currentUserId !== null ? Number(currentUserId) : null;
-  const isConnectedOwner = ownerId !== null && connectedId !== null && ownerId === connectedId;
+  const isConnectedOwner = isOwner ?? (ownerId !== null && connectedId !== null && ownerId === connectedId);
   
-  // Keep localUsers in sync if parent users prop changes
   React.useEffect(() => setLocalUsers(users), [users]);
 
   async function handleSetPermission(targetEmail: string | undefined | null, newPermission: boolean) {
@@ -55,14 +55,12 @@ export default function UserList({ users, currentUserId, documentId, onChanged }
       if (!res.ok || !body.success) {
         throw new Error(body?.error || 'Erreur serveur');
       }
-      // success: close any open menu and clear loading
       setMenuOpen(null);
       setLoadingEmail(null);
       if (onChanged) {
         try { await onChanged(); } catch (_) {}
       }
     } catch (err) {
-      // revert
       setLocalUsers(prev);
       setLoadingEmail(null);
       alert('Impossible de modifier la permission : ' + (err instanceof Error ? err.message : String(err)));

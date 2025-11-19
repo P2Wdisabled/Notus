@@ -323,6 +323,8 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     }
   }, [document, normalizeContent]);
 
+  const isOwner = document ? Number(document.user_id) === Number(userId) : false;
+
   useEffect(() => {
     const key = `notus:doc:${props.params.id}`;
     const handleBeforeUnload = () => {
@@ -947,7 +949,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
             Retour
           </Link>
           <div className="flex flex-row justify-center items-center">
-            <UserListButton users={users} className="self-center" documentId={document.id} onAccessListRefresh={loadAccessList} />
+            <UserListButton users={users} className="self-center" documentId={document.id} onAccessListRefresh={loadAccessList} isOwner={isOwner} currentUserId={userId} />
             {hasEditAccess === false && (
               <div className="ml-4 px-3 py-1 bg-muted text-foreground text-sm font-medium rounded-full border border-border">
                 Mode lecture seule

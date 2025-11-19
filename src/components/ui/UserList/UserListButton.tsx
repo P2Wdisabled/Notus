@@ -1,7 +1,6 @@
 import React, { useRef, useState } from "react";
 import Icon from "@/components/Icon";
 import UserList from "./UserList";
-import Image  from "next/image";
 
 type User = {
   id: number;
@@ -17,9 +16,11 @@ interface UserListButtonProps {
   className?: string;
   documentId?: number;
   onAccessListRefresh?: () => Promise<void> | void;
+  isOwner?: boolean;
+  currentUserId?: string | number | null;
 }
 
-export default function UserListButton({ users, className, documentId, onAccessListRefresh }: UserListButtonProps) {
+export default function UserListButton({ users, className, documentId, onAccessListRefresh, isOwner, currentUserId }: UserListButtonProps) {
   const [errored, setErrored] = useState<{ [id: string]: boolean }>({});
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -125,15 +126,10 @@ export default function UserListButton({ users, className, documentId, onAccessL
               id: Number(u.id),
               permission: u.permission === undefined ? false : u.permission
             }))}
-            currentUserId={(() => {
-              if (typeof window === 'undefined') return users[0]?.id;
-              const raw = window.localStorage.getItem('currentUserId');
-              if (!raw) return users[0]?.id;
-              const n = Number(raw);
-              return Number.isNaN(n) ? users[0]?.id : n;
-            })()}
+            currentUserId={currentUserId ?? undefined}
             documentId={documentId ?? (users[0]?.id ?? undefined as any)}
             onChanged={onAccessListRefresh}
+            isOwner={isOwner}
           />
         </div>
       )}
