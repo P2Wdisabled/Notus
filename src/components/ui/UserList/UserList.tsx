@@ -1,6 +1,13 @@
 import React, { useState } from "react";
+import Icon from "@/components/Icon";
 import Link from "next/link";
-import Image  from "next/image";
+import Image from "next/image";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 
 type User = {
   id: number;
@@ -16,6 +23,9 @@ interface UserListProps {
 
 export default function UserList({ users, currentUserId }: UserListProps) {
   const [menuOpen, setMenuOpen] = useState<number | null>(null);
+  const ownerId = users && users.length > 0 ? Number(users[0].id) : null;
+  const connectedId = typeof currentUserId !== 'undefined' && currentUserId !== null ? Number(currentUserId) : null;
+  const isConnectedOwner = ownerId !== null && connectedId !== null && ownerId === connectedId;
 
   return (
     <div className="space-y-4">
@@ -38,23 +48,53 @@ export default function UserList({ users, currentUserId }: UserListProps) {
                 </span>
               )
             }
-              <div className="flex flex-col">
-                <span>
-                  {user.name}
-                  {user.id === currentUserId && (
-                    <span className="ml-2 text-xs text-muted-foreground">(vous)</span>
-                  )}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {idx === 0
-                    ? "Propriétaire"
-                    : user.permission === true
-                      ? "Éditeur"
-                      : "Lecteur"}
-                </span>
-              </div>
+            <div className="flex flex-col">
+              <span>
+                {user.name}
+                {user.id === connectedId && (
+                  <span className="ml-2 text-xs text-muted-foreground">(vous)</span>
+                )}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {idx === 0
+                  ? "Propriétaire"
+                  : user.permission === true
+                    ? "Éditeur"
+                    : "Lecteur"}
+              </span>
+            </div>
           </div>
-          {/* 3 dots menu and profile overlay can go here if needed */}
+          {isConnectedOwner && user.id !== ownerId ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="Plus d'options"
+                  className="p-2 rounded hover:bg-accent/50"
+                >
+                  <Icon name="dotsHorizontal" className="w-5 h-5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-40">
+                <DropdownMenuItem
+                    onClick={() => {
+                      // replace with real handler: set permission to editor
+                      console.log("Set editor for user", user.id);
+                    }}
+                  >
+                    Éditeur
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      // replace with real handler: set permission to reader
+                      console.log("Set reader for user", user.id);
+                    }}
+                  >
+                    Lecteur
+                  </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
         </div>
       ))}
     </div>

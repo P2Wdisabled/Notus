@@ -28,12 +28,18 @@ export default function UserListButton({ users, className }: UserListButtonProps
     if (!open) return;
     function handleClick(e: MouseEvent) {
       const target = e.target as Node;
-      if (
-        buttonRef.current && buttonRef.current.contains(target)
-      ) return;
-      if (
-        overlayRef.current && overlayRef.current.contains(target)
-      ) return;
+      // If the click is inside the toggle button, ignore
+      if (buttonRef.current && buttonRef.current.contains(target)) return;
+      // If the click is inside the overlay itself, ignore
+      if (overlayRef.current && overlayRef.current.contains(target)) return;
+      try {
+        const el = target as Element | null;
+        if (el && el instanceof Element) {
+          if (el.closest('[data-slot="dropdown-menu-content"], [data-slot="dropdown-menu"]')) {
+            return;
+          }
+        }
+      } catch (_) {}
       setOpen(false);
     }
     document.addEventListener("mousedown", handleClick);
@@ -109,7 +115,7 @@ export default function UserListButton({ users, className }: UserListButtonProps
       {open && (
         <div
           ref={overlayRef}
-          className="absolute mt-2 z-50 min-w-[220px] max-w-xs bg-secondary text-secondary-foreground rounded-xl shadow-lg p-2 left-0 md:left-auto md:right-0 w-[90vw] md:w-auto "
+          className="absolute mt-2 z-50 min-w-56 max-w-sm bg-secondary text-secondary-foreground rounded-xl shadow-lg p-2 left-4 right-4 md:left-auto md:right-0 w-auto"
         >
           <UserList
             users={users.map(u => ({
@@ -117,7 +123,13 @@ export default function UserListButton({ users, className }: UserListButtonProps
               id: Number(u.id),
               permission: u.permission === undefined ? false : u.permission
             }))}
-            currentUserId={typeof window !== 'undefined' ? Number(window.localStorage.getItem('currentUserId')) : users[0]?.id}
+            currentUserId={(() => {
+              if (typeof window === 'undefined') return users[0]?.id;
+              const raw = window.localStorage.getItem('currentUserId');
+              if (!raw) return users[0]?.id;
+              const n = Number(raw);
+              return Number.isNaN(n) ? users[0]?.id : n;
+            })()}
           />
         </div>
       )}

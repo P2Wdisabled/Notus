@@ -255,6 +255,14 @@ const DotsVertical: React.FC<SvgProps> = (props) => (
   </svg>
 );
 
+const DotsHorizontal: React.FC<SvgProps> = (props) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
+    <circle cx="5" cy="12" r="2" />
+    <circle cx="12" cy="12" r="2" />
+    <circle cx="19" cy="12" r="2" />
+  </svg>
+);
+
 const TextColor: React.FC<SvgProps> = (props) => (
   <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
     <path d="M9.62 12L12 5.67 14.38 12M11 3L5.5 17h2.25l1.12-3h6.25l1.12 3h2.25L13 3h-2z" />
@@ -478,6 +486,7 @@ export const ICONS = {
   quote: Quote,
   minus: Minus,
   dotsVertical: DotsVertical,
+  dotsHorizontal: DotsHorizontal,
   textColor: TextColor,
   highlighter: Highlighter,
   indent: Indent,
