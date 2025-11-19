@@ -2,12 +2,14 @@
 
 import React, { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import NotificationItem from "@/components/ui/notifications/notification-item";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import type { Notification } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import Icon from "@/components/Icon";
 import { useNotification } from "@/contexts/NotificationContext";
+import { cn } from "@/lib/utils";
 
 interface NotificationOverlayProps {
     isOpen?: boolean;
@@ -21,6 +23,7 @@ function truncateText(s: string, max = 50) {
 
 export default function NotificationOverlay({ isOpen = true, onClose }: NotificationOverlayProps) {
     const { data: session } = useSession();
+    const router = useRouter();
     const [notifications, setNotifications] = useState<Notification[] | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -138,7 +141,38 @@ export default function NotificationOverlay({ isOpen = true, onClose }: Notifica
 
                 {!loading && (notifications ?? []).map((n: Notification) => {
                     const parsed = (n as any).parsed ?? null;
-                    const messageText = parsed?.message ?? String(n.message || "");
+                    // Pour les notifications de type request-response et request-resolved,
+                    // afficher un message court au lieu du message complet pour ne pas encombrer
+                    let messageText: string;
+                    let hasCustomMessage = false;
+                    
+                    if (parsed?.type === "request-response" || parsed?.type === "request-resolved") {
+                        const requestTitle = parsed?.requestTitle || "votre demande";
+                        const fullMessage = parsed?.message ?? String(n.message || "");
+                        
+                        // Vérifier s'il y a un message personnalisé au-delà du changement de statut
+                        // Le message de l'API contient "\n\n" si il y a un message personnalisé après le statut
+                        // Si le message ne contient pas "\n\n", c'est qu'il n'y a que le changement de statut
+                        hasCustomMessage = fullMessage.includes("\n\n");
+                        
+                        if (parsed?.type === "request-resolved") {
+                            const baseMessage = `Votre demande "${requestTitle}" a été résolue.`;
+                            messageText = hasCustomMessage 
+                                ? `${baseMessage} Consultez la page assistance pour plus de détails.`
+                                : baseMessage;
+                        } else {
+                            const statusLabel = parsed?.status === "pending" ? "En attente" :
+                                              parsed?.status === "in_progress" ? "En cours" :
+                                              parsed?.status === "resolved" ? "Résolu" :
+                                              parsed?.status === "rejected" ? "Rejeté" : "mise à jour";
+                            const baseMessage = `Votre demande "${requestTitle}" a été ${statusLabel.toLowerCase()}.`;
+                            messageText = hasCustomMessage
+                                ? `${baseMessage} Consultez la page assistance pour plus de détails.`
+                                : baseMessage;
+                        }
+                    } else {
+                        messageText = parsed?.message ?? String(n.message || "");
+                    }
                     const isRead = Boolean(n.read_date);
 
                     const firstNameFromSender = n.sender_first_name
@@ -230,8 +264,31 @@ export default function NotificationOverlay({ isOpen = true, onClose }: Notifica
                         ? (n as any).id_sender
                         : undefined;
 
+                    // Vérifier si c'est une notification de demande d'assistance avec message personnalisé
+                    const isRequestNotificationWithMessage = 
+                        (parsed?.type === "request-response" || parsed?.type === "request-resolved") &&
+                        hasCustomMessage;
+
+                    const handleNotificationClick = () => {
+                        if (!isRead) {
+                            void markAsRead(n.id);
+                        }
+                        
+                        // Si c'est une notification de demande avec message, rediriger vers la page assistance en mode historique
+                        if (isRequestNotificationWithMessage) {
+                            onClose?.();
+                            router.push("/assistance?view=history");
+                        }
+                    };
+
                     return (
-                        <div key={`item-${n.id}`} className={`${isRead ? "bg-muted" : ""}`}>
+                        <div 
+                            key={`item-${n.id}`} 
+                            className={cn(
+                                isRead ? "bg-muted" : "",
+                                isRequestNotificationWithMessage && "cursor-pointer"
+                            )}
+                        >
                             <NotificationItem
                                 key={n.id}
                                 id_sender={idSender}
@@ -240,7 +297,7 @@ export default function NotificationOverlay({ isOpen = true, onClose }: Notifica
                                 username={String(username)}
                                 message={messageText}
                                 isRead={isRead}
-                                onClick={() => { if (!isRead) void markAsRead(n.id); }}
+                                onClick={handleNotificationClick}
                                 onMarkRead={(id) => { void markAsRead(id); }}
                                 onDelete={(id) => {
                                     const found = (notifications ?? []).find(x => x.id === id);

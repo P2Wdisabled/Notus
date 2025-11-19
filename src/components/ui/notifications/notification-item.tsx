@@ -1,5 +1,6 @@
 import React from "react";
 import Icon from "@/components/Icon";
+import { cn } from "@/lib/utils";
 
 interface NotificationItemProps {
     avatar?: string | null;
@@ -96,7 +97,10 @@ export default function NotificationItem({
             tabIndex={0}
             onClick={onClick}
             onKeyDown={handleKeyDown}
-            className="w-full flex flex-row items-center text-left px-3 py-2 rounded hover:bg-muted text-foreground"
+            className={cn(
+                "w-full flex flex-row items-center text-left px-3 py-2 rounded hover:bg-muted text-foreground",
+                onClick && "cursor-pointer"
+            )}
         >
             {!isSystem ? (
                 hasAvatar && !imgError ? (

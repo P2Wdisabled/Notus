@@ -88,12 +88,15 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     }
 
     const oldStatus = requestBeforeUpdate.request.status;
-    const newStatus = status;
+    const newStatus: "pending" | "in_progress" | "resolved" | "rejected" | undefined = 
+      status && ["pending", "in_progress", "resolved", "rejected"].includes(status)
+        ? (status as "pending" | "in_progress" | "resolved" | "rejected")
+        : undefined;
 
     // Mettre à jour la requête
-    const updateData: { status?: string } = {};
-    if (status) {
-      updateData.status = status;
+    const updateData: { status?: "pending" | "in_progress" | "resolved" | "rejected" } = {};
+    if (status && ["pending", "in_progress", "resolved", "rejected"].includes(status)) {
+      updateData.status = status as "pending" | "in_progress" | "resolved" | "rejected";
     }
     const result = await requestService.updateRequest(parseInt(id), updateData);
 
@@ -123,7 +126,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         rejected: "Rejeté",
       };
 
-      const statusLabel = statusLabels[newStatus] || newStatus;
+      const statusLabel = newStatus ? (statusLabels[newStatus] || newStatus) : "mise à jour";
       
       // Construire le message : toujours mentionner le changement de statut si le statut a changé, puis ajouter le message personnalisé s'il existe
       let notificationMessageText: string;

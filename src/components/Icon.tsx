@@ -372,6 +372,12 @@ const ArrowLeft: React.FC<SvgProps> = (props) => (
   </svg>
 );
 
+const ChevronDown: React.FC<SvgProps> = (props) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <path d="M6 9l6 6 6-6" />
+  </svg>
+);
+
 const Moon: React.FC<SvgProps> = (props) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" {...props}>
     <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
@@ -442,6 +448,14 @@ const ChartBar: React.FC<SvgProps> = (props) => (
     <line x1="6" y1="20" x2="6" y2="16" />
   </svg>
 );
+
+const Inbox: React.FC<SvgProps> = (props) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <path d="M22 12h-6l-2 3h-4l-2-3H2" />
+    <path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z" />
+  </svg>
+);
+
 export const ICONS = {
   menu: Menu,
   filter: Filter,
@@ -495,6 +509,7 @@ export const ICONS = {
   alert: Alert,
   calendar: Calendar,
   arrowLeft: ArrowLeft,
+  chevronDown: ChevronDown,
   moon: Moon,
   sun: Sun,
   // arrows/actions
@@ -510,6 +525,7 @@ export const ICONS = {
   google: Google,
   userListBadge: UserListBadge,
   chartBar: ChartBar,
+  inbox: Inbox,
 } as const;
 
 export type IconName = keyof typeof ICONS;
