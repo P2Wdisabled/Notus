@@ -15,9 +15,11 @@ type User = {
 interface UserListButtonProps {
   users: User[];
   className?: string;
+  documentId?: number;
+  onAccessListRefresh?: () => Promise<void> | void;
 }
 
-export default function UserListButton({ users, className }: UserListButtonProps) {
+export default function UserListButton({ users, className, documentId, onAccessListRefresh }: UserListButtonProps) {
   const [errored, setErrored] = useState<{ [id: string]: boolean }>({});
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -130,6 +132,8 @@ export default function UserListButton({ users, className }: UserListButtonProps
               const n = Number(raw);
               return Number.isNaN(n) ? users[0]?.id : n;
             })()}
+            documentId={documentId ?? (users[0]?.id ?? undefined as any)}
+            onChanged={onAccessListRefresh}
           />
         </div>
       )}

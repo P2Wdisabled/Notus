@@ -118,6 +118,28 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   const [hasReadAccess, setHasReadAccess] = useState<boolean | null>(null);
   const [users, setUsers] = useState([]);
   const [isOffline, setIsOffline] = useState(false);
+  
+  // Load access list for this document and update `users` state
+  const loadAccessList = async () => {
+    if (!document?.id) return;
+    try {
+      const res = await fetch(`/api/openDoc/accessList?id=${document.id}`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.accessList)) {
+        setUsers(
+          data.accessList.map((user: any) => ({
+            ...user,
+            avatarUrl: user.profile_image || "",
+            name: user.username || user.email || "Utilisateur",
+          }))
+        );
+      } else {
+        setUsers([]);
+      }
+    } catch (e) {
+      setUsers([]);
+    }
+  };
   const [offlineBaseline, setOfflineBaseline] = useState<string>("");
   
   // État de sauvegarde : 'synchronized' | 'saving' | 'unsynchronized'
@@ -296,22 +318,8 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
       }
       
       setCanvasCtrl(null);
-      fetch(`/api/openDoc/accessList?id=${document.id}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.success && Array.isArray(data.accessList)) {
-            setUsers(
-              data.accessList.map((user: any) => ({
-                ...user,
-                avatarUrl: user.profile_image || "",
-                name: user.username || user.email || "Utilisateur",
-              }))
-            );
-          } else {
-            setUsers([]);
-          }
-        })
-        .catch(() => setUsers([]));
+      // initial load
+      loadAccessList();
     }
   }, [document, normalizeContent]);
 
@@ -939,7 +947,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
             Retour
           </Link>
           <div className="flex flex-row justify-center items-center">
-            <UserListButton users={users} className="self-center" />
+            <UserListButton users={users} className="self-center" documentId={document.id} onAccessListRefresh={loadAccessList} />
             {hasEditAccess === false && (
               <div className="ml-4 px-3 py-1 bg-muted text-foreground text-sm font-medium rounded-full border border-border">
                 Mode lecture seule

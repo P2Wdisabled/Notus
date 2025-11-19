@@ -128,6 +128,33 @@ export class DocumentService {
     }
   }
 
+  async updatePermission(documentId: number, userId: number, permission: boolean): Promise<DocumentRepositoryResult<{ updatedCount: number }>> {
+    try {
+      return await this.documentRepository.updatePermission(documentId, userId, permission);
+    } catch (error) {
+      console.error('❌ Erreur mise à jour permission de partage:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Erreur inconnue' };
+    }
+  }
+
+  async findShare(documentId: number, userId: number): Promise<DocumentRepositoryResult<{ share: any }>> {
+    try {
+      return await this.documentRepository.findShare(documentId, userId);
+    } catch (error) {
+      console.error('❌ Erreur recherche partage:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Erreur inconnue' };
+    }
+  }
+
+  async ownerIdForDocument(documentId: number): Promise<DocumentRepositoryResult<{ ownerId: number | null }>> {
+    try {
+      return await this.documentRepository.ownerIdForDocument(documentId);
+    } catch (error) {
+      console.error('❌ Erreur récupération ownerId pour document:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Erreur inconnue' };
+    }
+  }
+
   // Méthodes utilitaires pour la validation des données
   validateDocumentTitle(title: string): { isValid: boolean; error?: string } {
     if (!title || title.trim().length === 0) {

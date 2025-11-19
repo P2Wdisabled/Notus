@@ -10,28 +10,70 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 type User = {
-  id: number;
+  id: number | null;
   name: string;
   avatarUrl: string;
   permission: boolean;
+  email?: string | null;
 };
 
 interface UserListProps {
   users: User[];
   currentUserId?: string | number;
+  documentId: number;
+  onChanged?: () => Promise<void> | void;
 }
 
-export default function UserList({ users, currentUserId }: UserListProps) {
+export default function UserList({ users, currentUserId, documentId, onChanged }: UserListProps) {
   const [menuOpen, setMenuOpen] = useState<number | null>(null);
-  const ownerId = users && users.length > 0 ? Number(users[0].id) : null;
+  const [localUsers, setLocalUsers] = useState<User[]>(users);
+  const [loadingEmail, setLoadingEmail] = useState<string | null>(null);
+  const ownerId = localUsers && localUsers.length > 0 ? (localUsers[0].id !== null ? Number(localUsers[0].id) : null) : null;
   const connectedId = typeof currentUserId !== 'undefined' && currentUserId !== null ? Number(currentUserId) : null;
   const isConnectedOwner = ownerId !== null && connectedId !== null && ownerId === connectedId;
+  
+  // Keep localUsers in sync if parent users prop changes
+  React.useEffect(() => setLocalUsers(users), [users]);
+
+  async function handleSetPermission(targetEmail: string | undefined | null, newPermission: boolean) {
+    if (!targetEmail) {
+      alert("Impossible de trouver l'email de l'utilisateur");
+      return;
+    }
+
+    const prev = localUsers;
+    setLocalUsers(prevList => prevList.map(u => u.email?.toLowerCase() === targetEmail.toLowerCase() ? { ...u, permission: newPermission } : u));
+    setLoadingEmail(targetEmail);
+
+    try {
+      const res = await fetch('/api/openDoc/share', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ documentId, email: targetEmail, permission: newPermission }),
+      });
+      const body = await res.json();
+      if (!res.ok || !body.success) {
+        throw new Error(body?.error || 'Erreur serveur');
+      }
+      // success: close any open menu and clear loading
+      setMenuOpen(null);
+      setLoadingEmail(null);
+      if (onChanged) {
+        try { await onChanged(); } catch (_) {}
+      }
+    } catch (err) {
+      // revert
+      setLocalUsers(prev);
+      setLoadingEmail(null);
+      alert('Impossible de modifier la permission : ' + (err instanceof Error ? err.message : String(err)));
+    }
+  }
 
   return (
     <div className="space-y-4">
-      {users.map((user, idx) => (
+      {localUsers.map((user, idx) => (
         <div
-          key={user.id}
+          key={String(user.email ?? user.id ?? idx)}
           className="flex items-center bg-secondary justify-between px-2 py-2 rounded-lg hover:bg-muted/50 transition relative"
         >
           <div className="flex items-center gap-3">
@@ -71,26 +113,23 @@ export default function UserList({ users, currentUserId }: UserListProps) {
                   type="button"
                   aria-label="Plus d'options"
                   className="p-2 rounded hover:bg-accent/50"
+                  onClick={() => setMenuOpen(prev => prev === (user.id ?? null) ? null : (user.id ?? null))}
                 >
                   <Icon name="dotsHorizontal" className="w-5 h-5" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-40">
                 <DropdownMenuItem
-                    onClick={() => {
-                      // replace with real handler: set permission to editor
-                      console.log("Set editor for user", user.id);
-                    }}
+                    onClick={() => handleSetPermission(user.email, true)}
+                    aria-disabled={loadingEmail !== null}
                   >
-                    Éditeur
+                    {loadingEmail === user.email ? '...' : 'Éditeur'}
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={() => {
-                      // replace with real handler: set permission to reader
-                      console.log("Set reader for user", user.id);
-                    }}
+                    onClick={() => handleSetPermission(user.email, false)}
+                    aria-disabled={loadingEmail !== null}
                   >
-                    Lecteur
+                    {loadingEmail === user.email ? '...' : 'Lecteur'}
                   </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
