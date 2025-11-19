@@ -1,19 +1,43 @@
 "use client";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import WysiwygEditor from "./Editor/WysiwygEditor";
 import WysiwygToolbar from "./Toolbar/WysiwygToolbar";
 import { useCollaborativeNote } from "@/lib/paper.js/useCollaborativeNote";
 import { useLocalSession } from "@/hooks/useLocalSession";
 
+interface SnapshotPayload {
+  text: string;
+  drawings: any[];
+  textFormatting: any;
+  timestamp?: number;
+}
+
+interface FlushOverride {
+  markdown?: string;
+  content?: SnapshotPayload | null;
+  title?: string;
+  tags?: string[];
+}
+
 interface WysiwygNotepadProps {
   initialData?: { text: string };
-  onContentChange?: (content: { text: string; drawings: any[]; textFormatting: any; timestamp: number }) => void;
-  onRemoteContentChange?: (content: { text: string; drawings: any[]; textFormatting: any; timestamp: number }) => void;
+  onContentChange?: (content: SnapshotPayload) => void;
+  onRemoteContentChange?: (content: SnapshotPayload) => void;
   placeholder?: string;
   className?: string;
   showDebug?: boolean;
   readOnly?: boolean;
   roomId?: string;
+  documentId?: string;
+  userId?: number;
+  userEmail?: string;
+  title?: string;
+  tags?: string[];
+  getContentSnapshot?: () => SnapshotPayload | null;
+  onSyncStatusChange?: (status: 'synchronized' | 'saving' | 'unsynchronized') => void;
+  onPersisted?: (payload: { snapshot?: SnapshotPayload | null; title?: string; tags?: string[] }) => void;
+  onRegisterFlush?: (flush: (override?: FlushOverride) => Promise<void>) => void;
+  onRealtimeConnectionChange?: (connected: boolean) => void;
 }
 
 export default function WysiwygNotepad({
@@ -25,20 +49,81 @@ export default function WysiwygNotepad({
   showDebug = false,
   readOnly = false,
   roomId,
+  documentId,
+  userId,
+  userEmail,
+  title,
+  tags,
+  getContentSnapshot,
+  onSyncStatusChange,
+  onPersisted,
+  onRegisterFlush,
+  onRealtimeConnectionChange,
 }: WysiwygNotepadProps) {
   const [markdown, setMarkdown] = useState(initialData.text || "");
   const [debugMode, setDebugMode] = useState(showDebug);
   const { username } = useLocalSession();
-  const { emitLocalChange: emitChange, isConnected, clientId } = useCollaborativeNote({
+  const editorElementRef = useRef<HTMLDivElement | null>(null);
+
+  const cursorSnapshot = useCallback(() => {
+    const editor = editorElementRef.current;
+    if (!editor) return null;
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return null;
+    const range = selection.getRangeAt(0);
+    if (!editor.contains(range.commonAncestorContainer)) return null;
+    const preCaretRange = range.cloneRange();
+    preCaretRange.selectNodeContents(editor);
+    preCaretRange.setEnd(range.endContainer, range.endOffset);
+    const offset = preCaretRange.toString().length;
+    const rect = range.getBoundingClientRect();
+    const editorRect = editor.getBoundingClientRect();
+    let x = rect.left - editorRect.left;
+    let y = rect.top - editorRect.top;
+    if (rect.width === 0 || rect.height === 0) {
+      try {
+        const tempSpan = document.createElement('span');
+        tempSpan.textContent = '\u200b';
+        tempSpan.style.position = 'absolute';
+        tempSpan.style.visibility = 'hidden';
+        range.insertNode(tempSpan);
+        const tempRect = tempSpan.getBoundingClientRect();
+        x = tempRect.left - editorRect.left;
+        y = tempRect.top - editorRect.top;
+        tempSpan.remove();
+      } catch {
+        // Ignore selection errors
+      }
+    }
+    return { offset, x, y };
+  }, []);
+
+  const contentSnapshotProvider = useCallback(() => {
+    if (getContentSnapshot) {
+      return getContentSnapshot();
+    }
+    return {
+      text: markdown,
+      drawings: [],
+      textFormatting: {},
+      timestamp: Date.now(),
+    };
+  }, [getContentSnapshot, markdown]);
+
+  const {
+    emitLocalChange: emitChange,
+    isConnected,
+    clientId,
+    flushPendingChanges,
+  } = useCollaborativeNote({
     roomId,
     onRemoteContent: (remote: string) => {
-      console.log('📝 WysiwygNotepad received remote content:', { 
-        remoteLength: remote.length, 
-        currentLength: markdown.length 
+      console.log('📝 WysiwygNotepad received remote content:', {
+        remoteLength: remote.length,
+        currentLength: markdown.length,
       });
       setMarkdown(remote);
-      
-      // Notify parent component about remote content change for localStorage update
+
       if (onRemoteContentChange) {
         const remoteContent = {
           text: remote,
@@ -49,7 +134,46 @@ export default function WysiwygNotepad({
         onRemoteContentChange(remoteContent);
       }
     },
+    metadata: {
+      documentId,
+      userId,
+      userEmail,
+      title,
+      tags,
+      getContentSnapshot: contentSnapshotProvider,
+      cursorUsername: username || undefined,
+    },
+    getCursorSnapshot: cursorSnapshot,
+    onSyncStatusChange,
+    onPersisted,
   });
+
+  useEffect(() => {
+    if (!onRealtimeConnectionChange) return;
+    onRealtimeConnectionChange(Boolean(isConnected && roomId && !readOnly));
+  }, [isConnected, onRealtimeConnectionChange, roomId, readOnly]);
+
+  useEffect(() => {
+    if (!onRegisterFlush) return;
+    const register = (override?: FlushOverride) => {
+      return (
+        flushPendingChanges({
+          markdown: override?.markdown,
+          contentSnapshot: override?.content || null,
+          title: override?.title,
+          tags: override?.tags,
+        }) ?? Promise.resolve()
+      );
+    };
+    onRegisterFlush(register);
+    return () => {
+      onRegisterFlush(async () => {});
+    };
+  }, [flushPendingChanges, onRegisterFlush]);
+
+  const handleEditorReady = useCallback((element: HTMLDivElement | null) => {
+    editorElementRef.current = element;
+  }, []);
 
   // Handle markdown content change
   const handleMarkdownChange = useCallback((newMarkdown: string) => {
@@ -123,6 +247,7 @@ export default function WysiwygNotepad({
           roomId={roomId}
           username={username || undefined}
           clientId={clientId}
+          onEditorReady={handleEditorReady}
         />
       </div>
     </div>

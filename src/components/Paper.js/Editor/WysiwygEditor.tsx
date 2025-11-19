@@ -22,6 +22,7 @@ interface WysiwygEditorProps {
   roomId?: string;
   username?: string;
   clientId?: string;
+  onEditorReady?: (element: HTMLDivElement | null) => void;
 }
 
 export default function WysiwygEditor({
@@ -34,6 +35,7 @@ export default function WysiwygEditor({
   roomId,
   username,
   clientId,
+  onEditorReady,
 }: WysiwygEditorProps) {
   const [markdown, setMarkdown] = useState(content);
   
@@ -54,6 +56,15 @@ export default function WysiwygEditor({
   
   const markdownConverter = useRef<MarkdownConverter | null>(null);
   const formattingHandler = useRef<FormattingHandler | null>(null);
+
+  useEffect(() => {
+    if (onEditorReady) {
+      onEditorReady(editorRef.current);
+      return () => {
+        onEditorReady(null);
+      };
+    }
+  }, [onEditorReady]);
 
   // Generate clientId if not provided
   const clientIdRef = useRef<string>(clientId || (() => {

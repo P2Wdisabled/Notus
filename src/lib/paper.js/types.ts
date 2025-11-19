@@ -11,10 +11,24 @@ export interface DrawingData {
   size?: number;
 }
 
+export interface PersistedContentSnapshot {
+  text: string;
+  drawings: any[];
+  textFormatting: Record<string, any>;
+  timestamp?: number;
+}
+
 export interface TextUpdateData {
   content: string;
   clientId?: string;
   ts?: number;
+  cursor?: CursorPositionData;
+  documentId?: string;
+  userId?: number;
+  userEmail?: string;
+  title?: string;
+  tags?: string[];
+  persistSnapshot?: PersistedContentSnapshot;
 }
 
 export interface TitleUpdateData {
@@ -131,11 +145,17 @@ export interface UseSocketReturn {
 }
 
 // Client-to-server events
+export interface SocketAckResponse {
+  ok: boolean;
+  error?: string;
+}
+
 export interface ClientToServerEvents {
   'join-room': (roomId: string) => void;
   'leave-room': (roomId: string) => void;
   'drawing-data': (data: DrawingData) => void;
-  'text-update': (data: TextUpdateData) => void;
+  'text-update': (roomId: string, data: TextUpdateData, ack?: (response: SocketAckResponse) => void) => void;
+  'text-update-with-cursor': (roomId: string, data: TextUpdateData, ack?: (response: SocketAckResponse) => void) => void;
   'title-update': (roomId: string, data: TitleUpdateData & { clientId: string; ts: number }) => void;
   'text-formatting-update': (data: any) => void;
   'clear-canvas': () => void;

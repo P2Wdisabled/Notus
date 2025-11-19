@@ -9,43 +9,97 @@ import type { ClientToServerEvents, ServerToClientEvents } from './types';
  * @param roomId - Optional room ID to auto-join
  * @returns UseSocketReturn
  */
-export function useSocket(roomId?: string): UseSocketReturn {
+type SocketPurpose = 'send' | 'receive';
+
+interface UseSocketOptions {
+  purpose?: SocketPurpose;
+}
+
+declare global {
+  interface Window {
+    __notus_socket_server_ready?: boolean;
+  }
+}
+
+export function useSocket(roomId?: string, options?: UseSocketOptions): UseSocketReturn {
+  const purpose: SocketPurpose = options?.purpose || 'receive';
   const [socket, setSocket] = useState<Socket<ServerToClientEvents, ClientToServerEvents> | null>(null);
   const [isConnected, setIsConnected] = useState<boolean>(false);
 
   useEffect(() => {
-    // Use same-origin connection (no explicit URL = current domain)
-    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL;
-    
-    // Initialize socket connection with fallback to polling
-    const socketInstance: Socket<ServerToClientEvents, ClientToServerEvents> = io(socketUrl || undefined, {
-      transports: ['polling', 'websocket'],
-      autoConnect: true,
-      path: '/api/socket',
-      timeout: 20000,
-      forceNew: true
-    });
-    
+    if (typeof window === 'undefined') return;
 
-    socketInstance.on('connect', () => {
-      setIsConnected(true);
-    });
+    let cancelled = false;
+    let socketInstance: Socket<ServerToClientEvents, ClientToServerEvents> | null = null;
 
-    socketInstance.on('disconnect', (reason) => {
-      setIsConnected(false);
-    });
+    const ensureServerReady = async () => {
+      if (window.__notus_socket_server_ready) return true;
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        return false;
+      }
+      try {
+        await fetch('/api/socket');
+        window.__notus_socket_server_ready = true;
+        return true;
+      } catch (error) {
+        console.error('[Socket] Failed to initialize server route', error);
+        return false;
+      }
+    };
 
-    // Narrow type using 'connect_error'
-    socketInstance.on('connect_error', (err) => {
-      // Connection error handled silently
-    });
+    const connect = async () => {
+      const ready = await ensureServerReady();
+      if (!ready) {
+        if (!cancelled) {
+          setTimeout(connect, 2000);
+        }
+        return;
+      }
+      if (cancelled) return;
 
-    setSocket(socketInstance);
+      const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL;
+      socketInstance = io(socketUrl || undefined, {
+        transports: ['websocket'],
+        upgrade: false,
+        autoConnect: true,
+        path: '/api/socket',
+        timeout: 20000,
+        forceNew: true,
+        query: {
+          purpose,
+        },
+      });
+
+      socketInstance.on('connect', () => {
+        if (!cancelled) {
+          setIsConnected(true);
+        }
+      });
+
+      socketInstance.on('disconnect', () => {
+        if (!cancelled) {
+          setIsConnected(false);
+        }
+      });
+
+      socketInstance.on('connect_error', (err) => {
+        console.error(`[Socket] Connection error (${purpose})`, err);
+      });
+
+      if (!cancelled) {
+        setSocket(socketInstance);
+      }
+    };
+
+    connect();
 
     return () => {
-      socketInstance.disconnect();
+      cancelled = true;
+      if (socketInstance) {
+        socketInstance.disconnect();
+      }
     };
-  }, []);
+  }, [purpose]);
 
   const joinRoom = useCallback((roomId: string): void => {
     if (socket) {
