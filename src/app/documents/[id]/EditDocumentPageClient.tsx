@@ -1340,7 +1340,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
             <div>
               <div className="border border-border rounded-lg overflow-hidden bg-card">
                 <WysiwygNotepad
-                  key={`doc-${document.id}-${document.updated_at}`}
+                  key={`doc-${document.id}`}
                   initialData={content}
                   onContentChange={handleContentChange}
                   onRemoteContentChange={(remoteContent) => {

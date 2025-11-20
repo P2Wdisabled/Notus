@@ -2,8 +2,6 @@
 import { useEffect, useRef, useCallback } from "react";
 import { useSocket } from "./socket-client";
 import type {
-  ClientToServerEvents,
-  ServerToClientEvents,
   PersistedContentSnapshot,
   SocketAckResponse,
   TextUpdateData,
@@ -47,15 +45,11 @@ export function useCollaborativeNote({
 }: UseCollaborativeNoteOptions) {
   const clientIdRef = useRef<string>(generateClientId());
   const {
-    socket: receiveSocket,
-    isConnected: isReceiveConnected,
+    socket,
+    isConnected,
     joinRoom,
     leaveRoom,
-  } = useSocket(roomId, { purpose: 'receive' });
-  const {
-    socket: sendSocket,
-    isConnected: isSendConnected,
-  } = useSocket(roomId, { purpose: 'send' });
+  } = useSocket(roomId);
   const pendingMarkdownRef = useRef<string>("");
   const lastObservedMarkdownRef = useRef<string>("");
   const pendingCharsRef = useRef<number>(0);
@@ -91,7 +85,7 @@ export function useCollaborativeNote({
       title?: string;
       tags?: string[];
     }) => {
-      if (!sendSocket || !roomId) return;
+      if (!socket || !roomId) return;
       const candidateMarkdown =
         typeof override?.markdown === "string" ? override.markdown : pendingMarkdownRef.current;
 
@@ -142,7 +136,7 @@ export function useCollaborativeNote({
 
       return new Promise<void>((resolve) => {
         const channel = payload.cursor ? 'text-update-with-cursor' : 'text-update';
-        (sendSocket as any).emit(channel, roomId, payload, (ack?: SocketAckResponse) => {
+        (socket as any).emit(channel, roomId, payload, (ack?: SocketAckResponse) => {
           if (!ack || ack.ok) {
             pendingCharsRef.current = 0;
             updateStatus('synchronized');
@@ -160,11 +154,11 @@ export function useCollaborativeNote({
         });
       });
     },
-    [sendSocket, roomId, buildContentSnapshot, getCursorSnapshot, metadata, onPersisted, updateStatus]
+    [socket, roomId, buildContentSnapshot, getCursorSnapshot, metadata, onPersisted, updateStatus]
   );
 
   useEffect(() => {
-    if (!receiveSocket || !roomId) return;
+    if (!socket || !roomId) return;
 
       const handleTextUpdate: ServerToClientEvents['text-update'] = (data) => {
         // Ignore own updates using clientId
@@ -176,22 +170,22 @@ export function useCollaborativeNote({
         }
       };
 
-    receiveSocket.on('text-update', handleTextUpdate);
+    socket.on('text-update', handleTextUpdate);
 
     return () => {
-      receiveSocket.off('text-update', handleTextUpdate);
+      socket.off('text-update', handleTextUpdate);
     };
-  }, [receiveSocket, roomId, onRemoteContent]);
+  }, [socket, roomId, onRemoteContent]);
 
   useEffect(() => {
-    if (!receiveSocket || !roomId) return;
+    if (!socket || !roomId) return;
     joinRoom(roomId);
     return () => leaveRoom(roomId);
-  }, [receiveSocket, roomId, joinRoom, leaveRoom]);
+  }, [socket, roomId, joinRoom, leaveRoom]);
 
   const emitLocalChange = useCallback(
     (markdown: string) => {
-      if (!roomId || !sendSocket) return;
+      if (!roomId || !socket) return;
       pendingMarkdownRef.current = markdown;
       const previous = lastObservedMarkdownRef.current || "";
       const positiveDiff = Math.max(0, markdown.length - previous.length);
@@ -221,7 +215,7 @@ export function useCollaborativeNote({
         }, 500);
       }
     },
-    [flushPendingChanges, sendSocket, roomId, updateStatus]
+    [flushPendingChanges, socket, roomId, updateStatus]
   );
 
   useEffect(() => {
@@ -231,8 +225,6 @@ export function useCollaborativeNote({
       }
     };
   }, []);
-
-  const isConnected = isReceiveConnected && isSendConnected;
 
   return { isConnected, emitLocalChange, clientId: clientIdRef.current, flushPendingChanges };
 }

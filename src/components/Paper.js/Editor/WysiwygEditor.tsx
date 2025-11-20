@@ -119,11 +119,15 @@ export default function WysiwygEditor({
   }, [onContentChange, undoRedoHistory]);
 
   // Handle undo
-  const handleUndo = useCallback(() => {
+  const handleUndo = useCallback(async () => {
     const previousMarkdown = undoRedoHistory.undo();
     if (previousMarkdown !== null && editorRef.current && markdownConverter.current) {
       isUpdatingFromMarkdown.current = true;
-      const html = markdownConverter.current.markdownToHtml(previousMarkdown);
+      const html = await markdownConverter.current.markdownToHtml(previousMarkdown);
+      if (!editorRef.current) {
+        isUpdatingFromMarkdown.current = false;
+        return;
+      }
       editorRef.current.innerHTML = html;
       setMarkdown(previousMarkdown);
       lastSavedMarkdownRef.current = previousMarkdown;
@@ -146,11 +150,15 @@ export default function WysiwygEditor({
   }, [undoRedoHistory, handleContentChange]);
 
   // Handle redo
-  const handleRedo = useCallback(() => {
+  const handleRedo = useCallback(async () => {
     const nextMarkdown = undoRedoHistory.redo();
     if (nextMarkdown !== null && editorRef.current && markdownConverter.current) {
       isUpdatingFromMarkdown.current = true;
-      const html = markdownConverter.current.markdownToHtml(nextMarkdown);
+      const html = await markdownConverter.current.markdownToHtml(nextMarkdown);
+      if (!editorRef.current) {
+        isUpdatingFromMarkdown.current = false;
+        return;
+      }
       editorRef.current.innerHTML = html;
       setMarkdown(nextMarkdown);
       lastSavedMarkdownRef.current = nextMarkdown;

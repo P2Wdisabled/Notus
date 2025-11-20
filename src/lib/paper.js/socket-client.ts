@@ -9,7 +9,7 @@ import type { ClientToServerEvents, ServerToClientEvents } from './types';
  * @param roomId - Optional room ID to auto-join
  * @returns UseSocketReturn
  */
-type SocketPurpose = 'send' | 'receive';
+type SocketPurpose = 'shared';
 
 interface UseSocketOptions {
   purpose?: SocketPurpose;
@@ -21,8 +21,84 @@ declare global {
   }
 }
 
-export function useSocket(roomId?: string, options?: UseSocketOptions): UseSocketReturn {
-  const purpose: SocketPurpose = options?.purpose || 'receive';
+type SharedSocketState = {
+  socket: Socket<ServerToClientEvents, ClientToServerEvents> | null;
+  refCount: number;
+  initPromise: Promise<Socket<ServerToClientEvents, ClientToServerEvents>> | null;
+};
+
+const sharedSocketState: SharedSocketState = {
+  socket: null,
+  refCount: 0,
+  initPromise: null,
+};
+
+async function ensureServerReady(): Promise<boolean> {
+  if (typeof window === 'undefined') return false;
+  if (window.__notus_socket_server_ready) return true;
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    return false;
+  }
+  try {
+    await fetch('/api/socket');
+    window.__notus_socket_server_ready = true;
+    return true;
+  } catch (error) {
+    console.error('[Socket] Failed to initialize server route', error);
+    return false;
+  }
+}
+
+async function getSharedSocketInstance(): Promise<Socket<ServerToClientEvents, ClientToServerEvents>> {
+  if (sharedSocketState.socket) {
+    return sharedSocketState.socket;
+  }
+  if (sharedSocketState.initPromise) {
+    return sharedSocketState.initPromise;
+  }
+
+  sharedSocketState.initPromise = (async () => {
+    const ready = await ensureServerReady();
+    if (!ready) {
+      throw new Error('Socket server not ready');
+    }
+
+    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL;
+    const instance = io(socketUrl || undefined, {
+      transports: ['websocket'],
+      upgrade: false,
+      autoConnect: true,
+      path: '/api/socket',
+      timeout: 20000,
+      forceNew: false,
+      query: {
+        purpose: 'shared',
+      },
+    });
+
+    sharedSocketState.socket = instance;
+    return instance;
+  })();
+
+  try {
+    const result = await sharedSocketState.initPromise;
+    sharedSocketState.initPromise = null;
+    return result;
+  } catch (error) {
+    sharedSocketState.initPromise = null;
+    throw error;
+  }
+}
+
+function releaseSharedSocketInstance() {
+  sharedSocketState.refCount = Math.max(0, sharedSocketState.refCount - 1);
+  if (sharedSocketState.refCount === 0 && sharedSocketState.socket) {
+    sharedSocketState.socket.disconnect();
+    sharedSocketState.socket = null;
+  }
+}
+
+export function useSocket(roomId?: string, _options?: UseSocketOptions): UseSocketReturn {
   const [socket, setSocket] = useState<Socket<ServerToClientEvents, ClientToServerEvents> | null>(null);
   const [isConnected, setIsConnected] = useState<boolean>(false);
 
@@ -32,74 +108,47 @@ export function useSocket(roomId?: string, options?: UseSocketOptions): UseSocke
     let cancelled = false;
     let socketInstance: Socket<ServerToClientEvents, ClientToServerEvents> | null = null;
 
-    const ensureServerReady = async () => {
-      if (window.__notus_socket_server_ready) return true;
-      if (typeof navigator !== 'undefined' && !navigator.onLine) {
-        return false;
-      }
-      try {
-        await fetch('/api/socket');
-        window.__notus_socket_server_ready = true;
-        return true;
-      } catch (error) {
-        console.error('[Socket] Failed to initialize server route', error);
-        return false;
-      }
-    };
-
     const connect = async () => {
-      const ready = await ensureServerReady();
-      if (!ready) {
-        if (!cancelled) {
-          setTimeout(connect, 2000);
-        }
-        return;
-      }
-      if (cancelled) return;
+      try {
+        const instance = await getSharedSocketInstance();
+        if (cancelled) return;
+        socketInstance = instance;
+        sharedSocketState.refCount += 1;
+        setSocket(instance);
+        setIsConnected(instance.connected);
 
-      const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL;
-      socketInstance = io(socketUrl || undefined, {
-        transports: ['websocket'],
-        upgrade: false,
-        autoConnect: true,
-        path: '/api/socket',
-        timeout: 20000,
-        forceNew: true,
-        query: {
-          purpose,
-        },
-      });
+        const handleConnect = () => !cancelled && setIsConnected(true);
+        const handleDisconnect = () => !cancelled && setIsConnected(false);
+        const handleConnectError = (err: unknown) => {
+          console.error('[Socket] Connection error (shared)', err);
+        };
 
-      socketInstance.on('connect', () => {
-        if (!cancelled) {
-          setIsConnected(true);
-        }
-      });
+        instance.on('connect', handleConnect);
+        instance.on('disconnect', handleDisconnect);
+        instance.on('connect_error', handleConnectError);
 
-      socketInstance.on('disconnect', () => {
-        if (!cancelled) {
-          setIsConnected(false);
-        }
-      });
-
-      socketInstance.on('connect_error', (err) => {
-        console.error(`[Socket] Connection error (${purpose})`, err);
-      });
-
-      if (!cancelled) {
-        setSocket(socketInstance);
+        return () => {
+          instance.off('connect', handleConnect);
+          instance.off('disconnect', handleDisconnect);
+          instance.off('connect_error', handleConnectError);
+        };
+      } catch (error) {
+        console.error('[Socket] Failed to connect', error);
       }
     };
 
-    connect();
+    const cleanupPromise = connect();
 
     return () => {
       cancelled = true;
-      if (socketInstance) {
-        socketInstance.disconnect();
-      }
+      cleanupPromise.then((cleanup) => {
+        cleanup?.();
+        if (socketInstance) {
+          releaseSharedSocketInstance();
+        }
+      });
     };
-  }, [purpose]);
+  }, []);
 
   const joinRoom = useCallback((roomId: string): void => {
     if (socket) {
