@@ -294,17 +294,12 @@ export default function DrawingCanvas({
           // Catmull-Rom produces nice rounded curves through the points.
           // Factor controls tension; higher => tighter curves. 0.6 is a good starting point.
           currentPathRef.current.smooth({ type: 'catmull-rom', factor: 0.6 });
-          // Apply a light simplify to remove redundant points while keeping curves
-          try {
-            currentPathRef.current.simplify(0.2);
-          } catch (_e) {}
         } catch (_e) {
           // Fallback to continuous smoothing if catmull-rom isn't available
           try {
             currentPathRef.current.smooth({ type: 'continuous' });
-            try { currentPathRef.current.simplify(0.2); } catch (_e) {}
           } catch (_e) {
-            try { currentPathRef.current.simplify(0.2); } catch (_e) {}
+            // If smoothing fails entirely, keep the raw path as-is
           }
         }
         // reset last point
