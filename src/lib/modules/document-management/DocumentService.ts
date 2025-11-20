@@ -235,17 +235,33 @@ export class DocumentManagementService {
     }
   }
 
-  async updateDocument(prevState: unknown, formDataOrObj: FormData | Record<string, any>): Promise<ActionResult> {
+  async updateDocument(prevState: unknown, formDataOrObj: FormData | {
+    documentId?: string | number;
+    userId?: string | number;
+    title?: string;
+    content?: string;
+    tags?: string | string[];
+    email?: string;
+  }): Promise<ActionResult> {
+    type UpdateDocumentPayload = {
+      documentId?: string | number;
+      userId?: string | number;
+      title?: string;
+      content?: string;
+      tags?: string | string[];
+      email?: string;
+    };
+
     try {
       // Vérifier que formDataOrObj existe et est valide
       if (!formDataOrObj) {
         return { ok: false, error: "No data provided" };
       }
 
-      const fd = formDataOrObj.get ? formDataOrObj : null;
+      const fd = formDataOrObj instanceof FormData ? formDataOrObj : null;
       const documentId = fd
         ? String(fd.get("documentId") || "")
-        : String((formDataOrObj as Record<string, any>).documentId || "");
+        : String((formDataOrObj as UpdateDocumentPayload).documentId || "");
       
       if (!documentId) return { ok: false, error: "Missing documentId" };
 
@@ -269,8 +285,8 @@ export class DocumentManagementService {
       if (fd) {
         const u = fd.get("userId");
         if (u) clientUserId = Number(String(u));
-      } else if ((formDataOrObj as Record<string, any>).userId) {
-        clientUserId = Number((formDataOrObj as Record<string, any>).userId);
+      } else if ((formDataOrObj as UpdateDocumentPayload).userId) {
+        clientUserId = Number((formDataOrObj as UpdateDocumentPayload).userId);
       }
 
       const userIdToUse = serverUserId ?? clientUserId;
@@ -291,7 +307,7 @@ export class DocumentManagementService {
         contentStr = String(fd.get("content") || "");
         rawTags = fd.get("tags") || null;
       } else {
-        const obj = formDataOrObj as Record<string, any>;
+        const obj = formDataOrObj as UpdateDocumentPayload;
         title = obj.title || "";
         contentStr = obj.content || "";
         rawTags = obj.tags || null;
@@ -323,8 +339,8 @@ export class DocumentManagementService {
       let userEmail: string | undefined = undefined;
       if (fd && fd.get("email")) {
         userEmail = String(fd.get("email"));
-      } else if (typeof (formDataOrObj as any).email === "string") {
-        userEmail = (formDataOrObj as any).email;
+      } else if (typeof (formDataOrObj as UpdateDocumentPayload).email === "string") {
+        userEmail = (formDataOrObj as UpdateDocumentPayload).email;
       } else {
         // Try to get from server session
         try {

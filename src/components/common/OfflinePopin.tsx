@@ -52,6 +52,7 @@ export default function OfflinePopin() {
       setOverrideMessage(message);
       setIsDismissed(false);
       setForceShow(true);
+      setIsOffline(true);
     };
     window.addEventListener("notus:offline-popin", handler as EventListener);
     return () => {
@@ -59,9 +60,9 @@ export default function OfflinePopin() {
     };
   }, []);
 
-  // Poll every 5s when on a document page to verify connectivity by fetching the current note
+  // Poll every 5s when on a document page to verify connectivity via navigator.onLine (no HTTP request)
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || typeof navigator === "undefined") return;
 
     const match = pathname?.match(/^\/documents\/(\d+)/);
     const documentId = match?.[1] || null;
@@ -69,39 +70,18 @@ export default function OfflinePopin() {
 
     let cancelled = false;
 
-    const checkConnection = async () => {
-      console.log(`[OfflinePopin] Vérification de connexion pour le document ${documentId}...`);
-      try {
-        const controller = new AbortController();
-        const timeoutId = window.setTimeout(() => controller.abort(), 5000);
-
-        const response = await fetch(`/api/openDoc?id=${documentId}`,
-          {
-            method: "GET",
-            cache: "no-store",
-            credentials: "include",
-            headers: { "cache-control": "no-cache" },
-            signal: controller.signal,
-          }
-        );
-
-        window.clearTimeout(timeoutId);
-        const online = response.ok;
-        console.log(`[OfflinePopin] État: ${online ? "en ligne" : "hors ligne"} (status: ${response.status})`);
-        if (!cancelled) {
-          setIsOffline((previous) => {
-            const next = !online;
-            return previous !== next ? next : previous;
-          });
-          if (online) {
-            // Masquer la popin si la connexion est rétablie via polling
-            setForceShow(false);
-            setOverrideMessage(null);
-          }
-        }
-      } catch (error) {
-        console.log(`[OfflinePopin] État: hors ligne (erreur réseau)`, error);
-        if (!cancelled) setIsOffline(true);
+    const checkConnection = () => {
+      const online = navigator.onLine;
+      console.log(`[OfflinePopin] Vérification locale pour le document ${documentId}: ${online ? "en ligne" : "hors ligne"}`);
+      if (cancelled) return;
+      setIsOffline((previous) => {
+        const next = !online;
+        return previous !== next ? next : previous;
+      });
+      if (online) {
+        // Masquer la popin si la connexion est rétablie via polling
+        setForceShow(false);
+        setOverrideMessage(null);
       }
     };
 

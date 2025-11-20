@@ -3,59 +3,62 @@ import { Document, CreateDocumentData, UpdateDocumentData, DocumentRepositoryRes
 
 export class DocumentRepository extends BaseRepository {
   async initializeTables(): Promise<void> {
-    try {
+    // Use advisory lock to prevent concurrent initialization and deadlocks
+    return await this.withAdvisoryLock(async () => {
+      try {
 
-      // Table des documents
-      await this.query(`
-        CREATE TABLE IF NOT EXISTS documents (
-          id SERIAL PRIMARY KEY,
-          user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-          title VARCHAR(255) NOT NULL DEFAULT 'Sans titre',
-          content TEXT NOT NULL DEFAULT '',
-          tags TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
+        // Table des documents
+        await this.query(`
+          CREATE TABLE IF NOT EXISTS documents (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            title VARCHAR(255) NOT NULL DEFAULT 'Sans titre',
+            content TEXT NOT NULL DEFAULT '',
+            tags TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          )
+        `);
 
-      // Table des partages (shares)
-      await this.query(`
-        CREATE TABLE IF NOT EXISTS shares (
-          id SERIAL PRIMARY KEY,
-          id_doc INTEGER REFERENCES documents(id) ON DELETE CASCADE,
-          email VARCHAR(255) NOT NULL,
-          permission BOOLEAN NOT NULL DEFAULT FALSE,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
+        // Table des partages (shares)
+        await this.query(`
+          CREATE TABLE IF NOT EXISTS shares (
+            id SERIAL PRIMARY KEY,
+            id_doc INTEGER REFERENCES documents(id) ON DELETE CASCADE,
+            email VARCHAR(255) NOT NULL,
+            permission BOOLEAN NOT NULL DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          )
+        `);
 
-      // Table des documents supprimés (trash)
-      await this.query(`
-        CREATE TABLE IF NOT EXISTS trash_documents (
-          id SERIAL PRIMARY KEY,
-          user_id INTEGER,
-          title VARCHAR(255) NOT NULL,
-          content TEXT NOT NULL DEFAULT '',
-          tags TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          deleted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          original_id INTEGER
-        )
-      `);
+        // Table des documents supprimés (trash)
+        await this.query(`
+          CREATE TABLE IF NOT EXISTS trash_documents (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER,
+            title VARCHAR(255) NOT NULL,
+            content TEXT NOT NULL DEFAULT '',
+            tags TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            deleted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            original_id INTEGER
+          )
+        `);
 
-      // Ajouter la colonne tags si base déjà existante
-      await this.addColumnIfNotExists("documents", "tags", "TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[]");
+        // Ajouter la colonne tags si base déjà existante
+        await this.addColumnIfNotExists("documents", "tags", "TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[]");
 
-      // Créer les index
-      await this.createIndexes();
+        // Créer les index
+        await this.createIndexes();
 
-      // Créer les triggers
-      await this.createTriggers();
-    } catch (error) {
-      console.error("❌ Erreur lors de l'initialisation des tables documents:", error);
-      throw error;
-    }
+        // Créer les triggers
+        await this.createTriggers();
+      } catch (error) {
+        console.error("❌ Erreur lors de l'initialisation des tables documents:", error);
+        throw error;
+      }
+    });
   }
 
   private async addColumnIfNotExists(tableName: string, columnName: string, columnDefinition: string): Promise<void> {
@@ -83,6 +86,7 @@ export class DocumentRepository extends BaseRepository {
 
   private async createTriggers(): Promise<void> {
     // Fonction pour mettre à jour updated_at
+    // Create function first (this is idempotent with CREATE OR REPLACE)
     await this.query(`
       CREATE OR REPLACE FUNCTION update_updated_at_column()
       RETURNS TRIGGER AS $$
@@ -94,6 +98,8 @@ export class DocumentRepository extends BaseRepository {
     `);
 
     // Trigger pour documents
+    // Use a single transaction-safe approach: drop if exists, then create
+    // The advisory lock ensures this is serialized, preventing deadlocks
     await this.query(`
       DROP TRIGGER IF EXISTS update_documents_updated_at ON documents;
       CREATE TRIGGER update_documents_updated_at
@@ -158,7 +164,11 @@ export class DocumentRepository extends BaseRepository {
         [userId, limit, offset]
       );
 
-      const parseJsonArray = (raw: unknown): any[] => {
+      interface JsonSerializable {
+        toJSON(): unknown;
+      }
+
+      const parseJsonArray = (raw: unknown): unknown[] => {
         if (Array.isArray(raw)) return raw;
         if (typeof raw === "string") {
           try {
@@ -167,9 +177,9 @@ export class DocumentRepository extends BaseRepository {
             return [];
           }
         }
-        if (raw && typeof raw === "object" && "toJSON" in (raw as any)) {
+        if (raw && typeof raw === "object" && "toJSON" in raw) {
           try {
-            const asJson = (raw as any).toJSON();
+            const asJson = (raw as JsonSerializable).toJSON();
             return Array.isArray(asJson) ? asJson : [];
           } catch {
             return [];
@@ -178,13 +188,36 @@ export class DocumentRepository extends BaseRepository {
         return [];
       };
 
-      const documents: Document[] = result.rows.map((row: any) => {
+      interface DatabaseRow {
+        id: number;
+        user_id: number;
+        title: string;
+        content: string;
+        tags: string[];
+        created_at: Date;
+        updated_at: Date;
+        username?: string | null;
+        first_name?: string | null;
+        last_name?: string | null;
+        favori?: boolean | null;
+        shared_with: unknown;
+        dossier_ids: unknown;
+      }
+
+      const documents: Document[] = (result.rows as DatabaseRow[]).map((row) => {
         const sharedWithRaw = parseJsonArray(row.shared_with);
+        interface SharedEntry {
+          email?: unknown;
+          permission?: unknown;
+        }
         const sharedWith = sharedWithRaw
-          .map((entry) => ({
-            email: typeof entry?.email === "string" ? entry.email : null,
-            permission: typeof entry?.permission === "boolean" ? entry.permission : Boolean(entry?.permission),
-          }))
+          .map((entry: unknown) => {
+            const typed = entry as SharedEntry;
+            return {
+              email: typeof typed?.email === "string" ? typed.email : null,
+              permission: typeof typed?.permission === "boolean" ? typed.permission : Boolean(typed?.permission),
+            };
+          })
           .filter((entry) => Boolean(entry.email)) as { email: string; permission: boolean }[];
 
         const dossierIds = parseJsonArray(row.dossier_ids)
@@ -206,7 +239,7 @@ export class DocumentRepository extends BaseRepository {
           dossierIds,
           favori: row.favori ?? null,
           shared: sharedWith.length > 0,
-        };
+        } as Document;
       });
 
       return { success: true, documents };
@@ -387,7 +420,7 @@ export class DocumentRepository extends BaseRepository {
         `($${index * 8 + 1}, $${index * 8 + 2}, $${index * 8 + 3}, $${index * 8 + 4}, $${index * 8 + 5}, $${index * 8 + 6}, NOW(), $${index * 8 + 7})`
       ).join(', ');
 
-      const trashParams: any[] = [];
+      const trashParams: (number | string | string[] | Date | null)[] = [];
       documents.rows.forEach((doc) => {
         trashParams.push(
           doc.user_id,
@@ -439,8 +472,11 @@ export class DocumentRepository extends BaseRepository {
         [email]
       );
       // Inject favori from share link
-      const docs = result.rows.map((r: any) => ({ ...r, favori: r.favori ?? null }));
-      return { success: true, documents: docs as any };
+      interface SharedDocumentRow extends Document {
+        favori: boolean | null;
+      }
+      const docs: Document[] = result.rows.map((r: SharedDocumentRow) => ({ ...r, favori: r.favori ?? null }));
+      return { success: true, documents: docs };
     } catch (error) {
       console.error("❌ Erreur récupération documents partagés:", error);
       return { success: false, error: error instanceof Error ? error.message : "Erreur inconnue" };
@@ -449,7 +485,7 @@ export class DocumentRepository extends BaseRepository {
 
   async fetchSharedByUser(userId: number): Promise<DocumentRepositoryResult<Document[]>> {
     try {
-      const result = await this.query<Document & { shared_emails: string; shared_permissions: boolean }>(
+      const result = await this.query(
         `SELECT d.id, d.title, d.content, d.tags, d.created_at, d.updated_at, u.username, u.first_name, u.last_name, d.user_id,
                 array_agg(s.email) as shared_emails, array_agg(s.permission) as shared_permissions
            FROM documents d
@@ -462,22 +498,43 @@ export class DocumentRepository extends BaseRepository {
       );
 
       // Transformer les résultats pour inclure les informations de partage
-      const transformedDocuments: Document[] = result.rows.map((doc: any) => ({
-        id: doc.id,
-        user_id: doc.user_id,
-        title: doc.title,
-        content: doc.content,
-        tags: doc.tags,
-        created_at: doc.created_at,
-        updated_at: doc.updated_at,
-        username: doc.username,
-        first_name: doc.first_name,
-        last_name: doc.last_name,
-        sharedWith: doc.shared_emails.map((email: string, index: number) => ({
-          email,
-          permission: doc.shared_permissions[index]
-        }))
-      }));
+      interface SharedByUserRow {
+        id: number;
+        user_id: number;
+        title: string;
+        content: string;
+        tags: string[];
+        created_at: Date;
+        updated_at: Date;
+        username?: string | null;
+        first_name?: string | null;
+        last_name?: string | null;
+        shared_emails: string[] | string;
+        shared_permissions: boolean[] | boolean;
+      }
+
+      const transformedDocuments: Document[] = (result.rows as SharedByUserRow[]).map((doc) => {
+        // Parse arrays if they come as strings from PostgreSQL
+        const sharedEmails = Array.isArray(doc.shared_emails) ? doc.shared_emails : (typeof doc.shared_emails === 'string' ? [doc.shared_emails] : []);
+        const sharedPermissions = Array.isArray(doc.shared_permissions) ? doc.shared_permissions : (typeof doc.shared_permissions === 'boolean' ? [doc.shared_permissions] : []);
+        
+        return {
+          id: doc.id,
+          user_id: doc.user_id,
+          title: doc.title,
+          content: doc.content,
+          tags: doc.tags,
+          created_at: doc.created_at,
+          updated_at: doc.updated_at,
+          username: doc.username ?? undefined,
+          first_name: doc.first_name ?? undefined,
+          last_name: doc.last_name ?? undefined,
+          sharedWith: sharedEmails.map((email: string, index: number) => ({
+            email,
+            permission: sharedPermissions[index] ?? false
+          }))
+        };
+      });
 
       return { success: true, documents: transformedDocuments };
     } catch (error) {
@@ -527,7 +584,16 @@ export class DocumentRepository extends BaseRepository {
     }
   }
 
-  async getAccessList(documentId: number): Promise<DocumentRepositoryResult<{ accessList: any[] }>> {
+  async getAccessList(documentId: number): Promise<DocumentRepositoryResult<{ accessList: Array<{
+    id: number | null;
+    email: string;
+    username?: string;
+    first_name?: string;
+    last_name?: string;
+    profile_image?: string | null;
+    permission: boolean | undefined;
+    is_owner: boolean;
+  }> }>> {
     try {
       // Single query: owner UNION shared users, deduped by email
       const result = await this.query(
@@ -544,17 +610,39 @@ export class DocumentRepository extends BaseRepository {
       );
 
       // Deduplicate by normalized email, owner first
+      interface AccessListRow {
+        id?: number | null;
+        email: string | null;
+        username?: string | null;
+        first_name?: string | null;
+        last_name?: string | null;
+        profile_image?: string | null;
+        permission: boolean | null;
+        is_owner: boolean;
+      }
+
+      interface AccessListItem {
+        id: number | null;
+        email: string;
+        username?: string;
+        first_name?: string;
+        last_name?: string;
+        profile_image?: string | null;
+        permission: boolean | undefined;
+        is_owner: boolean;
+      }
+
       const seen = new Set<string>();
-      const accessList: any[] = [];
+      const accessList: AccessListItem[] = [];
       for (const rowRaw of result.rows) {
-        const row = rowRaw as any;
+        const row = rowRaw as AccessListRow;
         const email = row.email || null;
         const normalized = email ? String(email).trim().toLowerCase() : '';
         if (!normalized || seen.has(normalized)) continue;
         seen.add(normalized);
         accessList.push({
           id: row.id || null,
-          email: row.email,
+          email: row.email || '',
           username: row.username || undefined,
           first_name: row.first_name || undefined,
           last_name: row.last_name || undefined,

@@ -112,9 +112,9 @@ export default function WysiwygToolbar({ onFormatChange, showDebug = false, onTo
       }
 
       // Check undo/redo availability using custom history
-      if ((window as any).canWysiwygUndo && (window as any).canWysiwygRedo) {
-        setCanUndo((window as any).canWysiwygUndo());
-        setCanRedo((window as any).canWysiwygRedo());
+      if (window.canWysiwygUndo && window.canWysiwygRedo) {
+        setCanUndo(window.canWysiwygUndo());
+        setCanRedo(window.canWysiwygRedo());
       } else {
         // Fallback to native commands
         setCanUndo(document.queryCommandEnabled('undo'));
@@ -141,7 +141,7 @@ export default function WysiwygToolbar({ onFormatChange, showDebug = false, onTo
       // Detect if an image is selected for editing
       try {
         const selectedImg = document.querySelector('img[data-selected-image="true"]') as HTMLImageElement | null;
-        const info = (window as any).getCurrentImageForEditing ? (window as any).getCurrentImageForEditing() : null;
+        const info = window.getCurrentImageForEditing ? window.getCurrentImageForEditing() : null;
         setCanEditImage(!!selectedImg && !!info);
         if (info) {
           setImageInfo(info);
@@ -180,7 +180,7 @@ export default function WysiwygToolbar({ onFormatChange, showDebug = false, onTo
 
   // Expose a global opener so double-click from the editor can open this modal
   useEffect(() => {
-    (window as any).openImageEditModal = () => {
+    window.openImageEditModal = () => {
       if (canEditImage) setShowImageEditModal(true);
       else setShowImageEditModal(false);
     };

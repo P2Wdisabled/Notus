@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { DocumentService } from "@/lib/services/DocumentService";
-import { auth } from "../../../../auth";
+import { auth } from "../../../../../auth";
 
 const documentService = new DocumentService();
 

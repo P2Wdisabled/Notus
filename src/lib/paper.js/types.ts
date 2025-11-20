@@ -11,10 +11,22 @@ export interface DrawingData {
   size?: number;
 }
 
+export interface PersistedContentSnapshot {
+  text: string;
+  timestamp?: number;
+}
+
 export interface TextUpdateData {
   content: string;
   clientId?: string;
   ts?: number;
+  cursor?: CursorPositionData;
+  documentId?: string;
+  userId?: number;
+  userEmail?: string;
+  title?: string;
+  tags?: string[];
+  persistSnapshot?: PersistedContentSnapshot;
 }
 
 export interface TitleUpdateData {
@@ -33,9 +45,7 @@ export interface CursorPositionData {
 }
 
 export interface RoomState {
-  drawing: DrawingData[];
   text: string;
-  textFormatting?: TextFormatting;
 }
 
 export interface ToolbarProps {
@@ -103,9 +113,7 @@ export interface TextFormatting {
 }
 
 export interface LocalStorageData {
-  drawings: SerializedPathData[];
   text: string;
-  textFormatting?: TextFormatting;
   timestamp: number;
 }
 
@@ -131,13 +139,19 @@ export interface UseSocketReturn {
 }
 
 // Client-to-server events
+export interface SocketAckResponse {
+  ok: boolean;
+  error?: string;
+}
+
 export interface ClientToServerEvents {
   'join-room': (roomId: string) => void;
   'leave-room': (roomId: string) => void;
   'drawing-data': (data: DrawingData) => void;
-  'text-update': (data: TextUpdateData) => void;
+  'text-update': (roomId: string, data: TextUpdateData, ack?: (response: SocketAckResponse) => void) => void;
+  'text-update-with-cursor': (roomId: string, data: TextUpdateData, ack?: (response: SocketAckResponse) => void) => void;
   'title-update': (roomId: string, data: TitleUpdateData & { clientId: string; ts: number }) => void;
-  'text-formatting-update': (data: any) => void;
+  'text-formatting-update': (data: TextFormatting) => void;
   'clear-canvas': () => void;
   'cursor-position': (roomId: string, data: CursorPositionData) => void;
 }
@@ -148,7 +162,7 @@ export interface ServerToClientEvents {
   'drawing-data': (data: DrawingData) => void;
   'text-update': (data: TextUpdateData) => void;
   'title-update': (data: TitleUpdateData & { clientId: string; ts: number }) => void;
-  'text-formatting-update': (data: any) => void;
+  'text-formatting-update': (data: TextFormatting) => void;
   'clear-canvas': () => void;
   'user-joined': (userId: string) => void;
   'user-left': (userId: string) => void;

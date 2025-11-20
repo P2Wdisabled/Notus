@@ -6,12 +6,12 @@ import { adjustCursorPositionForTextChange } from "../../../lib/paper.js/cursorU
 export interface EditorEffectsProps {
   editorRef: React.RefObject<HTMLDivElement | null>;
   markdown: string;
-  markdownConverter: React.MutableRefObject<any>;
+  markdownConverter: React.MutableRefObject<MarkdownConverter | null>;
   onContentChange: (content: string) => void;
   selectedElement: HTMLElement | null;
   setSelectedElement: React.Dispatch<React.SetStateAction<HTMLElement | null>>;
   setImageOverlayRect: React.Dispatch<React.SetStateAction<{ left: number; top: number; width: number; height: number } | null>>;
-  formattingHandler: React.MutableRefObject<any>;
+  formattingHandler: React.MutableRefObject<FormattingHandler | null>;
   debounceTimeout: React.MutableRefObject<NodeJS.Timeout | null>;
   handleEditorChange: () => void;
   isUpdatingFromMarkdown?: React.MutableRefObject<boolean>;
@@ -107,54 +107,6 @@ export function useEditorEffects({
       return { start, end };
     };
 
-    // Capture selection BEFORE checking isLocalChange
-    const prevSelection = getSelectionOffsets(root);
-    const hasActiveSelection = prevSelection !== null;
-
-    // Don't update HTML if this is a local change (user typing)
-    // Check multiple times to handle race conditions
-    if (isLocalChange?.current) {
-      return;
-    }
-
-    const currentHtml = markdownConverter.current.markdownToHtml(markdown);
-    const editorHtml = root.innerHTML;
-
-    // Only update if content is different to avoid infinite loops
-    // Normalize HTML for comparison (remove extra whitespace, normalize attributes)
-    const normalizeHtml = (html: string) => {
-      // Create a temporary div to normalize the HTML
-      const temp = document.createElement('div');
-      temp.innerHTML = html;
-      return temp.innerHTML;
-    };
-    
-    const normalizedCurrentHtml = normalizeHtml(currentHtml);
-    const normalizedEditorHtml = normalizeHtml(editorHtml);
-    
-    if (normalizedCurrentHtml === normalizedEditorHtml) {
-      // HTML is the same, but check markdown to be sure for collaborative editing
-      try {
-        const currentMarkdown = markdownConverter.current.htmlToMarkdown(editorHtml);
-        // Normalize both markdowns for comparison (trim whitespace, normalize line endings)
-        const normalizedCurrent = currentMarkdown.trim().replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-        const normalizedTarget = markdown.trim().replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-        
-        if (normalizedCurrent === normalizedTarget) {
-          // The current HTML already represents the target markdown, no need to replace it
-          return;
-        }
-      } catch (e) {
-        // If conversion fails, proceed with update if HTML is different
-        // (HTML might be different even if markdown comparison fails)
-      }
-    }
-    
-    // Final check before updating - if user started typing, don't overwrite
-    if (isLocalChange?.current) {
-      return;
-    }
-
     // Helper to set selection offsets
     const setSelectionOffsets = (container: HTMLElement, selStart: number, selEnd: number) => {
       const totalLength = container.textContent ? container.textContent.length : 0;
@@ -178,7 +130,7 @@ export function useEditorEffects({
           n = walker.nextNode();
         }
         // fallback to end of container
-        return { node: container, offset: container.childNodes.length } as any;
+        return { node: container, offset: container.childNodes.length } as { node: Node; offset: number };
       };
 
       const startPos = locate(targetStart);
@@ -207,40 +159,109 @@ export function useEditorEffects({
       }
     };
 
-    // prevSelection and hasActiveSelection are already captured above
+    let cancelled = false;
 
-    // Get the old text content from the editor (this is what the cursor position is based on)
-    // We use textContent instead of markdown because cursor positions are based on text, not markdown formatting
-    const oldTextContent = root.textContent || '';
-    // Get the new text content from the new HTML
-    const newTextContent = (() => {
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = currentHtml;
-      return tempDiv.textContent || '';
-    })();
+    const runConversion = async () => {
+      const currentRoot = editorRef.current;
+      if (!currentRoot || cancelled) return;
 
-    // Apply new HTML
-    // Mark that we're updating from markdown to avoid feedback loops
-    (isUpdatingFromMarkdown as any)?.current && ((isUpdatingFromMarkdown as any).current = true);
-    root.innerHTML = currentHtml;
+      const prevSelection = getSelectionOffsets(currentRoot);
+      const hasActiveSelection = prevSelection !== null;
 
-    if (hasActiveSelection && prevSelection) {
-      // Use requestAnimationFrame for better synchronization with DOM updates
-      // Then use setTimeout to ensure the DOM is fully ready
-      requestAnimationFrame(() => {
-        setTimeout(() => {
-          try {
-            // Adjust cursor positions based on text changes
-            // This ensures that when another user adds/removes text, the cursor
-            // position is adjusted accordingly (shifted right if text is added before,
-            // shifted left if text is removed before)
-            let adjustedStart = prevSelection.start;
-            let adjustedEnd = prevSelection.end;
-            
-            // Only adjust if text content actually changed
-            if (oldTextContent !== newTextContent) {
-              adjustedStart = adjustCursorPositionForTextChange(oldTextContent, newTextContent, prevSelection.start);
-              adjustedEnd = adjustCursorPositionForTextChange(oldTextContent, newTextContent, prevSelection.end);
+      // Don't update HTML if this is a local change (user typing)
+      // Check multiple times to handle race conditions
+      if (isLocalChange?.current) {
+        return;
+      }
+
+      let currentHtml: string;
+      try {
+        currentHtml = await markdownConverter.current!.markdownToHtml(markdown);
+      } catch (error) {
+        console.error('[MarkdownConverter] markdownToHtml failed', error);
+        return;
+      }
+
+      if (cancelled) return;
+      const activeRoot = editorRef.current;
+      if (!activeRoot) return;
+
+      const editorHtml = activeRoot.innerHTML;
+
+      // Only update if content is different to avoid infinite loops
+      // Normalize HTML for comparison (remove extra whitespace, normalize attributes)
+      const normalizeHtml = (html: string) => {
+        // Create a temporary div to normalize the HTML
+        const temp = document.createElement('div');
+        temp.innerHTML = html;
+        return temp.innerHTML;
+      };
+      
+      const normalizedCurrentHtml = normalizeHtml(currentHtml);
+      const normalizedEditorHtml = normalizeHtml(editorHtml);
+      
+      if (normalizedCurrentHtml === normalizedEditorHtml) {
+        // HTML is the same, but check markdown to be sure for collaborative editing
+        try {
+          const currentMarkdown = markdownConverter.current!.htmlToMarkdown(editorHtml);
+          // Normalize both markdowns for comparison (trim whitespace, normalize line endings)
+          const normalizedCurrent = currentMarkdown.trim().replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+          const normalizedTarget = markdown.trim().replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+          
+          if (normalizedCurrent === normalizedTarget) {
+            // The current HTML already represents the target markdown, no need to replace it
+            return;
+          }
+        } catch (e) {
+          // If conversion fails, proceed with update if HTML is different
+          // (HTML might be different even if markdown comparison fails)
+        }
+      }
+      
+      // Final check before updating - if user started typing, don't overwrite
+      if (isLocalChange?.current || cancelled) {
+        return;
+      }
+
+      const oldTextContent = activeRoot.textContent || '';
+      const newTextContent = (() => {
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = currentHtml;
+        return tempDiv.textContent || '';
+      })();
+
+      // Check if text content actually changed - if not, don't update HTML or cursor
+      const textContentChanged = oldTextContent !== newTextContent;
+      
+      // If text content is identical, don't update HTML to avoid cursor movement
+      if (!textContentChanged && normalizedCurrentHtml === normalizedEditorHtml) {
+        return;
+      }
+
+      // Apply new HTML
+      // Mark that we're updating from markdown to avoid feedback loops
+      if (isUpdatingFromMarkdown?.current !== undefined) {
+        isUpdatingFromMarkdown.current = true;
+      }
+      if (!editorRef.current || cancelled) return;
+      editorRef.current.innerHTML = currentHtml;
+
+      // Only restore cursor if:
+      // 1. There was an active selection AND
+      // 2. The text content actually changed (for collaborative editing)
+      if (hasActiveSelection && prevSelection && textContentChanged) {
+        // Use requestAnimationFrame for better synchronization with DOM updates
+        // Then use setTimeout to ensure the DOM is fully ready
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            if (cancelled) return;
+            try {
+              // Adjust cursor positions based on text changes
+              // This ensures that when another user adds/removes text, the cursor
+              // position is adjusted accordingly (shifted right if text is added before,
+              // shifted left if text is removed before)
+              const adjustedStart = adjustCursorPositionForTextChange(oldTextContent, newTextContent, prevSelection.start);
+              const adjustedEnd = adjustCursorPositionForTextChange(oldTextContent, newTextContent, prevSelection.end);
               
               // Debug logging (can be removed in production)
               console.log('🔄 Ajustement du curseur:', {
@@ -252,38 +273,49 @@ export function useEditorEffects({
                 oldText: oldTextContent.substring(Math.max(0, prevSelection.start - 10), prevSelection.start + 10),
                 newText: newTextContent.substring(Math.max(0, adjustedStart - 10), adjustedStart + 10)
               });
-            }
-            
-            setSelectionOffsets(root, adjustedStart, adjustedEnd);
-            // Ensure the editor maintains focus if it had it before
-            const isFocused = document.activeElement === root || root.contains(document.activeElement as Node);
-            if (!isFocused) {
-              // Try to restore focus if the selection was active (user was typing)
-              // This helps maintain the cursor position during collaborative editing
-              root.focus();
-            }
-          } catch (e) {
-            // If restoration fails, try a simpler approach: place cursor at the end
-            try {
-              const sel = window.getSelection();
-              if (sel && root) {
-                const range = document.createRange();
-                range.selectNodeContents(root);
-                range.collapse(false); // Collapse to end
-                sel.removeAllRanges();
-                sel.addRange(range);
+              
+              setSelectionOffsets(editorRef.current!, adjustedStart, adjustedEnd);
+              // Ensure the editor maintains focus if it had it before
+              const currentNode = editorRef.current;
+              if (!currentNode) return;
+              const isFocused = document.activeElement === currentNode || currentNode.contains(document.activeElement as Node);
+              if (!isFocused) {
+                // Try to restore focus if the selection was active (user was typing)
+                // This helps maintain the cursor position during collaborative editing
+                currentNode.focus();
               }
-            } catch {
-              // Ignore errors
+            } catch (e) {
+              // If restoration fails, try a simpler approach: place cursor at the end
+              try {
+                const sel = window.getSelection();
+                const currentNode = editorRef.current;
+                if (sel && currentNode) {
+                  const range = document.createRange();
+                  range.selectNodeContents(currentNode);
+                  range.collapse(false); // Collapse to end
+                  sel.removeAllRanges();
+                  sel.addRange(range);
+                }
+              } catch {
+                // Ignore errors
+              }
             }
-          }
-        }, 10); // Small delay to ensure DOM is ready
-      });
-    }
-    // Clear the flag after update
-    setTimeout(() => {
-      (isUpdatingFromMarkdown as any)?.current && ((isUpdatingFromMarkdown as any).current = false);
-    }, 0);
+          }, 10); // Small delay to ensure DOM is ready
+        });
+      }
+      // Clear the flag after update
+      setTimeout(() => {
+        if (isUpdatingFromMarkdown?.current !== undefined) {
+          isUpdatingFromMarkdown.current = false;
+        }
+      }, 0);
+    };
+
+    runConversion();
+
+    return () => {
+      cancelled = true;
+    };
   }, [markdown, editorRef, markdownConverter, isUpdatingFromMarkdown, isLocalChange]);
 
   // Keep overlay in sync on scroll/resize/content changes
@@ -313,7 +345,7 @@ export function useEditorEffects({
   // Expose functions to parent
   useEffect(() => {
     if (formattingHandler.current) {
-      (window as any).applyWysiwygFormatting = (command: string, value?: string) => {
+      window.applyWysiwygFormatting = (command: string, value?: string) => {
         console.log('applyWysiwygFormatting called with command:', command, 'value:', value);
         formattingHandler.current?.applyFormatting(command, value);
       };
@@ -540,7 +572,7 @@ export function useEditorEffects({
       if (document.caretRangeFromPoint) {
         return document.caretRangeFromPoint(x, y);
       }
-      const caretPosition = (document as any).caretPositionFromPoint?.(x, y);
+      const caretPosition = document.caretPositionFromPoint?.(x, y);
       if (caretPosition) {
         const range = document.createRange();
         range.setStart(caretPosition.offsetNode, caretPosition.offset);
@@ -655,7 +687,7 @@ export function useEditorEffects({
 
   // Expose image helpers to toolbar
   useEffect(() => {
-    (window as any).getCurrentImageForEditing = () => {
+    window.getCurrentImageForEditing = () => {
       const img = selectedElement;
       if (!img || !isImageElement(img)) return null;
       return {
@@ -666,7 +698,7 @@ export function useEditorEffects({
         styleHeight: img.style.height || ''
       };
     };
-    (window as any).applyImageEdit = (payload: { src?: string; widthPercent?: number; widthPx?: number }) => {
+    window.applyImageEdit = (payload: { src?: string; widthPercent?: number; widthPx?: number }) => {
       return applyImageEditInternal(payload);
     };
   }, [applyImageEditInternal, selectedElement]);

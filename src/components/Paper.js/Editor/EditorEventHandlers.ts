@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef } from "react";
 import DOMPurify from "dompurify";
+import { MarkdownConverter } from "./MarkdownConverter";
+import { FormattingHandler } from "./FormattingHandler";
 
 export interface EditorEventHandlersProps {
   editorRef: React.RefObject<HTMLDivElement | null>;
-  markdownConverter: React.MutableRefObject<any>;
+  markdownConverter: React.MutableRefObject<MarkdownConverter | null>;
   isUpdatingFromMarkdown: React.MutableRefObject<boolean>;
   debounceTimeout: React.MutableRefObject<NodeJS.Timeout | null>;
   markdown: string;
@@ -12,7 +14,7 @@ export interface EditorEventHandlersProps {
   setSelectedImage: React.Dispatch<React.SetStateAction<HTMLElement | null>>;
   setImageOverlayRect: React.Dispatch<React.SetStateAction<{ left: number; top: number; width: number; height: number } | null>>;
   selectedImage: HTMLElement | null;
-  formattingHandler: React.MutableRefObject<any>;
+  formattingHandler: React.MutableRefObject<FormattingHandler | null>;
   handleEditorChange: () => void;
 }
 
@@ -71,7 +73,7 @@ export function useEditorEventHandlers({
     // If there's a scheduled hide, cancel it because we're hovering a link now
     try {
       if (popupHideTimerRef.current) {
-        clearTimeout(popupHideTimerRef.current as any);
+        clearTimeout(popupHideTimerRef.current);
         popupHideTimerRef.current = null;
       }
     } catch (_) {}
@@ -105,7 +107,7 @@ export function useEditorEventHandlers({
       // Delay hiding slightly to allow the pointer to enter the popup
       if (!isMovingToPopup && !isMovingToAnotherLink) {
         try {
-          if (popupHideTimerRef.current) clearTimeout(popupHideTimerRef.current as any);
+          if (popupHideTimerRef.current) clearTimeout(popupHideTimerRef.current);
         } catch (_) {}
         popupHideTimerRef.current = window.setTimeout(() => {
           setLinkPopup(prev => ({ ...prev, visible: false }));
@@ -119,7 +121,7 @@ export function useEditorEventHandlers({
   useEffect(() => {
     return () => {
       try {
-        if (popupHideTimerRef.current) clearTimeout(popupHideTimerRef.current as any);
+        if (popupHideTimerRef.current) clearTimeout(popupHideTimerRef.current);
       } catch (_) {}
     };
   }, []);
@@ -200,7 +202,7 @@ export function useEditorEventHandlers({
       (img as HTMLImageElement).setAttribute('data-selected-image', 'true');
       setSelectedImage(img as HTMLImageElement);
       try {
-        const open = (window as any).openImageEditModal;
+        const open = window.openImageEditModal;
         if (typeof open === 'function') open();
       } catch (_e) {
         // no-op
@@ -301,7 +303,7 @@ export function useEditorEventHandlers({
             setImageOverlayRect(null);
             // Synchroniser le markdown
             setTimeout(() => {
-              try { (handleEditorChange as any)(); } catch (_e) {}
+              try { handleEditorChange(); } catch (_e) {}
             }, 0);
             return;
           }
@@ -313,7 +315,7 @@ export function useEditorEventHandlers({
             selectedFile.remove();
             // Synchroniser le markdown
             setTimeout(() => {
-              try { (handleEditorChange as any)(); } catch (_e) {}
+              try { handleEditorChange(); } catch (_e) {}
             }, 0);
             return;
           }
@@ -331,7 +333,7 @@ export function useEditorEventHandlers({
               fileContainer.remove();
               // Synchroniser le markdown
               setTimeout(() => {
-                try { (handleEditorChange as any)(); } catch (_e) {}
+                try { handleEditorChange(); } catch (_e) {}
               }, 0);
               return;
             }
@@ -388,10 +390,10 @@ export function useEditorEventHandlers({
                       onContentChange(updatedMd);
                     } catch (_err) {
                       // fallback to generic change handler if conversion fails
-                      try { (handleEditorChange as any)(); } catch (_e) {}
+                      try { handleEditorChange(); } catch (_e) {}
                     }
                   } else {
-                    try { (handleEditorChange as any)(); } catch (_e) {}
+                    try { handleEditorChange(); } catch (_e) {}
                   }
                 } catch (_e) {}
               }
@@ -427,7 +429,7 @@ export function useEditorEventHandlers({
               sel.removeAllRanges();
               sel.addRange(newRange);
               // Notify change so collaboration sends the updated markdown
-              try { (handleEditorChange as any)(); } catch(_e) {}
+              try { handleEditorChange(); } catch(_e) {}
             }
           }
         } catch (_e) {}
@@ -476,7 +478,7 @@ export function useEditorEventHandlers({
           setImageOverlayRect(null);
           // Synchroniser le markdown
           setTimeout(() => {
-            try { (handleEditorChange as any)(); } catch (_e) {}
+            try { handleEditorChange(); } catch (_e) {}
           }, 0);
           return;
         }
@@ -488,7 +490,7 @@ export function useEditorEventHandlers({
           selectedFile.remove();
           // Synchroniser le markdown
           setTimeout(() => {
-            try { (handleEditorChange as any)(); } catch (_e) {}
+            try { handleEditorChange(); } catch (_e) {}
           }, 0);
           return;
         }
@@ -509,7 +511,7 @@ export function useEditorEventHandlers({
               fileContainer.remove();
               // Synchroniser le markdown
               setTimeout(() => {
-                try { (handleEditorChange as any)(); } catch (_e) {}
+                try { handleEditorChange(); } catch (_e) {}
               }, 0);
               return;
             }

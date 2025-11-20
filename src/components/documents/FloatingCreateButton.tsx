@@ -18,13 +18,19 @@ export default function FloatingCreateButton({ serverSession }: FloatingCreateBu
   const { isSelectModeActive } = useSelection();
   const pathname = usePathname();
   const router = useRouter();
+  interface CreateDocumentActionResult {
+    success?: boolean;
+    documentId?: number;
+    error?: string;
+  }
+
   const [createState, createAction, creating] = useActionState(
-    createDocumentAction as unknown as (prev: any, fd: FormData) => Promise<any>,
+    createDocumentAction as unknown as (prev: CreateDocumentActionResult | null, fd: FormData) => Promise<CreateDocumentActionResult>,
     null
   );
 
   useEffect(() => {
-    const id = createState && (createState as any).documentId;
+    const id = createState && (createState as CreateDocumentActionResult).documentId;
     if (id) {
       router.push(`/documents/${encodeURIComponent(String(id))}?isNew=1`);
     }
@@ -54,7 +60,7 @@ export default function FloatingCreateButton({ serverSession }: FloatingCreateBu
         const newDoc = {
           id: localId,
           title: "Sans titre",
-          content: { text: "", drawings: [], textFormatting: {}, timestamp: Date.now() },
+          content: { text: "", timestamp: Date.now() },
           created_at: nowIso,
           updated_at: nowIso,
           tags: [],

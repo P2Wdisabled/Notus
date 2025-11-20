@@ -1249,8 +1249,8 @@ export class FormattingHandler {
         }
         case 'undo':
           // Use custom undo handler if available
-          if ((window as any).handleWysiwygUndo) {
-            (window as any).handleWysiwygUndo();
+          if (window.handleWysiwygUndo) {
+            window.handleWysiwygUndo();
           } else {
             // Fallback to native command
             document.execCommand('undo', false);
@@ -1261,8 +1261,8 @@ export class FormattingHandler {
           break;
         case 'redo':
           // Use custom redo handler if available
-          if ((window as any).handleWysiwygRedo) {
-            (window as any).handleWysiwygRedo();
+          if (window.handleWysiwygRedo) {
+            window.handleWysiwygRedo();
           } else {
             // Fallback to native command
             document.execCommand('redo', false);

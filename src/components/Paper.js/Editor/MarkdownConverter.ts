@@ -1,9 +1,12 @@
 import { marked } from "marked";
+import type { MarkedOptions } from "marked";
 import DOMPurify from "dompurify";
 import TurndownService from "turndown";
+import MarkdownIt from "markdown-it";
 
 export class MarkdownConverter {
   private turndownService: TurndownService;
+  private markdownIt: MarkdownIt;
   
   // Helper function to normalize color formats (rgb, lab, hsl, etc.) to hex
   private normalizeColorToHex(c: string): string {
@@ -68,6 +71,12 @@ export class MarkdownConverter {
         .replace(/^(\s*)\\- /gm, '$1- ')  // Fix \- at start of line (unordered list)
         .replace(/^(\s*)(\d+)\\. /gm, '$1$2. ');  // Fix 1\. at start of line (ordered list)
     };
+
+    this.markdownIt = new MarkdownIt({
+      html: true,
+      breaks: true,
+      linkify: true,
+    });
 
     this.setupCustomRules();
   }
@@ -745,7 +754,7 @@ export class MarkdownConverter {
   }
 
   // Convert markdown to HTML
-  markdownToHtml(md: string): string {
+  async markdownToHtml(md: string): Promise<string> {
     // First, clean up any markdown bold/italic that might not be parsed
     let processedMd = md
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
@@ -773,6 +782,12 @@ export class MarkdownConverter {
       return placeholder;
     });
 
+    const markedOptions: MarkedOptions = {
+      breaks: true,
+      gfm: true,
+      async: true
+    };
+
     // Preserve video elements before passing to marked (to avoid stack overflow with long base64 data)
     const videoPlaceholders: { placeholder: string; content: string }[] = [];
     let videoPlaceholderIndex = 0;
@@ -789,10 +804,7 @@ export class MarkdownConverter {
       return placeholder;
     });
 
-    const html = marked(cleanedMd, {
-      breaks: true,
-      gfm: true,
-    }) as string;
+    const html = await this.parseMarkdownWithFallback(cleanedMd, markedOptions);
 
     // Restore lists from placeholders
     let unwrappedHtml = html;
@@ -892,6 +904,94 @@ export class MarkdownConverter {
       ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 's', 'del', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'blockquote', 'a', 'img', 'div', 'span', 'hr', 'details', 'summary', 'video', 'button'],
       ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'style', 'color', 'open', 'target', 'rel', 'data-file-name', 'data-file-type', 'data-file-data', 'data-draggable-attachment', 'class', 'controls', 'type', 'contenteditable', 'data-selected-file']
     });
+  }
+
+  private async parseMarkdownWithFallback(markdown: string, options: MarkedOptions): Promise<string> {
+    try {
+      return (await marked.parse(markdown, options)) as string;
+    } catch (error) {
+      if (error instanceof RangeError) {
+        console.warn('[MarkdownConverter] Stack overflow detected during marked.parse, retrying with chunked parsing');
+        return this.tryChunkedMarkedParsing(markdown, options);
+      }
+      throw error;
+    }
+  }
+
+  private async tryChunkedMarkedParsing(markdown: string, options: MarkedOptions): Promise<string> {
+    const MIN_CHUNK_SIZE = 256;
+    let chunkSize = 20000;
+    while (chunkSize >= MIN_CHUNK_SIZE) {
+      try {
+        return await this.parseMarkdownByChunks(markdown, options, chunkSize);
+      } catch (error) {
+        if (!(error instanceof RangeError)) throw error;
+        chunkSize = Math.floor(chunkSize / 2);
+      }
+    }
+
+    console.warn('[MarkdownConverter] marked.parse failed even after aggressive chunking. Falling back to markdown-it renderer.');
+    return this.markdownIt.render(markdown);
+  }
+
+  private async parseMarkdownByChunks(markdown: string, options: MarkedOptions, maxCharsPerChunk: number): Promise<string> {
+    const FORCE_FLUSH_THRESHOLD = Math.floor(maxCharsPerChunk * 1.2);
+    const lines = markdown.split('\n');
+    const chunks: string[] = [];
+    let buffer: string[] = [];
+    let bufferLength = 0;
+    let inFence = false;
+    let fenceDelimiter: string | null = null;
+
+    const flushBuffer = () => {
+      if (!buffer.length) return;
+      chunks.push(buffer.join('\n'));
+      buffer = [];
+      bufferLength = 0;
+    };
+
+    for (const line of lines) {
+      const trimmed = line.trimStart();
+
+      if (trimmed.startsWith('```') || trimmed.startsWith('~~~')) {
+        const delimiterMatch = trimmed.match(/^(```+|~~~+)/);
+        const delimiter = delimiterMatch ? delimiterMatch[0] : trimmed.slice(0, 3);
+        if (!inFence) {
+          inFence = true;
+          fenceDelimiter = delimiter;
+        } else if (fenceDelimiter && trimmed.startsWith(fenceDelimiter)) {
+          inFence = false;
+          fenceDelimiter = null;
+        }
+      }
+
+      buffer.push(line);
+      bufferLength += line.length + 1;
+
+      const isBlankLine = trimmed.length === 0;
+      const shouldFlushOnBlank = !inFence && bufferLength >= maxCharsPerChunk && isBlankLine;
+      const shouldForceFlush = !inFence && bufferLength >= FORCE_FLUSH_THRESHOLD;
+
+      if (shouldFlushOnBlank) {
+        flushBuffer();
+      } else if (shouldForceFlush) {
+        buffer.push('');
+        flushBuffer();
+      }
+    }
+
+    flushBuffer();
+
+    const segments = chunks.length ? chunks : [''];
+
+    let html = '';
+    for (const segment of segments) {
+      if (!segment.trim()) continue;
+      const result = await marked.parse(segment, options);
+      html += (result as string) + '\n';
+    }
+
+    return html || '<p></p>';
   }
 
   private normalizeHtmlForTurndown(html: string): string {

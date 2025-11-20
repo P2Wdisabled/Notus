@@ -159,7 +159,7 @@ export default function ImageEditModal({
               onMouseMove={handleCropMouseMove}
               onMouseUp={handleCropMouseUp}
               className="relative w-full max-h-[60vh] overflow-hidden bg-muted border border-border rounded"
-              style={{ aspectRatio: `${imageInfo.naturalWidth}/${imageInfo.naturalHeight}` } as any}
+              style={{ aspectRatio: `${imageInfo.naturalWidth}/${imageInfo.naturalHeight}` } as React.CSSProperties}
             >
               <img
                 ref={imageRef}

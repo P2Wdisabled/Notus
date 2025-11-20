@@ -45,11 +45,21 @@ export async function GET(request: Request) {
 
     const document = docResult.document;
     const userId = parseInt(session.user.id);
+    const userEmail = session.user.email;
     
-    // Vérifier que l'utilisateur est propriétaire du document
-    if (Number(document.user_id) !== userId) {
+    // Vérifier que l'utilisateur est propriétaire OU a accès via partage
+    const isOwner = Number(document.user_id) === userId;
+    let hasAccess = isOwner;
+    
+    if (!isOwner && userEmail) {
+      // Vérifier si l'utilisateur a accès via partage
+      const shareResult = await documentService.getSharePermission(documentId, userEmail);
+      hasAccess = shareResult.success;
+    }
+    
+    if (!hasAccess) {
       return NextResponse.json(
-        { success: false, error: "Accès refusé - Vous devez être propriétaire du document pour voir la liste d'accès" },
+        { success: false, error: "Accès refusé - Vous n'avez pas accès à ce document" },
         { status: 403 }
       );
     }

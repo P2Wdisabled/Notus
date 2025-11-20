@@ -13,8 +13,6 @@ const LOCAL_DOCS_KEY = "notus.local.documents";
 
 interface NotepadContent {
   text: string;
-  drawings: any[];
-  textFormatting: Record<string, any>;
   timestamp?: number;
 }
 
@@ -49,8 +47,6 @@ export default function EditLocalDocumentPageClient({ params }: EditLocalDocumen
 
   const [content, setContent] = useState<NotepadContent>(() => ({
     text: "",
-    drawings: [],
-    textFormatting: {},
   }));
   const [editorKey, setEditorKey] = useState(() => `new-${Date.now()}`);
 
@@ -69,7 +65,7 @@ export default function EditLocalDocumentPageClient({ params }: EditLocalDocumen
           // Nouveau document
           setDocument(null);
           setTitle("");
-          setContent({ text: "", drawings: [], textFormatting: {} });
+          setContent({ text: "" });
           setEditorKey(`new-${Date.now()}`);
           setError(null);
           setLoading(false);
@@ -104,15 +100,13 @@ export default function EditLocalDocumentPageClient({ params }: EditLocalDocumen
               } catch {
                 normalized = {
                   text: found.content,
-                  drawings: [],
-                  textFormatting: {},
                 };
               }
             } else {
               normalized = found.content as NotepadContent;
             }
             setContent(
-              normalized || { text: "", drawings: [], textFormatting: {} }
+              normalized || { text: ""}
             );
             setEditorKey(`local-doc-${id}-${found.updated_at}`);
           }
@@ -157,13 +151,9 @@ export default function EditLocalDocumentPageClient({ params }: EditLocalDocumen
   const handleSave = async () => {
     const docs = loadLocalDocuments();
 
-    // Get latest drawings from editor if available
-    let drawingsPayload = content.drawings || [];
     // Build normalized content object
     const normalizedContentObj: NotepadContent = {
       text: content.text || "",
-      drawings: drawingsPayload,
-      textFormatting: content.textFormatting || {},
       timestamp: Date.now(),
     };
     const nowIso = new Date().toISOString();
@@ -340,21 +330,21 @@ export default function EditLocalDocumentPageClient({ params }: EditLocalDocumen
                 <WysiwygNotepad
                   key={editorKey}
                   initialData={content}
-                  onContentChange={(val: any) => {
+                  onContentChange={(val: unknown) => {
                     if (typeof val === "string") {
                       try {
-                        setContent(JSON.parse(val));
+                        const parsed = JSON.parse(val) as NotepadContent;
+                        setContent(parsed);
                         setShowSavedState(false);
                       } catch {
                         setContent({
                           text: val,
-                          drawings: [],
-                          textFormatting: {},
                         });
                         setShowSavedState(false);
                       }
                     } else {
-                      setContent(val);
+                      const typed = val as NotepadContent;
+                      setContent(typed);
                       setShowSavedState(false);
                     }
                   }}

@@ -14,12 +14,12 @@ interface MediaButtonsProps {
 export default function MediaButtons({ onFormatChange, onShowDrawingModal, isSelectionActive }: MediaButtonsProps) {
   const [showLinkPopin, setShowLinkPopin] = useState(false);
   const handleInsertLink = (u: string) => {
-    try { (window as any).restoreWysiwygSelection?.(); } catch {}
+    try { window.restoreWysiwygSelection?.(); } catch {}
     onFormatChange('createLink', u);
   };
 
   const handleFileSelect = (file: UploadedFileData) => {
-    try { (window as any).restoreWysiwygSelection?.(); } catch {}
+    try { window.restoreWysiwygSelection?.(); } catch {}
     onFormatChange('insertFile', JSON.stringify(file));
   };
 
@@ -32,7 +32,7 @@ export default function MediaButtons({ onFormatChange, onShowDrawingModal, isSel
       <button
         type="button"
         onClick={() => {
-          try { (window as any).saveWysiwygSelection?.(); } catch {}
+          try { window.saveWysiwygSelection?.(); } catch {}
           setShowLinkPopin((s) => !s);
         }}
         className="p-2 rounded transition-colors bg-muted hover:bg-muted/80 text-foreground"

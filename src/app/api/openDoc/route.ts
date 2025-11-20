@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { DocumentService } from "@/lib/services/DocumentService";
-import { auth } from "../../../auth";
+import { auth } from "../../../../auth";
 import { prisma } from "@/lib/prisma";
 
 const documentService = new DocumentService();

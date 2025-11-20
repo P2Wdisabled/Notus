@@ -33,23 +33,21 @@ const isLocalStorageAvailable = (): boolean => {
 export const getLocalStorageData = (): LocalStorageData => {
   if (!isLocalStorageAvailable()) {
     // console.warn('localStorage unavailable, returning default data');
-    return { drawings: [], text: '', textFormatting: DEFAULT_TEXT_FORMATTING, timestamp: 0 };
+    return { text: '', timestamp: 0 };
   }
 
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (!saved) {
       // console.info('No saved data found, returning default data');
-      return { drawings: [], text: '', textFormatting: DEFAULT_TEXT_FORMATTING, timestamp: 0 };
+      return { text: '', timestamp: 0 };
     }
     
     const data: LocalStorageData = JSON.parse(saved);
     
     // Validate data structure
-    if (!data.drawings) data.drawings = [];
     if (!data.text) data.text = '';
     if (!data.timestamp) data.timestamp = 0;
-    if (!data.textFormatting) data.textFormatting = DEFAULT_TEXT_FORMATTING;
     
     // console.info('Loaded data from localStorage:', {
     //   drawingsCount: data.drawings.length,
@@ -60,7 +58,7 @@ export const getLocalStorageData = (): LocalStorageData => {
     return data;
   } catch (error) {
     // console.error('Error loading from localStorage:', error);
-    return { drawings: [], text: '', textFormatting: DEFAULT_TEXT_FORMATTING, timestamp: 0 };
+    return { text: '', timestamp: 0 };
   }
 };
 
@@ -75,7 +73,6 @@ export const saveDrawingsToLocalStorage = (drawings: SerializedPathData[]): bool
     const currentData = getLocalStorageData();
     const data: LocalStorageData = {
       ...currentData,
-      drawings,
       timestamp: Date.now()
     };
 
@@ -187,7 +184,6 @@ export const saveTextFormattingToLocalStorage = (formatting: TextFormatting): bo
     const currentData = getLocalStorageData();
     const data: LocalStorageData = {
       ...currentData,
-      textFormatting: formatting,
       timestamp: Date.now()
     };
     

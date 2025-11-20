@@ -22,6 +22,7 @@ interface WysiwygEditorProps {
   roomId?: string;
   username?: string;
   clientId?: string;
+  onEditorReady?: (element: HTMLDivElement | null) => void;
 }
 
 export default function WysiwygEditor({
@@ -34,6 +35,7 @@ export default function WysiwygEditor({
   roomId,
   username,
   clientId,
+  onEditorReady,
 }: WysiwygEditorProps) {
   const [markdown, setMarkdown] = useState(content);
   
@@ -54,6 +56,15 @@ export default function WysiwygEditor({
   
   const markdownConverter = useRef<MarkdownConverter | null>(null);
   const formattingHandler = useRef<FormattingHandler | null>(null);
+
+  useEffect(() => {
+    if (onEditorReady) {
+      onEditorReady(editorRef.current);
+      return () => {
+        onEditorReady(null);
+      };
+    }
+  }, [onEditorReady]);
 
   // Generate clientId if not provided
   const clientIdRef = useRef<string>(clientId || (() => {
@@ -108,11 +119,15 @@ export default function WysiwygEditor({
   }, [onContentChange, undoRedoHistory]);
 
   // Handle undo
-  const handleUndo = useCallback(() => {
+  const handleUndo = useCallback(async () => {
     const previousMarkdown = undoRedoHistory.undo();
     if (previousMarkdown !== null && editorRef.current && markdownConverter.current) {
       isUpdatingFromMarkdown.current = true;
-      const html = markdownConverter.current.markdownToHtml(previousMarkdown);
+      const html = await markdownConverter.current.markdownToHtml(previousMarkdown);
+      if (!editorRef.current) {
+        isUpdatingFromMarkdown.current = false;
+        return;
+      }
       editorRef.current.innerHTML = html;
       setMarkdown(previousMarkdown);
       lastSavedMarkdownRef.current = previousMarkdown;
@@ -135,11 +150,15 @@ export default function WysiwygEditor({
   }, [undoRedoHistory, handleContentChange]);
 
   // Handle redo
-  const handleRedo = useCallback(() => {
+  const handleRedo = useCallback(async () => {
     const nextMarkdown = undoRedoHistory.redo();
     if (nextMarkdown !== null && editorRef.current && markdownConverter.current) {
       isUpdatingFromMarkdown.current = true;
-      const html = markdownConverter.current.markdownToHtml(nextMarkdown);
+      const html = await markdownConverter.current.markdownToHtml(nextMarkdown);
+      if (!editorRef.current) {
+        isUpdatingFromMarkdown.current = false;
+        return;
+      }
       editorRef.current.innerHTML = html;
       setMarkdown(nextMarkdown);
       lastSavedMarkdownRef.current = nextMarkdown;
@@ -163,16 +182,16 @@ export default function WysiwygEditor({
 
   // Expose undo/redo functions globally
   useEffect(() => {
-    (window as any).handleWysiwygUndo = handleUndo;
-    (window as any).handleWysiwygRedo = handleRedo;
-    (window as any).canWysiwygUndo = () => undoRedoHistory.canUndo();
-    (window as any).canWysiwygRedo = () => undoRedoHistory.canRedo();
+    window.handleWysiwygUndo = handleUndo;
+    window.handleWysiwygRedo = handleRedo;
+    window.canWysiwygUndo = () => undoRedoHistory.canUndo();
+    window.canWysiwygRedo = () => undoRedoHistory.canRedo();
     
     return () => {
-      delete (window as any).handleWysiwygUndo;
-      delete (window as any).handleWysiwygRedo;
-      delete (window as any).canWysiwygUndo;
-      delete (window as any).canWysiwygRedo;
+      delete window.handleWysiwygUndo;
+      delete window.handleWysiwygRedo;
+      delete window.canWysiwygUndo;
+      delete window.canWysiwygRedo;
     };
   }, [handleUndo, handleRedo, undoRedoHistory]);
 

@@ -161,6 +161,33 @@ export function useCursorTracking({
     };
   }, [socket, roomId, clientId]);
 
+  useEffect(() => {
+    if (!socket || !roomId) return;
+
+    const handleTextUpdateCursor: ServerToClientEvents['text-update'] = (data) => {
+      if (!data?.cursor || data.cursor.clientId === clientId) return;
+      const cursor = data.cursor;
+      setRemoteCursors((prev) => {
+        const newMap = new Map(prev);
+        newMap.set(cursor.clientId, {
+          clientId: cursor.clientId,
+          username: cursor.username || cursor.clientId,
+          x: cursor.x,
+          y: cursor.y,
+          offset: cursor.offset,
+          lastUpdate: cursor.ts,
+        });
+        return newMap;
+      });
+    };
+
+    socket.on('text-update', handleTextUpdateCursor);
+
+    return () => {
+      socket.off('text-update', handleTextUpdateCursor);
+    };
+  }, [socket, roomId, clientId]);
+
   // Les curseurs ne sont supprimés que quand l'utilisateur quitte le document (via l'événement user-left)
 
   // Nettoyer les curseurs quand un utilisateur quitte

@@ -8,15 +8,14 @@ import Link from "next/link";
 import Icon from "@/components/Icon";
 import { useLocalSession } from "@/hooks/useLocalSession";
 import WysiwygNotepad from "@/components/Paper.js/WysiwygNotepad";
+import type { Session } from "next-auth";
 
 interface NewDocumentPageClientProps {
-  session?: any;
+  session?: Session | null;
 }
 
 interface NotepadContent {
   text: string;
-  drawings: any[];
-  textFormatting: Record<string, any>;
   timestamp?: number;
 }
 
@@ -26,8 +25,6 @@ export default function NewDocumentPageClient(props: NewDocumentPageClientProps)
   const [title, setTitle] = useState("");
   const [content, setContent] = useState<NotepadContent>({
     text: "",
-    drawings: [],
-    textFormatting: {},
   });
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [showSavedState, setShowSavedState] = useState(false);
@@ -48,31 +45,35 @@ export default function NewDocumentPageClient(props: NewDocumentPageClientProps)
   } = useLocalSession(props.session);
 
   // -------- Content normalization --------
-  const normalizeContent = (rawContent: any): NotepadContent => {
-    if (!rawContent) return { text: "", drawings: [], textFormatting: {} };
+  const normalizeContent = (rawContent: unknown): NotepadContent => {
+    if (!rawContent) return { text: ""};
 
-    let content = rawContent;
+    let content: unknown = rawContent;
 
     // Parse if string
     if (typeof content === "string") {
+      const stringContent = content;
       try {
-        content = JSON.parse(content);
+        content = JSON.parse(stringContent);
       } catch {
-        return { text: content, drawings: [], textFormatting: {} };
+        return { text: stringContent };
       }
     }
 
     // Ensure proper structure
+    interface ParsedContent {
+      text?: string;
+      timestamp?: number;
+    }
+    const parsed = content as ParsedContent;
     return {
-      text: content.text || "",
-      drawings: Array.isArray(content.drawings) ? content.drawings : [],
-      textFormatting: content.textFormatting || {},
-      timestamp: content.timestamp || Date.now(),
+      text: parsed.text || "",
+      timestamp: parsed.timestamp || Date.now(),
     };
   };
 
   // -------- Content change handling --------
-  const handleContentChange = useCallback((newContent: any) => {
+  const handleContentChange = useCallback((newContent: unknown) => {
     const normalized = normalizeContent(newContent);
     setContent(normalized);
   }, []);
@@ -103,7 +104,7 @@ export default function NewDocumentPageClient(props: NewDocumentPageClientProps)
       e?.preventDefault?.();
 
       const submittingUserId =
-        userId ?? (localSession as any)?.id ?? props.session?.user?.id;
+        userId ?? (localSession as { id?: number } | null)?.id ?? props.session?.user?.id;
       if (!submittingUserId) {
         alert("Session invalide. Veuillez vous reconnecter.");
         return;
@@ -137,12 +138,20 @@ export default function NewDocumentPageClient(props: NewDocumentPageClientProps)
     ]
   );
 
+  interface CreateDocumentState {
+    success?: boolean;
+    documentId?: number;
+    error?: string;
+    message?: string;
+  }
+
   // Handle successful creation
   useEffect(() => {
     console.log("State received:", state);
-    if (state && (state as any).success && (state as any).documentId) {
-      console.log("Redirecting to document:", (state as any).documentId);
-      handleSuccess((state as any).documentId);
+    const typedState = state as CreateDocumentState;
+    if (typedState && typedState.success && typedState.documentId) {
+      console.log("Redirecting to document:", typedState.documentId);
+      handleSuccess(typedState.documentId);
     }
   }, [state, handleSuccess]);
 
@@ -243,7 +252,7 @@ export default function NewDocumentPageClient(props: NewDocumentPageClientProps)
             </div>
 
             {/* Success/Error messages */}
-            {(showSuccessMessage || (state && (state as any).error)) && (
+            {(showSuccessMessage || (state && (state as CreateDocumentState).error)) && (
               <div
                 className={`shrink-0 rounded-lg p-4 mt-4 ${
                   showSuccessMessage
@@ -260,7 +269,7 @@ export default function NewDocumentPageClient(props: NewDocumentPageClientProps)
                 >
                   {showSuccessMessage
                     ? "Document créé avec succès !"
-                    : (state as any)?.error || "Erreur lors de la création"}
+                    : (state as CreateDocumentState)?.error || "Erreur lors de la création"}
                 </p>
               </div>
             )}

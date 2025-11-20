@@ -1,5 +1,5 @@
 "use client";
-import { useActionState, startTransition } from "react";
+import { startTransition, useActionState } from "react";
 import { Button, Modal } from "@/components/ui";
 import MenuItem from "@/components/ui/overlay/overlay-menu-item";
 import { Input } from "@/components/ui/input";
@@ -15,30 +15,41 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useLocalSession } from "@/hooks/useLocalSession";
 import WysiwygNotepad from "@/components/Paper.js/WysiwygNotepad";
-import { Document } from "@/lib/types";
+import { Document, ActionResult } from "@/lib/types";
 import TagsManager from "@/components/documents/TagsManager";
-import { addShareAction, deleteDocumentAction } from "@/lib/actions/DocumentActions";
+import { addShareAction, deleteDocumentAction, createDocumentAction } from "@/lib/actions/DocumentActions";
 import UserListButton from "@/components/ui/UserList/UserListButton";
 import { useGuardedNavigate } from "@/hooks/useGuardedNavigate";
 import { useCollaborativeTitle } from "@/lib/paper.js/useCollaborativeTitle";
 import sanitizeLinks from "@/lib/sanitizeLinks";
 import Icon from "@/components/Icon";
+import type { Session } from "next-auth";
 
 interface EditDocumentPageClientProps {
-  session?: any;
+  session?: Session | null;
   params: { id: string };
 }
 
 interface NotepadContent {
   text: string;
-  drawings: any[];
-  textFormatting: Record<string, any>;
   timestamp?: number;
 }
 
-type UpdateDocState =
-  | { ok: boolean; error: string }
-  | { ok: boolean; id: number; dbResult: unknown };
+type FlushOverride = {
+  markdown?: string;
+  content?: NotepadContent;
+  title?: string;
+  tags?: string[];
+};
+
+const toPositiveNumber = (raw: unknown): number | undefined => {
+  if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) return raw;
+  if (typeof raw === "string" && raw.trim().length > 0) {
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  }
+  return undefined;
+};
 
 export default function EditDocumentPageClient(props: EditDocumentPageClientProps) {
   // -------- All Hooks must be called unconditionally first --------
@@ -58,17 +69,6 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   const { guardedNavigate, checkConnectivity } = useGuardedNavigate();
 
   // Action state (must be before any conditional returns)
-  const typedUpdateAction =
-    updateDocumentAction as unknown as (
-      prevState: UpdateDocState,
-      payload: FormData | Record<string, any>
-    ) => Promise<UpdateDocState>;
-
-  const [state, formAction, isPending] = useActionState<
-    UpdateDocState,
-    FormData | Record<string, any>
-  >(typedUpdateAction, { ok: false, error: "" });
-
   const [deleteState, deleteAction] = useActionState(
     deleteDocumentAction as unknown as (prev: any, fd: FormData) => Promise<string>,
     ""
@@ -78,8 +78,6 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   const [title, setTitle] = useState("");
   const [content, setContent] = useState<NotepadContent>({
     text: "",
-    drawings: [],
-    textFormatting: {},
   });
 
   async function handleCancelCreation() {
@@ -99,6 +97,8 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [showSavedState, setShowSavedState] = useState(false);
   const [showSavedNotification, setShowSavedNotification] = useState(false);
+  const [isManualSaving, setIsManualSaving] = useState(false);
+  const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
 
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -121,6 +121,135 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   const lastSavedTagsRef = useRef<string[]>([]);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isSavingRef = useRef(false);
+  const flushRealtimeRef = useRef<(override?: FlushOverride) => Promise<void>>(async () => {});
+  const persistIndicatorsRef = useRef<{
+    saved?: NodeJS.Timeout;
+    message?: NodeJS.Timeout;
+    notification?: NodeJS.Timeout;
+  }>({});
+  const shouldUseRealtime = isRealtimeConnected && !isOffline;
+  const realtimeUserId = toPositiveNumber(userId) ?? toPositiveNumber(props.session?.user?.id);
+
+  const triggerPersistIndicators = useCallback(() => {
+    if (persistIndicatorsRef.current.saved) {
+      clearTimeout(persistIndicatorsRef.current.saved);
+    }
+    if (persistIndicatorsRef.current.message) {
+      clearTimeout(persistIndicatorsRef.current.message);
+    }
+    if (persistIndicatorsRef.current.notification) {
+      clearTimeout(persistIndicatorsRef.current.notification);
+    }
+
+    setShowSuccessMessage(true);
+    setShowSavedState(true);
+    setShowSavedNotification(true);
+
+    persistIndicatorsRef.current.saved = setTimeout(() => setShowSavedState(false), 1500);
+    persistIndicatorsRef.current.message = setTimeout(() => setShowSuccessMessage(false), 3000);
+    persistIndicatorsRef.current.notification = setTimeout(() => setShowSavedNotification(false), 2000);
+  }, []);
+
+  const handleSyncStatusChange = useCallback(
+    (status: 'synchronized' | 'saving' | 'unsynchronized') => {
+      setSaveStatus(status);
+      if (status === 'saving') {
+        isSavingRef.current = true;
+      } else if (status === 'synchronized') {
+        isSavingRef.current = false;
+      }
+    },
+    []
+  );
+
+  const buildContentSnapshot = useCallback((): NotepadContent => {
+    return {
+      text: sanitizeLinks(content.text || ""),
+      timestamp: Date.now(),
+    };
+  }, [content]);
+
+  const handleRealtimePersisted = useCallback(
+    ({
+      snapshot,
+      title: persistedTitle,
+      tags: persistedTags,
+    }: {
+      snapshot?: NotepadContent | null;
+      title?: string;
+      tags?: string[];
+    }) => {
+      const nextSnapshot = snapshot || buildContentSnapshot();
+      lastSavedContentRef.current = JSON.stringify(nextSnapshot);
+      lastSavedTitleRef.current = persistedTitle ?? title;
+      lastSavedTagsRef.current = persistedTags ? [...persistedTags] : [...tags];
+      setSaveStatus('synchronized');
+      isSavingRef.current = false;
+      triggerPersistIndicators();
+    },
+    [buildContentSnapshot, tags, title, triggerPersistIndicators]
+  );
+
+  const handleRegisterFlush = useCallback((flush: (override?: FlushOverride) => Promise<void>) => {
+    flushRealtimeRef.current = flush;
+  }, []);
+
+  const handleRealtimeConnectionChange = useCallback((connected: boolean) => {
+    setIsRealtimeConnected(connected);
+  }, []);
+
+  const flushTitleRealtime = useCallback(
+    (nextTitle: string) => {
+      if (!shouldUseRealtime) return;
+      const snapshot = buildContentSnapshot();
+      const markdown = snapshot.text || "";
+      flushRealtimeRef.current({
+        markdown,
+        content: snapshot,
+        title: nextTitle,
+        tags,
+      }).catch((error) => {
+        console.error("❌ Échec de la synchronisation du titre via websocket:", error);
+        setSaveStatus('unsynchronized');
+      });
+    },
+    [shouldUseRealtime, buildContentSnapshot, tags, setSaveStatus]
+  );
+
+  const createPersonalCopyFromOffline = useCallback(
+    async (snapshot: NotepadContent) => {
+      if (!realtimeUserId) return;
+      try {
+        const copyForm = new FormData();
+        copyForm.append("userId", String(realtimeUserId));
+        const baseTitle = title || "Sans titre";
+        copyForm.append("title", `${baseTitle} (copie personnelle)`);
+        copyForm.append("content", JSON.stringify(snapshot));
+        copyForm.append("tags", JSON.stringify(tags));
+        await createDocumentAction(undefined as unknown as never, copyForm);
+        console.log("📄 Copie personnelle créée suite à une modification distante.");
+      } catch (error) {
+        console.error("❌ Impossible de créer une copie personnelle:", error);
+      }
+    },
+    [realtimeUserId, title, tags]
+  );
+
+  useEffect(() => {
+    const timersRef = persistIndicatorsRef.current;
+    return () => {
+      flushRealtimeRef.current = async () => {};
+      if (timersRef.saved) {
+        clearTimeout(timersRef.saved);
+      }
+      if (timersRef.message) {
+        clearTimeout(timersRef.message);
+      }
+      if (timersRef.notification) {
+        clearTimeout(timersRef.notification);
+      }
+    };
+  }, []);
 
   // Collaborative title synchronization
   const { emitTitleChange, isConnected: isTitleConnected } = useCollaborativeTitle({
@@ -132,30 +261,71 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     },
   });
 
-  const normalizeContent = useCallback((rawContent: any): NotepadContent => {
-    if (!rawContent) return { text: "", drawings: [], textFormatting: {} };
+  const normalizeContent = useCallback((rawContent: unknown): NotepadContent => {
+    if (!rawContent) return { text: ""};
 
-    let content = rawContent;
+    let content: unknown = rawContent;
 
     if (typeof content === "string") {
+      const stringContent = content;
       try {
-        content = JSON.parse(content);
+        content = JSON.parse(stringContent);
       } catch {
-        return { text: content, drawings: [], textFormatting: {} };
+        return { text: stringContent };
       }
     }
 
+    interface ParsedContent {
+      text?: string;
+      timestamp?: number;
+    }
+    const parsed = content as ParsedContent;
     return {
-      text: content.text || "",
-      drawings: Array.isArray(content.drawings) ? content.drawings : [],
-      textFormatting: content.textFormatting || {},
-      timestamp: content.timestamp || Date.now(),
+      text: parsed.text || "",
+      timestamp: parsed.timestamp || Date.now(),
     };
   }, []);
 
   const loadDocument = useCallback(async () => {
     try {
       setIsLoading(true);
+      
+      // Si on est hors ligne, charger depuis localStorage
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        const cached = localStorage.getItem(`notus:doc:${props.params.id}`);
+        if (cached) {
+          try {
+            const c = JSON.parse(cached);
+            setDocument({
+              id: Number(c.id),
+              title: c.title,
+              content: JSON.stringify(normalizeContent(c.content)),
+              tags: Array.isArray(c.tags) ? c.tags : [],
+              created_at: new Date(c.created_at || c.updated_at),
+              updated_at: new Date(c.updated_at),
+              user_id: Number(c.user_id ?? NaN),
+            });
+            setTitle(c.title);
+            setContent(normalizeContent(c.content));
+            setTags(Array.isArray(c.tags) ? c.tags : []);
+            
+            const cachedContentString = JSON.stringify(normalizeContent(c.content));
+            lastSavedContentRef.current = cachedContentString;
+            lastSavedTitleRef.current = c.title;
+            lastSavedTagsRef.current = Array.isArray(c.tags) ? c.tags : [];
+            setSaveStatus('synchronized');
+            setError(null);
+            setIsLoading(false);
+            return;
+          } catch (e) {
+            console.error("Erreur lors du chargement depuis localStorage:", e);
+          }
+        }
+        setError("Document non disponible hors ligne");
+        setIsLoading(false);
+        return;
+      }
+      
       const response = await fetch(`/api/openDoc?id=${props.params.id}`, { cache: "no-store" });
       const result = await response.json();
 
@@ -331,7 +501,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   }, [props.params.id]);
 
   // Utility function to update localStorage with current state
-  const updateLocalStorage = useCallback((contentToSave: any, titleToSave?: string) => {
+  const updateLocalStorage = useCallback((contentToSave: NotepadContent, titleToSave?: string) => {
     try {
       if (typeof window !== "undefined") {
         const key = `notus:doc:${props.params.id}`;
@@ -344,7 +514,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
           content: contentToSave,
           tags: tags,
           updated_at: new Date().toISOString(),
-          user_id: cached?.user_id ?? Number(userId ?? ((props.session as any)?.user?.id ?? 0)),
+          user_id: cached?.user_id ?? Number(userId ?? (props.session?.user?.id ?? 0)),
           cachedAt: Date.now(),
         };
         localStorage.setItem(key, JSON.stringify(payload));
@@ -358,6 +528,9 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   const handleSubmitRef = useRef<(() => Promise<void>) | null>(null);
   
   const triggerAutoSave = useCallback(() => {
+    if (shouldUseRealtime) {
+      return;
+    }
     if (!document?.id || hasEditAccess === false || isSavingRef.current) {
       return;
     }
@@ -410,57 +583,48 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
         setSaveStatus('unsynchronized');
       }
     }, 2000); // 2 secondes d'inactivité avant sauvegarde
-  }, [document?.id, hasEditAccess, content, title, tags, checkConnectivity]);
+  }, [document?.id, hasEditAccess, content, title, tags, checkConnectivity, shouldUseRealtime]);
 
-  const handleContentChange = useCallback((newContent: any) => {
+  const handleContentChange = useCallback((newContent: unknown) => {
     const normalized = normalizeContent(newContent);
     setContent(normalized);
     updateLocalStorage(normalized);
     triggerAutoSave();
   }, [normalizeContent, updateLocalStorage, triggerAutoSave]);
 
-  useEffect(() => {
-    if (state && (state as any).ok) {
-      setShowSuccessMessage(true);
-      setShowSavedState(true);
-      setShowSavedNotification(true);
-
-      const savedTimer = setTimeout(() => setShowSavedState(false), 1500);
-      const messageTimer = setTimeout(() => setShowSuccessMessage(false), 3000);
-      const notificationTimer = setTimeout(() => setShowSavedNotification(false), 2000);
-
-      return () => {
-        clearTimeout(messageTimer);
-        clearTimeout(notificationTimer);
-      };
-    }
-  }, [state]);
 
   const handleSubmit = useCallback(
     async (e?: React.FormEvent) => {
       e?.preventDefault?.();
 
       const submittingUserId = String(
-        userId ?? (localSession as any)?.id ?? ((props.session as any)?.user?.id ?? "")
+        userId ?? (localSession as { id?: number } | null)?.id ?? (props.session?.user?.id ?? "")
       );
       if (!submittingUserId) {
         alert("Session invalide. Veuillez vous reconnecter.");
         return;
       }
 
-      const contentToSave = {
+      const contentToSave: NotepadContent = {
         text: sanitizeLinks(content.text || ""),
         timestamp: Date.now(),
       };
 
-      const formData = new FormData();
-      formData.append("documentId", String(props.params?.id || ""));
-      formData.append("userId", String(submittingUserId));
-      formData.append("title", title || "");
-      formData.append("content", JSON.stringify(contentToSave));
-      formData.append("tags", JSON.stringify(tags));
-      const submittingUserEmail = userEmail || props.session?.user?.email || "";
-      formData.append("email", submittingUserEmail);
+      if (shouldUseRealtime) {
+        setIsManualSaving(true);
+        try {
+          await flushRealtimeRef.current({
+            content: contentToSave,
+            title,
+            tags,
+          });
+        } catch (error) {
+          setSaveStatus('unsynchronized');
+        } finally {
+          setIsManualSaving(false);
+        }
+        return;
+      }
 
       const onlineOk = await checkConnectivity();
       if (!onlineOk) {
@@ -481,16 +645,34 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
           if (typeof window !== "undefined") {
             localStorage.setItem(key, JSON.stringify(payload));
           }
-          setShowSuccessMessage(true);
-          setShowSavedState(true);
-          setTimeout(() => setShowSuccessMessage(false), 3000);
-        } catch { }
+          triggerPersistIndicators();
+        } catch {
+          setSaveStatus('unsynchronized');
+        }
+        setSaveStatus('unsynchronized');
         return;
       }
 
-      startTransition(() => {
-        formAction(formData);
-      });
+      const formData = new FormData();
+      formData.append("documentId", String(props.params?.id || ""));
+      formData.append("userId", String(submittingUserId));
+      formData.append("title", title || "");
+      formData.append("content", JSON.stringify(contentToSave));
+      formData.append("tags", JSON.stringify(tags));
+      const submittingUserEmail = userEmail || props.session?.user?.email || "";
+      formData.append("email", submittingUserEmail);
+
+      setIsManualSaving(true);
+      try {
+        await (updateDocumentAction as unknown as (prev: any, payload: FormData) => Promise<any>)(undefined as any, formData);
+        triggerPersistIndicators();
+        setSaveStatus('synchronized');
+      } catch (error) {
+        console.error("❌ Erreur lors de la sauvegarde fallback:", error);
+        setSaveStatus('unsynchronized');
+      } finally {
+        setIsManualSaving(false);
+      }
     },
     [
       content,
@@ -500,10 +682,11 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
       props.params.id,
       title,
       tags,
-      formAction,
-      setShowSavedState,
-      setShowSuccessMessage,
+      triggerPersistIndicators,
       checkConnectivity,
+      flushRealtimeRef,
+      setSaveStatus,
+      shouldUseRealtime,
       userEmail,
     ]
   );
@@ -514,20 +697,6 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   }, [handleSubmit]);
 
   // Mettre à jour les refs et le statut après une sauvegarde réussie
-  useEffect(() => {
-    if (state && (state as any).ok) {
-      // Mettre à jour les refs avec le contenu sauvegardé
-      const contentString = JSON.stringify(content);
-      lastSavedContentRef.current = contentString;
-      lastSavedTitleRef.current = title;
-      lastSavedTagsRef.current = [...tags];
-      
-      // Marquer comme synchronisé
-      setSaveStatus('synchronized');
-      isSavingRef.current = false;
-    }
-  }, [state, content, title, tags]);
-
   // Nettoyer le timeout lors du démontage
   useEffect(() => {
     return () => {
@@ -547,11 +716,30 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
       const baseline = content.text || "";
       setOfflineBaseline(baseline);
       localStorage.setItem(`notus:offline-baseline:${document.id}`, baseline);
-      console.log('📴 Mode hors ligne activé - Baseline sauvegardé:', {
-        documentId: document.id,
-        baselineLength: baseline.length,
-        baselinePreview: baseline.substring(0, 50) + '...'
-      });
+      
+      // Sauvegarder le document complet dans localStorage
+      try {
+        const key = `notus:doc:${document.id}`;
+        const payload = {
+          id: Number(document.id),
+          title: title || "",
+          content: content,
+          tags: tags,
+          updated_at: new Date().toISOString(),
+          user_id: Number(document.user_id ?? userId ?? 0),
+          cachedAt: Date.now(),
+        };
+        if (typeof window !== "undefined") {
+          localStorage.setItem(key, JSON.stringify(payload));
+        }
+        console.log('📴 Mode hors ligne activé - Document sauvegardé dans localStorage:', {
+          documentId: document.id,
+          title: title,
+          contentLength: content.text?.length || 0,
+        });
+      } catch (err) {
+        console.error("Erreur lors de la sauvegarde offline:", err);
+      }
     };
 
     const handleOnline = async () => {
@@ -592,16 +780,27 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
 
           // Compare remote content with stored baseline
           if (remoteText !== storedBaseline) {
-            // Remote changes occurred while offline - overwrite local changes
+            // Remote changes occurred while offline - create a copy
             console.log('⚠️ Conflit détecté - Changements distants trouvés pendant la déconnexion');
-            console.log('🔄 Écrasement des modifications locales par les changements distants');
-            console.log('📥 Application des données de la BDD:', {
-              title: result.title,
-              contentLength: remoteText.length,
-              contentPreview: remoteText.substring(0, 100) + '...',
-              tags: result.tags,
-              updatedAt: result.updated_at
-            });
+            console.log('📄 Création d\'une copie avec les modifications locales');
+
+            const offlineSnapshot = buildContentSnapshot();
+            
+            // Créer une copie avec "name - copie"
+            if (realtimeUserId) {
+              try {
+                const copyForm = new FormData();
+                copyForm.append("userId", String(realtimeUserId));
+                const baseTitle = title || result.title || "Sans titre";
+                copyForm.append("title", `${baseTitle} - copie`);
+                copyForm.append("content", JSON.stringify(offlineSnapshot));
+                copyForm.append("tags", JSON.stringify(tags));
+                await createDocumentAction(undefined as unknown as never, copyForm);
+                console.log("📄 Copie créée avec les modifications hors ligne.");
+              } catch (error) {
+                console.error("❌ Impossible de créer une copie:", error);
+              }
+            }
 
             // Update document state with remote data
             setDocument({
@@ -620,7 +819,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
 
             setOfflineBaseline("");
             localStorage.removeItem(`notus:offline-baseline:${document.id}`);
-            console.log('✅ Résolution terminée - Toutes les données distantes appliquées');
+            console.log('✅ Résolution terminée - Copie créée et données distantes appliquées');
           } else {
             // No remote changes - our offline changes are safe to persist
             console.log('✅ Aucun conflit - Aucun changement distant détecté');
@@ -652,7 +851,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, [document, content.text, handleSubmit, normalizeContent, updateLocalStorage]);
+  }, [document, content, handleSubmit, normalizeContent, updateLocalStorage, buildContentSnapshot, createPersonalCopyFromOffline, userId, realtimeUserId, title, tags]);
 
   const persistTags = (nextTags: string[]) => {
     if (!userId) return;
@@ -664,12 +863,12 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     fd.append("tags", JSON.stringify(nextTags));
     if (typeof navigator !== "undefined" && navigator.onLine) {
       startTransition(() => {
-        (updateDocumentAction as unknown as (s: any, p: any) => any)(undefined as any, fd as any);
+        (updateDocumentAction as unknown as (prev: unknown, payload: FormData) => Promise<ActionResult>)(undefined, fd);
       });
     }
     if (typeof navigator !== "undefined" && navigator.onLine) {
       startTransition(() => {
-        (updateDocumentAction as unknown as (s: any, p: any) => any)(undefined as any, fd as any);
+        (updateDocumentAction as unknown as (prev: unknown, payload: FormData) => Promise<ActionResult>)(undefined, fd);
       });
     }
   };
@@ -711,8 +910,12 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
           // Check if user is owner
           const isOwner = Number(document.user_id) === Number(userId);
 
+          interface AccessListItem {
+            email?: string;
+            permission?: boolean;
+          }
           // Check if user has any access (read or edit)
-          const userAccess = result.accessList.find((u: any) =>
+          const userAccess = result.accessList.find((u: AccessListItem) =>
             (u.email || "").trim().toLowerCase() === myEmail
           );
 
@@ -976,10 +1179,10 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
                         setIsMenuOpen(false);
                       }
                     }}
-                    disabled={hasEditAccess === false || isPending}
-                    icon={<Icon name="document" className={hasEditAccess === false || isPending ? "w-4 h-4 text-muted-foreground" : "w-4 h-4 text-primary"} />}
+                    disabled={hasEditAccess === false || isManualSaving}
+                    icon={<Icon name="document" className={hasEditAccess === false || isManualSaving ? "w-4 h-4 text-muted-foreground" : "w-4 h-4 text-primary"} />}
                   >
-                    {isPending ? "Sauvegarde..." : hasEditAccess === false ? "Lecture seule" : "Sauvegarder"}
+                    {isManualSaving ? "Sauvegarde..." : hasEditAccess === false ? "Lecture seule" : "Sauvegarder"}
                   </MenuItem>
                 </div>
               )}
@@ -1103,10 +1306,10 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
                 onChange={hasEditAccess === false ? undefined : (e) => {
                   const newTitle = e.target.value;
                   setTitle(newTitle);
-                  // Emit title change to other clients
                   if (emitTitleChange && isTitleConnected) {
                     emitTitleChange(newTitle);
                   }
+                  flushTitleRealtime(newTitle);
                   triggerAutoSave();
                 }}
                 readOnly={hasEditAccess === false}
@@ -1120,7 +1323,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
             <div>
               <div className="border border-border rounded-lg overflow-hidden bg-card">
                 <WysiwygNotepad
-                  key={`doc-${document.id}-${document.updated_at}`}
+                  key={`doc-${document.id}`}
                   initialData={content}
                   onContentChange={handleContentChange}
                   onRemoteContentChange={(remoteContent) => {
@@ -1138,6 +1341,16 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
                   showDebug={false}
                   readOnly={hasEditAccess === false}
                   roomId={String(document.id)}
+                  documentId={String(document.id)}
+                  userId={realtimeUserId}
+                  userEmail={userEmail || props.session?.user?.email || undefined}
+                  title={title}
+                  tags={tags}
+                  getContentSnapshot={buildContentSnapshot}
+                  onSyncStatusChange={handleSyncStatusChange}
+                  onPersisted={handleRealtimePersisted}
+                  onRegisterFlush={handleRegisterFlush}
+                  onRealtimeConnectionChange={handleRealtimeConnectionChange}
                 />
               </div>
             </div>
