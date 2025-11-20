@@ -9,9 +9,9 @@ export interface EditorEventHandlersProps {
   markdown: string;
   onContentChange: (content: string) => void;
   setLinkPopup: React.Dispatch<React.SetStateAction<{ visible: boolean; x: number; y: number; url: string }>>;
-  setSelectedImage: React.Dispatch<React.SetStateAction<HTMLImageElement | HTMLVideoElement | null>>;
+  setSelectedImage: React.Dispatch<React.SetStateAction<HTMLElement | null>>;
   setImageOverlayRect: React.Dispatch<React.SetStateAction<{ left: number; top: number; width: number; height: number } | null>>;
-  selectedImage: HTMLImageElement | HTMLVideoElement | null;
+  selectedImage: HTMLElement | null;
   formattingHandler: React.MutableRefObject<any>;
   handleEditorChange: () => void;
 }
@@ -124,11 +124,27 @@ export function useEditorEventHandlers({
     };
   }, []);
 
-  // Handle editor clicks to track selected image or video
+  const updateOverlayForElement = (element: HTMLElement) => {
+    requestAnimationFrame(() => {
+      if (editorRef.current) {
+        const elemRect = element.getBoundingClientRect();
+        const contRect = editorRef.current.getBoundingClientRect();
+        setImageOverlayRect({
+          left: elemRect.left - contRect.left,
+          top: elemRect.top - contRect.top,
+          width: elemRect.width,
+          height: elemRect.height,
+        });
+      }
+    });
+  };
+
+  // Handle editor clicks to track selected media
   const handleEditorClick = useCallback((e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     const img = target?.closest('img');
     const video = target?.closest('video');
+    const attachment = target?.closest('.wysiwyg-file-attachment');
     
     // Permettre la sélection des vidéos (pour suppression)
     if (editorRef.current && video && editorRef.current.contains(video)) {
@@ -137,19 +153,7 @@ export function useEditorEventHandlers({
       }
       (video as HTMLVideoElement).setAttribute('data-selected-image', 'true');
       setSelectedImage(video as HTMLVideoElement);
-      // Update overlay rect
-      requestAnimationFrame(() => {
-        if (editorRef.current) {
-          const videoRect = (video as HTMLVideoElement).getBoundingClientRect();
-          const contRect = editorRef.current.getBoundingClientRect();
-          setImageOverlayRect({
-            left: videoRect.left - contRect.left,
-            top: videoRect.top - contRect.top,
-            width: videoRect.width,
-            height: videoRect.height,
-          });
-        }
-      });
+      updateOverlayForElement(video as HTMLVideoElement);
       return;
     }
     
@@ -159,25 +163,23 @@ export function useEditorEventHandlers({
       }
       (img as HTMLImageElement).setAttribute('data-selected-image', 'true');
       setSelectedImage(img as HTMLImageElement);
-      // Update overlay rect
-      requestAnimationFrame(() => {
-        if (editorRef.current) {
-          const imgRect = (img as HTMLImageElement).getBoundingClientRect();
-          const contRect = editorRef.current.getBoundingClientRect();
-          setImageOverlayRect({
-            left: imgRect.left - contRect.left,
-            top: imgRect.top - contRect.top,
-            width: imgRect.width,
-            height: imgRect.height,
-          });
-        }
-      });
+      updateOverlayForElement(img as HTMLImageElement);
+    } else if (editorRef.current && attachment && editorRef.current.contains(attachment)) {
+      if (selectedImage && selectedImage !== attachment && selectedImage instanceof HTMLElement) {
+        selectedImage.removeAttribute('data-selected-image');
+      }
+      setSelectedImage(attachment as HTMLElement);
+      updateOverlayForElement(attachment as HTMLElement);
     } else {
       if (selectedImage) {
         selectedImage.removeAttribute('data-selected-image');
       }
       setSelectedImage(null);
       setImageOverlayRect(null);
+      try {
+        const selectedFile = editorRef.current?.querySelector('.wysiwyg-file-attachment[data-selected-file="true"]') as HTMLElement | null;
+        selectedFile?.removeAttribute('data-selected-file');
+      } catch (_e) {}
     }
   }, [selectedImage, editorRef, setSelectedImage, setImageOverlayRect]);
 
@@ -187,7 +189,6 @@ export function useEditorEventHandlers({
     const img = target?.closest('img');
     const video = target?.closest('video');
     
-    // Ne pas permettre l'édition des vidéos (seulement les images)
     if (video) {
       return;
     }

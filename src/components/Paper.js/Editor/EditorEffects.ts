@@ -8,7 +8,8 @@ export interface EditorEffectsProps {
   markdown: string;
   markdownConverter: React.MutableRefObject<any>;
   onContentChange: (content: string) => void;
-  selectedImage: HTMLImageElement | HTMLVideoElement | null;
+  selectedElement: HTMLElement | null;
+  setSelectedElement: React.Dispatch<React.SetStateAction<HTMLElement | null>>;
   setImageOverlayRect: React.Dispatch<React.SetStateAction<{ left: number; top: number; width: number; height: number } | null>>;
   formattingHandler: React.MutableRefObject<any>;
   debounceTimeout: React.MutableRefObject<NodeJS.Timeout | null>;
@@ -26,7 +27,8 @@ export function useEditorEffects({
   markdown,
   markdownConverter,
   onContentChange,
-  selectedImage,
+  selectedElement,
+  setSelectedElement,
   setImageOverlayRect,
   formattingHandler,
   debounceTimeout,
@@ -287,8 +289,8 @@ export function useEditorEffects({
   // Keep overlay in sync on scroll/resize/content changes
   useEffect(() => {
     const updateOverlay = () => {
-      if (!selectedImage || !editorRef.current) return;
-      const imgRect = selectedImage.getBoundingClientRect();
+      if (!selectedElement || !editorRef.current) return;
+      const imgRect = selectedElement.getBoundingClientRect();
       const contRect = editorRef.current.getBoundingClientRect();
       setImageOverlayRect({
         left: imgRect.left - contRect.left,
@@ -306,7 +308,7 @@ export function useEditorEffects({
       window.removeEventListener('resize', updateOverlay);
       clearInterval(interval);
     };
-  }, [selectedImage, editorRef, setImageOverlayRect]);
+  }, [selectedElement, editorRef, setImageOverlayRect]);
 
   // Expose functions to parent
   useEffect(() => {
@@ -323,6 +325,18 @@ export function useEditorEffects({
 
   // Handle inline file downloads and protect attachment blocks
   useEffect(() => {
+    const updateOverlayForElement = (element: HTMLElement) => {
+      if (!editorRef.current) return;
+      const elemRect = element.getBoundingClientRect();
+      const contRect = editorRef.current.getBoundingClientRect();
+      setImageOverlayRect({
+        left: elemRect.left - contRect.left,
+        top: elemRect.top - contRect.top,
+        width: elemRect.width,
+        height: elemRect.height,
+      });
+    };
+
     const handleFileClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       const fileContainer = target.closest('.wysiwyg-file-attachment') as HTMLElement | null;
@@ -342,6 +356,8 @@ export function useEditorEffects({
         const allFiles = editorRef.current?.querySelectorAll('.wysiwyg-file-attachment[data-selected-file="true"]');
         allFiles?.forEach((file) => file.removeAttribute('data-selected-file'));
         fileContainer.setAttribute('data-selected-file', 'true');
+        setSelectedElement(fileContainer);
+        updateOverlayForElement(fileContainer);
         if (!isLinkClick) {
           return;
         }
@@ -349,6 +365,8 @@ export function useEditorEffects({
 
       const sourceElement = fileLink || fileContainer;
       if (!sourceElement) return;
+      setSelectedElement(sourceElement);
+      updateOverlayForElement(sourceElement);
 
       const fileName =
         sourceElement.getAttribute('data-file-name') ||
@@ -501,10 +519,9 @@ export function useEditorEffects({
         editor.removeEventListener('focusin', preventFileFocus);
         editor.removeEventListener('focus', preventFileFocus);
         observer.disconnect();
-        observer.disconnect();
       };
     }
-  }, [editorRef]);
+  }, [editorRef, setSelectedElement, setImageOverlayRect]);
 
   useEffect(() => {
     const root = editorRef.current;
@@ -611,8 +628,8 @@ export function useEditorEffects({
 
   // Helpers to edit currently selected image
   const applyImageEditInternal = useCallback((payload: { src?: string; widthPercent?: number; widthPx?: number }) => {
-    if (!editorRef.current || !selectedImage || !isImageElement(selectedImage)) return false;
-    const img = selectedImage;
+    if (!editorRef.current || !selectedElement || !isImageElement(selectedElement)) return false;
+    const img = selectedElement;
     if (payload.src) {
       try {
         img.src = payload.src;
@@ -634,12 +651,12 @@ export function useEditorEffects({
       handleEditorChange();
     }, 0);
     return true;
-  }, [handleEditorChange, selectedImage, editorRef]);
+  }, [handleEditorChange, selectedElement, editorRef]);
 
   // Expose image helpers to toolbar
   useEffect(() => {
     (window as any).getCurrentImageForEditing = () => {
-      const img = selectedImage;
+      const img = selectedElement;
       if (!img || !isImageElement(img)) return null;
       return {
         src: img.src,
@@ -652,7 +669,7 @@ export function useEditorEffects({
     (window as any).applyImageEdit = (payload: { src?: string; widthPercent?: number; widthPx?: number }) => {
       return applyImageEditInternal(payload);
     };
-  }, [applyImageEditInternal, selectedImage]);
+  }, [applyImageEditInternal, selectedElement]);
 
   // Cleanup timeout on unmount
   useEffect(() => {

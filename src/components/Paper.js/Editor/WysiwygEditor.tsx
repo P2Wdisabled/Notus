@@ -43,7 +43,7 @@ export default function WysiwygEditor({
     y: 0,
     url: ''
   });
-  const [selectedImage, setSelectedImage] = useState<HTMLImageElement | HTMLVideoElement | null>(null);
+  const [selectedElement, setSelectedElement] = useState<HTMLElement | null>(null);
   const [imageOverlayRect, setImageOverlayRect] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
   
   const editorRef = useRef<HTMLDivElement | null>(null);
@@ -223,9 +223,9 @@ export default function WysiwygEditor({
     markdown,
     onContentChange: handleContentChange,
     setLinkPopup,
-    setSelectedImage,
+    setSelectedImage: setSelectedElement,
     setImageOverlayRect,
-    selectedImage,
+    selectedImage: selectedElement,
     formattingHandler,
     handleEditorChange: () => {}
   });
@@ -235,7 +235,8 @@ export default function WysiwygEditor({
     markdown,
     markdownConverter,
     onContentChange: handleContentChange,
-    selectedImage,
+    selectedElement,
+    setSelectedElement,
     setImageOverlayRect,
     formattingHandler,
     debounceTimeout,
@@ -290,12 +291,14 @@ export default function WysiwygEditor({
             {/* Inline image resize handle overlay */}
             <ImageOverlay 
               imageOverlayRect={imageOverlayRect}
-              selectedImage={selectedImage}
+              selectedElement={selectedElement}
               editorRef={editorRef}
-              onImageResize={(newWidthPercent) => {
-                if (selectedImage) {
-                  selectedImage.style.width = `${newWidthPercent}%`;
-                  selectedImage.style.height = 'auto';
+              onElementResize={(newWidthPercent) => {
+                if (selectedElement) {
+                  selectedElement.style.width = `${newWidthPercent}%`;
+                  if (selectedElement.tagName === 'IMG' || selectedElement.tagName === 'VIDEO') {
+                    (selectedElement as HTMLElement).style.height = 'auto';
+                  }
                   setTimeout(() => eventHandlers.handleEditorChange(), 0);
                 }
               }}

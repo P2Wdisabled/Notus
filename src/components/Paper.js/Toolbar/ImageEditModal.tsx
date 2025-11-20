@@ -71,11 +71,33 @@ export default function ImageEditModal({
 
   useEffect(() => {
     if (isOpen) {
-      // Give layout a tick, then set full crop
       const t = setTimeout(() => resetCrop(), 0);
       return () => clearTimeout(t);
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen && imageInfo) {
+      const t = setTimeout(() => resetCrop(), 0);
+      return () => clearTimeout(t);
+    }
+  }, [imageInfo, isOpen]);
+
+  useEffect(() => {
+    if (isOpen && imageInfo) {
+      const styleWidth = imageInfo.styleWidth || "";
+      if (styleWidth.includes("%")) {
+        const parsed = parseFloat(styleWidth);
+        if (!Number.isNaN(parsed)) {
+          setWidthPercent(Math.max(1, Math.min(100, Math.round(parsed))));
+          return;
+        }
+      }
+      setWidthPercent(100);
+    } else if (!isOpen) {
+      setWidthPercent(100);
+    }
+  }, [imageInfo, isOpen]);
 
   const applyResizeOnly = () => {
     try {
