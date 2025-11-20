@@ -36,11 +36,6 @@ interface NotepadContent {
   timestamp?: number;
 }
 
-interface CanvasController {
-  saveDrawings?: (options?: { force?: boolean }) => Promise<any[]>;
-  clearCanvas?: () => void;
-}
-
 type UpdateDocState =
   | { ok: boolean; error: string }
   | { ok: boolean; id: number; dbResult: unknown };
@@ -99,7 +94,6 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   const [tags, setTags] = useState<string[]>([]);
   const [showTagInput, setShowTagInput] = useState(false);
   const [newTag, setNewTag] = useState("");
-  const [canvasCtrl, setCanvasCtrl] = useState<CanvasController | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
@@ -295,7 +289,6 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
         setSaveStatus('synchronized');
       }
       
-      setCanvasCtrl(null);
       fetch(`/api/openDoc/accessList?id=${document.id}`)
         .then(res => res.json())
         .then(data => {
@@ -455,22 +448,8 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
         return;
       }
 
-      let drawingsToSave: any[] = [];
-
-      if (canvasCtrl && typeof canvasCtrl.saveDrawings === "function") {
-        try {
-          drawingsToSave = await canvasCtrl.saveDrawings({ force: true });
-        } catch (err) {
-          drawingsToSave = content.drawings || [];
-        }
-      } else {
-        drawingsToSave = content.drawings || [];
-      }
-
       const contentToSave = {
         text: sanitizeLinks(content.text || ""),
-        drawings: drawingsToSave,
-        textFormatting: content.textFormatting || {},
         timestamp: Date.now(),
       };
 
@@ -514,7 +493,6 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
       });
     },
     [
-      canvasCtrl,
       content,
       userId,
       localSession,

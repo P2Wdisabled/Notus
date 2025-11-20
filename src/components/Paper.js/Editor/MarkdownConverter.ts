@@ -632,6 +632,39 @@ export class MarkdownConverter {
       }
     });
 
+    // Preserve file attachments (divs with wysiwyg-file-attachment class)
+    this.turndownService.addRule('fileAttachment', {
+      filter: (node) => {
+        const el = node as HTMLElement;
+        return node.nodeName === 'DIV' && el.classList?.contains('wysiwyg-file-attachment');
+      },
+      replacement: (_content, node) => {
+        const el = node as HTMLElement;
+        // Preserve the entire HTML structure of the file attachment
+        return el.outerHTML;
+      }
+    });
+
+    // Preserve video elements
+    this.turndownService.addRule('videoElement', {
+      filter: (node) => node.nodeName === 'VIDEO',
+      replacement: (_content, node) => {
+        const el = node as HTMLVideoElement;
+        const src = el.getAttribute('src') || '';
+        const controls = el.hasAttribute('controls') ? 'controls' : '';
+        const style = (el.getAttribute('style') || '').replace(/"/g, '&quot;');
+        const dataFileName = (el.getAttribute('data-file-name') || '').replace(/"/g, '&quot;');
+        const dataFileType = (el.getAttribute('data-file-type') || '').replace(/"/g, '&quot;');
+        let html = `<video src="${src}"`;
+        if (controls) html += ` ${controls}`;
+        if (style) html += ` style="${style}"`;
+        if (dataFileName) html += ` data-file-name="${dataFileName}"`;
+        if (dataFileType) html += ` data-file-type="${dataFileType}"`;
+        html += '></video>';
+        return html;
+      }
+    });
+
     // CRITICAL FIX: Always preserve strong/b tags as HTML to prevent **text** syntax
     this.turndownService.addRule('preserveBold', {
       filter: (node) => {
@@ -740,6 +773,22 @@ export class MarkdownConverter {
       return placeholder;
     });
 
+    // Preserve video elements before passing to marked (to avoid stack overflow with long base64 data)
+    const videoPlaceholders: { placeholder: string; content: string }[] = [];
+    let videoPlaceholderIndex = 0;
+    
+    // Match both self-closing <video ... /> and <video ...></video> tags
+    // Use non-greedy matching with [\s\S] to handle very long attributes (base64)
+    cleanedMd = cleanedMd.replace(/<video[\s\S]*?(?:\/>|>[\s\S]*?<\/video>)/gi, (match) => {
+      const placeholder = `<!-- VIDEO_PLACEHOLDER_${videoPlaceholderIndex} -->`;
+      videoPlaceholders.push({
+        placeholder: `VIDEO_PLACEHOLDER_${videoPlaceholderIndex}`,
+        content: match
+      });
+      videoPlaceholderIndex++;
+      return placeholder;
+    });
+
     const html = marked(cleanedMd, {
       breaks: true,
       gfm: true,
@@ -748,6 +797,13 @@ export class MarkdownConverter {
     // Restore lists from placeholders
     let unwrappedHtml = html;
     listPlaceholders.forEach(({ placeholder, content }) => {
+      // Replace both comment format and any escaped version
+      unwrappedHtml = unwrappedHtml.replace(new RegExp(`<!--\\s*${placeholder}\\s*-->`, 'g'), content);
+      unwrappedHtml = unwrappedHtml.replace(new RegExp(placeholder, 'g'), content);
+    });
+
+    // Restore video elements from placeholders
+    videoPlaceholders.forEach(({ placeholder, content }) => {
       // Replace both comment format and any escaped version
       unwrappedHtml = unwrappedHtml.replace(new RegExp(`<!--\\s*${placeholder}\\s*-->`, 'g'), content);
       unwrappedHtml = unwrappedHtml.replace(new RegExp(placeholder, 'g'), content);
@@ -832,9 +888,9 @@ export class MarkdownConverter {
       .replace(/<div style=\"text-align: justify\">\[([\sS]*?)\]\(([^\)]*)\)<\/div>/g, '<div style=\"text-align: justify\"><a href=\"$2\" style=\"color: #3b82f6; text-decoration: underline; cursor: pointer;\">$1</a></div>');
 
     return DOMPurify.sanitize(styledHtml, {
-      ADD_ATTR: ['style'],
-      ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 's', 'del', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'blockquote', 'a', 'img', 'div', 'span', 'hr', 'details', 'summary'],
-      ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'style', 'color', 'open', 'target', 'rel']
+      ADD_ATTR: ['style', 'data-file-name', 'data-file-type', 'data-file-data', 'data-draggable-attachment', 'class', 'controls', 'contenteditable', 'data-selected-file'],
+      ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 's', 'del', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'blockquote', 'a', 'img', 'div', 'span', 'hr', 'details', 'summary', 'video', 'button'],
+      ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'style', 'color', 'open', 'target', 'rel', 'data-file-name', 'data-file-type', 'data-file-data', 'data-draggable-attachment', 'class', 'controls', 'type', 'contenteditable', 'data-selected-file']
     });
   }
 

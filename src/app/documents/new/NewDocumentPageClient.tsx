@@ -20,11 +20,6 @@ interface NotepadContent {
   timestamp?: number;
 }
 
-interface CanvasController {
-  saveDrawings?: (options?: { force?: boolean }) => Promise<any[]>;
-  clearCanvas?: () => void;
-}
-
 export default function NewDocumentPageClient(props: NewDocumentPageClientProps) {
   // -------- State management --------
   const router = useRouter();
@@ -34,7 +29,6 @@ export default function NewDocumentPageClient(props: NewDocumentPageClientProps)
     drawings: [],
     textFormatting: {},
   });
-  const [canvasCtrl, setCanvasCtrl] = useState<CanvasController | null>(null);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [showSavedState, setShowSavedState] = useState(false);
 
@@ -115,25 +109,9 @@ export default function NewDocumentPageClient(props: NewDocumentPageClientProps)
         return;
       }
 
-      // Get current drawings from canvas or content
-      let drawingsToSave: any[] = [];
-
-      if (canvasCtrl && typeof canvasCtrl.saveDrawings === "function") {
-        try {
-          drawingsToSave = await canvasCtrl.saveDrawings({ force: true });
-        } catch (err) {
-          // Fallback to content drawings
-          drawingsToSave = content.drawings || [];
-        }
-      } else {
-        drawingsToSave = content.drawings || [];
-      }
-
       // Build content object
       const contentToSave = {
         text: content.text || "",
-        drawings: drawingsToSave,
-        textFormatting: content.textFormatting || {},
         timestamp: Date.now(),
       };
 
@@ -150,7 +128,6 @@ export default function NewDocumentPageClient(props: NewDocumentPageClientProps)
       });
     },
     [
-      canvasCtrl,
       content,
       userId,
       localSession,

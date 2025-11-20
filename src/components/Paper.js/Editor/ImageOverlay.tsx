@@ -3,16 +3,16 @@ import { useRef } from "react";
 
 interface ImageOverlayProps {
   imageOverlayRect: { left: number; top: number; width: number; height: number } | null;
-  selectedImage: HTMLImageElement | null;
+  selectedElement: HTMLElement | null;
   editorRef: React.RefObject<HTMLDivElement | null>;
-  onImageResize: (newWidthPercent: number) => void;
+  onElementResize: (newWidthPercent: number) => void;
 }
 
 export default function ImageOverlay({ 
   imageOverlayRect, 
-  selectedImage, 
+  selectedElement, 
   editorRef, 
-  onImageResize 
+  onElementResize 
 }: ImageOverlayProps) {
   const isImageResizingRef = useRef(false);
   const resizeStartXRef = useRef(0);
@@ -20,6 +20,9 @@ export default function ImageOverlay({
   const editorWidthPxRef = useRef(0);
 
   if (!imageOverlayRect) return null;
+
+  const isImage = selectedElement?.tagName === 'IMG';
+  const isVideo = selectedElement?.tagName === 'VIDEO';
 
   return (
     <div
@@ -32,7 +35,6 @@ export default function ImageOverlay({
         height: imageOverlayRect.height 
       }}
     >
-      {/* Right-middle resize handle */}
       <div
         role="button"
         className="pointer-events-auto"
@@ -49,21 +51,23 @@ export default function ImageOverlay({
         }}
         onMouseDown={(e) => {
           e.preventDefault();
-          if (!selectedImage || !editorRef.current) return;
+          if (!selectedElement || !editorRef.current) return;
           isImageResizingRef.current = true;
           resizeStartXRef.current = e.clientX;
-          resizeStartWidthPxRef.current = selectedImage.getBoundingClientRect().width;
+          resizeStartWidthPxRef.current = selectedElement.getBoundingClientRect().width;
           editorWidthPxRef.current = editorRef.current.getBoundingClientRect().width;
           
           const onMove = (me: MouseEvent) => {
-            if (!isImageResizingRef.current || !selectedImage) return;
+            if (!isImageResizingRef.current || !selectedElement) return;
             const deltaX = me.clientX - resizeStartXRef.current;
             const newWidthPx = Math.max(10, resizeStartWidthPxRef.current + deltaX);
             const percent = Math.round((newWidthPx / Math.max(50, editorWidthPxRef.current)) * 100);
             const clampedPercent = Math.min(100, Math.max(1, percent));
-            selectedImage.style.width = `${clampedPercent}%`;
-            selectedImage.style.height = 'auto';
-            onImageResize(clampedPercent);
+            selectedElement.style.width = `${clampedPercent}%`;
+            if (isImage || isVideo) {
+              (selectedElement as HTMLElement).style.height = 'auto';
+            }
+            onElementResize(clampedPercent);
           };
           
           const onUp = () => {

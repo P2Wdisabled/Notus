@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { MarkdownConverter } from "./MarkdownConverter";
 import { FormattingHandler } from "./FormattingHandler";
 import { adjustCursorPositionForTextChange } from "../../../lib/paper.js/cursorUtils";
@@ -8,7 +8,8 @@ export interface EditorEffectsProps {
   markdown: string;
   markdownConverter: React.MutableRefObject<any>;
   onContentChange: (content: string) => void;
-  selectedImage: HTMLImageElement | null;
+  selectedElement: HTMLElement | null;
+  setSelectedElement: React.Dispatch<React.SetStateAction<HTMLElement | null>>;
   setImageOverlayRect: React.Dispatch<React.SetStateAction<{ left: number; top: number; width: number; height: number } | null>>;
   formattingHandler: React.MutableRefObject<any>;
   debounceTimeout: React.MutableRefObject<NodeJS.Timeout | null>;
@@ -17,12 +18,17 @@ export interface EditorEffectsProps {
   isLocalChange?: React.MutableRefObject<boolean>;
 }
 
+function isImageElement(element: Element | null): element is HTMLImageElement {
+  return typeof HTMLImageElement !== "undefined" && element instanceof HTMLImageElement;
+}
+
 export function useEditorEffects({
   editorRef,
   markdown,
   markdownConverter,
   onContentChange,
-  selectedImage,
+  selectedElement,
+  setSelectedElement,
   setImageOverlayRect,
   formattingHandler,
   debounceTimeout,
@@ -30,8 +36,8 @@ export function useEditorEffects({
   isUpdatingFromMarkdown,
   isLocalChange
 }: EditorEffectsProps) {
-  
   // Note: Initialization is handled in the main component
+  const draggedAttachmentRef = useRef<HTMLElement | null>(null);
 
   // Initialize editor content once on mount and sync external changes
   useEffect(() => {
@@ -283,8 +289,8 @@ export function useEditorEffects({
   // Keep overlay in sync on scroll/resize/content changes
   useEffect(() => {
     const updateOverlay = () => {
-      if (!selectedImage || !editorRef.current) return;
-      const imgRect = selectedImage.getBoundingClientRect();
+      if (!selectedElement || !editorRef.current) return;
+      const imgRect = selectedElement.getBoundingClientRect();
       const contRect = editorRef.current.getBoundingClientRect();
       setImageOverlayRect({
         left: imgRect.left - contRect.left,
@@ -302,7 +308,7 @@ export function useEditorEffects({
       window.removeEventListener('resize', updateOverlay);
       clearInterval(interval);
     };
-  }, [selectedImage, editorRef, setImageOverlayRect]);
+  }, [selectedElement, editorRef, setImageOverlayRect]);
 
   // Expose functions to parent
   useEffect(() => {
@@ -317,10 +323,313 @@ export function useEditorEffects({
     }
   }, [formattingHandler]);
 
+  // Handle inline file downloads and protect attachment blocks
+  useEffect(() => {
+    const updateOverlayForElement = (element: HTMLElement) => {
+      if (!editorRef.current) return;
+      const elemRect = element.getBoundingClientRect();
+      const contRect = editorRef.current.getBoundingClientRect();
+      setImageOverlayRect({
+        left: elemRect.left - contRect.left,
+        top: elemRect.top - contRect.top,
+        width: elemRect.width,
+        height: elemRect.height,
+      });
+    };
+
+    const handleFileClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const fileContainer = target.closest('.wysiwyg-file-attachment') as HTMLElement | null;
+      const isLinkClick = target.classList.contains('wysiwyg-file-link');
+      const fileLink = isLinkClick
+        ? (target as HTMLElement)
+        : (fileContainer?.querySelector('.wysiwyg-file-link') as HTMLElement | null);
+
+      if (!fileContainer && !fileLink) {
+        return;
+      }
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (fileContainer) {
+        const allFiles = editorRef.current?.querySelectorAll('.wysiwyg-file-attachment[data-selected-file="true"]');
+        allFiles?.forEach((file) => file.removeAttribute('data-selected-file'));
+        fileContainer.setAttribute('data-selected-file', 'true');
+        setSelectedElement(fileContainer);
+        updateOverlayForElement(fileContainer);
+        if (!isLinkClick) {
+          return;
+        }
+      }
+
+      const sourceElement = fileLink || fileContainer;
+      if (!sourceElement) return;
+      setSelectedElement(sourceElement);
+      updateOverlayForElement(sourceElement);
+
+      const fileName =
+        sourceElement.getAttribute('data-file-name') ||
+        fileContainer?.getAttribute('data-file-name') ||
+        'fichier';
+      const fileData =
+        sourceElement.getAttribute('data-file-data') ||
+        fileContainer?.getAttribute('data-file-data');
+
+      if (!fileData || !fileData.startsWith('data:')) {
+        console.warn('Aucune donnée de fichier valide pour le téléchargement');
+        return;
+      }
+
+      const link = document.createElement('a');
+      link.href = fileData;
+      link.download = fileName;
+      link.click();
+    };
+
+    // Empêcher complètement l'édition du nom des fichiers joints
+    const preventFileEdit = (e: Event) => {
+      const target = e.target as HTMLElement;
+      const fileContainer = target.closest('.wysiwyg-file-attachment') as HTMLElement;
+      if (fileContainer) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        // Restaurer immédiatement le nom du fichier
+        const fileName = fileContainer.getAttribute('data-file-name');
+        const fileLink = fileContainer.querySelector('.wysiwyg-file-link') as HTMLElement;
+        if (fileName && fileLink) {
+          fileLink.textContent = fileName;
+        }
+        // Empêcher le focus sur les éléments de fichier
+        if (document.activeElement && fileContainer.contains(document.activeElement)) {
+          (document.activeElement as HTMLElement).blur();
+        }
+        return false;
+      }
+    };
+
+    // Empêcher le focus sur les fichiers joints
+    const preventFileFocus = (e: FocusEvent) => {
+      const target = e.target as HTMLElement;
+      const fileContainer = target.closest('.wysiwyg-file-attachment') as HTMLElement;
+      if (fileContainer) {
+        e.preventDefault();
+        e.stopPropagation();
+        (target as HTMLElement).blur();
+        // Déplacer le curseur après le fichier
+        const selection = window.getSelection();
+        if (selection && fileContainer.parentNode) {
+          const range = document.createRange();
+          range.setStartAfter(fileContainer);
+          range.collapse(true);
+          selection.removeAllRanges();
+          selection.addRange(range);
+        }
+        return false;
+      }
+    };
+
+    const editor = editorRef.current;
+    if (editor) {
+      editor.addEventListener('click', handleFileClick);
+      
+      // Empêcher complètement l'édition des fichiers joints
+      editor.addEventListener('beforeinput', preventFileEdit, true); // capture phase
+      editor.addEventListener('input', preventFileEdit, true);
+      editor.addEventListener('focusin', preventFileFocus, true);
+      editor.addEventListener('focus', preventFileFocus, true);
+      
+      // Empêcher toutes les touches dans les fichiers joints
+      editor.addEventListener('keydown', (e: KeyboardEvent) => {
+        const target = e.target as HTMLElement;
+        const fileContainer = target.closest('.wysiwyg-file-attachment') as HTMLElement;
+        if (fileContainer) {
+          // Permettre seulement Delete/Backspace pour supprimer le fichier entier (si sélectionné)
+          if (e.key === 'Delete' || e.key === 'Backspace') {
+            // Vérifier si le fichier est sélectionné, sinon empêcher
+            if (!fileContainer.hasAttribute('data-selected-file')) {
+              e.preventDefault();
+              e.stopPropagation();
+              e.stopImmediatePropagation();
+              return false;
+            }
+          } else {
+            // Empêcher toute autre touche
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            return false;
+          }
+        }
+      }, true); // capture phase
+      
+      // Surveiller les changements de contenu et restaurer immédiatement le nom
+      const restoreFileName = () => {
+        if (!editorRef.current) return;
+        const fileContainers = editorRef.current.querySelectorAll('.wysiwyg-file-attachment');
+        fileContainers.forEach((container) => {
+          const fileContainer = container as HTMLElement;
+          const fileName = fileContainer.getAttribute('data-file-name');
+          const fileLink = fileContainer.querySelector('.wysiwyg-file-link') as HTMLElement;
+          if (fileName && fileLink) {
+            // Forcer le contenu à être exactement le nom du fichier
+            if (fileLink.textContent !== fileName) {
+              fileLink.textContent = fileName;
+            }
+            // S'assurer que contenteditable est false
+            fileLink.setAttribute('contenteditable', 'false');
+            fileContainer.setAttribute('contenteditable', 'false');
+          }
+        });
+      };
+      
+      const observer = new MutationObserver((mutations) => {
+        let shouldRestore = false;
+        mutations.forEach((mutation) => {
+          if (mutation.type === 'characterData' || mutation.type === 'childList') {
+            const target = mutation.target as HTMLElement;
+            if (target.closest?.('.wysiwyg-file-attachment')) {
+              shouldRestore = true;
+            }
+            if (mutation.addedNodes) {
+              Array.from(mutation.addedNodes).forEach((node) => {
+                if (node.nodeType === Node.TEXT_NODE && node.parentElement?.closest('.wysiwyg-file-attachment')) {
+                  shouldRestore = true;
+                }
+              });
+            }
+          }
+        });
+        
+        if (shouldRestore) {
+          restoreFileName();
+        }
+      });
+      observer.observe(editor, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['contenteditable'] });
+      
+      setTimeout(() => {
+        restoreFileName();
+      }, 100);
+      
+      return () => {
+        editor.removeEventListener('click', handleFileClick);
+        editor.removeEventListener('beforeinput', preventFileEdit);
+        editor.removeEventListener('input', preventFileEdit);
+        editor.removeEventListener('focusin', preventFileFocus);
+        editor.removeEventListener('focus', preventFileFocus);
+        observer.disconnect();
+      };
+    }
+  }, [editorRef, setSelectedElement, setImageOverlayRect]);
+
+  useEffect(() => {
+    const root = editorRef.current;
+    if (!root) return;
+
+    const ensureDraggableAttachments = () => {
+      const selector = 'img[data-file-name], video[data-file-name], .wysiwyg-file-attachment';
+      root.querySelectorAll(selector).forEach((node) => {
+        const element = node as HTMLElement;
+        element.setAttribute('draggable', 'true');
+        element.setAttribute('data-draggable-attachment', 'true');
+      });
+    };
+
+    const getRangeFromPoint = (x: number, y: number): Range | null => {
+      if (document.caretRangeFromPoint) {
+        return document.caretRangeFromPoint(x, y);
+      }
+      const caretPosition = (document as any).caretPositionFromPoint?.(x, y);
+      if (caretPosition) {
+        const range = document.createRange();
+        range.setStart(caretPosition.offsetNode, caretPosition.offset);
+        range.collapse(true);
+        return range;
+      }
+      return null;
+    };
+
+    const handleDragStart = (event: DragEvent) => {
+      const target = event.target as HTMLElement | null;
+      const attachment = target?.closest('[data-draggable-attachment="true"]') as HTMLElement | null;
+      if (!attachment) return;
+      draggedAttachmentRef.current = attachment;
+      attachment.classList.add('wysiwyg-dragging');
+      if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = 'move';
+        try {
+          event.dataTransfer.setData('text/plain', 'attachment');
+        } catch (_e) {}
+        try {
+          event.dataTransfer.setDragImage(attachment, attachment.clientWidth / 2, attachment.clientHeight / 2);
+        } catch (_e) {}
+      }
+    };
+
+    const handleDragEnd = () => {
+      if (draggedAttachmentRef.current) {
+        draggedAttachmentRef.current.classList.remove('wysiwyg-dragging');
+        draggedAttachmentRef.current = null;
+      }
+    };
+
+    const handleDragOver = (event: DragEvent) => {
+      if (!draggedAttachmentRef.current) return;
+      event.preventDefault();
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = 'move';
+      }
+    };
+
+    const handleDrop = (event: DragEvent) => {
+      const attachment = draggedAttachmentRef.current;
+      if (!attachment) return;
+      event.preventDefault();
+      const range = getRangeFromPoint(event.clientX, event.clientY);
+      if (!range || !root.contains(range.commonAncestorContainer)) {
+        handleDragEnd();
+        return;
+      }
+      if (attachment.contains(range.commonAncestorContainer)) {
+        handleDragEnd();
+        return;
+      }
+      range.insertNode(attachment);
+      range.setStartAfter(attachment);
+      range.collapse(true);
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      handleDragEnd();
+      setTimeout(() => {
+        handleEditorChange();
+      }, 0);
+    };
+
+    ensureDraggableAttachments();
+    const observer = new MutationObserver(() => ensureDraggableAttachments());
+    observer.observe(root, { childList: true, subtree: true });
+
+    root.addEventListener('dragstart', handleDragStart);
+    root.addEventListener('dragend', handleDragEnd);
+    root.addEventListener('dragover', handleDragOver);
+    root.addEventListener('drop', handleDrop);
+
+    return () => {
+      observer.disconnect();
+      root.removeEventListener('dragstart', handleDragStart);
+      root.removeEventListener('dragend', handleDragEnd);
+      root.removeEventListener('dragover', handleDragOver);
+      root.removeEventListener('drop', handleDrop);
+      handleDragEnd();
+    };
+  }, [editorRef, handleEditorChange]);
+
   // Helpers to edit currently selected image
   const applyImageEditInternal = useCallback((payload: { src?: string; widthPercent?: number; widthPx?: number }) => {
-    if (!editorRef.current || !selectedImage) return false;
-    const img = selectedImage;
+    if (!editorRef.current || !selectedElement || !isImageElement(selectedElement)) return false;
+    const img = selectedElement;
     if (payload.src) {
       try {
         img.src = payload.src;
@@ -342,13 +651,13 @@ export function useEditorEffects({
       handleEditorChange();
     }, 0);
     return true;
-  }, [handleEditorChange, selectedImage, editorRef]);
+  }, [handleEditorChange, selectedElement, editorRef]);
 
   // Expose image helpers to toolbar
   useEffect(() => {
     (window as any).getCurrentImageForEditing = () => {
-      const img = selectedImage;
-      if (!img) return null;
+      const img = selectedElement;
+      if (!img || !isImageElement(img)) return null;
       return {
         src: img.src,
         naturalWidth: img.naturalWidth,
@@ -360,7 +669,7 @@ export function useEditorEffects({
     (window as any).applyImageEdit = (payload: { src?: string; widthPercent?: number; widthPx?: number }) => {
       return applyImageEditInternal(payload);
     };
-  }, [applyImageEditInternal, selectedImage]);
+  }, [applyImageEditInternal, selectedElement]);
 
   // Cleanup timeout on unmount
   useEffect(() => {

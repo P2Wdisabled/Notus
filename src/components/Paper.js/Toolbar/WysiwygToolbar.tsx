@@ -33,6 +33,7 @@ export default function WysiwygToolbar({ onFormatChange, showDebug = false, onTo
   const [canRedo, setCanRedo] = useState(false);
   const [canEditImage, setCanEditImage] = useState(false);
   const [imageInfo, setImageInfo] = useState<{ src: string; naturalWidth: number; naturalHeight: number; styleWidth: string; styleHeight: string } | null>(null);
+  const [hasActiveSelection, setHasActiveSelection] = useState(false);
 
   // Check current formatting state
   const checkFormatting = useCallback(() => {
@@ -126,6 +127,17 @@ export default function WysiwygToolbar({ onFormatChange, showDebug = false, onTo
   useEffect(() => {
     const handleSelectionChange = () => {
       checkFormatting();
+      if (typeof document !== "undefined") {
+        const selection = window.getSelection();
+        const editorRoot = document.querySelector('[data-wysiwyg-editor-root="true"]');
+        if (!selection || selection.rangeCount === 0 || !editorRoot) {
+          setHasActiveSelection(false);
+        } else {
+          const range = selection.getRangeAt(0);
+          const container = range.commonAncestorContainer;
+          setHasActiveSelection(editorRoot.contains(container));
+        }
+      }
       // Detect if an image is selected for editing
       try {
         const selectedImg = document.querySelector('img[data-selected-image="true"]') as HTMLImageElement | null;
@@ -158,6 +170,7 @@ export default function WysiwygToolbar({ onFormatChange, showDebug = false, onTo
 
     document.addEventListener('selectionchange', handleSelectionChange);
     document.addEventListener('input', handleInput);
+    handleSelectionChange();
     
     return () => {
       document.removeEventListener('selectionchange', handleSelectionChange);
@@ -222,6 +235,7 @@ export default function WysiwygToolbar({ onFormatChange, showDebug = false, onTo
       <MediaButtons 
         onFormatChange={onFormatChange}
         onShowDrawingModal={() => setShowDrawingModal(true)}
+        isSelectionActive={hasActiveSelection}
       />
 
       {/* Quote Buttons */}

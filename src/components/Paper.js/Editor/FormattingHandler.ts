@@ -608,6 +608,131 @@ export class FormattingHandler {
             }
           }
           break;
+        case 'insertFile':
+          if (value) {
+            try {
+              const fileData = JSON.parse(value);
+              const { dataUrl, name, type } = fileData as { dataUrl?: string; name?: string; type?: string };
+              if (!dataUrl || typeof dataUrl !== 'string') {
+                console.error('Données de fichier invalides pour insertFile');
+                break;
+              }
+              const safeName = name || 'Fichier';
+              const safeType = typeof type === 'string' && type.length > 0 ? type : 'application/octet-stream';
+              
+              // If current selection is inside a link, move caret outside before inserting
+              this.ensureSelectionOutsideLink(range, selection);
+              
+              const updatedRange = selection.getRangeAt(0);
+              updatedRange.deleteContents();
+              
+              const isImage = safeType.startsWith('image/');
+              const isVideo = safeType.startsWith('video/') || safeType.startsWith('audio/');
+              const markDraggable = (element: HTMLElement) => {
+                element.setAttribute('draggable', 'true');
+                element.setAttribute('data-draggable-attachment', 'true');
+              };
+              
+              if (isImage) {
+                const img = document.createElement('img');
+                img.alt = safeName;
+                img.style.maxWidth = '100%';
+                img.style.height = 'auto';
+                img.style.display = 'block';
+                img.style.margin = '1rem 0';
+                img.setAttribute('data-file-name', safeName);
+                img.setAttribute('data-file-type', safeType);
+                img.src = dataUrl;
+                markDraggable(img);
+                
+                updatedRange.insertNode(img);
+                
+                const br = document.createElement('br');
+                img.parentNode?.insertBefore(br, img.nextSibling);
+                
+                const afterRange = document.createRange();
+                afterRange.setStartAfter(br);
+                afterRange.collapse(true);
+                selection.removeAllRanges();
+                selection.addRange(afterRange);
+              } else if (isVideo) {
+                const video = document.createElement('video');
+                video.controls = true;
+                video.style.maxWidth = '100%';
+                video.style.height = 'auto';
+                video.style.display = 'block';
+                video.style.margin = '1rem 0';
+                video.setAttribute('data-file-name', safeName);
+                video.setAttribute('data-file-type', safeType);
+                video.src = dataUrl;
+                markDraggable(video);
+                
+                updatedRange.insertNode(video);
+                
+                const br = document.createElement('br');
+                video.parentNode?.insertBefore(br, video.nextSibling);
+                
+                const afterRange = document.createRange();
+                afterRange.setStartAfter(br);
+                afterRange.collapse(true);
+                selection.removeAllRanges();
+                selection.addRange(afterRange);
+              } else {
+                const container = document.createElement('div');
+                container.className = 'wysiwyg-file-attachment';
+                container.setAttribute('data-file-name', safeName);
+                container.setAttribute('data-file-type', safeType);
+                container.setAttribute('data-file-data', dataUrl);
+                container.setAttribute('contenteditable', 'false');
+                container.setAttribute('spellcheck', 'false');
+                container.setAttribute('autocomplete', 'off');
+                container.setAttribute('tabindex', '-1');
+                container.style.margin = '1rem 0';
+                container.style.padding = '0.75rem';
+                container.style.border = '1px solid #e5e7eb';
+                container.style.borderRadius = '0.5rem';
+                container.style.backgroundColor = '#f9fafb';
+                container.style.cursor = 'pointer';
+                markDraggable(container);
+                
+                const fileLink = document.createElement('span');
+                fileLink.textContent = safeName;
+                fileLink.className = 'wysiwyg-file-link';
+                fileLink.setAttribute('data-file-data', dataUrl);
+                fileLink.setAttribute('data-file-name', safeName);
+                fileLink.style.color = '#3b82f6';
+                fileLink.style.textDecoration = 'underline';
+                fileLink.style.cursor = 'pointer';
+                fileLink.style.fontSize = '0.875rem';
+                fileLink.style.fontWeight = '500';
+                fileLink.setAttribute('contenteditable', 'false');
+                fileLink.setAttribute('spellcheck', 'false');
+                fileLink.setAttribute('autocomplete', 'off');
+                fileLink.setAttribute('tabindex', '-1');
+                
+                container.appendChild(fileLink);
+                
+                updatedRange.insertNode(container);
+                
+                const br = document.createElement('br');
+                container.parentNode?.insertBefore(br, container.nextSibling);
+                
+                const afterRange = document.createRange();
+                afterRange.setStartAfter(br);
+                afterRange.collapse(true);
+                selection.removeAllRanges();
+                selection.addRange(afterRange);
+              }
+              
+              setTimeout(() => {
+                this.syncMarkdown();
+              }, 0);
+            } catch (e) {
+              console.error('Erreur insertion fichier:', e);
+            }
+            restoreSelection();
+          }
+          break;
         case 'indent':
           document.execCommand('indent', false);
           restoreSelection();

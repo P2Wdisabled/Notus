@@ -114,7 +114,8 @@ export class DocumentRepository extends BaseRepository {
         [userId, title, content, tags]
       );
 
-      return { success: true, document: result.rows[0] };
+      const document = result.rows[0];
+      return { success: true, document };
     } catch (error) {
       console.error("❌ Erreur création document:", error);
       return { success: false, error: error instanceof Error ? error.message : "Erreur inconnue" };
@@ -269,7 +270,6 @@ export class DocumentRepository extends BaseRepository {
   ): Promise<DocumentRepositoryResult<Document>> {
     try {
       if (documentId) {
-        // Mettre à jour le document existant
         const updateFields = ["title = $1", "content = $2"];
         const values: unknown[] = [title, content, documentId, userId];
         if (Array.isArray(tags)) {
@@ -277,10 +277,7 @@ export class DocumentRepository extends BaseRepository {
           values.splice(2, 0, tags);
         }
 
-        // Vérifier si l'utilisateur est le propriétaire OU s'il a des permissions de partage
         let whereClause = `WHERE id = $${values.length - 1} AND user_id = $${values.length}`;
-        
-        // Si un email est fourni, vérifier aussi les permissions de partage
         if (userEmail) {
           whereClause = `WHERE id = $${values.length - 1} AND (
             user_id = $${values.length} OR 
@@ -308,7 +305,6 @@ export class DocumentRepository extends BaseRepository {
 
         return { success: true, document: result.rows[0] };
       } else {
-        // Créer un nouveau document
         const result = await this.query<Document>(
           `INSERT INTO documents (user_id, title, content, tags, updated_at)
            VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
