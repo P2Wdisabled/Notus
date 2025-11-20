@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Icon from "@/components/Icon";
 import Link from "next/link";
 import Image from "next/image";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -29,6 +30,16 @@ export default function UserList({ users, currentUserId, documentId, onChanged, 
   const [menuOpen, setMenuOpen] = useState<number | null>(null);
   const [localUsers, setLocalUsers] = useState<User[]>(users);
   const [loadingEmail, setLoadingEmail] = useState<string | null>(null);
+  const [removeModalOpen, setRemoveModalOpen] = useState<boolean>(false);
+  const [selectedEmailToRemove, setSelectedEmailToRemove] = useState<string | null>(null);
+  const confirmBtnRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    if (removeModalOpen) {
+      // ensure the confirm button receives focus when the popin opens
+      setTimeout(() => confirmBtnRef.current?.focus(), 0);
+    }
+  }, [removeModalOpen]);
   const ownerId = localUsers && localUsers.length > 0 ? (localUsers[0].id !== null ? Number(localUsers[0].id) : null) : null;
   const connectedId = typeof currentUserId !== 'undefined' && currentUserId !== null ? Number(currentUserId) : null;
   const isConnectedOwner = isOwner ?? (ownerId !== null && connectedId !== null && ownerId === connectedId);
@@ -156,7 +167,14 @@ export default function UserList({ users, currentUserId, documentId, onChanged, 
                   {loadingEmail === user.email ? '...' : 'Mettre en lecteur'}
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onClick={() => handleRemoveUser(user.email)}
+                  onClick={() => {
+                    // close dropdown first to avoid portal / document mousedown races
+                    setMenuOpen(null);
+                    setTimeout(() => {
+                      setSelectedEmailToRemove(user.email ?? null);
+                      setRemoveModalOpen(true);
+                    }, 0);
+                  }}
                   aria-disabled={loadingEmail !== null}
                 >
                   {loadingEmail === user.email ? '...' : 'Expulser'}
@@ -166,6 +184,64 @@ export default function UserList({ users, currentUserId, documentId, onChanged, 
           ) : null}
         </div>
       ))}
+      {removeModalOpen && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-foreground/50"
+            aria-hidden="true"
+            onClick={() => { setRemoveModalOpen(false); setSelectedEmailToRemove(null); }}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="userlist-confirm-title"
+            aria-describedby="userlist-confirm-desc"
+            className="relative w-full max-w-md bg-background rounded-lg p-6 shadow-lg z-10"
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                setRemoveModalOpen(false);
+                setSelectedEmailToRemove(null);
+              }
+            }}
+          >
+            <header className="mb-4 text-center">
+              <h2 id="userlist-confirm-title" className="text-2xl font-title font-bold text-foreground">Confirmer l'expulsion</h2>
+            </header>
+            <main id="userlist-confirm-desc" className="text-center">
+              <p>Voulez-vous vraiment expulser cet utilisateur du document&nbsp;?</p>
+            </main>
+            <footer className="mt-6 flex justify-center space-x-3" role="group" aria-label="Actions">
+              <Button asChild variant="primary">
+                <button
+                  ref={confirmBtnRef}
+                  type="button"
+                  onClick={async (e: React.MouseEvent<HTMLButtonElement>) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    try {
+                      await handleRemoveUser(selectedEmailToRemove);
+                    } finally {
+                      setRemoveModalOpen(false);
+                      setSelectedEmailToRemove(null);
+                    }
+                  }}
+                  disabled={loadingEmail !== null && selectedEmailToRemove === loadingEmail}
+                >
+                  Oui
+                </button>
+              </Button>
+              <Button asChild variant="ghost">
+                <button type="button" onClick={() => { setRemoveModalOpen(false); setSelectedEmailToRemove(null); }}>
+                  Non
+                </button>
+              </Button>
+            </footer>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
