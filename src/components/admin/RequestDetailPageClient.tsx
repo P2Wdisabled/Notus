@@ -6,6 +6,7 @@ import { Button, Textarea, Select, SelectContent, SelectItem, SelectTrigger, Sel
 import Icon from "@/components/Icon";
 import { Badge } from "@/components/ui";
 import type { Request } from "@/lib/repositories/RequestRepository";
+import { cn } from "@/lib/utils";
 
 interface RequestDetailPageClientProps {
   request: Request;
@@ -90,7 +91,7 @@ export default function RequestDetailPageClient({ request: initialRequest }: Req
   return (
     <article className="space-y-6">
       <div className="flex items-start justify-between gap-4">
-        <div className="flex-1">
+        <div className={cn("flex-1 min-w-0")}>
           <div className="flex items-center gap-3 mb-3">
             <Button
               type="button"
@@ -102,7 +103,7 @@ export default function RequestDetailPageClient({ request: initialRequest }: Req
               Retour
             </Button>
           </div>
-          <h2 className="text-2xl font-semibold text-foreground mb-2">{request.title}</h2>
+          <h2 className={cn("text-2xl font-semibold text-foreground mb-2 break-words")}>{request.title}</h2>
           <div className="flex items-center gap-2 mb-4">
             <Badge variant={statusVariants[request.status]} size="sm">
               {statusLabels[request.status]}
@@ -170,7 +171,7 @@ export default function RequestDetailPageClient({ request: initialRequest }: Req
 
         <div>
           <dt className="text-sm font-medium text-muted-foreground mb-1">Description</dt>
-          <dd className="text-sm text-foreground whitespace-pre-wrap bg-muted/30 p-4 rounded-lg">
+          <dd className={cn("text-sm text-foreground whitespace-pre-wrap bg-muted/30 p-4 rounded-lg break-words")}>
             {request.description}
           </dd>
         </div>

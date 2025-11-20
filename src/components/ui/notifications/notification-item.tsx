@@ -116,7 +116,7 @@ export default function NotificationItem({
                 )
             ) : null}
 
-            <div className="flex-1 flex flex-col">
+            <div className="flex-1 flex flex-col min-w-0">
                 <div className="flex items-center justify-between gap-2">
                     <span className="font-medium text-sm">{isSystem ? "Système" : username || "Utilisateur"}</span>
                     <div className="flex items-center gap-2">
@@ -146,7 +146,7 @@ export default function NotificationItem({
                         </button>
                     </div>
                 </div>
-                <span className="text-sm text-muted-foreground max-w-[260px]" title={message || ""}>
+                <span className={cn("text-sm text-muted-foreground max-w-[260px] break-words")} title={message || ""}>
                     {message || ""}
                 </span>
             </div>

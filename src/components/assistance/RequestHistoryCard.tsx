@@ -27,11 +27,36 @@ export default function RequestHistoryCard({
 }: RequestHistoryCardProps) {
   const [isResponseExpanded, setIsResponseExpanded] = useState(false);
 
+  // Extraire uniquement le message personnalisé, sans la mention du changement de statut
+  const getCustomMessage = (message: string): string | null => {
+    // Si le message contient "\n\n", prendre seulement la partie après (message personnalisé)
+    if (message.includes("\n\n")) {
+      const parts = message.split("\n\n");
+      const customMessage = parts.slice(1).join("\n\n").trim();
+      return customMessage || null;
+    }
+    
+    // Si le message commence par "Le statut de votre requête" ou "Votre requête", 
+    // c'est juste un changement de statut sans message personnalisé
+    if (
+      message.startsWith("Le statut de votre requête") ||
+      message.startsWith("Votre requête") ||
+      message.startsWith("Mise à jour de votre requête")
+    ) {
+      return null;
+    }
+    
+    // Sinon, c'est un message personnalisé sans changement de statut
+    return message.trim() || null;
+  };
+
+  const customMessage = request.message ? getCustomMessage(request.message) : null;
+
   return (
     <article className="p-4 border border-border rounded-lg bg-card hover:bg-muted/50 transition-colors">
       <div className="flex items-start justify-between gap-4 mb-3">
         <div className="flex-1 min-w-0">
-          <h3 className="font-medium text-foreground mb-1">{request.title}</h3>
+          <h3 className={cn("font-medium text-foreground mb-1 break-words")}>{request.title}</h3>
           <div className="flex items-center gap-2 flex-wrap">
             <Badge variant={statusVariants[request.status]}>
               {statusLabels[request.status]}
@@ -48,11 +73,11 @@ export default function RequestHistoryCard({
       <div className="space-y-2">
         <div>
           <p className="text-sm font-medium text-foreground mb-1">Description :</p>
-          <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+          <p className={cn("text-sm text-muted-foreground whitespace-pre-wrap break-words")}>
             {request.description}
           </p>
         </div>
-        {request.message && (
+        {customMessage && (
           <div className="mt-3 pt-3 border-t border-border">
             <button
               type="button"
@@ -70,8 +95,8 @@ export default function RequestHistoryCard({
               />
             </button>
             {isResponseExpanded && (
-              <p className="text-sm text-muted-foreground whitespace-pre-wrap bg-muted/50 p-3 rounded border border-border mt-2">
-                {request.message}
+              <p className={cn("text-sm text-muted-foreground whitespace-pre-wrap bg-muted/50 p-3 rounded border border-border mt-2 break-words")}>
+                {customMessage}
               </p>
             )}
           </div>
