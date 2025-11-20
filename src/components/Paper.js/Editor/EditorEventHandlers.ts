@@ -9,9 +9,9 @@ export interface EditorEventHandlersProps {
   markdown: string;
   onContentChange: (content: string) => void;
   setLinkPopup: React.Dispatch<React.SetStateAction<{ visible: boolean; x: number; y: number; url: string }>>;
-  setSelectedImage: React.Dispatch<React.SetStateAction<HTMLImageElement | null>>;
+  setSelectedImage: React.Dispatch<React.SetStateAction<HTMLImageElement | HTMLVideoElement | null>>;
   setImageOverlayRect: React.Dispatch<React.SetStateAction<{ left: number; top: number; width: number; height: number } | null>>;
-  selectedImage: HTMLImageElement | null;
+  selectedImage: HTMLImageElement | HTMLVideoElement | null;
   formattingHandler: React.MutableRefObject<any>;
   handleEditorChange: () => void;
 }
@@ -319,9 +319,12 @@ export function useEditorEventHandlers({
           
           // Gérer la suppression des fichiers joints (sélection par range)
           if (!range.collapsed) {
-            const fileContainer = (range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE 
-              ? range.commonAncestorContainer 
-              : range.commonAncestorContainer.parentElement)?.closest('.wysiwyg-file-attachment') as HTMLElement;
+            const ancestorNode = range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
+              ? (range.commonAncestorContainer as Element)
+              : range.commonAncestorContainer.parentElement;
+            const fileContainer = ancestorNode instanceof Element
+              ? (ancestorNode.closest('.wysiwyg-file-attachment') as HTMLElement | null)
+              : null;
             if (fileContainer) {
               e.preventDefault();
               fileContainer.remove();
@@ -494,9 +497,12 @@ export function useEditorEventHandlers({
           const range = sel.getRangeAt(0);
           if (!range.collapsed) {
             // Gérer la suppression des fichiers joints (sélection par range)
-            const fileContainer = (range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE 
-              ? range.commonAncestorContainer 
-              : range.commonAncestorContainer.parentElement)?.closest('.wysiwyg-file-attachment') as HTMLElement;
+            const ancestorNode = range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
+              ? (range.commonAncestorContainer as Element)
+              : range.commonAncestorContainer.parentElement;
+            const fileContainer = ancestorNode instanceof Element
+              ? (ancestorNode.closest('.wysiwyg-file-attachment') as HTMLElement | null)
+              : null;
             if (fileContainer) {
               e.preventDefault();
               fileContainer.remove();

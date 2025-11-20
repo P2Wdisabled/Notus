@@ -3,7 +3,7 @@ import { useRef } from "react";
 
 interface ImageOverlayProps {
   imageOverlayRect: { left: number; top: number; width: number; height: number } | null;
-  selectedImage: HTMLImageElement | null;
+  selectedImage: HTMLImageElement | HTMLVideoElement | null;
   editorRef: React.RefObject<HTMLDivElement | null>;
   onImageResize: (newWidthPercent: number) => void;
 }

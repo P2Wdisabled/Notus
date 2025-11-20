@@ -390,53 +390,6 @@ export class PrismaDocumentRepository {
           },
         });
 
-        // Extraire les IDs des fichiers joints du contenu
-        const attachmentIdRegex = /data-attachment-id="(\d+)"/gi;
-        const attachmentIds: number[] = [];
-        let match;
-        while ((match = attachmentIdRegex.exec(content)) !== null) {
-          const id = parseInt(match[1]);
-          if (!isNaN(id) && !attachmentIds.includes(id)) {
-            attachmentIds.push(id);
-          }
-        }
-
-        // Récupérer les fichiers actuellement liés au document
-        const currentAttachments = await prisma.documentAttachment.findMany({
-          where: {
-            document_id: id,
-            user_id: userId,
-          },
-          select: { id: true },
-        });
-        const currentAttachmentIds = currentAttachments.map(a => a.id);
-
-        // Identifier les fichiers supprimés (présents dans la DB mais pas dans le nouveau contenu)
-        const removedAttachmentIds = currentAttachmentIds.filter(id => !attachmentIds.includes(id));
-
-        // Supprimer les fichiers qui ne sont plus dans le contenu
-        if (removedAttachmentIds.length > 0) {
-          await prisma.documentAttachment.deleteMany({
-            where: {
-              id: { in: removedAttachmentIds },
-              user_id: userId,
-            },
-          });
-        }
-
-        // Lier les nouveaux fichiers au document
-        if (attachmentIds.length > 0) {
-          await prisma.documentAttachment.updateMany({
-            where: {
-              id: { in: attachmentIds },
-              user_id: userId,
-            },
-            data: {
-              document_id: id,
-            },
-          });
-        }
-
         // Transformer le document pour correspondre à notre interface
         const transformedDocument: Document = {
           id: updatedDocument.id,
@@ -476,30 +429,6 @@ export class PrismaDocumentRepository {
             },
           },
         });
-
-        // Extraire les IDs des fichiers joints du contenu
-        const attachmentIdRegex = /data-attachment-id="(\d+)"/gi;
-        const attachmentIds: number[] = [];
-        let match;
-        while ((match = attachmentIdRegex.exec(content)) !== null) {
-          const id = parseInt(match[1]);
-          if (!isNaN(id) && !attachmentIds.includes(id)) {
-            attachmentIds.push(id);
-          }
-        }
-
-        // Lier les fichiers au document (pour un nouveau document, tous les fichiers sont nouveaux)
-        if (attachmentIds.length > 0) {
-          await prisma.documentAttachment.updateMany({
-            where: {
-              id: { in: attachmentIds },
-              user_id: userId,
-            },
-            data: {
-              document_id: newDocument.id,
-            },
-          });
-        }
 
         // Transformer le document pour correspondre à notre interface
         const transformedDocument: Document = {

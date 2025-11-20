@@ -107,17 +107,6 @@ export class DocumentRepository extends BaseRepository {
     try {
       const { userId, title, content, tags } = data;
 
-      // Extraire les IDs des fichiers joints du contenu
-      const attachmentIdRegex = /data-attachment-id="(\d+)"/gi;
-      const attachmentIds: number[] = [];
-      let match;
-      while ((match = attachmentIdRegex.exec(content)) !== null) {
-        const id = parseInt(match[1]);
-        if (!isNaN(id) && !attachmentIds.includes(id)) {
-          attachmentIds.push(id);
-        }
-      }
-
       const result = await this.query<Document>(
         `INSERT INTO documents (user_id, title, content, tags, updated_at)
          VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
@@ -126,17 +115,6 @@ export class DocumentRepository extends BaseRepository {
       );
 
       const document = result.rows[0];
-
-      // Lier les fichiers au document (pour un nouveau document, tous les fichiers sont nouveaux)
-      if (attachmentIds.length > 0) {
-        await this.query(
-          `UPDATE document_attachments 
-           SET document_id = $1 
-           WHERE id = ANY($2::int[]) AND user_id = $3`,
-          [document.id, attachmentIds, userId]
-        );
-      }
-
       return { success: true, document };
     } catch (error) {
       console.error("❌ Erreur création document:", error);
@@ -291,19 +269,7 @@ export class DocumentRepository extends BaseRepository {
     userEmail?: string
   ): Promise<DocumentRepositoryResult<Document>> {
     try {
-      // Extraire les IDs des fichiers joints du contenu
-      const attachmentIdRegex = /data-attachment-id="(\d+)"/gi;
-      const attachmentIds: number[] = [];
-      let match;
-      while ((match = attachmentIdRegex.exec(content)) !== null) {
-        const id = parseInt(match[1]);
-        if (!isNaN(id) && !attachmentIds.includes(id)) {
-          attachmentIds.push(id);
-        }
-      }
-
       if (documentId) {
-        // Mettre à jour le document existant
         const updateFields = ["title = $1", "content = $2"];
         const values: unknown[] = [title, content, documentId, userId];
         if (Array.isArray(tags)) {
@@ -311,10 +277,7 @@ export class DocumentRepository extends BaseRepository {
           values.splice(2, 0, tags);
         }
 
-        // Vérifier si l'utilisateur est le propriétaire OU s'il a des permissions de partage
         let whereClause = `WHERE id = $${values.length - 1} AND user_id = $${values.length}`;
-        
-        // Si un email est fourni, vérifier aussi les permissions de partage
         if (userEmail) {
           whereClause = `WHERE id = $${values.length - 1} AND (
             user_id = $${values.length} OR 
@@ -340,40 +303,8 @@ export class DocumentRepository extends BaseRepository {
           return { success: false, error: "Document non trouvé ou vous n'êtes pas autorisé à le modifier" };
         }
 
-        const document = result.rows[0];
-
-        // Récupérer les fichiers actuellement liés au document
-        const currentAttachments = await this.query<{ id: number }>(
-          `SELECT id FROM document_attachments WHERE document_id = $1 AND user_id = $2`,
-          [documentId, userId]
-        );
-        const currentAttachmentIds = currentAttachments.rows.map(a => a.id);
-
-        // Identifier les fichiers supprimés (présents dans la DB mais pas dans le nouveau contenu)
-        const removedAttachmentIds = currentAttachmentIds.filter(id => !attachmentIds.includes(id));
-
-        // Supprimer les fichiers qui ne sont plus dans le contenu
-        if (removedAttachmentIds.length > 0) {
-          await this.query(
-            `DELETE FROM document_attachments 
-             WHERE id = ANY($1::int[]) AND user_id = $2`,
-            [removedAttachmentIds, userId]
-          );
-        }
-
-        // Lier les nouveaux fichiers au document
-        if (attachmentIds.length > 0) {
-          await this.query(
-            `UPDATE document_attachments 
-             SET document_id = $1 
-             WHERE id = ANY($2::int[]) AND user_id = $3`,
-            [documentId, attachmentIds, userId]
-          );
-        }
-
-        return { success: true, document };
+        return { success: true, document: result.rows[0] };
       } else {
-        // Créer un nouveau document
         const result = await this.query<Document>(
           `INSERT INTO documents (user_id, title, content, tags, updated_at)
            VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
@@ -381,19 +312,7 @@ export class DocumentRepository extends BaseRepository {
           [userId, title, content, Array.isArray(tags) ? tags : []]
         );
 
-        const document = result.rows[0];
-
-        // Lier les fichiers au document
-        if (attachmentIds.length > 0) {
-          await this.query(
-            `UPDATE document_attachments 
-             SET document_id = $1 
-             WHERE id = ANY($2::int[]) AND user_id = $3`,
-            [document.id, attachmentIds, userId]
-          );
-        }
-
-        return { success: true, document };
+        return { success: true, document: result.rows[0] };
       }
     } catch (error) {
       console.error("❌ Erreur création/mise à jour document par ID:", error);

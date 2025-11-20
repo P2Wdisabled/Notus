@@ -281,36 +281,23 @@ export async function updateDocumentAction(prevState: unknown, formDataOrObj: Fo
 
     const idNum = Number(documentId);
 
-    // Parse title/content/drawings/tags
+    // Parse title/content/tags
     let title = "";
     let contentStr = "";
-    let rawDrawings: unknown = null;
     let rawTags: unknown = null;
     
     if (fd) {
       title = String(fd.get("title") || "");
       contentStr = String(fd.get("content") || "");
-      rawDrawings = fd.get("drawings") || null;
       rawTags = fd.get("tags") || null;
     } else {
       const obj = formDataOrObj as Record<string, any>;
       title = obj.title || "";
       contentStr = obj.content || "";
-      rawDrawings = obj.drawings || null;
       rawTags = obj.tags || null;
     }
 
-    let drawings: unknown[] = [];
     let tags: string[] = [];
-    
-    try {
-      if (rawDrawings) {
-        drawings = typeof rawDrawings === "string" ? JSON.parse(rawDrawings) : rawDrawings;
-      }
-    } catch (e) {
-      console.warn("Failed to parse drawings payload", e);
-      drawings = [];
-    }
 
     try {
       if (rawTags) {

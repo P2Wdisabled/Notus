@@ -43,7 +43,7 @@ export default function WysiwygEditor({
     y: 0,
     url: ''
   });
-  const [selectedImage, setSelectedImage] = useState<HTMLImageElement | null>(null);
+  const [selectedImage, setSelectedImage] = useState<HTMLImageElement | HTMLVideoElement | null>(null);
   const [imageOverlayRect, setImageOverlayRect] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
   
   const editorRef = useRef<HTMLDivElement | null>(null);

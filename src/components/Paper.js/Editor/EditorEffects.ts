@@ -8,13 +8,17 @@ export interface EditorEffectsProps {
   markdown: string;
   markdownConverter: React.MutableRefObject<any>;
   onContentChange: (content: string) => void;
-  selectedImage: HTMLImageElement | null;
+  selectedImage: HTMLImageElement | HTMLVideoElement | null;
   setImageOverlayRect: React.Dispatch<React.SetStateAction<{ left: number; top: number; width: number; height: number } | null>>;
   formattingHandler: React.MutableRefObject<any>;
   debounceTimeout: React.MutableRefObject<NodeJS.Timeout | null>;
   handleEditorChange: () => void;
   isUpdatingFromMarkdown?: React.MutableRefObject<boolean>;
   isLocalChange?: React.MutableRefObject<boolean>;
+}
+
+function isImageElement(element: Element | null): element is HTMLImageElement {
+  return typeof HTMLImageElement !== "undefined" && element instanceof HTMLImageElement;
 }
 
 export function useEditorEffects({
@@ -30,11 +34,6 @@ export function useEditorEffects({
   isUpdatingFromMarkdown,
   isLocalChange
 }: EditorEffectsProps) {
-  // Cache pour les fichiers déjà chargés (évite les rechargements)
-  const fileDataCache = useRef<Map<string, string>>(new Map());
-  // Ref pour stocker la fonction loadFilesFromAPI
-  const loadFilesFromAPIRef = useRef<(() => Promise<void>) | null>(null);
-  
   // Note: Initialization is handled in the main component
 
   // Initialize editor content once on mount and sync external changes
@@ -222,14 +221,6 @@ export function useEditorEffects({
     (isUpdatingFromMarkdown as any)?.current && ((isUpdatingFromMarkdown as any).current = true);
     root.innerHTML = currentHtml;
 
-    // Charger les fichiers (images avec src vide) après la mise à jour du HTML
-    // Utiliser un petit délai pour s'assurer que le DOM est prêt
-    setTimeout(() => {
-      if (loadFilesFromAPIRef.current) {
-        loadFilesFromAPIRef.current();
-      }
-    }, 100);
-
     if (hasActiveSelection && prevSelection) {
       // Use requestAnimationFrame for better synchronization with DOM updates
       // Then use setTimeout to ensure the DOM is fully ready
@@ -329,217 +320,52 @@ export function useEditorEffects({
     }
   }, [formattingHandler]);
 
-  // Handle file download links and load files from API
+  // Handle inline file downloads and protect attachment blocks
   useEffect(() => {
-    const handleFileClick = async (e: MouseEvent) => {
+    const handleFileClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
-      
-      // Handle file attachment container or link (for non-image/video files)
-      const fileContainer = target.closest('.wysiwyg-file-attachment') as HTMLElement;
-      const fileLink = target.classList.contains('wysiwyg-file-link') ? target : fileContainer?.querySelector('.wysiwyg-file-link');
-      
-      if (fileContainer || fileLink) {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        // Si on clique sur le container ou le lien, sélectionner le fichier pour suppression
-        if (fileContainer) {
-          // Désélectionner les autres fichiers
-          const allFiles = editorRef.current?.querySelectorAll('.wysiwyg-file-attachment[data-selected-file="true"]');
-          allFiles?.forEach((file) => {
-            file.removeAttribute('data-selected-file');
-          });
-          
-          // Sélectionner ce fichier
-          fileContainer.setAttribute('data-selected-file', 'true');
-          
-          // Si on clique sur le lien, télécharger le fichier
-          if (target.classList.contains('wysiwyg-file-link')) {
-            // Continuer avec le téléchargement
-          } else {
-            // Si on clique sur le container, juste sélectionner (pas de téléchargement)
-            return;
-          }
-        }
-        
-        // Sinon, télécharger le fichier
-        const linkElement = fileLink as HTMLElement;
-        const attachmentId = linkElement?.getAttribute('data-attachment-id') || fileContainer?.getAttribute('data-attachment-id');
-        const fileName = linkElement?.getAttribute('data-file-name') || fileContainer?.getAttribute('data-file-name');
-        let fileData = linkElement?.getAttribute('data-file-data');
-        
-        if (attachmentId && fileName) {
-          try {
-            if (!fileData) {
-              // Vérifier le cache d'abord
-              if (fileDataCache.current.has(attachmentId)) {
-                fileData = fileDataCache.current.get(attachmentId)!;
-                if (linkElement) linkElement.setAttribute('data-file-data', fileData);
-              } else {
-                // Charger depuis l'API si pas encore chargé
-                const response = await fetch(`/api/attachments/${attachmentId}`);
-                const result = await response.json();
-                if (result.success && result.file) {
-                  fileData = result.file.data;
-                  if (linkElement) linkElement.setAttribute('data-file-data', fileData);
-                  fileDataCache.current.set(attachmentId, fileData);
-                }
-              }
-            }
-            
-            if (fileData) {
-              // Télécharger tous les fichiers non-image/non-vidéo
-              const link = document.createElement('a');
-              link.href = fileData;
-              link.download = fileName;
-              link.click();
-            }
-          } catch (err) {
-            console.error('Erreur téléchargement fichier:', err);
-          }
-        }
-      }
-    };
+      const fileContainer = target.closest('.wysiwyg-file-attachment') as HTMLElement | null;
+      const isLinkClick = target.classList.contains('wysiwyg-file-link');
+      const fileLink = isLinkClick
+        ? (target as HTMLElement)
+        : (fileContainer?.querySelector('.wysiwyg-file-link') as HTMLElement | null);
 
-    // Load files from API when editor content is loaded (batch mode)
-    const loadFilesFromAPI = async () => {
-      // Stocker la référence pour pouvoir l'appeler depuis d'autres effets
-      loadFilesFromAPIRef.current = loadFilesFromAPI;
-      if (!editorRef.current) return;
-      
-      // Collecter tous les IDs d'attachement qui doivent être chargés
-      const attachmentIdsToLoad = new Set<string>();
-      const attachmentElementMap = new Map<string, { element: HTMLElement; type: 'img' | 'video' | 'link' }>();
-      
-      // Images - détecter toutes les images avec data-attachment-id, même celles marquées comme chargées si le src est vide
-      const allImages = editorRef.current.querySelectorAll('img[data-attachment-id]');
-      allImages.forEach((img) => {
-        const imgEl = img as HTMLImageElement;
-        const attachmentId = imgEl.getAttribute('data-attachment-id');
-        // Vérifier l'attribut src directement (peut être vide ou absent)
-        const srcAttr = imgEl.getAttribute('src');
-        const hasValidSrc = srcAttr && srcAttr !== '' && srcAttr.startsWith('data:');
-        const isLoaded = imgEl.hasAttribute('data-loaded');
-        
-        // Charger si l'ID existe et que l'image n'a pas de src valide (même si marquée comme chargée)
-        if (attachmentId && !hasValidSrc) {
-          // Si l'image est marquée comme chargée mais n'a pas de src valide, réinitialiser
-          if (isLoaded) {
-            imgEl.removeAttribute('data-loaded');
-          }
-          
-          // Vérifier le cache d'abord
-          if (fileDataCache.current.has(attachmentId)) {
-            const cachedData = fileDataCache.current.get(attachmentId)!;
-            imgEl.src = cachedData;
-            imgEl.setAttribute('data-loaded', 'true');
-            imgEl.removeAttribute('data-loading');
-          } else {
-            attachmentIdsToLoad.add(attachmentId);
-            attachmentElementMap.set(attachmentId, { element: imgEl, type: 'img' });
-          }
-        }
-      });
-      
-      // Videos
-      const videos = editorRef.current.querySelectorAll('video[data-attachment-id]:not([data-loaded])');
-      videos.forEach((video) => {
-        const videoEl = video as HTMLVideoElement;
-        const attachmentId = videoEl.getAttribute('data-attachment-id');
-        // Vérifier l'attribut src directement (peut être vide ou absent)
-        const srcAttr = videoEl.getAttribute('src');
-        const hasValidSrc = srcAttr && srcAttr !== '' && srcAttr.startsWith('data:');
-        
-        // Charger si l'ID existe et que la vidéo n'a pas de src valide
-        if (attachmentId && !hasValidSrc) {
-          // Vérifier le cache d'abord
-          if (fileDataCache.current.has(attachmentId)) {
-            const cachedData = fileDataCache.current.get(attachmentId)!;
-            videoEl.src = cachedData;
-            videoEl.setAttribute('data-loaded', 'true');
-            videoEl.removeAttribute('data-loading');
-          } else {
-            attachmentIdsToLoad.add(attachmentId);
-            attachmentElementMap.set(attachmentId, { element: videoEl, type: 'video' });
-          }
-        }
-      });
-      
-      // File links
-      const fileLinks = editorRef.current.querySelectorAll('a.wysiwyg-file-link[data-attachment-id]:not([data-file-data])');
-      fileLinks.forEach((link) => {
-        const linkEl = link as HTMLAnchorElement;
-        const attachmentId = linkEl.getAttribute('data-attachment-id');
-        if (attachmentId) {
-          // Vérifier le cache d'abord
-          if (fileDataCache.current.has(attachmentId)) {
-            const cachedData = fileDataCache.current.get(attachmentId)!;
-            linkEl.setAttribute('data-file-data', cachedData);
-          } else {
-            attachmentIdsToLoad.add(attachmentId);
-            attachmentElementMap.set(attachmentId, { element: linkEl, type: 'link' });
-          }
-        }
-      });
-      
-      // Si aucun fichier à charger, on sort
-      if (attachmentIdsToLoad.size === 0) return;
-      
-      // Charger tous les fichiers en une seule requête batch
-      try {
-        const response = await fetch('/api/attachments/batch', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            attachmentIds: Array.from(attachmentIdsToLoad),
-          }),
-        });
-        
-        const result = await response.json();
-        
-        if (result.success && result.files) {
-          // Créer un map pour accès rapide
-          const filesMap = new Map(result.files.map((file: any) => [file.id.toString(), file]));
-          
-          // Appliquer les données aux éléments correspondants
-          attachmentElementMap.forEach(({ element, type }, attachmentId) => {
-            const file = filesMap.get(attachmentId);
-            if (file && file.data) {
-              // Mettre en cache
-              fileDataCache.current.set(attachmentId, file.data);
-              
-              if (type === 'img' && element instanceof HTMLImageElement) {
-                // Vérifier que le data URL est valide
-                if (file.data && file.data.startsWith('data:')) {
-                  element.src = file.data;
-                  element.setAttribute('data-loaded', 'true');
-                  element.removeAttribute('data-loading');
-                } else {
-                  console.error('Données de fichier invalides pour l\'image:', attachmentId, file);
-                }
-              } else if (type === 'video' && element instanceof HTMLVideoElement) {
-                if (file.data && file.data.startsWith('data:')) {
-                  element.src = file.data;
-                  element.setAttribute('data-loaded', 'true');
-                  element.removeAttribute('data-loading');
-                } else {
-                  console.error('Données de fichier invalides pour la vidéo:', attachmentId, file);
-                }
-              } else if (type === 'link' && (element instanceof HTMLAnchorElement || element instanceof HTMLSpanElement)) {
-                element.setAttribute('data-file-data', file.data);
-              }
-            } else {
-              console.warn('Fichier non trouvé dans la réponse batch pour l\'ID:', attachmentId);
-            }
-          });
-        } else {
-          console.error('Erreur chargement fichiers batch:', result);
-        }
-      } catch (err) {
-        console.error('Erreur chargement fichiers batch:', err);
+      if (!fileContainer && !fileLink) {
+        return;
       }
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (fileContainer) {
+        const allFiles = editorRef.current?.querySelectorAll('.wysiwyg-file-attachment[data-selected-file="true"]');
+        allFiles?.forEach((file) => file.removeAttribute('data-selected-file'));
+        fileContainer.setAttribute('data-selected-file', 'true');
+        if (!isLinkClick) {
+          return;
+        }
+      }
+
+      const sourceElement = fileLink || fileContainer;
+      if (!sourceElement) return;
+
+      const fileName =
+        sourceElement.getAttribute('data-file-name') ||
+        fileContainer?.getAttribute('data-file-name') ||
+        'fichier';
+      const fileData =
+        sourceElement.getAttribute('data-file-data') ||
+        fileContainer?.getAttribute('data-file-data');
+
+      if (!fileData || !fileData.startsWith('data:')) {
+        console.warn('Aucune donnée de fichier valide pour le téléchargement');
+        return;
+      }
+
+      const link = document.createElement('a');
+      link.href = fileData;
+      link.download = fileName;
+      link.click();
     };
 
     // Empêcher complètement l'édition du nom des fichiers joints
@@ -639,14 +465,9 @@ export function useEditorEffects({
         });
       };
       
-      // Debounce pour éviter trop d'appels batch
-      let loadFilesTimeout: NodeJS.Timeout | null = null;
-      
-      // Load files when content changes (debounced)
       const observer = new MutationObserver((mutations) => {
         let shouldRestore = false;
         mutations.forEach((mutation) => {
-          // Si le contenu d'un fichier joint change, restaurer immédiatement
           if (mutation.type === 'characterData' || mutation.type === 'childList') {
             const target = mutation.target as HTMLElement;
             if (target.closest?.('.wysiwyg-file-attachment')) {
@@ -654,7 +475,7 @@ export function useEditorEffects({
             }
             if (mutation.addedNodes) {
               Array.from(mutation.addedNodes).forEach((node) => {
-                if (node.nodeType === Node.TEXT_NODE && (node.parentElement?.closest('.wysiwyg-file-attachment'))) {
+                if (node.nodeType === Node.TEXT_NODE && node.parentElement?.closest('.wysiwyg-file-attachment')) {
                   shouldRestore = true;
                 }
               });
@@ -663,56 +484,14 @@ export function useEditorEffects({
         });
         
         if (shouldRestore) {
-          restoreFileName(); // Restaurer immédiatement
+          restoreFileName();
         }
-        
-        if (loadFilesTimeout) {
-          clearTimeout(loadFilesTimeout);
-        }
-        loadFilesTimeout = setTimeout(() => {
-          loadFilesFromAPI();
-          restoreFileName(); // Restaurer aussi après le chargement
-        }, 300); // Attendre 300ms après le dernier changement
       });
-      observer.observe(editor, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['contenteditable', 'src'] });
+      observer.observe(editor, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['contenteditable'] });
       
-      // Initial load (avec un petit délai pour s'assurer que le DOM est prêt)
       setTimeout(() => {
-        loadFilesFromAPI();
         restoreFileName();
       }, 100);
-      
-      // Charger les fichiers quand le markdown change (pour les images avec src vide)
-      // Le MutationObserver devrait déjà détecter les changements, mais on force un check après un délai
-      const checkAndLoadFiles = () => {
-        if (editorRef.current) {
-          // Vérifier s'il y a des images avec data-attachment-id mais sans src valide
-          const imagesToLoad = editorRef.current.querySelectorAll('img[data-attachment-id]');
-          let needsLoad = false;
-          imagesToLoad.forEach((img) => {
-            const imgEl = img as HTMLImageElement;
-            const attachmentId = imgEl.getAttribute('data-attachment-id');
-            const srcAttr = imgEl.getAttribute('src');
-            const hasValidSrc = srcAttr && srcAttr !== '' && srcAttr.startsWith('data:');
-            const isLoaded = imgEl.hasAttribute('data-loaded');
-            
-            if (attachmentId && !hasValidSrc && !isLoaded) {
-              needsLoad = true;
-            }
-          });
-          
-          // Charger une seule fois si nécessaire
-          if (needsLoad) {
-            loadFilesFromAPI();
-          }
-        }
-      };
-      
-      // Observer les changements de markdown pour charger les fichiers
-      // Utiliser un effet qui se déclenche quand le markdown change
-      const markdownCheckTimeout = setTimeout(() => {
-        checkAndLoadFiles();
-      }, 300);
       
       return () => {
         editor.removeEventListener('click', handleFileClick);
@@ -721,33 +500,14 @@ export function useEditorEffects({
         editor.removeEventListener('focusin', preventFileFocus);
         editor.removeEventListener('focus', preventFileFocus);
         observer.disconnect();
-        if (loadFilesTimeout) {
-          clearTimeout(loadFilesTimeout);
-        }
-        if (markdownCheckTimeout) {
-          clearTimeout(markdownCheckTimeout);
-        }
+        observer.disconnect();
       };
     }
   }, [editorRef]);
 
-  // Charger les fichiers quand le markdown change (pour les images avec src vide)
-  useEffect(() => {
-    if (!editorRef.current || !markdown) return;
-    
-    // Attendre un peu pour que le DOM soit mis à jour après la conversion markdown → HTML
-    const timeoutId = setTimeout(() => {
-      if (loadFilesFromAPIRef.current) {
-        loadFilesFromAPIRef.current();
-      }
-    }, 300);
-    
-    return () => clearTimeout(timeoutId);
-  }, [markdown, editorRef]);
-
   // Helpers to edit currently selected image
   const applyImageEditInternal = useCallback((payload: { src?: string; widthPercent?: number; widthPx?: number }) => {
-    if (!editorRef.current || !selectedImage) return false;
+    if (!editorRef.current || !selectedImage || !isImageElement(selectedImage)) return false;
     const img = selectedImage;
     if (payload.src) {
       try {
@@ -776,7 +536,7 @@ export function useEditorEffects({
   useEffect(() => {
     (window as any).getCurrentImageForEditing = () => {
       const img = selectedImage;
-      if (!img) return null;
+      if (!img || !isImageElement(img)) return null;
       return {
         src: img.src,
         naturalWidth: img.naturalWidth,

@@ -615,30 +615,6 @@ export class MarkdownConverter {
       }
     });
 
-    // Preserve images with attachment ID (must come before imgWithStyle)
-    this.turndownService.addRule('imageWithAttachmentId', {
-      filter: (node) => {
-        const el = node as HTMLElement;
-        return node.nodeName === 'IMG' && el.hasAttribute('data-attachment-id');
-      },
-      replacement: (_content, node) => {
-        const el = node as HTMLImageElement;
-        const src = el.getAttribute('src') || '';
-        const alt = (el.getAttribute('alt') || '').replace(/"/g, '&quot;');
-        const style = (el.getAttribute('style') || '').replace(/"/g, '&quot;');
-        const dataFileName = (el.getAttribute('data-file-name') || '').replace(/"/g, '&quot;');
-        const dataFileType = (el.getAttribute('data-file-type') || '').replace(/"/g, '&quot;');
-        const dataAttachmentId = (el.getAttribute('data-attachment-id') || '').replace(/"/g, '&quot;');
-        let html = `<img src="${src}" alt="${alt}"`;
-        if (style) html += ` style="${style}"`;
-        if (dataFileName) html += ` data-file-name="${dataFileName}"`;
-        if (dataFileType) html += ` data-file-type="${dataFileType}"`;
-        if (dataAttachmentId) html += ` data-attachment-id="${dataAttachmentId}"`;
-        html += ' />';
-        return html;
-      }
-    });
-
     // Preserve image styles and attributes by outputting raw HTML for <img>
     this.turndownService.addRule('imgWithStyle', {
       filter: (node) => node.nodeName === 'IMG',
@@ -679,13 +655,11 @@ export class MarkdownConverter {
         const style = (el.getAttribute('style') || '').replace(/"/g, '&quot;');
         const dataFileName = (el.getAttribute('data-file-name') || '').replace(/"/g, '&quot;');
         const dataFileType = (el.getAttribute('data-file-type') || '').replace(/"/g, '&quot;');
-        const dataAttachmentId = (el.getAttribute('data-attachment-id') || '').replace(/"/g, '&quot;');
         let html = `<video src="${src}"`;
         if (controls) html += ` ${controls}`;
         if (style) html += ` style="${style}"`;
         if (dataFileName) html += ` data-file-name="${dataFileName}"`;
         if (dataFileType) html += ` data-file-type="${dataFileType}"`;
-        if (dataAttachmentId) html += ` data-attachment-id="${dataAttachmentId}"`;
         html += '></video>';
         return html;
       }
@@ -799,21 +773,6 @@ export class MarkdownConverter {
       return placeholder;
     });
 
-    // Preserve images with attachment ID before passing to marked (to avoid issues with empty src)
-    const imagePlaceholders: { placeholder: string; content: string }[] = [];
-    let imagePlaceholderIndex = 0;
-    
-    // Match images with data-attachment-id (may have empty src)
-    cleanedMd = cleanedMd.replace(/<img[\s\S]*?data-attachment-id[\s\S]*?(?:\/>|>)/gi, (match) => {
-      const placeholder = `<!-- IMAGE_PLACEHOLDER_${imagePlaceholderIndex} -->`;
-      imagePlaceholders.push({
-        placeholder: `IMAGE_PLACEHOLDER_${imagePlaceholderIndex}`,
-        content: match
-      });
-      imagePlaceholderIndex++;
-      return placeholder;
-    });
-
     // Preserve video elements before passing to marked (to avoid stack overflow with long base64 data)
     const videoPlaceholders: { placeholder: string; content: string }[] = [];
     let videoPlaceholderIndex = 0;
@@ -838,13 +797,6 @@ export class MarkdownConverter {
     // Restore lists from placeholders
     let unwrappedHtml = html;
     listPlaceholders.forEach(({ placeholder, content }) => {
-      // Replace both comment format and any escaped version
-      unwrappedHtml = unwrappedHtml.replace(new RegExp(`<!--\\s*${placeholder}\\s*-->`, 'g'), content);
-      unwrappedHtml = unwrappedHtml.replace(new RegExp(placeholder, 'g'), content);
-    });
-
-    // Restore images with attachment ID from placeholders
-    imagePlaceholders.forEach(({ placeholder, content }) => {
       // Replace both comment format and any escaped version
       unwrappedHtml = unwrappedHtml.replace(new RegExp(`<!--\\s*${placeholder}\\s*-->`, 'g'), content);
       unwrappedHtml = unwrappedHtml.replace(new RegExp(placeholder, 'g'), content);
@@ -936,9 +888,9 @@ export class MarkdownConverter {
       .replace(/<div style=\"text-align: justify\">\[([\sS]*?)\]\(([^\)]*)\)<\/div>/g, '<div style=\"text-align: justify\"><a href=\"$2\" style=\"color: #3b82f6; text-decoration: underline; cursor: pointer;\">$1</a></div>');
 
     return DOMPurify.sanitize(styledHtml, {
-      ADD_ATTR: ['style', 'data-file-name', 'data-file-type', 'data-attachment-id', 'data-file-data', 'class', 'controls', 'contenteditable', 'data-selected-file'],
+      ADD_ATTR: ['style', 'data-file-name', 'data-file-type', 'data-file-data', 'class', 'controls', 'contenteditable', 'data-selected-file'],
       ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 's', 'del', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'blockquote', 'a', 'img', 'div', 'span', 'hr', 'details', 'summary', 'video', 'button'],
-      ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'style', 'color', 'open', 'target', 'rel', 'data-file-name', 'data-file-type', 'data-attachment-id', 'data-file-data', 'class', 'controls', 'type', 'contenteditable', 'data-selected-file']
+      ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'style', 'color', 'open', 'target', 'rel', 'data-file-name', 'data-file-type', 'data-file-data', 'class', 'controls', 'type', 'contenteditable', 'data-selected-file']
     });
   }
 

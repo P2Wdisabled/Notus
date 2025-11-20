@@ -3,10 +3,18 @@ import { auth } from "../../../../../../auth";
 import { UserService } from "@/lib/services/UserService";
 import { RequestService } from "@/lib/services/RequestService";
 import { NotificationService } from "@/lib/services/NotificationService";
+import { UpdateRequestData } from "@/lib/repositories/RequestRepository";
 
 const requestService = new RequestService();
 const userService = new UserService();
 const notificationService = new NotificationService();
+
+const REQUEST_STATUSES = ["pending", "in_progress", "resolved", "rejected"] as const;
+type RequestStatus = (typeof REQUEST_STATUSES)[number];
+
+function isValidRequestStatus(status: unknown): status is RequestStatus {
+  return typeof status === "string" && REQUEST_STATUSES.includes(status as RequestStatus);
+}
 
 interface RouteParams {
   params: Promise<{
@@ -91,8 +99,14 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     const newStatus = status;
 
     // Mettre à jour la requête
-    const updateData: { status?: string } = {};
-    if (status) {
+    const updateData: UpdateRequestData = {};
+    if (status !== undefined) {
+      if (!isValidRequestStatus(status)) {
+        return NextResponse.json(
+          { success: false, error: "Statut invalide" },
+          { status: 400 }
+        );
+      }
       updateData.status = status;
     }
     const result = await requestService.updateRequest(parseInt(id), updateData);

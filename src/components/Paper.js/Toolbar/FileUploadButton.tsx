@@ -3,18 +3,56 @@
 import { useRef, useState } from "react";
 import Icon from "@/components/Icon";
 
+export interface UploadedFileData {
+  dataUrl: string;
+  name: string;
+  type: string;
+  size: number;
+}
+
 interface FileUploadButtonProps {
-  onFileSelect: (attachmentId: number, fileName: string, fileType: string) => void;
-  documentId?: number;
+  onFileSelect: (file: UploadedFileData) => void;
 }
 
 const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB
 const MAX_VIDEO_SIZE = 10 * 1024 * 1024; // 10MB pour les vidéos
 
-export default function FileUploadButton({ onFileSelect, documentId }: FileUploadButtonProps) {
+export default function FileUploadButton({ onFileSelect }: FileUploadButtonProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  const ensureMimeType = (file: File): string => {
+    if (file.type) return file.type;
+    const extension = file.name.split(".").pop()?.toLowerCase();
+    const mimeTypes: Record<string, string> = {
+      gif: "image/gif",
+      png: "image/png",
+      jpg: "image/jpeg",
+      jpeg: "image/jpeg",
+      webp: "image/webp",
+      svg: "image/svg+xml",
+      mp4: "video/mp4",
+      webm: "video/webm",
+      mp3: "audio/mpeg",
+      wav: "audio/wav",
+      pdf: "application/pdf",
+      doc: "application/msword",
+      docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    };
+    return extension ? mimeTypes[extension] || "application/octet-stream" : "application/octet-stream";
+  };
+
+  const readFileAsDataUrl = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        resolve(typeof reader.result === "string" ? reader.result : "");
+      };
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+  };
 
   const validateFile = (file: File): string | null => {
     // Vérifier si c'est une vidéo
@@ -48,28 +86,21 @@ export default function FileUploadButton({ onFileSelect, documentId }: FileUploa
         return;
       }
 
-      // Envoyer au backend
-      const formData = new FormData();
-      formData.append('file', file);
-      if (documentId) {
-        formData.append('documentId', documentId.toString());
-      }
+      const fileType = ensureMimeType(file);
+      const dataUrl = await readFileAsDataUrl(file);
 
-      const response = await fetch('/api/attachments/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const result = await response.json();
-
-      if (!result.success) {
-        setError(result.error || 'Erreur lors de l\'upload du fichier');
+      if (!dataUrl) {
+        setError("Impossible de lire le fichier sélectionné");
         setIsProcessing(false);
         return;
       }
 
-      // Appeler le callback avec l'ID du fichier
-      onFileSelect(result.attachment.id, result.attachment.file_name, result.attachment.file_type);
+      onFileSelect({
+        dataUrl,
+        name: file.name,
+        type: fileType,
+        size: file.size,
+      });
       
       // Réinitialiser l'input
       if (fileInputRef.current) {
