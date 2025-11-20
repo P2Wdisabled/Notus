@@ -12,12 +12,13 @@ export interface UploadedFileData {
 
 interface FileUploadButtonProps {
   onFileSelect: (file: UploadedFileData) => void;
+  disabled?: boolean;
 }
 
 const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB
 const MAX_VIDEO_SIZE = 10 * 1024 * 1024; // 10MB pour les vidéos
 
-export default function FileUploadButton({ onFileSelect }: FileUploadButtonProps) {
+export default function FileUploadButton({ onFileSelect, disabled = false }: FileUploadButtonProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -71,6 +72,10 @@ export default function FileUploadButton({ onFileSelect }: FileUploadButtonProps
   };
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (disabled) {
+      event.target.value = "";
+      return;
+    }
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -115,6 +120,7 @@ export default function FileUploadButton({ onFileSelect }: FileUploadButtonProps
   };
 
   const handleClick = () => {
+    if (disabled) return;
     fileInputRef.current?.click();
   };
 
@@ -123,9 +129,9 @@ export default function FileUploadButton({ onFileSelect }: FileUploadButtonProps
       <button
         type="button"
         onClick={handleClick}
-        disabled={isProcessing}
-        className="p-2 rounded transition-colors bg-muted hover:bg-muted/80 text-foreground disabled:opacity-50"
-        title="Ajouter un fichier joint"
+        disabled={isProcessing || disabled}
+        className="p-2 rounded transition-colors bg-muted hover:bg-muted/80 text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+        title={disabled ? "Placez le curseur dans le document pour ajouter un fichier" : "Ajouter un fichier joint"}
       >
         <Icon name="document" className="h-5 w-5" />
       </button>

@@ -35,6 +35,7 @@ export function useEditorEffects({
   isLocalChange
 }: EditorEffectsProps) {
   // Note: Initialization is handled in the main component
+  const draggedAttachmentRef = useRef<HTMLElement | null>(null);
 
   // Initialize editor content once on mount and sync external changes
   useEffect(() => {
@@ -504,6 +505,109 @@ export function useEditorEffects({
       };
     }
   }, [editorRef]);
+
+  useEffect(() => {
+    const root = editorRef.current;
+    if (!root) return;
+
+    const ensureDraggableAttachments = () => {
+      const selector = 'img[data-file-name], video[data-file-name], .wysiwyg-file-attachment';
+      root.querySelectorAll(selector).forEach((node) => {
+        const element = node as HTMLElement;
+        element.setAttribute('draggable', 'true');
+        element.setAttribute('data-draggable-attachment', 'true');
+      });
+    };
+
+    const getRangeFromPoint = (x: number, y: number): Range | null => {
+      if (document.caretRangeFromPoint) {
+        return document.caretRangeFromPoint(x, y);
+      }
+      const caretPosition = (document as any).caretPositionFromPoint?.(x, y);
+      if (caretPosition) {
+        const range = document.createRange();
+        range.setStart(caretPosition.offsetNode, caretPosition.offset);
+        range.collapse(true);
+        return range;
+      }
+      return null;
+    };
+
+    const handleDragStart = (event: DragEvent) => {
+      const target = event.target as HTMLElement | null;
+      const attachment = target?.closest('[data-draggable-attachment="true"]') as HTMLElement | null;
+      if (!attachment) return;
+      draggedAttachmentRef.current = attachment;
+      attachment.classList.add('wysiwyg-dragging');
+      if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = 'move';
+        try {
+          event.dataTransfer.setData('text/plain', 'attachment');
+        } catch (_e) {}
+        try {
+          event.dataTransfer.setDragImage(attachment, attachment.clientWidth / 2, attachment.clientHeight / 2);
+        } catch (_e) {}
+      }
+    };
+
+    const handleDragEnd = () => {
+      if (draggedAttachmentRef.current) {
+        draggedAttachmentRef.current.classList.remove('wysiwyg-dragging');
+        draggedAttachmentRef.current = null;
+      }
+    };
+
+    const handleDragOver = (event: DragEvent) => {
+      if (!draggedAttachmentRef.current) return;
+      event.preventDefault();
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = 'move';
+      }
+    };
+
+    const handleDrop = (event: DragEvent) => {
+      const attachment = draggedAttachmentRef.current;
+      if (!attachment) return;
+      event.preventDefault();
+      const range = getRangeFromPoint(event.clientX, event.clientY);
+      if (!range || !root.contains(range.commonAncestorContainer)) {
+        handleDragEnd();
+        return;
+      }
+      if (attachment.contains(range.commonAncestorContainer)) {
+        handleDragEnd();
+        return;
+      }
+      range.insertNode(attachment);
+      range.setStartAfter(attachment);
+      range.collapse(true);
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      handleDragEnd();
+      setTimeout(() => {
+        handleEditorChange();
+      }, 0);
+    };
+
+    ensureDraggableAttachments();
+    const observer = new MutationObserver(() => ensureDraggableAttachments());
+    observer.observe(root, { childList: true, subtree: true });
+
+    root.addEventListener('dragstart', handleDragStart);
+    root.addEventListener('dragend', handleDragEnd);
+    root.addEventListener('dragover', handleDragOver);
+    root.addEventListener('drop', handleDrop);
+
+    return () => {
+      observer.disconnect();
+      root.removeEventListener('dragstart', handleDragStart);
+      root.removeEventListener('dragend', handleDragEnd);
+      root.removeEventListener('dragover', handleDragOver);
+      root.removeEventListener('drop', handleDrop);
+      handleDragEnd();
+    };
+  }, [editorRef, handleEditorChange]);
 
   // Helpers to edit currently selected image
   const applyImageEditInternal = useCallback((payload: { src?: string; widthPercent?: number; widthPx?: number }) => {

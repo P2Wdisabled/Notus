@@ -888,9 +888,9 @@ export class MarkdownConverter {
       .replace(/<div style=\"text-align: justify\">\[([\sS]*?)\]\(([^\)]*)\)<\/div>/g, '<div style=\"text-align: justify\"><a href=\"$2\" style=\"color: #3b82f6; text-decoration: underline; cursor: pointer;\">$1</a></div>');
 
     return DOMPurify.sanitize(styledHtml, {
-      ADD_ATTR: ['style', 'data-file-name', 'data-file-type', 'data-file-data', 'class', 'controls', 'contenteditable', 'data-selected-file'],
+      ADD_ATTR: ['style', 'data-file-name', 'data-file-type', 'data-file-data', 'data-draggable-attachment', 'class', 'controls', 'contenteditable', 'data-selected-file'],
       ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 's', 'del', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'blockquote', 'a', 'img', 'div', 'span', 'hr', 'details', 'summary', 'video', 'button'],
-      ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'style', 'color', 'open', 'target', 'rel', 'data-file-name', 'data-file-type', 'data-file-data', 'class', 'controls', 'type', 'contenteditable', 'data-selected-file']
+      ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'style', 'color', 'open', 'target', 'rel', 'data-file-name', 'data-file-type', 'data-file-data', 'data-draggable-attachment', 'class', 'controls', 'type', 'contenteditable', 'data-selected-file']
     });
   }
 

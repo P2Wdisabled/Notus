@@ -275,6 +275,7 @@ export default function WysiwygEditor({
                 '--tw-prose-li': 'margin: 0.25rem 0; display: list-item; list-style-position: outside;'
               } as React.CSSProperties}
               data-placeholder={placeholder}
+              data-wysiwyg-editor-root="true"
               onClick={eventHandlers.handleEditorClick}
             />
             

@@ -628,6 +628,10 @@ export class FormattingHandler {
               
               const isImage = safeType.startsWith('image/');
               const isVideo = safeType.startsWith('video/') || safeType.startsWith('audio/');
+              const markDraggable = (element: HTMLElement) => {
+                element.setAttribute('draggable', 'true');
+                element.setAttribute('data-draggable-attachment', 'true');
+              };
               
               if (isImage) {
                 const img = document.createElement('img');
@@ -639,6 +643,7 @@ export class FormattingHandler {
                 img.setAttribute('data-file-name', safeName);
                 img.setAttribute('data-file-type', safeType);
                 img.src = dataUrl;
+                markDraggable(img);
                 
                 updatedRange.insertNode(img);
                 
@@ -660,6 +665,7 @@ export class FormattingHandler {
                 video.setAttribute('data-file-name', safeName);
                 video.setAttribute('data-file-type', safeType);
                 video.src = dataUrl;
+                markDraggable(video);
                 
                 updatedRange.insertNode(video);
                 
@@ -687,6 +693,7 @@ export class FormattingHandler {
                 container.style.borderRadius = '0.5rem';
                 container.style.backgroundColor = '#f9fafb';
                 container.style.cursor = 'pointer';
+                markDraggable(container);
                 
                 const fileLink = document.createElement('span');
                 fileLink.textContent = safeName;
