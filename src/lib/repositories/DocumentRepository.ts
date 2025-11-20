@@ -279,7 +279,7 @@ export class DocumentRepository extends BaseRepository {
 
         // Vérifier si l'utilisateur est le propriétaire OU s'il a des permissions de partage
         let whereClause = `WHERE id = $${values.length - 1} AND user_id = $${values.length}`;
-        
+
         // Si un email est fourni, vérifier aussi les permissions de partage
         if (userEmail) {
           whereClause = `WHERE id = $${values.length - 1} AND (
@@ -327,24 +327,24 @@ export class DocumentRepository extends BaseRepository {
   async deleteDocument(documentId: number, userId: number): Promise<DocumentRepositoryResult<{ id: number }>> {
     try {
       const document = await this.query<Document>(
-      `SELECT * FROM documents WHERE id = $1 AND user_id = $2`,
-      [documentId, userId]
-    );
+        `SELECT * FROM documents WHERE id = $1 AND user_id = $2`,
+        [documentId, userId]
+      );
 
-    if (document.rows.length === 0) {
-      return { success: false, error: "Document non trouvé ou vous n'êtes pas autorisé à le supprimer" };
-    }
+      if (document.rows.length === 0) {
+        return { success: false, error: "Document non trouvé ou vous n'êtes pas autorisé à le supprimer" };
+      }
 
-    const doc = document.rows[0];
+      const doc = document.rows[0];
 
-    // 2. Insérer dans la table de corbeille
-    await this.query(
-      `INSERT INTO trash_documents (user_id, title, content, tags, created_at, updated_at, deleted_at, original_id)
+      // 2. Insérer dans la table de corbeille
+      await this.query(
+        `INSERT INTO trash_documents (user_id, title, content, tags, created_at, updated_at, deleted_at, original_id)
        VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7)`,
-      [doc.user_id, doc.title, doc.content, doc.tags, doc.created_at, doc.updated_at, doc.id]
-    );
+        [doc.user_id, doc.title, doc.content, doc.tags, doc.created_at, doc.updated_at, doc.id]
+      );
 
-    // 3. Supprimer de la table principale
+      // 3. Supprimer de la table principale
       const result = await this.query<{ id: number }>(
         `DELETE FROM documents 
          WHERE id = $1 AND user_id = $2
@@ -387,7 +387,7 @@ export class DocumentRepository extends BaseRepository {
       }
 
       // 2. Insérer tous les documents dans la table de corbeille en une seule requête
-      const trashValues = documents.rows.map((doc, index) => 
+      const trashValues = documents.rows.map((doc, index) =>
         `($${index * 8 + 1}, $${index * 8 + 2}, $${index * 8 + 3}, $${index * 8 + 4}, $${index * 8 + 5}, $${index * 8 + 6}, NOW(), $${index * 8 + 7})`
       ).join(', ');
 
@@ -644,5 +644,18 @@ export class DocumentRepository extends BaseRepository {
     }
   }
 
-  
+  async removeShare(documentId: number, email: string): Promise<DocumentRepositoryResult<{ deletedCount: number }>> {
+    try {
+      const result = await this.query<{ id: number }>(
+        `DELETE FROM shares 
+         WHERE id_doc = $1 AND lower(trim(email)) = lower(trim($2))
+         RETURNING id`,
+        [documentId, email]
+      );
+      return { success: true, data: { deletedCount: result.rows.length } };
+    } catch (error) {
+      console.error("❌ Erreur suppression partage:", error);
+      return { success: false, error: error instanceof Error ? error.message : "Erreur inconnue" };
+    }
+  }
 }  

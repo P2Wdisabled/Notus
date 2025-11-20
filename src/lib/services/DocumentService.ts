@@ -146,6 +146,15 @@ export class DocumentService {
     }
   }
 
+  async removeShare(documentId: number, email: string): Promise<DocumentRepositoryResult<{ deletedCount: number }>> {
+    try {
+      return await this.documentRepository.removeShare(documentId, email);
+    } catch (error) {
+      console.error('❌ Erreur suppression partage:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Erreur inconnue' };
+    }
+  }
+
   async ownerIdForDocument(documentId: number): Promise<DocumentRepositoryResult<{ ownerId: number | null }>> {
     try {
       return await this.documentRepository.ownerIdForDocument(documentId);

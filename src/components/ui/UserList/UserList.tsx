@@ -32,7 +32,7 @@ export default function UserList({ users, currentUserId, documentId, onChanged, 
   const ownerId = localUsers && localUsers.length > 0 ? (localUsers[0].id !== null ? Number(localUsers[0].id) : null) : null;
   const connectedId = typeof currentUserId !== 'undefined' && currentUserId !== null ? Number(currentUserId) : null;
   const isConnectedOwner = isOwner ?? (ownerId !== null && connectedId !== null && ownerId === connectedId);
-  
+
   React.useEffect(() => setLocalUsers(users), [users]);
 
   async function handleSetPermission(targetEmail: string | undefined | null, newPermission: boolean) {
@@ -58,12 +58,38 @@ export default function UserList({ users, currentUserId, documentId, onChanged, 
       setMenuOpen(null);
       setLoadingEmail(null);
       if (onChanged) {
-        try { await onChanged(); } catch (_) {}
+        try { await onChanged(); } catch (_) { }
       }
     } catch (err) {
       setLocalUsers(prev);
       setLoadingEmail(null);
       alert('Impossible de modifier la permission : ' + (err instanceof Error ? err.message : String(err)));
+    }
+  }
+
+  async function handleRemoveUser(targetEmail: string | undefined | null) {
+    if (!targetEmail) {
+      alert("Impossible de trouver l'email de l'utilisateur");
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/openDoc/share/delete', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ documentId, email: targetEmail }),
+      });
+      const body = await res.json();
+      if (!res.ok || !body.success) {
+        throw new Error(body?.error || 'Erreur serveur');
+      }
+      setMenuOpen(null);
+      setLoadingEmail(null);
+      if (onChanged) {
+        try { await onChanged(); } catch (_) { }
+      }
+    } catch (err) {
+      alert('Impossible de supprimer l\'utilisateur : ' + (err instanceof Error ? err.message : String(err)));
     }
   }
 
@@ -118,17 +144,23 @@ export default function UserList({ users, currentUserId, documentId, onChanged, 
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-40">
                 <DropdownMenuItem
-                    onClick={() => handleSetPermission(user.email, true)}
-                    aria-disabled={loadingEmail !== null}
-                  >
-                    {loadingEmail === user.email ? '...' : 'Éditeur'}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => handleSetPermission(user.email, false)}
-                    aria-disabled={loadingEmail !== null}
-                  >
-                    {loadingEmail === user.email ? '...' : 'Lecteur'}
-                  </DropdownMenuItem>
+                  onClick={() => handleSetPermission(user.email, true)}
+                  aria-disabled={loadingEmail !== null}
+                >
+                  {loadingEmail === user.email ? '...' : 'Mettre en éditeur'}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => handleSetPermission(user.email, false)}
+                  aria-disabled={loadingEmail !== null}
+                >
+                  {loadingEmail === user.email ? '...' : 'Mettre en lecteur'}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => handleRemoveUser(user.email)}
+                  aria-disabled={loadingEmail !== null}
+                >
+                  {loadingEmail === user.email ? '...' : 'Expulser'}
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           ) : null}
