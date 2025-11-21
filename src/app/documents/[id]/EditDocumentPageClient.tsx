@@ -112,6 +112,28 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   const [hasReadAccess, setHasReadAccess] = useState<boolean | null>(null);
   const [users, setUsers] = useState([]);
   const [isOffline, setIsOffline] = useState(false);
+  
+  // Load access list for this document and update `users` state
+  const loadAccessList = async () => {
+    if (!document?.id) return;
+    try {
+      const res = await fetch(`/api/openDoc/accessList?id=${document.id}`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.accessList)) {
+        setUsers(
+          data.accessList.map((user: any) => ({
+            ...user,
+            avatarUrl: user.profile_image || "",
+            name: user.username || user.email || "Utilisateur",
+          }))
+        );
+      } else {
+        setUsers([]);
+      }
+    } catch (e) {
+      setUsers([]);
+    }
+  };
   const [offlineBaseline, setOfflineBaseline] = useState<string>("");
   
   // État de sauvegarde : 'synchronized' | 'saving' | 'unsynchronized'
@@ -477,6 +499,8 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
         .catch(() => setUsers([]));
     }
   }, [document, normalizeContent]);
+
+  const isOwner = document ? Number(document.user_id) === Number(userId) : false;
 
   useEffect(() => {
     const key = `notus:doc:${props.params.id}`;
@@ -949,10 +973,18 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   const handleShareButtonClick = async () => {
     const ok = await checkConnectivity();
     if (!ok) return;
+    // If not owner, still open a modal but we'll show a denied message
+    setShareError(null);
+    setShareSuccess(null);
     setIsShareModalOpen(true);
   };
 
   const handleShareSubmit = async () => {
+    // Prevent non-owners from submitting share
+    if (!isOwner) {
+      setShareError("Vous n'avez pas le droit de partager ce document");
+      return;
+    }
     if (!document) return;
     const ok = await checkConnectivity();
     if (!ok) {
@@ -1120,7 +1152,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
             Retour
           </Link>
           <div className="flex flex-row justify-center items-center">
-            <UserListButton users={users} className="self-center" />
+            <UserListButton users={users} className="self-center" documentId={document.id} onAccessListRefresh={loadAccessList} isOwner={isOwner} currentUserId={userId} />
             {hasEditAccess === false && (
               <div className="ml-4 px-3 py-1 bg-muted text-foreground text-sm font-medium rounded-full border border-border">
                 Mode lecture seule
@@ -1199,75 +1231,84 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
           className="flex flex-col justify-center"
         >
           <Modal.Content>
-            <div className="flex flex-col gap-4">
-              <Input
-                label="Email"
-                type="email"
-                id="email"
-                name="email"
-                required
-                placeholder="email@email.com"
-                value={shareEmail}
-                onChange={(e) => setShareEmail(e.target.value)}
-              />
+            {isOwner ? (
+              <div className="flex flex-col gap-4">
+                <Input
+                  label="Email"
+                  type="email"
+                  id="email"
+                  name="email"
+                  required
+                  placeholder="email@email.com"
+                  value={shareEmail}
+                  onChange={(e) => setShareEmail(e.target.value)}
+                />
 
-              <div>
-                <label className="text-sm font-medium text-foreground mb-1">
-                  Permissions
-                </label>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="w-full justify-between">
-                      {permission === "write" ? "Peut modifier" : "Peut lire"}
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    <DropdownMenuItem
-                      onClick={() => setPermission("read")}
-                      className={permission === "read" ? "bg-muted" : ""}
-                    >
-                      Peut lire
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => setPermission("write")}
-                      className={permission === "write" ? "bg-muted" : ""}
-                    >
-                      Peut modifier
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-1">
+                    Permissions
+                  </label>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="w-full justify-between">
+                        {permission === "write" ? "Peut modifier" : "Peut lire"}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      <DropdownMenuItem
+                        onClick={() => setPermission("read")}
+                        className={permission === "read" ? "bg-muted" : ""}
+                      >
+                        Peut lire
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => setPermission("write")}
+                        className={permission === "write" ? "bg-muted" : ""}
+                      >
+                        Peut modifier
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+
+                <div className="flex items-center justify-center gap-3">
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="default"
+                    onClick={handleShareSubmit}
+                    disabled={shareLoading}
+                  >
+                    {shareLoading ? "Envoi..." : "Envoyer"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => {
+                      setShareEmail("");
+                      setShareError(null);
+                      setIsShareModalOpen(false);
+                    }}
+                  >
+                    Annuler
+                  </Button>
+                </div>
+
+                {shareError && (
+                  <p className="text-sm text-destructive mt-2">{shareError}</p>
+                )}
+                {shareSuccess && (
+                  <p className="text-sm text-primary mt-2">{shareSuccess}</p>
+                )}
               </div>
-
-              <div className="flex items-center justify-center gap-3">
-                <Button
-                  type="button"
-                  variant="primary"
-                  size="default"
-                  onClick={handleShareSubmit}
-                  disabled={shareLoading}
-                >
-                  {shareLoading ? "Envoi..." : "Envoyer"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => {
-                    setShareEmail("");
-                    setShareError(null);
-                    setIsShareModalOpen(false);
-                  }}
-                >
-                  Annuler
-                </Button>
+            ) : (
+              <div className="py-1 text-center">
+                <p className="text-lg font-medium text-foreground mb-4">Vous n'avez pas l'autorisation de partager ce document</p>
+                <div className="flex justify-center">
+                  <Button variant="ghost" onClick={() => setIsShareModalOpen(false)}>Fermer</Button>
+                </div>
               </div>
-
-              {shareError && (
-                <p className="text-sm text-destructive mt-2">{shareError}</p>
-              )}
-              {shareSuccess && (
-                <p className="text-sm text-primary mt-2">{shareSuccess}</p>
-              )}
-            </div>
+            )}
           </Modal.Content>
           <Modal.Footer>
           </Modal.Footer>

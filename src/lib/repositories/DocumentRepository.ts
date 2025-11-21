@@ -311,6 +311,8 @@ export class DocumentRepository extends BaseRepository {
         }
 
         let whereClause = `WHERE id = $${values.length - 1} AND user_id = $${values.length}`;
+
+        // Si un email est fourni, vérifier aussi les permissions de partage
         if (userEmail) {
           whereClause = `WHERE id = $${values.length - 1} AND (
             user_id = $${values.length} OR 
@@ -356,24 +358,24 @@ export class DocumentRepository extends BaseRepository {
   async deleteDocument(documentId: number, userId: number): Promise<DocumentRepositoryResult<{ id: number }>> {
     try {
       const document = await this.query<Document>(
-      `SELECT * FROM documents WHERE id = $1 AND user_id = $2`,
-      [documentId, userId]
-    );
+        `SELECT * FROM documents WHERE id = $1 AND user_id = $2`,
+        [documentId, userId]
+      );
 
-    if (document.rows.length === 0) {
-      return { success: false, error: "Document non trouvé ou vous n'êtes pas autorisé à le supprimer" };
-    }
+      if (document.rows.length === 0) {
+        return { success: false, error: "Document non trouvé ou vous n'êtes pas autorisé à le supprimer" };
+      }
 
-    const doc = document.rows[0];
+      const doc = document.rows[0];
 
-    // 2. Insérer dans la table de corbeille
-    await this.query(
-      `INSERT INTO trash_documents (user_id, title, content, tags, created_at, updated_at, deleted_at, original_id)
+      // 2. Insérer dans la table de corbeille
+      await this.query(
+        `INSERT INTO trash_documents (user_id, title, content, tags, created_at, updated_at, deleted_at, original_id)
        VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7)`,
-      [doc.user_id, doc.title, doc.content, doc.tags, doc.created_at, doc.updated_at, doc.id]
-    );
+        [doc.user_id, doc.title, doc.content, doc.tags, doc.created_at, doc.updated_at, doc.id]
+      );
 
-    // 3. Supprimer de la table principale
+      // 3. Supprimer de la table principale
       const result = await this.query<{ id: number }>(
         `DELETE FROM documents 
          WHERE id = $1 AND user_id = $2
@@ -416,7 +418,7 @@ export class DocumentRepository extends BaseRepository {
       }
 
       // 2. Insérer tous les documents dans la table de corbeille en une seule requête
-      const trashValues = documents.rows.map((doc, index) => 
+      const trashValues = documents.rows.map((doc, index) =>
         `($${index * 8 + 1}, $${index * 8 + 2}, $${index * 8 + 3}, $${index * 8 + 4}, $${index * 8 + 5}, $${index * 8 + 6}, NOW(), $${index * 8 + 7})`
       ).join(', ');
 
@@ -563,21 +565,88 @@ export class DocumentRepository extends BaseRepository {
     }
   }
 
-  async addShare(documentId: number, email: string, permission: boolean): Promise<DocumentRepositoryResult<{ id: number }>> {
+  async updatePermission(documentId: number, userId: number, permission: boolean): Promise<DocumentRepositoryResult<{ updatedCount: number }>> {
     try {
       const result = await this.query<{ id: number }>(
-        `INSERT INTO shares (id_doc, email, permission)
-         VALUES ($1, lower(trim($2)), $3)
-         ON CONFLICT (id_doc, email) DO UPDATE SET permission = EXCLUDED.permission
+        `UPDATE shares s
+         SET permission = $3
+         FROM users u
+         WHERE s.id_doc = $1 AND lower(trim(s.email)) = lower(trim(u.email)) AND u.id = $2
+         RETURNING s.id`,
+        [documentId, userId, permission]
+      );
+
+      return { success: true, data: { updatedCount: result.rows.length } };
+    } catch (error) {
+      console.error("❌ Erreur mise à jour permission de partage:", error);
+      return { success: false, error: error instanceof Error ? error.message : "Erreur inconnue" };
+    }
+  }
+
+  async findShare(documentId: number, userId: number): Promise<DocumentRepositoryResult<{ share: any }>> {
+    try {
+      const result = await this.query(
+        `SELECT s.* FROM shares s
+         JOIN users u ON lower(trim(u.email)) = lower(trim(s.email))
+         WHERE s.id_doc = $1 AND u.id = $2
+         LIMIT 1`,
+        [documentId, userId]
+      );
+
+      if (result.rows.length === 0) {
+        return { success: false, error: 'Partage introuvable' };
+      }
+
+      return { success: true, data: { share: result.rows[0] } };
+    } catch (error) {
+      console.error('❌ Erreur recherche partage:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Erreur inconnue' };
+    }
+  }
+
+  async ownerIdForDocument(documentId: number): Promise<DocumentRepositoryResult<{ ownerId: number | null }>> {
+    try {
+      const result = await this.query<{ user_id: number }>(
+        `SELECT user_id FROM documents WHERE id = $1`,
+        [documentId]
+      );
+
+      if (result.rows.length === 0) {
+        return { success: true, data: { ownerId: null } };
+      }
+
+      return { success: true, data: { ownerId: result.rows[0].user_id ?? null } };
+    } catch (error) {
+      console.error('❌ Erreur récupération ownerId pour document:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Erreur inconnue' };
+    }
+  }
+
+  async addShare(documentId: number, email: string, permission: boolean): Promise<DocumentRepositoryResult<{ id: number }>> {
+    try {
+      const updateRes = await this.query<{ id: number }>(
+        `UPDATE shares SET permission = $3
+         WHERE id_doc = $1 AND lower(trim(email)) = lower(trim($2))
          RETURNING id`,
         [documentId, email, permission]
       );
 
-      if (result.rows.length === 0) {
+      if (updateRes.rows.length > 0) {
+        return { success: true, data: { id: updateRes.rows[0].id } };
+      }
+
+      const insertRes = await this.query<{ id: number }>(
+        `INSERT INTO shares (id_doc, email, permission)
+         VALUES ($1, lower(trim($2)), $3)
+         RETURNING id`,
+        [documentId, email, permission]
+      );
+
+      if (insertRes.rows.length === 0) {
         return { success: false, error: "Erreur lors de l'ajout du partage" };
       }
 
-      return { success: true, data: { id: result.rows[0].id } };
+      return { success: true, data: { id: insertRes.rows[0].id } };
     } catch (error) {
       console.error("❌ Erreur ajout partage:", error);
       return { success: false, error: error instanceof Error ? error.message : "Erreur inconnue" };
@@ -658,6 +727,21 @@ export class DocumentRepository extends BaseRepository {
     } catch (error) {
       console.error('❌ Erreur récupération access list:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Erreur inconnue' };
+    }
+  }
+
+  async removeShare(documentId: number, email: string): Promise<DocumentRepositoryResult<{ deletedCount: number }>> {
+    try {
+      const result = await this.query<{ id: number }>(
+        `DELETE FROM shares 
+         WHERE id_doc = $1 AND lower(trim(email)) = lower(trim($2))
+         RETURNING id`,
+        [documentId, email]
+      );
+      return { success: true, data: { deletedCount: result.rows.length } };
+    } catch (error) {
+      console.error("❌ Erreur suppression partage:", error);
+      return { success: false, error: error instanceof Error ? error.message : "Erreur inconnue" };
     }
   }
 }  
