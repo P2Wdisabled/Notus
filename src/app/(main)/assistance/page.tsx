@@ -1,23 +1,123 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 import NavBar from "@/components/navigation/NavBar";
 import ContentWrapper from "@/components/common/ContentWrapper";
 import { Card, CardContent, CardHeader, CardTitle, Button, Input, Textarea } from "@/components/ui";
 import Icon from "@/components/Icon";
+import ViewModeSwitch from "@/components/assistance/ViewModeSwitch";
+import RequestHistoryCard from "@/components/assistance/RequestHistoryCard";
 import { cn } from "@/lib/utils";
+import type { Request } from "@/lib/repositories/RequestRepository";
 
 type RequestType = "help" | "data_restoration" | "other";
+type ViewMode = "new" | "history";
+
+interface RequestWithMessage extends Request {
+  message?: string;
+}
+
+const typeLabels: Record<RequestType, string> = {
+  help: "Demande d'aide",
+  data_restoration: "Restauration de données",
+  other: "Autre",
+};
+
+const statusLabels: Record<Request["status"], string> = {
+  pending: "En attente",
+  in_progress: "En cours",
+  resolved: "Résolu",
+  rejected: "Rejeté",
+};
+
+const statusVariants: Record<Request["status"], "warning" | "info" | "success" | "destructive"> = {
+  pending: "warning",
+  in_progress: "info",
+  resolved: "success",
+  rejected: "destructive",
+};
 
 export default function AssistancePage() {
-  const router = useRouter();
+  const { data: session } = useSession();
+  const searchParams = useSearchParams();
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    // Si le paramètre "view" est "history", ouvrir en mode historique
+    return searchParams?.get("view") === "history" ? "history" : "new";
+  });
   const [type, setType] = useState<RequestType>("help");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [requests, setRequests] = useState<RequestWithMessage[]>([]);
+  const [isLoadingRequests, setIsLoadingRequests] = useState(false);
+
+  useEffect(() => {
+    if (viewMode === "history" && session?.user?.id) {
+      fetchUserRequests();
+    }
+  }, [viewMode, session?.user?.id]);
+
+  const fetchUserRequests = async () => {
+    if (!session?.user?.id) return;
+
+    setIsLoadingRequests(true);
+    setError(null);
+
+    try {
+      const [requestsResponse, notificationsResponse] = await Promise.all([
+        fetch(`/api/requests?userId=${session.user.id}`),
+        fetch(`/api/notification?id=${session.user.id}`),
+      ]);
+
+      const requestsData = await requestsResponse.json();
+      const notificationsData = await notificationsResponse.json();
+
+      if (!requestsData.success) {
+        throw new Error(requestsData.error || "Erreur lors de la récupération des requêtes");
+      }
+
+      const userRequests: RequestWithMessage[] = (requestsData.requests || []).map((req: Request) => {
+        // Chercher le message dans les notifications
+        const notification = (notificationsData.notifications || notificationsData.data || []).find(
+          (notif: any) => {
+            try {
+              const parsed = notif.parsed || (typeof notif.message === "string" ? JSON.parse(notif.message) : null);
+              return (
+                parsed &&
+                (parsed.type === "request-response" || parsed.type === "request-resolved") &&
+                parsed.requestId === req.id
+              );
+            } catch {
+              return false;
+            }
+          }
+        );
+
+        let message: string | undefined;
+        if (notification) {
+          try {
+            const parsed = notification.parsed || (typeof notification.message === "string" ? JSON.parse(notification.message) : null);
+            message = parsed?.message || (typeof notification.message === "string" ? notification.message : undefined);
+          } catch {
+            message = typeof notification.message === "string" ? notification.message : undefined;
+          }
+        }
+
+        return { ...req, message };
+      });
+
+      setRequests(userRequests);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Une erreur est survenue");
+      setRequests([]);
+    } finally {
+      setIsLoadingRequests(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -57,6 +157,11 @@ export default function AssistancePage() {
       setTimeout(() => {
         setSuccess(false);
       }, 5000);
+
+      // Rafraîchir les requêtes si on est en mode historique
+      if (viewMode === "history") {
+        await fetchUserRequests();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Une erreur est survenue");
     } finally {
@@ -85,6 +190,17 @@ export default function AssistancePage() {
     },
   ];
 
+  const formatDate = (date: Date | string) => {
+    const d = typeof date === "string" ? new Date(date) : date;
+    return new Intl.DateTimeFormat("fr-FR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(d);
+  };
+
   return (
     <main className="min-h-screen bg-background">
       <NavBar />
@@ -98,6 +214,8 @@ export default function AssistancePage() {
               Créez une requête pour obtenir de l'aide ou demander une restauration de données.
             </p>
           </header>
+
+          <ViewModeSwitch value={viewMode} onChange={setViewMode} />
 
           {success && (
             <div className="p-4 bg-success/10 border border-success/20 rounded-lg text-success">
@@ -121,12 +239,13 @@ export default function AssistancePage() {
             </div>
           )}
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Nouvelle requête</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-6">
+          {viewMode === "new" ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Nouvelle requête</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleSubmit} className="space-y-6">
                 <fieldset>
                   <legend className="text-foreground font-medium mb-3">
                     Type de requête
@@ -220,6 +339,39 @@ export default function AssistancePage() {
               </form>
             </CardContent>
           </Card>
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>Mes demandes d'assistance</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {isLoadingRequests ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Icon name="spinner" className="w-6 h-6 animate-spin text-muted-foreground" />
+                    <span className="ml-2 text-muted-foreground">Chargement...</span>
+                  </div>
+                ) : requests.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Icon name="inbox" className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                    <p>Aucune demande d'assistance pour le moment.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {requests.map((req) => (
+                      <RequestHistoryCard
+                        key={req.id}
+                        request={req}
+                        typeLabels={typeLabels}
+                        statusLabels={statusLabels}
+                        statusVariants={statusVariants}
+                        formatDate={formatDate}
+                      />
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </section>
       </ContentWrapper>
     </main>

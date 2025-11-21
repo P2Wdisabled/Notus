@@ -1,5 +1,6 @@
 import React from "react";
 import Icon from "@/components/Icon";
+import { cn } from "@/lib/utils";
 
 interface NotificationItemProps {
     avatar?: string | null;
@@ -96,7 +97,10 @@ export default function NotificationItem({
             tabIndex={0}
             onClick={onClick}
             onKeyDown={handleKeyDown}
-            className="w-full flex flex-row items-center text-left px-3 py-2 rounded hover:bg-muted text-foreground"
+            className={cn(
+                "w-full flex flex-row items-center text-left px-3 py-2 rounded hover:bg-muted text-foreground",
+                onClick && "cursor-pointer"
+            )}
         >
             {!isSystem ? (
                 hasAvatar && !imgError ? (
@@ -112,7 +116,7 @@ export default function NotificationItem({
                 )
             ) : null}
 
-            <div className="flex-1 flex flex-col">
+            <div className="flex-1 flex flex-col min-w-0">
                 <div className="flex items-center justify-between gap-2">
                     <span className="font-medium text-sm">{isSystem ? "Système" : username || "Utilisateur"}</span>
                     <div className="flex items-center gap-2">
@@ -142,7 +146,7 @@ export default function NotificationItem({
                         </button>
                     </div>
                 </div>
-                <span className="text-sm text-muted-foreground max-w-[260px]" title={message || ""}>
+                <span className={cn("text-sm text-muted-foreground max-w-[260px] break-words")} title={message || ""}>
                     {message || ""}
                 </span>
             </div>
