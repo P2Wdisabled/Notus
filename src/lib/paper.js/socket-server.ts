@@ -57,7 +57,7 @@ export function initializeSocketServer(httpServer: HTTPServer) {
   }
 
     io = new IOServer(httpServer, {
-      path: '/api/socket',
+      path: '/socket.io',
       cors: {
         origin: process.env.NEXT_PUBLIC_SOCKET_CORS_ORIGIN || '*',
         credentials: true,
