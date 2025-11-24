@@ -73,7 +73,7 @@ async function getSharedSocketInstance(): Promise<Socket<ServerToClientEvents, C
       transports: ['polling', 'websocket'],
       upgrade: true,
       autoConnect: true,
-      path: '/socket.io',
+      path: '/api/socket',
       timeout: 20000,
       forceNew: false,
       query: {
