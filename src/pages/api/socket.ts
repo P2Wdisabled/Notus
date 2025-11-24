@@ -22,6 +22,7 @@ export default function handler(_req: NextApiRequest, res: NextApiResponseServer
     const io = initializeSocketServer(httpServer);
     res.socket.server.io = io;
   }
+  res.setHeader('Cache-Control', 'no-store');
   res.end();
 }
 

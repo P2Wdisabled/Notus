@@ -40,7 +40,12 @@ async function ensureServerReady(): Promise<boolean> {
     return false;
   }
   try {
-    await fetch('/api/socket');
+    await fetch('/api/socket', {
+      cache: 'no-store',
+      headers: {
+        'cache-control': 'no-store',
+      },
+    });
     window.__notus_socket_server_ready = true;
     return true;
   } catch (error) {
@@ -65,8 +70,8 @@ async function getSharedSocketInstance(): Promise<Socket<ServerToClientEvents, C
 
     const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL;
     const instance = io(socketUrl || undefined, {
-      transports: ['websocket'],
-      upgrade: false,
+      transports: ['polling', 'websocket'],
+      upgrade: true,
       autoConnect: true,
       path: '/api/socket',
       timeout: 20000,
