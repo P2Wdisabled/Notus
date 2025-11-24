@@ -4,64 +4,70 @@ import bcrypt from "bcryptjs";
 
 export class UserRepository extends BaseRepository {
   async initializeTables(): Promise<void> {
-    try {
-      // Vérifier si on doit réinitialiser la base de données
-      const shouldReset = process.env.RESET_DATABASE === "true";
-
-      if (shouldReset) {
-        const { resetDatabase } = require("../reset-database");
-        await resetDatabase();
-      }
-
-      // Table des utilisateurs
-      await this.query(`
-        CREATE TABLE IF NOT EXISTS users (
-          id SERIAL PRIMARY KEY,
-          email VARCHAR(255) UNIQUE NOT NULL,
-          username VARCHAR(50) UNIQUE NOT NULL,
-          password_hash VARCHAR(255),
-          first_name VARCHAR(100) NOT NULL,
-          last_name VARCHAR(100) NOT NULL,
-          email_verified BOOLEAN DEFAULT FALSE,
-          email_verification_token VARCHAR(255),
-          provider VARCHAR(50),
-          provider_id VARCHAR(255),
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-
-      // Ajouter les colonnes OAuth si elles n'existent pas
-      await this.addColumnIfNotExists("users", "provider", "VARCHAR(50)");
-      await this.addColumnIfNotExists("users", "provider_id", "VARCHAR(255)");
-      
-      // Rendre password_hash nullable pour les utilisateurs OAuth
-      await this.makeColumnNullable("users", "password_hash");
-      
-      // Ajouter les colonnes pour la réinitialisation de mot de passe
-      await this.addColumnIfNotExists("users", "reset_token", "VARCHAR(255)");
-      await this.addColumnIfNotExists("users", "reset_token_expiry", "TIMESTAMP");
-      
-      // Ajouter les colonnes pour l'administration
-      await this.addColumnIfNotExists("users", "is_admin", "BOOLEAN DEFAULT FALSE");
-      await this.addColumnIfNotExists("users", "is_banned", "BOOLEAN DEFAULT FALSE");
-      
-      // Ajouter la colonne pour l'acceptation des conditions d'utilisation
-      await this.addColumnIfNotExists("users", "terms_accepted_at", "TIMESTAMP");
-      
-      // Ajouter les colonnes pour les images de profil et bannière
-      await this.addColumnIfNotExists("users", "profile_image", "TEXT");
-      await this.addColumnIfNotExists("users", "banner_image", "TEXT");
-
-      // Créer les index
-      await this.createIndexes();
-
-      // Créer les triggers
-      await this.createTriggers();
-    } catch (error) {
-      console.error("❌ Erreur lors de l'initialisation des tables utilisateurs:", error);
-      throw error;
+    if (!process.env.DATABASE_URL) {
+      return;
     }
+
+    return this.ensureInitialized(async () => {
+      try {
+        // Vérifier si on doit réinitialiser la base de données
+        const shouldReset = process.env.RESET_DATABASE === "true";
+
+        if (shouldReset) {
+          const { resetDatabase } = require("../reset-database");
+          await resetDatabase();
+        }
+
+        // Table des utilisateurs
+        await this.query(`
+          CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            email VARCHAR(255) UNIQUE NOT NULL,
+            username VARCHAR(50) UNIQUE NOT NULL,
+            password_hash VARCHAR(255),
+            first_name VARCHAR(100) NOT NULL,
+            last_name VARCHAR(100) NOT NULL,
+            email_verified BOOLEAN DEFAULT FALSE,
+            email_verification_token VARCHAR(255),
+            provider VARCHAR(50),
+            provider_id VARCHAR(255),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          )
+        `);
+
+        // Ajouter les colonnes OAuth si elles n'existent pas
+        await this.addColumnIfNotExists("users", "provider", "VARCHAR(50)");
+        await this.addColumnIfNotExists("users", "provider_id", "VARCHAR(255)");
+        
+        // Rendre password_hash nullable pour les utilisateurs OAuth
+        await this.makeColumnNullable("users", "password_hash");
+        
+        // Ajouter les colonnes pour la réinitialisation de mot de passe
+        await this.addColumnIfNotExists("users", "reset_token", "VARCHAR(255)");
+        await this.addColumnIfNotExists("users", "reset_token_expiry", "TIMESTAMP");
+        
+        // Ajouter les colonnes pour l'administration
+        await this.addColumnIfNotExists("users", "is_admin", "BOOLEAN DEFAULT FALSE");
+        await this.addColumnIfNotExists("users", "is_banned", "BOOLEAN DEFAULT FALSE");
+        
+        // Ajouter la colonne pour l'acceptation des conditions d'utilisation
+        await this.addColumnIfNotExists("users", "terms_accepted_at", "TIMESTAMP");
+        
+        // Ajouter les colonnes pour les images de profil et bannière
+        await this.addColumnIfNotExists("users", "profile_image", "TEXT");
+        await this.addColumnIfNotExists("users", "banner_image", "TEXT");
+
+        // Créer les index
+        await this.createIndexes();
+
+        // Créer les triggers
+        await this.createTriggers();
+      } catch (error) {
+        console.error("❌ Erreur lors de l'initialisation des tables utilisateurs:", error);
+        throw error;
+      }
+    });
   }
 
   private async addColumnIfNotExists(tableName: string, columnName: string, columnDefinition: string): Promise<void> {

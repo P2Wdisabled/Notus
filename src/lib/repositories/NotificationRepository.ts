@@ -3,24 +3,30 @@ import { Notification } from "../types";
 
 export class NotificationRepository extends BaseRepository {
     async initializeTables(): Promise<void> {
-        try {
-            await this.query(`
-        CREATE TABLE IF NOT EXISTS notifications (
-          id SERIAL PRIMARY KEY,
-          id_sender INTEGER NULL,
-          id_receiver INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          message JSONB NOT NULL,
-          send_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          read_date TIMESTAMP NULL
-        )
-      `);
-
-            await this.query(`CREATE INDEX IF NOT EXISTS idx_notifications_receiver ON notifications(id_receiver)`);
-            await this.query(`CREATE INDEX IF NOT EXISTS idx_notifications_send_date ON notifications(send_date DESC)`);
-        } catch (error) {
-            console.error("❌ Erreur lors de l'initialisation des tables notifications:", error);
-            throw error;
+        if (!process.env.DATABASE_URL) {
+            return;
         }
+
+        return this.ensureInitialized(async () => {
+            try {
+                await this.query(`
+            CREATE TABLE IF NOT EXISTS notifications (
+              id SERIAL PRIMARY KEY,
+              id_sender INTEGER NULL,
+              id_receiver INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+              message JSONB NOT NULL,
+              send_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              read_date TIMESTAMP NULL
+            )
+          `);
+
+                await this.query(`CREATE INDEX IF NOT EXISTS idx_notifications_receiver ON notifications(id_receiver)`);
+                await this.query(`CREATE INDEX IF NOT EXISTS idx_notifications_send_date ON notifications(send_date DESC)`);
+            } catch (error) {
+                console.error("❌ Erreur lors de l'initialisation des tables notifications:", error);
+                throw error;
+            }
+        });
     }
 
     async createNotification(id_sender: number | null, id_receiver: number, message: object | string) {

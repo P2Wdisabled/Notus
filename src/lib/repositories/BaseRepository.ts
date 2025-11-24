@@ -1,6 +1,11 @@
 import { Pool } from "pg";
 import { QueryResult } from "../types";
 
+type InitializationState = {
+  initialized: boolean;
+  promise: Promise<void> | null;
+};
+
 // Configuration de la connexion à la base de données
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -14,6 +19,8 @@ pool.on("error", (err: Error) => {
   console.error("❌ Erreur de connexion PostgreSQL:", err);
   process.exit(-1);
 });
+
+const repositoryInitialization = new Map<string, InitializationState>();
 
 // Classe de base pour les repositories
 export abstract class BaseRepository {
@@ -45,6 +52,37 @@ export abstract class BaseRepository {
     }
     
     throw lastError;
+  }
+
+  /**
+   * Ensure that heavy initialization logic only runs once per repository (and that
+   * concurrent calls await the same promise).
+   */
+  protected async ensureInitialized(initializer: () => Promise<void>): Promise<void> {
+    const key = this.constructor.name;
+    const existing = repositoryInitialization.get(key);
+
+    if (existing?.initialized) {
+      return;
+    }
+
+    if (existing?.promise) {
+      await existing.promise;
+      return;
+    }
+
+    const initPromise = (async () => {
+      try {
+        await initializer();
+        repositoryInitialization.set(key, { initialized: true, promise: null });
+      } catch (error) {
+        repositoryInitialization.delete(key);
+        throw error;
+      }
+    })();
+
+    repositoryInitialization.set(key, { initialized: false, promise: initPromise });
+    await initPromise;
   }
 
   /**

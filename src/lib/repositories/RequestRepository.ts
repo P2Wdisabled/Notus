@@ -42,33 +42,39 @@ export interface RequestRepositoryResult<T> {
 
 export class RequestRepository extends BaseRepository {
   async initializeTables(): Promise<void> {
-    try {
-      // Table des requêtes utilisateurs
-      await this.query(`
-        CREATE TABLE IF NOT EXISTS user_requests (
-          id SERIAL PRIMARY KEY,
-          user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-          type VARCHAR(50) NOT NULL DEFAULT 'other',
-          title VARCHAR(255) NOT NULL,
-          description TEXT NOT NULL,
-          status VARCHAR(50) NOT NULL DEFAULT 'pending',
-          validated BOOLEAN DEFAULT FALSE,
-          validated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
-          validated_at TIMESTAMP,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-
-      // Créer les index
-      await this.createIndexes();
-
-      // Créer les triggers
-      await this.createTriggers();
-    } catch (error) {
-      console.error("❌ Erreur lors de l'initialisation de la table user_requests:", error);
-      throw error;
+    if (!process.env.DATABASE_URL) {
+      return;
     }
+
+    return this.ensureInitialized(async () => {
+      try {
+        // Table des requêtes utilisateurs
+        await this.query(`
+          CREATE TABLE IF NOT EXISTS user_requests (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            type VARCHAR(50) NOT NULL DEFAULT 'other',
+            title VARCHAR(255) NOT NULL,
+            description TEXT NOT NULL,
+            status VARCHAR(50) NOT NULL DEFAULT 'pending',
+            validated BOOLEAN DEFAULT FALSE,
+            validated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            validated_at TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          )
+        `);
+
+        // Créer les index
+        await this.createIndexes();
+
+        // Créer les triggers
+        await this.createTriggers();
+      } catch (error) {
+        console.error("❌ Erreur lors de l'initialisation de la table user_requests:", error);
+        throw error;
+      }
+    });
   }
 
   private async createIndexes(): Promise<void> {

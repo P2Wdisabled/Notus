@@ -3,57 +3,61 @@ import { Document, CreateDocumentData, UpdateDocumentData, DocumentRepositoryRes
 
 export class DocumentRepository extends BaseRepository {
   async initializeTables(): Promise<void> {
-    // Use advisory lock to prevent concurrent initialization and deadlocks
-    return await this.withAdvisoryLock(async () => {
+    if (!process.env.DATABASE_URL) {
+      return;
+    }
+
+    return this.ensureInitialized(async () => {
       try {
+        await this.withAdvisoryLock(async () => {
+          // Table des documents
+          await this.query(`
+            CREATE TABLE IF NOT EXISTS documents (
+              id SERIAL PRIMARY KEY,
+              user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+              title VARCHAR(255) NOT NULL DEFAULT 'Sans titre',
+              content TEXT NOT NULL DEFAULT '',
+              tags TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+          `);
 
-        // Table des documents
-        await this.query(`
-          CREATE TABLE IF NOT EXISTS documents (
-            id SERIAL PRIMARY KEY,
-            user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-            title VARCHAR(255) NOT NULL DEFAULT 'Sans titre',
-            content TEXT NOT NULL DEFAULT '',
-            tags TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-          )
-        `);
+          // Table des partages (shares)
+          await this.query(`
+            CREATE TABLE IF NOT EXISTS shares (
+              id SERIAL PRIMARY KEY,
+              id_doc INTEGER REFERENCES documents(id) ON DELETE CASCADE,
+              email VARCHAR(255) NOT NULL,
+              permission BOOLEAN NOT NULL DEFAULT FALSE,
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+          `);
 
-        // Table des partages (shares)
-        await this.query(`
-          CREATE TABLE IF NOT EXISTS shares (
-            id SERIAL PRIMARY KEY,
-            id_doc INTEGER REFERENCES documents(id) ON DELETE CASCADE,
-            email VARCHAR(255) NOT NULL,
-            permission BOOLEAN NOT NULL DEFAULT FALSE,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-          )
-        `);
+          // Table des documents supprimés (trash)
+          await this.query(`
+            CREATE TABLE IF NOT EXISTS trash_documents (
+              id SERIAL PRIMARY KEY,
+              user_id INTEGER,
+              title VARCHAR(255) NOT NULL,
+              content TEXT NOT NULL DEFAULT '',
+              tags TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              deleted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              original_id INTEGER
+            )
+          `);
 
-        // Table des documents supprimés (trash)
-        await this.query(`
-          CREATE TABLE IF NOT EXISTS trash_documents (
-            id SERIAL PRIMARY KEY,
-            user_id INTEGER,
-            title VARCHAR(255) NOT NULL,
-            content TEXT NOT NULL DEFAULT '',
-            tags TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            deleted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            original_id INTEGER
-          )
-        `);
+          // Ajouter la colonne tags si base déjà existante
+          await this.addColumnIfNotExists("documents", "tags", "TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[]");
 
-        // Ajouter la colonne tags si base déjà existante
-        await this.addColumnIfNotExists("documents", "tags", "TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[]");
+          // Créer les index
+          await this.createIndexes();
 
-        // Créer les index
-        await this.createIndexes();
-
-        // Créer les triggers
-        await this.createTriggers();
+          // Créer les triggers
+          await this.createTriggers();
+        });
       } catch (error) {
         console.error("❌ Erreur lors de l'initialisation des tables documents:", error);
         throw error;
