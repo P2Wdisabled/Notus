@@ -1,11 +1,9 @@
 import { NextResponse } from "next/server";
-import { auth } from "../../../../../../../auth";
-import { UserService } from "@/lib/services/UserService";
 import { RequestService } from "@/lib/services/RequestService";
 import { NotificationService } from "@/lib/services/NotificationService";
+import { requireAdmin } from "@/lib/security/routeGuards";
 
 const requestService = new RequestService();
-const userService = new UserService();
 const notificationService = new NotificationService();
 
 interface RouteParams {
@@ -16,43 +14,30 @@ interface RouteParams {
 
 export async function POST(request: Request, { params }: RouteParams) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { success: false, error: "Non authentifié" },
-        { status: 401 }
-      );
-    }
-
-    const isAdmin = await userService.isUserAdmin(parseInt(session.user.id));
-    if (!isAdmin) {
-      return NextResponse.json(
-        { success: false, error: "Accès refusé" },
-        { status: 403 }
-      );
+    const adminResult = await requireAdmin();
+    if (adminResult instanceof NextResponse) {
+      return adminResult;
     }
 
     const { id } = await params;
     await requestService.initializeTables();
     await notificationService.initializeTables();
 
-    // Récupérer la requête avant résolution pour obtenir les informations utilisateur
     const requestBeforeResolution = await requestService.getRequestById(parseInt(id));
     if (!requestBeforeResolution.success || !requestBeforeResolution.request) {
       return NextResponse.json(
-        { success: false, error: "Requête non trouvée" },
+        { success: false, error: "Accès refusé" },
         { status: 404 }
       );
     }
 
     const userRequest = requestBeforeResolution.request;
 
-    // Résoudre la requête
-    const result = await requestService.resolveRequest(parseInt(id), parseInt(session.user.id));
+    const result = await requestService.resolveRequest(parseInt(id), adminResult.userId);
 
     if (!result.success) {
       return NextResponse.json(
-        { success: false, error: result.error || "Erreur lors de la résolution" },
+        { success: false, error: "Accès refusé" },
         { status: 500 }
       );
     }
@@ -76,7 +61,7 @@ export async function POST(request: Request, { params }: RouteParams) {
     };
 
     const notificationResult = await notificationService.sendNotification(
-      parseInt(session.user.id),
+      adminResult.userId,
       userRequest.user_id,
       notificationMessage
     );
@@ -84,7 +69,6 @@ export async function POST(request: Request, { params }: RouteParams) {
     if (!notificationResult.success) {
       const errorMessage = 'error' in notificationResult ? notificationResult.error : "Erreur inconnue";
       console.error("❌ Erreur envoi notification:", errorMessage);
-      // On continue quand même, la notification n'est pas critique
     }
 
     return NextResponse.json({
@@ -95,7 +79,7 @@ export async function POST(request: Request, { params }: RouteParams) {
   } catch (error) {
     console.error("❌ Erreur résolution requête:", error);
     return NextResponse.json(
-      { success: false, error: "Erreur interne du serveur" },
+      { success: false, error: "Accès refusé" },
       { status: 500 }
     );
   }

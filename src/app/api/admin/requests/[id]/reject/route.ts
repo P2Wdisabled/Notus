@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server";
-import { auth } from "../../../../../../../auth";
-import { UserService } from "@/lib/services/UserService";
 import { RequestService } from "@/lib/services/RequestService";
+import { requireAdmin } from "@/lib/security/routeGuards";
 
 const requestService = new RequestService();
-const userService = new UserService();
 
 interface RouteParams {
   params: Promise<{
@@ -14,30 +12,19 @@ interface RouteParams {
 
 export async function POST(request: Request, { params }: RouteParams) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { success: false, error: "Non authentifié" },
-        { status: 401 }
-      );
-    }
-
-    const isAdmin = await userService.isUserAdmin(parseInt(session.user.id));
-    if (!isAdmin) {
-      return NextResponse.json(
-        { success: false, error: "Accès refusé" },
-        { status: 403 }
-      );
+    const adminResult = await requireAdmin();
+    if (adminResult instanceof NextResponse) {
+      return adminResult;
     }
 
     const { id } = await params;
     await requestService.initializeTables();
 
-    const result = await requestService.rejectRequest(parseInt(id), parseInt(session.user.id));
+    const result = await requestService.rejectRequest(parseInt(id), adminResult.userId);
 
     if (!result.success) {
       return NextResponse.json(
-        { success: false, error: result.error || "Erreur lors du rejet" },
+        { success: false, error: "Accès refusé" },
         { status: 500 }
       );
     }
@@ -46,7 +33,7 @@ export async function POST(request: Request, { params }: RouteParams) {
   } catch (error) {
     console.error("❌ Erreur rejet requête:", error);
     return NextResponse.json(
-      { success: false, error: "Erreur interne du serveur" },
+      { success: false, error: "Accès refusé" },
       { status: 500 }
     );
   }

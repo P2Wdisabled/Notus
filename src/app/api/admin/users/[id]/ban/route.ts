@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { auth } from "../../../../../../../auth";
 import { UserService } from "@/lib/services/UserService";
+import { requireAdmin } from "@/lib/security/routeGuards";
 
 interface RouteParams {
   params: Promise<{
@@ -12,20 +12,9 @@ const userService = new UserService();
 
 export async function PATCH(request: Request, { params }: RouteParams) {
   try {
-    const session = await auth();
-
-    // Vérifier si l'utilisateur est connecté
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-    }
-
-    // Vérifier si l'utilisateur est admin
-    const isAdmin = await userService.isUserAdmin(parseInt(session.user.id));
-    if (!isAdmin) {
-      return NextResponse.json(
-        { error: "Accès refusé - Droits administrateur requis" },
-        { status: 403 }
-      );
+    const adminResult = await requireAdmin();
+    if (adminResult instanceof NextResponse) {
+      return adminResult;
     }
 
     const { id } = await params;
@@ -33,15 +22,14 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
     if (typeof isBanned !== "boolean") {
       return NextResponse.json(
-        { error: "Le paramètre isBanned doit être un booléen" },
+        { error: "Accès refusé" },
         { status: 400 }
       );
     }
 
-    // Empêcher un admin de se bannir lui-même
-    if (parseInt(id) === parseInt(session.user.id)) {
+    if (parseInt(id) === adminResult.userId) {
       return NextResponse.json(
-        { error: "Vous ne pouvez pas vous bannir vous-même" },
+        { error: "Accès refusé" },
         { status: 400 }
       );
     }
@@ -49,7 +37,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     const result = await userService.toggleUserBan(parseInt(id), isBanned, reason);
 
     if (!result.success) {
-      return NextResponse.json({ error: result.error }, { status: 400 });
+      return NextResponse.json({ error: "Accès refusé" }, { status: 400 });
     }
 
     return NextResponse.json({
@@ -61,7 +49,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
   } catch (error) {
     console.error("Erreur API bannissement utilisateur:", error);
     return NextResponse.json(
-      { error: "Erreur interne du serveur" },
+      { error: "Accès refusé" },
       { status: 500 }
     );
   }

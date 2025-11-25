@@ -1,21 +1,16 @@
 import { NextResponse } from "next/server";
-import { auth } from "../../../../auth";
 import { prisma } from "@/lib/prisma";
+import { requireAuth } from "@/lib/security/routeGuards";
 
 export async function GET() {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { success: false, error: "Non authentifié" },
-        { status: 401 }
-      );
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
 
-    const userId = parseInt(session.user.id);
-
     const dossiers = await prisma.dossier.findMany({
-      where: { user_id: userId },
+      where: { user_id: authResult.userId },
       include: {
         documents: {
           include: {
@@ -39,7 +34,7 @@ export async function GET() {
   } catch (error) {
     console.error("❌ Erreur récupération dossiers:", error);
     return NextResponse.json(
-      { success: false, error: "Erreur interne du serveur" },
+      { success: false, error: "Accès refusé" },
       { status: 500 }
     );
   }
@@ -47,12 +42,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { success: false, error: "Non authentifié" },
-        { status: 401 }
-      );
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
 
     const body = await request.json();
@@ -60,16 +52,14 @@ export async function POST(request: Request) {
 
     if (!nom || typeof nom !== "string" || nom.trim().length === 0) {
       return NextResponse.json(
-        { success: false, error: "Le nom du dossier est requis" },
+        { success: false, error: "Accès refusé" },
         { status: 400 }
       );
     }
 
-    const userId = parseInt(session.user.id);
-
     const dossier = await prisma.dossier.create({
       data: {
-        user_id: userId,
+        user_id: authResult.userId,
         nom: nom.trim(),
       },
     });
@@ -81,7 +71,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("❌ Erreur création dossier:", error);
     return NextResponse.json(
-      { success: false, error: "Erreur interne du serveur" },
+      { success: false, error: "Accès refusé" },
       { status: 500 }
     );
   }
