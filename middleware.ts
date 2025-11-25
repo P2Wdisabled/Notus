@@ -2,9 +2,20 @@ import { NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { UserService } from "./src/lib/services/UserService";
 import { NextRequest } from "next/server";
+import { enforceApiPolicies } from "./src/lib/security/apiPolicies";
 
 export default async function middleware(req: NextRequest) {
   const { nextUrl } = req;
+  const pathname = nextUrl.pathname;
+
+  if (pathname.startsWith("/api")) {
+    const policyResponse = await enforceApiPolicies(req);
+    if (policyResponse) {
+      return policyResponse;
+    }
+    return NextResponse.next();
+  }
+
   const token = await getToken({ req });
   const isLoggedIn = !!token;
 
@@ -59,6 +70,6 @@ export default async function middleware(req: NextRequest) {
 
 export const config = {
   // https://nextjs.org/docs/app/building-your-application/routing/middleware#matcher
-  matcher: ["/((?!api|_next/static|_next/image|.*\\.png$).*)"],
+  matcher: ["/((?!_next/static|_next/image|.*\\.png$).*)"],
   runtime: "nodejs",
 };
