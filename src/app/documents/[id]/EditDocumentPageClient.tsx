@@ -1189,35 +1189,51 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
               >
                 <Icon name="dotsVertical" className="h-6 w-6" />
               </Button>
-              {isMenuOpen && (
-                <div className="absolute right-0 top-full z-40 rounded-lg shadow-lg p-4 min-w-[13rem] bg-background border border-border">
+                {isMenuOpen && (
+                <>
+                  <div
+                  className="fixed inset-0 z-30"
+                  onMouseDown={() => setIsMenuOpen(false)}
+                  aria-hidden="true"
+                  />
+                  <div className="absolute right-0 top-full z-40 rounded-lg shadow-lg p-4 min-w-[13rem] bg-background border border-border">
                   <MenuItem
-                    onClick={() => {
-                      if (hasEditAccess !== false) {
-                        handleShareButtonClick();
-                        setIsMenuOpen(false);
+                  onClick={() => {
+                    if (hasEditAccess !== false) {
+                    setIsMenuOpen(false);
+                    setShareError(null);
+                    setShareSuccess(null);
+                    setIsShareModalOpen(true);
+
+                    (async () => {
+                      const ok = await checkConnectivity();
+                      if (!ok) {
+                      setShareError("Connexion requise pour partager la note.");
                       }
-                    }}
-                    disabled={hasEditAccess === false}
-                    icon={<Icon name="share" className={hasEditAccess === false ? "w-4 h-4 text-muted-foreground" : "w-4 h-4 text-primary"} />}
+                    })();
+                    }
+                  }}
+                  disabled={hasEditAccess === false}
+                  icon={<Icon name="share" className={hasEditAccess === false ? "w-4 h-4 text-muted-foreground" : "w-4 h-4 text-primary"} />}
                   >
-                    {hasEditAccess === false ? "Lecture seule" : "Partager"}
+                  {hasEditAccess === false ? "Lecture seule" : "Partager"}
                   </MenuItem>
 
                   <MenuItem
-                    onClick={() => {
-                      if (hasEditAccess !== false) {
-                        handleSubmit();
-                        setIsMenuOpen(false);
-                      }
-                    }}
-                    disabled={hasEditAccess === false || isManualSaving}
-                    icon={<Icon name="document" className={hasEditAccess === false || isManualSaving ? "w-4 h-4 text-muted-foreground" : "w-4 h-4 text-primary"} />}
+                  onClick={() => {
+                  if (hasEditAccess !== false) {
+                    handleSubmit();
+                    setIsMenuOpen(false);
+                  }
+                  }}
+                  disabled={hasEditAccess === false || isManualSaving}
+                  icon={<Icon name="document" className={hasEditAccess === false || isManualSaving ? "w-4 h-4 text-muted-foreground" : "w-4 h-4 text-primary"} />}
                   >
-                    {isManualSaving ? "Sauvegarde..." : hasEditAccess === false ? "Lecture seule" : "Sauvegarder"}
+                  {isManualSaving ? "Sauvegarde..." : hasEditAccess === false ? "Lecture seule" : "Sauvegarder"}
                   </MenuItem>
-                </div>
-              )}
+                  </div>
+                </>
+                )}
             </div>
           </div>
         </div>
