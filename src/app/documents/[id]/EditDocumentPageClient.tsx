@@ -17,6 +17,7 @@ import { useLocalSession } from "@/hooks/useLocalSession";
 import WysiwygNotepad from "@/components/Paper.js/WysiwygNotepad";
 import { Document, ActionResult } from "@/lib/types";
 import TagsManager from "@/components/documents/TagsManager";
+import CommentsSidebar from "@/components/documents/CommentsSidebar";
 import { addShareAction, deleteDocumentAction, createDocumentAction } from "@/lib/actions/DocumentActions";
 import UserListButton from "@/components/ui/UserList/UserListButton";
 import { useGuardedNavigate } from "@/hooks/useGuardedNavigate";
@@ -112,6 +113,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   const [hasReadAccess, setHasReadAccess] = useState<boolean | null>(null);
   const [users, setUsers] = useState([]);
   const [isOffline, setIsOffline] = useState(false);
+  const [isCommentsOpen, setIsCommentsOpen] = useState(false);
   
   // Load access list for this document and update `users` state
   const loadAccessList = async () => {
@@ -1140,7 +1142,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   }
 
   return (
-      <div className="min-h-screen bg-background py-8">
+    <div className="min-h-screen bg-background py-8">
       <div className="max-w-4xl mx-auto px-4">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -1152,6 +1154,16 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
             Retour
           </Link>
           <div className="flex flex-row justify-center items-center">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="mr-2"
+              onClick={() => setIsCommentsOpen((open) => !open)}
+              disabled={!document?.id}
+              title="Afficher les commentaires"
+            >
+              <Icon name="inbox" className="h-5 w-5" />
+            </Button>
             <UserListButton users={users} className="self-center" documentId={document.id} onAccessListRefresh={loadAccessList} isOwner={isOwner} currentUserId={userId} />
             {hasEditAccess === false && (
               <div className="ml-4 px-3 py-1 bg-muted text-foreground text-sm font-medium rounded-full border border-border">
@@ -1410,6 +1422,11 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
           </div>
         )}
       </div>
+      <CommentsSidebar
+        documentId={document?.id ?? null}
+        isOpen={isCommentsOpen}
+        onClose={() => setIsCommentsOpen(false)}
+      />
     </div>
   );
 }
