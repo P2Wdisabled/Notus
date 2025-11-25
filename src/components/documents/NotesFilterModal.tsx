@@ -160,10 +160,10 @@ export default function NotesFilterModal({ isOpen, onClose }: NotesFilterModalPr
     >
       <div className="space-y-6">
         <section className="space-y-2">
-          <h3 className="text-base font-semibold text-foreground">Date de mise à jour</h3>
+          <h3 className="text-base font-semibold text-[var(--foreground)]">Date de mise à jour</h3>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div className="flex flex-col gap-1">
-              <label htmlFor="filter-date-from" className="text-sm text-muted-foreground">À partir du</label>
+              <label htmlFor="filter-date-from" className="text-sm text-[var(--muted-foreground)]">À partir du</label>
               <Input
                 id="filter-date-from"
                 type="date"
@@ -172,7 +172,7 @@ export default function NotesFilterModal({ isOpen, onClose }: NotesFilterModalPr
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label htmlFor="filter-date-to" className="text-sm text-muted-foreground">Jusqu&apos;au</label>
+              <label htmlFor="filter-date-to" className="text-sm text-[var(--muted-foreground)]">Jusqu&apos;au</label>
               <Input
                 id="filter-date-to"
                 type="date"
@@ -184,7 +184,7 @@ export default function NotesFilterModal({ isOpen, onClose }: NotesFilterModalPr
         </section>
 
         <section className="space-y-2">
-          <h3 className="text-base font-semibold text-foreground">Auteur</h3>
+          <h3 className="text-base font-semibold text-[var(--foreground)]">Auteur</h3>
           <Input
             placeholder="Nom, prénom ou pseudo"
             value={localFilters.author ?? ""}
@@ -195,9 +195,9 @@ export default function NotesFilterModal({ isOpen, onClose }: NotesFilterModalPr
         <section className="space-y-2">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div className="flex flex-col gap-1">
-              <h3 className="text-base font-semibold text-foreground">Partage</h3>
+              <h3 className="text-base font-semibold text-[var(--foreground)]">Partage</h3>
               <select
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                className="w-full rounded-md border border-[var(--input)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)]"
                 value={localFilters.shared ?? ""}
                 onChange={(e) => updateFilter("shared", e.target.value ? (e.target.value as NoteFilters["shared"]) : undefined)}
                 disabled={!isAuthenticated}
@@ -209,13 +209,13 @@ export default function NotesFilterModal({ isOpen, onClose }: NotesFilterModalPr
                 ))}
               </select>
               {!isAuthenticated && (
-                <p className="text-xs text-muted-foreground">Connectez-vous pour filtrer par statut de partage.</p>
+                <p className="text-xs text-[var(--muted-foreground)]">Connectez-vous pour filtrer par statut de partage.</p>
               )}
             </div>
             <div className="flex flex-col gap-1">
-              <h3 className="text-base font-semibold text-foreground">Dossier</h3>
+              <h3 className="text-base font-semibold text-[var(--foreground)]">Dossier</h3>
               <select
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                className="w-full rounded-md border border-[var(--input)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)]"
                 value={localFilters.dossierId ?? ""}
                 onChange={(e) => {
                   const value = e.target.value;
@@ -231,49 +231,50 @@ export default function NotesFilterModal({ isOpen, onClose }: NotesFilterModalPr
                 ))}
               </select>
               {dossiersError && (
-                <p className="text-xs text-destructive">{dossiersError}</p>
+                <p className="text-xs text-[var(--destructive)]">{dossiersError}</p>
               )}
             </div>
           </div>
         </section>
 
         <section className="space-y-3">
-          <h3 className="text-base font-semibold text-foreground">Tags</h3>
+          <h3 className="text-base font-semibold text-[var(--foreground)]">Tags</h3>
           {isAuthenticated && (
             <>
               {(localFilters.tags || []).length > 0 && (
-                <div className="flex flex-wrap gap-2 p-3 bg-primary/5 border border-primary/20 rounded-md">
+                <div className="flex flex-wrap gap-2 p-3 bg-[var(--primary)]/5 border border-[var(--primary)]/20 rounded-md">
                   {(localFilters.tags || []).map((tag) => (
                     <Badge
                       key={tag}
                       variant="purple"
-                      className="flex items-center gap-1.5"
+                      size="sm"
+                      className="flex items-center gap-1"
                     >
                       <span>{tag}</span>
                       <button
                         type="button"
                         onClick={() => handleToggleTag(tag)}
-                        className="rounded-full p-0.5 hover:bg-primary/20 transition-colors"
+                        className="rounded-full p-0.5 hover:bg-[var(--primary)]/20 transition-colors ml-0.5"
                         aria-label={`Retirer le tag ${tag}`}
                       >
-                        <Icon name="x" className="h-3 w-3" />
+                        <Icon name="x" className="h-3 w-3 text-[var(--primary)]" />
                       </button>
                     </Badge>
                   ))}
                 </div>
               )}
               {isLoadingTags ? (
-                <div className="text-sm text-muted-foreground py-4 text-center">
-                  <Icon name="spinner" className="w-5 h-5 animate-spin inline-block mr-2" />
+                <div className="text-sm text-[var(--muted-foreground)] py-4 text-center">
+                  <Icon name="spinner" className="w-5 h-5 animate-spin inline-block mr-2 text-[var(--primary)]" />
                   Chargement des tags...
                 </div>
               ) : tagsError ? (
-                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
-                  <p className="text-xs text-destructive">{tagsError}</p>
+                <div className="p-3 bg-[var(--destructive)]/10 border border-[var(--destructive)]/20 rounded-md">
+                  <p className="text-xs text-[var(--destructive)]">{tagsError}</p>
                 </div>
               ) : availableTagsForSelect.length === 0 ? (
-                <div className="p-3 border border-border rounded-md bg-muted/30">
-                  <p className="text-sm text-muted-foreground">
+                <div className="p-3 border border-[var(--border)] rounded-md bg-[var(--muted)]/30">
+                  <p className="text-sm text-[var(--muted-foreground)]">
                     {availableTags.length === 0
                       ? "Aucun tag disponible."
                       : "Tous les tags sont déjà sélectionnés."}
@@ -281,7 +282,7 @@ export default function NotesFilterModal({ isOpen, onClose }: NotesFilterModalPr
                 </div>
               ) : (
                 <select
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  className="w-full rounded-md border border-[var(--input)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)]"
                   value=""
                   onChange={(e) => {
                     const selectedTag = e.target.value;
@@ -302,20 +303,21 @@ export default function NotesFilterModal({ isOpen, onClose }: NotesFilterModalPr
             </>
           )}
           {!isAuthenticated && (
-            <div className="p-3 bg-muted/30 border border-border rounded-md">
-              <p className="text-xs text-muted-foreground">Connectez-vous pour filtrer par tags.</p>
+            <div className="p-3 bg-[var(--muted)]/30 border border-[var(--border)] rounded-md">
+              <p className="text-xs text-[var(--muted-foreground)]">Connectez-vous pour filtrer par tags.</p>
             </div>
           )}
         </section>
 
-        <div className="flex flex-col gap-3 border-t border-border pt-4 md:flex-row md:items-center md:justify-between flex-shrink-0">
-          <div className="text-sm text-muted-foreground">
+        <footer className="flex flex-col gap-3 border-t border-[var(--border)] pt-4 md:flex-row md:items-center md:justify-between flex-shrink-0">
+          <div className="text-sm text-[var(--muted-foreground)]">
             {hasActiveFilters ? "Des filtres sont appliqués." : "Aucun filtre appliqué."}
           </div>
           <div className="flex flex-col gap-2 md:flex-row">
             <Button
               type="button"
-              variant="outline"
+              variant="ghostPurple"
+              className="cursor-pointer py-2 px-4"
               onClick={() => {
                 resetFilters();
                 setLocalFilters(normalizeFilters(defaultFilters));
@@ -323,11 +325,17 @@ export default function NotesFilterModal({ isOpen, onClose }: NotesFilterModalPr
             >
               Réinitialiser
             </Button>
-            <Button type="button" variant="primary" onClick={handleApply} disabled={!hasChanges && !hasActiveFilters}>
+            <Button 
+              type="button" 
+              variant="primary" 
+              className="cursor-pointer py-2 px-4"
+              onClick={handleApply} 
+              disabled={!hasChanges && !hasActiveFilters}
+            >
               Appliquer les filtres
             </Button>
           </div>
-        </div>
+        </footer>
       </div>
     </FilterModal>
   );

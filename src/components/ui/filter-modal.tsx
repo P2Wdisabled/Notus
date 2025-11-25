@@ -47,21 +47,31 @@ function FilterModalContent({
         {...props}
       >
         {title && (
-          <header className="flex items-center justify-between border-b border-[var(--border)] pb-4">
-            <h2 className="text-2xl font-title font-bold text-[var(--foreground)]">
+          <>
+            <DialogPrimitive.Title className="sr-only">
               {title}
-            </h2>
+            </DialogPrimitive.Title>
+            <header className="flex items-center justify-between border-b border-[var(--border)] pb-4">
+              <h2 className="text-2xl font-title font-bold text-[var(--foreground)]">
+                {title}
+              </h2>
             <DialogPrimitive.Close
               onClick={onClose}
-              className="rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:outline-hidden focus:ring-2 focus:ring-[var(--ring)] focus:ring-offset-2 disabled:pointer-events-none"
+              className="rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:outline-none cursor-pointer disabled:pointer-events-none text-[var(--muted-foreground)] hover:text-[var(--primary)]"
               aria-label="Fermer"
             >
-              <Icon name="x" className="h-6 w-6" aria-hidden="true" />
+              <Icon name="x" className="h-6 w-6 text-current" aria-hidden="true" />
               <span className="sr-only">Fermer</span>
             </DialogPrimitive.Close>
           </header>
+          </>
         )}
-        <main className="overflow-y-auto max-h-[calc(100vh-12rem)]">
+        {!title && (
+          <DialogPrimitive.Title className="sr-only">
+            Modal
+          </DialogPrimitive.Title>
+        )}
+        <main className="overflow-y-auto scroller max-h-[calc(100vh-12rem)] -mx-1 px-1">
           {children}
         </main>
       </DialogPrimitive.Content>
