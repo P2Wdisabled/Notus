@@ -279,11 +279,24 @@ export default function DocumentCard({
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const longPressActivatedRef = useRef(false);
   const clearLongPressTimer = () => { if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null; } };
-  const startLongPressTimer = () => { clearLongPressTimer(); longPressActivatedRef.current = false; longPressTimerRef.current = setTimeout(() => { longPressActivatedRef.current = true; onEnterSelectMode((document as any).id); onToggleSelect((document as any).id, true); }, 500); };
-  const handleContextMenu = (e: React.MouseEvent) => { e.preventDefault(); onEnterSelectMode((document as any).id); onToggleSelect((document as any).id, !selected); };
-  const handleClick = (e: React.MouseEvent) => { if (selectMode || longPressActivatedRef.current) { e.preventDefault(); onToggleSelect((document as any).id, !selected); longPressActivatedRef.current = false; } };
-  const handleCardClick = (e: React.MouseEvent) => { if (selectMode || longPressActivatedRef.current) { e.preventDefault(); onToggleSelect((document as any).id, !selected); longPressActivatedRef.current = false; } };
-  const handleLongPress = () => { onEnterSelectMode((document as any).id); onToggleSelect((document as any).id, !selected); };
+  const startLongPressTimer = () => {
+    if (selectMode) {
+      clearLongPressTimer();
+      return;
+    }
+    clearLongPressTimer();
+    longPressActivatedRef.current = false;
+    longPressTimerRef.current = setTimeout(() => {
+      longPressActivatedRef.current = true;
+      onEnterSelectMode((document as any).id);
+      onToggleSelect((document as any).id, true);
+    }, 500);
+  };
+  const handleLongPress = () => {
+    if (selectMode || longPressActivatedRef.current) return;
+    onEnterSelectMode((document as any).id);
+    onToggleSelect((document as any).id, !selected);
+  };
 
   const previewRef = useRef<HTMLDivElement>(null);
   const [computedStyle, setComputedStyle] = useState({ color: null as string | null, backgroundColor: null as string | null, fontSize: null as string | null, fontFamily: null as string | null, fontWeight: null as string | null, lineHeight: null as string | null, accent: null as string | null });
@@ -300,8 +313,13 @@ export default function DocumentCard({
   const documentUrl = isLocal ? `/documents/local/${encodeURIComponent(String((document as any).id))}` : `/documents/${(document as any).id}`;
   const handleCardNavigation = async (e: React.MouseEvent) => {
     if (showLoginModal) { e.preventDefault(); e.stopPropagation(); return; }
+    if (longPressActivatedRef.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      longPressActivatedRef.current = false;
+      return;
+    }
     if (selectMode) { e.preventDefault(); e.stopPropagation(); onToggleSelect((document as any).id, !selected); return; }
-    if (longPressActivatedRef.current) { e.preventDefault(); onToggleSelect((document as any).id, !selected); longPressActivatedRef.current = false; return; }
     e.preventDefault();
     try {
       const controller = new AbortController();
@@ -333,14 +351,16 @@ export default function DocumentCard({
       onTouchEnd={clearLongPressTimer}
       onClick={handleCardNavigation}
     >
-      <header className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-2 w-full min-w-0">
-          <div className="flex-1 min-w-0 max-w-full" onClick={(e) => { if (selectMode) { return; } e.preventDefault(); e.stopPropagation(); handleTagsClick(); }}>
+      <header className="relative flex items-start justify-between mb-3 min-h-[2.5rem]">
+        <div className="absolute inset-0 left-0 right-12 flex items-center gap-2 pointer-events-none">
+          <div className="flex-1 min-w-0 max-w-full pointer-events-auto" onClick={(e) => { if (selectMode) { return; } e.preventDefault(); e.stopPropagation(); handleTagsClick(); }}>
             <TagsManager tags={tags} onTagsChange={handleTagsChange} placeholder="Nouveau tag..." maxTags={10} disabled={!currentUserId || selectMode} />
           </div>
         </div>
         {!selectMode && (
-          <FavoriteToggle isFavorite={isFavorite} isAuthenticated={Boolean(currentUserId)} onToggleAuthenticated={applyFavoriteChange} onRequireLogin={() => setShowLoginModal(true)} className="ml-3" />
+          <div className="relative z-10 ml-auto">
+            <FavoriteToggle isFavorite={isFavorite} isAuthenticated={Boolean(currentUserId)} onToggleAuthenticated={applyFavoriteChange} onRequireLogin={() => setShowLoginModal(true)} />
+          </div>
         )}
       </header>
       <section className="space-y-2">

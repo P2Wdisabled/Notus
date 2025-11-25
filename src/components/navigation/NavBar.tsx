@@ -67,7 +67,6 @@ export default function NavBar() {
     { name: "Favoris", href: "/favorites", icon: "star" },
     { name: "Dossiers", href: "/dossiers", icon: "folder" },
     { name: "Assistance", href: "/assistance", icon: "alert" },
-    { name: "Paramètres", href: "/settings", icon: "gear" },
     { name: "Notifications", href: "#", icon: "bell", onClick: (e) => { e.preventDefault(); handleNotificationOverlay(e); }, mobileHidden: true, unreadNotifications: unreadCount },
     { name: "Corbeille", href: "/trash", icon: "trash" },
   ];
@@ -105,7 +104,7 @@ export default function NavBar() {
       <header className="sticky top-0 z-40 bg-background">
         <div className="w-full px-2 h-16 flex items-center justify-between md:hidden">
           <div className="flex items-center gap-3">
-            <button aria-label="Ouvrir le menu" onClick={() => setIsOpen(!isOpen)} className="md:hidden p-2 rounded-md hover:bg-accent/50 text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer">
+            <button aria-label="Ouvrir le menu" onClick={() => setIsOpen(!isOpen)} className="md:hidden p-2 rounded-md hover:bg-accent/20 text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer transition-colors duration-200 ease-in-out">
               <Icon name="menu" className="w-6 h-6" />
             </button>
             <span className="font-title text-2xl sm:text-3xl font-regular text-foreground leading-tight">{pageTitle}</span>
@@ -116,7 +115,7 @@ export default function NavBar() {
           <div className="flex items-center gap-2 md:hidden">
             {mounted && isLoggedIn && (
               <>
-                <button aria-label="Notifications" onClick={handleNotificationOverlay} className={`p-2 rounded-md hover:bg-accent/50 text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer ${showNotifications ? 'bg-accent' : ''}`} title="Notifications">
+                <button aria-label="Notifications" onClick={handleNotificationOverlay} className={`p-2 rounded-md hover:bg-accent/20 text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer transition-colors duration-200 ease-in-out ${showNotifications ? 'bg-accent' : ''}`} title="Notifications">
                   <BadgeIcon name="bell" count={unreadCount} />
                 </button>
                 <button type="button" onClick={() => guardedNavigate("/profile")} aria-label="Profil" className="ml-1 inline-flex items-center justify-center w-8 h-8 rounded-full overflow-hidden bg-muted ring-1 ring-border/20 shadow-sm" title={userName || "Profil"}>
@@ -137,7 +136,7 @@ export default function NavBar() {
           <div className="absolute inset-0 bg-foreground/30" onClick={() => setIsOpen(false)} />
           <div className="absolute left-0 top-0 h-full w-72 bg-background border-r-2 border-border/50 p-4 flex flex-col">
             <div className="flex items-center justify-end mb-4">
-              <button aria-label="Fermer" onClick={() => setIsOpen(false)} className="p-2 rounded-sm hover:bg-accent/50 text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer">
+              <button aria-label="Fermer" onClick={() => setIsOpen(false)} className="p-2 rounded-sm hover:bg-accent/20 text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer transition-colors duration-200 ease-in-out">
                 <Icon name="x" className="w-6 h-6" />
               </button>
             </div>
@@ -153,7 +152,7 @@ export default function NavBar() {
                   <button
                     type="button"
                     onClick={() => { setShowFiltersModal(true); setIsOpen(false); }}
-                    className={`inline-flex items-center justify-center h-10 w-10 rounded-md border border-border transition-colors ${hasActiveFilters ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-accent/50"}`}
+                    className={`inline-flex items-center justify-center h-10 w-10 rounded-md border border-border transition-colors duration-200 ease-in-out ${hasActiveFilters ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-accent/20"}`}
                     aria-pressed={hasActiveFilters}
                     aria-label="Ouvrir les filtres"
                     title="Filtrer les notes"
@@ -163,42 +162,62 @@ export default function NavBar() {
                 </div>
               </div>
               <div className="pt-3"></div>
-              <div className="px-2">
+              <div className="px-2 space-y-2">
                 {items.filter((i) => !i.mobileHidden).map((item) => (
                   item.onClick ? (
-                    <button key={item.href} onClick={(e) => { e.preventDefault(); item.onClick?.(e); setIsOpen(false); }} className={`w-full flex items-center gap-3 p-3 rounded-sm hover:bg-accent/50 text-foreground ${pathname === item.href || (item.name === 'Notifications' && showNotifications) ? 'bg-accent' : ''}`}>
-                      <div className="relative">
+                    <button key={item.href} onClick={(e) => { e.preventDefault(); item.onClick?.(e); setIsOpen(false); }} className={`w-full flex items-center gap-2 p-2 rounded-sm hover:bg-accent/20 text-foreground transition-colors duration-200 ease-in-out ${pathname === item.href || (item.name === 'Notifications' && showNotifications) ? 'bg-accent' : ''}`}>
+                      <div className="relative flex items-center">
                         {/* show badge only for Notifications item */}
-                        <BadgeIcon name={item.icon} count={item.name === "Notifications" ? item.unreadNotifications ?? undefined : undefined} />
+                        <BadgeIcon name={item.icon} count={item.name === "Notifications" ? item.unreadNotifications ?? undefined : undefined} className="w-5 h-5" />
                       </div>
-                      <span className="font-medium">{item.name}</span>
+                      <span className="font-medium text-sm">{item.name}</span>
                     </button>
                   ) : (
-                    <Link key={item.href} href={item.href} onClick={(e) => handleNavItemClick(e, item.href)} className={`flex items-center gap-3 p-3 rounded-sm hover:bg-accent/50 text-foreground ${pathname === item.href || (item.name === 'Notifications' && showNotifications) ? 'bg-accent' : ''}`}>
-                      <div className="relative">
-                        <BadgeIcon name={item.icon} count={item.name === "Notifications" ? item.unreadNotifications ?? undefined : undefined} />
+                    <Link key={item.href} href={item.href} onClick={(e) => handleNavItemClick(e, item.href)} className={`flex items-center gap-2 p-3 rounded-sm hover:bg-accent/20 text-foreground transition-colors duration-200 ease-in-out ${pathname === item.href || (item.name === 'Notifications' && showNotifications) ? 'bg-accent' : ''}`}>
+                      <div className="relative flex items-center">
+                        <BadgeIcon name={item.icon} count={item.name === "Notifications" ? item.unreadNotifications ?? undefined : undefined} className="w-5 h-5" />
                       </div>
-                      <span className="font-medium">{item.name}</span>
+                      <span className="font-medium text-sm">{item.name}</span>
                     </Link>
                   )
                 ))}
               </div>
             </nav>
             <div className="pt-4 space-y-3">
-              {mounted && isLoggedIn && (
-                <button type="button" onClick={() => guardedNavigate("/profile")} className="flex items-center gap-3 p-3 bg-transparent cursor-pointer border-t border-border w-full text-left">
-                  <div className="flex items-center justify-center w-10 h-10 rounded-full overflow-hidden bg-muted ring-1 ring-border/20 shadow-sm">
-                    {localProfileImage ? (
-                      <img src={localProfileImage} alt="Photo de profil" className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full bg-secondary text-secondary-foreground font-semibold flex items-center justify-center">{getInitials(userName || username || "Anonyme")}</div>
-                    )}
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-sm font-semibold text-foreground">{username || userName || "Anonyme"}</span>
-                  </div>
+              <Link
+                href="/assistance"
+                onClick={(e) => handleNavItemClick(e, "/assistance")}
+                className="block text-sm text-muted-foreground hover:text-foreground transition-colors duration-200 ease-in-out"
+              >
+                Besoin d'aide ?
+              </Link>
+              <div className="flex items-center gap-3 border-t border-border pt-3">
+                {mounted && isLoggedIn ? (
+                  <button type="button" onClick={() => guardedNavigate("/profile")} className="flex items-center gap-3 flex-1 bg-transparent cursor-pointer text-left">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full overflow-hidden bg-muted ring-1 ring-border/20 shadow-sm">
+                      {localProfileImage ? (
+                        <img src={localProfileImage} alt="Photo de profil" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full bg-secondary text-secondary-foreground font-semibold flex items-center justify-center">{getInitials(userName || username || "Anonyme")}</div>
+                      )}
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-semibold text-foreground">{username || userName || "Anonyme"}</span>
+                    </div>
+                  </button>
+                ) : (
+                  <div className="flex-1" />
+                )}
+                <button
+                  type="button"
+                  onClick={(e) => handleNavItemClick(e, "/settings")}
+                  className="p-2 rounded-sm text-muted-foreground hover:text-foreground focus:outline-none transition-all duration-300 ease-in-out hover:scale-110 hover:rotate-90"
+                  aria-label="Paramètres"
+                  title="Paramètres"
+                >
+                  <Icon name="gear" className="w-6 h-6 cursor-pointer" />
                 </button>
-              )}
+              </div>
               <Button onClick={handleLogout} className="w-full py-2" variant="primary">{isLoggedIn ? "Se déconnecter" : "Se connecter"}</Button>
             </div>
           </div>
@@ -224,7 +243,7 @@ export default function NavBar() {
               <button
                 type="button"
                 onClick={() => setShowFiltersModal(true)}
-                className={`inline-flex items-center justify-center h-10 w-10 rounded-md border border-border transition-colors ${hasActiveFilters ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-accent/50"}`}
+                className={`inline-flex items-center justify-center h-10 w-10 rounded-md border border-border transition-colors ${hasActiveFilters ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-accent/20"}`}
                 aria-pressed={hasActiveFilters}
                 aria-label="Ouvrir les filtres"
                 title="Filtrer les notes"
@@ -234,40 +253,60 @@ export default function NavBar() {
             </div>
           </div>
           <div className="mt-4 space-y-1">
-            {items.map((item) => (
+            {items.filter((item) => item.name !== "Assistance").map((item) => (
               item.onClick ? (
-                <button key={item.href} onClick={(e) => { e.preventDefault(); item.onClick?.(e); }} className={`w-full flex items-center gap-3 p-3 rounded-sm hover:bg-accent/50 text-foreground ${pathname === item.href || (item.name === 'Notifications' && showNotifications) ? 'bg-accent' : ''}`}>
-                  <div className="relative">
-                    <BadgeIcon name={item.icon} count={item.name === "Notifications" ? item.unreadNotifications ?? undefined : undefined} />
+                <button key={item.href} onClick={(e) => { e.preventDefault(); item.onClick?.(e); }} className={`w-full flex items-center gap-3 p-3 rounded-sm hover:bg-accent/20 text-foreground cursor-pointer transition-colors duration-200 ease-in-out ${pathname === item.href || (item.name === 'Notifications' && showNotifications) ? 'bg-accent' : ''}`}>
+                  <div className="relative flex items-center">
+                    <BadgeIcon name={item.icon} count={item.name === "Notifications" ? item.unreadNotifications ?? undefined : undefined} className="w-5 h-5" />
                   </div>
-                  <span className="font-medium">{item.name}</span>
+                  <span className="font-medium text-sm">{item.name}</span>
                 </button>
               ) : (
-                <Link key={item.href} href={item.href} onClick={(e) => handleNavItemClick(e, item.href)} className={`flex items-center gap-3 p-3 rounded-sm hover:bg-accent/50 text-foreground ${pathname === item.href || (item.name === 'Notifications' && showNotifications) ? 'bg-accent' : ''}`}>
-                  <div className="relative">
-                    <BadgeIcon name={item.icon} count={item.name === "Notifications" ? item.unreadNotifications ?? undefined : undefined} />
+                <Link key={item.href} href={item.href} onClick={(e) => handleNavItemClick(e, item.href)} className={`flex items-center gap-2 p-3 rounded-sm hover:bg-accent/20 text-foreground cursor-pointer transition-colors duration-200 ease-in-out ${pathname === item.href || (item.name === 'Notifications' && showNotifications) ? 'bg-accent' : ''}`}>
+                  <div className="relative flex items-center">
+                    <BadgeIcon name={item.icon} count={item.name === "Notifications" ? item.unreadNotifications ?? undefined : undefined} className="w-5 h-5" />
                   </div>
-                  <span className="font-medium">{item.name}</span>
+                  <span className="font-medium text-sm">{item.name}</span>
                 </Link>
               )
             ))}
           </div>
         </nav>
         <div className="p-4 space-y-3">
-          {mounted && isLoggedIn && (
-            <button type="button" onClick={() => guardedNavigate("/profile")} className="flex items-center gap-3 p-3 bg-transparent cursor-pointer border-t border-border w-full text-left">
-              <div className="flex items-center justify-center w-10 h-10 rounded-full overflow-hidden bg-muted ring-1 ring-border/20 shadow-sm">
-                {localProfileImage ? (
-                  <img src={localProfileImage} alt="Photo de profil" className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full bg-secondary text-secondary-foreground font-semibold flex items-center justify-center">{getInitials(userName || username || "Anonyme")}</div>
-                )}
-              </div>
-              <div className="flex flex-col">
-                <span className="text-sm font-semibold text-foreground">{username || userName || "Anonyme"}</span>
-              </div>
+          <Link
+            href="/assistance"
+            onClick={(e) => handleNavItemClick(e, "/assistance")}
+            className="block text-sm text-muted-foreground hover:text-foreground transition-colors duration-200 ease-in-out"
+          >
+            Besoin d'aide ?
+          </Link>
+          <div className="flex items-center gap-3 border-t border-border pt-3">
+            {mounted && isLoggedIn ? (
+              <button type="button" onClick={() => guardedNavigate("/profile")} className="flex items-center gap-3 flex-1 bg-transparent cursor-pointer text-left">
+                <div className="flex items-center justify-center w-10 h-10 rounded-full overflow-hidden bg-muted ring-1 ring-border/20 shadow-sm">
+                  {localProfileImage ? (
+                    <img src={localProfileImage} alt="Photo de profil" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full bg-secondary text-secondary-foreground font-semibold flex items-center justify-center">{getInitials(userName || username || "Anonyme")}</div>
+                  )}
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-sm font-semibold text-foreground">{username || userName || "Anonyme"}</span>
+                </div>
+              </button>
+            ) : (
+              <div className="flex-1" />
+            )}
+            <button
+              type="button"
+              onClick={(e) => handleNavItemClick(e, "/settings")}
+              className="p-2 rounded-sm text-muted-foreground hover:text-foreground focus:outline-none transition-all hover:scale-110 hover:rotate-90"
+              aria-label="Paramètres"
+              title="Paramètres"
+            >
+              <Icon name="gear" className="w-6 h-6 cursor-pointer" />
             </button>
-          )}
+          </div>
           <Button onClick={handleLogout} variant="primary" className="w-full">{isLoggedIn ? "Se déconnecter" : "Se connecter"}</Button>
         </div>
       </aside>

@@ -185,7 +185,7 @@ export default function AssistancePage() {
     {
       value: "other",
       label: "Autre",
-      description: "Autre type de demande",
+      description: "Autre type de demande ( Précisez le type de demande dans le titre )",
       icon: "gear",
     },
   ];
@@ -250,12 +250,13 @@ export default function AssistancePage() {
                   <legend className="text-foreground font-medium mb-3">
                     Type de requête
                   </legend>
-                  <div className="space-y-2">
+                  <div className="space-y-2 lg:grid lg:grid-cols-3 lg:gap-4 lg:space-y-0">
                     {typeOptions.map((option) => (
                       <label
                         key={option.value}
                         className={cn(
                           "flex items-start gap-3 p-4 border rounded-lg cursor-pointer transition-colors",
+                          "lg:flex-col lg:items-center lg:text-center lg:gap-4 lg:min-h-[160px]",
                           type === option.value
                             ? "border-primary bg-primary/5"
                             : "border-border hover:bg-muted/50"
@@ -267,15 +268,15 @@ export default function AssistancePage() {
                           value={option.value}
                           checked={type === option.value}
                           onChange={(e) => setType(e.target.value as RequestType)}
-                          className="mt-1"
+                          className="mt-1 lg:mt-0 lg:order-3"
                           aria-label={option.label}
                         />
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <Icon name={option.icon as any} className="w-5 h-5 text-foreground" />
+                        <div className="flex-1 lg:flex lg:flex-col lg:items-center lg:gap-2 lg:flex-1">
+                          <div className="flex items-center gap-2 mb-1 lg:flex-col lg:mb-0">
+                            <Icon name={option.icon as any} className="w-5 h-5 md:w-8 md:h-8 text-foreground" />
                             <span className="font-medium text-foreground">{option.label}</span>
                           </div>
-                          <p className="text-sm text-muted-foreground">{option.description}</p>
+                          <p className="text-sm text-muted-foreground lg:text-center">{option.description}</p>
                         </div>
                       </label>
                     ))}
@@ -306,14 +307,12 @@ export default function AssistancePage() {
                     id="description"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Décrivez votre problème ou votre demande en détail..."
+                    placeholder="Plus vous fournissez de détails, plus nous pourrons vous aider rapidement."
                     required
                     rows={6}
                     className="bg-card text-foreground border-border resize-none"
                   />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Plus vous fournissez de détails, plus nous pourrons vous aider rapidement.
-                  </p>
+
                 </div>
 
                 <div className="flex gap-3">
