@@ -1,19 +1,16 @@
 import { NextResponse } from "next/server";
-import { auth } from "../../../../auth";
 import { RequestService } from "@/lib/services/RequestService";
 import { UserService } from "@/lib/services/UserService";
+import { requireAuth, requireAdmin, requireUserMatch } from "@/lib/security/routeGuards";
 
 const requestService = new RequestService();
 const userService = new UserService();
 
 export async function POST(request: Request) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { success: false, error: "Non authentifié" },
-        { status: 401 }
-      );
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
 
     await requestService.initializeTables();
@@ -23,20 +20,20 @@ export async function POST(request: Request) {
 
     if (!type || !title || !description) {
       return NextResponse.json(
-        { success: false, error: "Type, titre et description requis" },
+        { success: false, error: "Accès refusé" },
         { status: 400 }
       );
     }
 
     if (!["help", "data_restoration", "other"].includes(type)) {
       return NextResponse.json(
-        { success: false, error: "Type de requête invalide" },
+        { success: false, error: "Accès refusé" },
         { status: 400 }
       );
     }
 
     const result = await requestService.createRequest({
-      user_id: parseInt(session.user.id),
+      user_id: authResult.userId,
       type: type as "help" | "data_restoration" | "other",
       title: title.trim(),
       description: description.trim(),
@@ -44,7 +41,7 @@ export async function POST(request: Request) {
 
     if (!result.success) {
       return NextResponse.json(
-        { success: false, error: result.error || "Erreur lors de la création de la requête" },
+        { success: false, error: "Accès refusé" },
         { status: 500 }
       );
     }
@@ -53,7 +50,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("❌ Erreur création requête:", error);
     return NextResponse.json(
-      { success: false, error: "Erreur interne du serveur" },
+      { success: false, error: "Accès refusé" },
       { status: 500 }
     );
   }
@@ -61,12 +58,9 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { success: false, error: "Non authentifié" },
-        { status: 401 }
-      );
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
 
     await requestService.initializeTables();
@@ -76,28 +70,19 @@ export async function GET(request: Request) {
 
     let result;
     if (userId) {
-      // Vérifier que l'utilisateur demande ses propres requêtes ou qu'il est admin
       const requestedUserId = parseInt(userId);
-      const sessionUserId = parseInt(session.user.id);
-      const isAdmin = await userService.isUserAdmin(sessionUserId);
-      
-      if (requestedUserId !== sessionUserId && !isAdmin) {
-        return NextResponse.json(
-          { success: false, error: "Accès refusé - Vous ne pouvez voir que vos propres requêtes" },
-          { status: 403 }
-        );
+      const userMatchCheck = await requireUserMatch(requestedUserId, authResult.userId);
+      if (userMatchCheck) {
+        const adminCheck = await requireAdmin();
+        if (adminCheck instanceof NextResponse) {
+          return adminCheck;
+        }
       }
-      
       result = await requestService.getRequestsByUser(requestedUserId);
     } else {
-      // Récupérer toutes les requêtes nécessite d'être admin
-      const isAdmin = await userService.isUserAdmin(parseInt(session.user.id));
-      
-      if (!isAdmin) {
-        return NextResponse.json(
-          { success: false, error: "Accès refusé - Droits administrateur requis" },
-          { status: 403 }
-        );
+      const adminCheck = await requireAdmin();
+      if (adminCheck instanceof NextResponse) {
+        return adminCheck;
       }
       
       const limit = parseInt(searchParams.get("limit") || "100");
@@ -107,7 +92,7 @@ export async function GET(request: Request) {
 
     if (!result.success) {
       return NextResponse.json(
-        { success: false, error: result.error || "Erreur lors de la récupération des requêtes" },
+        { success: false, error: "Accès refusé" },
         { status: 500 }
       );
     }
@@ -116,7 +101,7 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error("❌ Erreur récupération requêtes:", error);
     return NextResponse.json(
-      { success: false, error: "Erreur interne du serveur" },
+      { success: false, error: "Accès refusé" },
       { status: 500 }
     );
   }
