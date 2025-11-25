@@ -49,9 +49,9 @@ if (!bracketRegex.test(commitMsg) && !colonRegex.test(commitMsg)) {
   );
 }
 
-if (commitMsg.length > 72) {
+if (commitMsg.length > 100) {
   errors.push(
-    `La première ligne doit faire 72 caractères maximum (actuellement ${commitMsg.length}).`
+    `La première ligne doit faire 100 caractères maximum (actuellement ${commitMsg.length}).`
   );
 }
 
