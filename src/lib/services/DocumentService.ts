@@ -222,7 +222,7 @@ export class DocumentService {
 
       if (email) {
         const shareResult = await this.getSharePermission(documentId, email);
-        if (shareResult.success) {
+        if (shareResult.success && shareResult.data?.permission === true) {
           return true;
         }
       }

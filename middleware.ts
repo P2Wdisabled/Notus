@@ -1,75 +1,31 @@
+// middleware.ts
+import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
-import { UserService } from "./src/lib/services/UserService";
-import { NextRequest } from "next/server";
-import { enforceApiPolicies } from "./src/lib/security/apiPolicies";
 
-export default async function middleware(req: NextRequest) {
-  const { nextUrl } = req;
-  const pathname = nextUrl.pathname;
+import { enforceApiPolicies } from "./src/lib/security/apiPolicies"; // adapte le chemin si besoin
 
-  if (pathname.startsWith("/api")) {
-    const policyResponse = await enforceApiPolicies(req);
-    if (policyResponse) {
-      return policyResponse;
-    }
+export const config = {
+  // Ne fait tourner le middleware que sur les routes API
+  matcher: "/api/:path*",
+  runtime: "nodejs",
+};
+
+export async function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+
+  // Sécurité supplémentaire, au cas où le matcher change un jour
+  if (!pathname.startsWith("/api")) {
     return NextResponse.next();
   }
 
-  const token = await getToken({ req });
-  const isLoggedIn = !!token;
+  // Laisse apiPolicies décider si la requête est autorisée ou non
+  const policyResponse = await enforceApiPolicies(request);
 
-  const isPublicPath =
-    nextUrl.pathname === "/login" ||
-    nextUrl.pathname === "/register" ||
-    nextUrl.pathname === "/" ||
-    nextUrl.pathname.startsWith("/auth") ||
-    nextUrl.pathname.startsWith("/api/auth") ||
-    nextUrl.pathname.startsWith("/documents/local");
-
-  const isAdminPath = nextUrl.pathname.startsWith("/admin");
-
-  // Redirect unauthenticated users to login for protected routes
-  if (!isPublicPath && !isLoggedIn) {
-    return NextResponse.redirect(new URL("/login", nextUrl));
+  // Si apiPolicies renvoie une réponse (erreur, refus, etc.), on la renvoie telle quelle
+  if (policyResponse) {
+    return policyResponse;
   }
 
-  // Redirect authenticated users away from auth pages
-  if (
-    isLoggedIn &&
-    (nextUrl.pathname === "/login" || nextUrl.pathname === "/register")
-  ) {
-    return NextResponse.redirect(new URL("/", nextUrl));
-  }
-
-  // Admin routes require admin privileges
-  if (isAdminPath && isLoggedIn && !token?.isAdmin) {
-    return NextResponse.redirect(new URL("/", nextUrl));
-  }
-
-  // Vérifier le statut banni pour les utilisateurs connectés
-  if (isLoggedIn && token?.id && nextUrl.pathname !== "/banned") {
-    try {
-      const userService = new UserService();
-      const userResult = await userService.getUserById(parseInt(token.id));
-
-      if (userResult.success && userResult.user?.is_banned) {
-        console.log(
-          "🚫 Utilisateur banni détecté, redirection vers page banni:",
-          token.id
-        );
-        return NextResponse.redirect(new URL("/banned", nextUrl));
-      }
-    } catch (error) {
-      console.error("Erreur lors de la vérification du statut banni:", error);
-    }
-  }
-
+  // Sinon on laisse passer vers la route API
   return NextResponse.next();
 }
-
-export const config = {
-  // https://nextjs.org/docs/app/building-your-application/routing/middleware#matcher
-  matcher: ["/((?!_next/static|_next/image|.*\\.png$).*)"],
-  runtime: "nodejs",
-};
