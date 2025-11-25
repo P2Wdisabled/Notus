@@ -70,8 +70,8 @@ async function getSharedSocketInstance(): Promise<Socket<ServerToClientEvents, C
 
     const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL;
     const instance = io(socketUrl || undefined, {
-      transports: ['polling', 'websocket'],
-      upgrade: true,
+      transports: ['websocket'],
+      upgrade: false,
       autoConnect: true,
       path: '/api/socket',
       timeout: 20000,
