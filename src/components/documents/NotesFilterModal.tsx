@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
-import Modal from "@/components/ui/modal";
+import FilterModal from "@/components/ui/filter-modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -153,11 +153,10 @@ export default function NotesFilterModal({ isOpen, onClose }: NotesFilterModalPr
   }, [localFilters, filters]);
 
   return (
-    <Modal
+    <FilterModal
       isOpen={isOpen}
       onClose={onClose}
       title="Filtrer mes notes"
-      size="xl"
     >
       <div className="space-y-6">
         <section className="space-y-2">
@@ -330,7 +329,7 @@ export default function NotesFilterModal({ isOpen, onClose }: NotesFilterModalPr
           </div>
         </div>
       </div>
-    </Modal>
+    </FilterModal>
   );
 }
 
