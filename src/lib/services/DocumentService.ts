@@ -204,6 +204,36 @@ export class DocumentService {
     return { isValid: true };
   }
 
+  async userHasAccessToDocument(documentId: number, userId?: number, email?: string): Promise<boolean> {
+    if (!documentId || (!userId && !email)) {
+      return false;
+    }
+
+    try {
+      await this.initializeTables();
+      const documentResult = await this.getDocumentById(documentId);
+      if (!documentResult.success || !documentResult.document) {
+        return false;
+      }
+
+      if (userId && Number(documentResult.document.user_id) === userId) {
+        return true;
+      }
+
+      if (email) {
+        const shareResult = await this.getSharePermission(documentId, email);
+        if (shareResult.success) {
+          return true;
+        }
+      }
+
+      return false;
+    } catch (error) {
+      console.error("❌ Erreur userHasAccessToDocument:", error);
+      return false;
+    }
+  }
+
   validateDocumentData(data: { title: string; content: string; tags: string[] }): { isValid: boolean; errors: string[] } {
     const errors: string[] = [];
 
