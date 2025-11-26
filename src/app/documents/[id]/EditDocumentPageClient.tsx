@@ -24,6 +24,7 @@ import { useCollaborativeTitle } from "@/lib/paper.js/useCollaborativeTitle";
 import sanitizeLinks from "@/lib/sanitizeLinks";
 import Icon from "@/components/Icon";
 import type { Session } from "next-auth";
+import ExportOverlay from "@/components/Paper.js/Editor/ExportOverlay";
 
 interface EditDocumentPageClientProps {
   session?: Session | null;
@@ -103,6 +104,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isExportOpen, setIsExportOpen] = useState(false);
   const [permission, setPermission] = useState("read");
   const [shareEmail, setShareEmail] = useState("");
   const [shareLoading, setShareLoading] = useState(false);
@@ -112,7 +114,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   const [hasReadAccess, setHasReadAccess] = useState<boolean | null>(null);
   const [users, setUsers] = useState([]);
   const [isOffline, setIsOffline] = useState(false);
-  
+
   // Load access list for this document and update `users` state
   const loadAccessList = async () => {
     if (!document?.id) return;
@@ -135,7 +137,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     }
   };
   const [offlineBaseline, setOfflineBaseline] = useState<string>("");
-  
+
   // État de sauvegarde : 'synchronized' | 'saving' | 'unsynchronized'
   const [saveStatus, setSaveStatus] = useState<'synchronized' | 'saving' | 'unsynchronized'>('synchronized');
   const lastSavedContentRef = useRef<string>("");
@@ -143,7 +145,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   const lastSavedTagsRef = useRef<string[]>([]);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isSavingRef = useRef(false);
-  const flushRealtimeRef = useRef<(override?: FlushOverride) => Promise<void>>(async () => {});
+  const flushRealtimeRef = useRef<(override?: FlushOverride) => Promise<void>>(async () => { });
   const persistIndicatorsRef = useRef<{
     saved?: NodeJS.Timeout;
     message?: NodeJS.Timeout;
@@ -260,7 +262,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   useEffect(() => {
     const timersRef = persistIndicatorsRef.current;
     return () => {
-      flushRealtimeRef.current = async () => {};
+      flushRealtimeRef.current = async () => { };
       if (timersRef.saved) {
         clearTimeout(timersRef.saved);
       }
@@ -284,7 +286,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   });
 
   const normalizeContent = useCallback((rawContent: unknown): NotepadContent => {
-    if (!rawContent) return { text: ""};
+    if (!rawContent) return { text: "" };
 
     let content: unknown = rawContent;
 
@@ -311,7 +313,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   const loadDocument = useCallback(async () => {
     try {
       setIsLoading(true);
-      
+
       // Si on est hors ligne, charger depuis localStorage
       if (typeof navigator !== "undefined" && !navigator.onLine) {
         const cached = localStorage.getItem(`notus:doc:${props.params.id}`);
@@ -330,7 +332,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
             setTitle(c.title);
             setContent(normalizeContent(c.content));
             setTags(Array.isArray(c.tags) ? c.tags : []);
-            
+
             const cachedContentString = JSON.stringify(normalizeContent(c.content));
             lastSavedContentRef.current = cachedContentString;
             lastSavedTitleRef.current = c.title;
@@ -347,7 +349,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
         setIsLoading(false);
         return;
       }
-      
+
       const response = await fetch(`/api/openDoc?id=${props.params.id}`, { cache: "no-store" });
       const result = await response.json();
 
@@ -366,7 +368,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
         setTitle(result.title);
         setContent(normalizedContent);
         setTags(Array.isArray(result.tags) ? result.tags : []);
-        
+
         // Initialiser les refs avec le contenu chargé
         const contentString = JSON.stringify(normalizedContent);
         lastSavedContentRef.current = contentString;
@@ -408,14 +410,14 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
               setTitle(c.title);
               setContent(normalizeContent(c.content));
               setTags(Array.isArray(c.tags) ? c.tags : []);
-              
+
               // Initialiser les refs avec le contenu en cache
               const cachedContentString = JSON.stringify(normalizeContent(c.content));
               lastSavedContentRef.current = cachedContentString;
               lastSavedTitleRef.current = c.title;
               lastSavedTagsRef.current = Array.isArray(c.tags) ? c.tags : [];
               setSaveStatus('synchronized');
-              
+
               setError(null);
               return;
             }
@@ -441,14 +443,14 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
             setTitle(c.title);
             setContent(normalizeContent(c.content));
             setTags(Array.isArray(c.tags) ? c.tags : []);
-            
+
             // Initialiser les refs avec le contenu en cache
             const cachedContentString = JSON.stringify(normalizeContent(c.content));
             lastSavedContentRef.current = cachedContentString;
             lastSavedTitleRef.current = c.title;
             lastSavedTagsRef.current = Array.isArray(c.tags) ? c.tags : [];
             setSaveStatus('synchronized');
-            
+
             setError(null);
             return;
           }
@@ -471,7 +473,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
       setTitle(document.title);
       const normalizedContent = normalizeContent(document.content);
       setContent(normalizedContent);
-      
+
       // Initialiser les refs si elles ne sont pas déjà initialisées
       if (lastSavedContentRef.current === "") {
         const contentString = JSON.stringify(normalizedContent);
@@ -480,7 +482,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
         lastSavedTagsRef.current = document.tags || [];
         setSaveStatus('synchronized');
       }
-      
+
       fetch(`/api/openDoc/accessList?id=${document.id}`)
         .then(res => res.json())
         .then(data => {
@@ -550,7 +552,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   // Fonction pour déclencher la sauvegarde automatique avec debounce
   // Note: handleSubmit sera défini plus tard, on utilisera une ref pour l'appeler
   const handleSubmitRef = useRef<(() => Promise<void>) | null>(null);
-  
+
   const triggerAutoSave = useCallback(() => {
     if (shouldUseRealtime) {
       return;
@@ -576,7 +578,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     saveTimeoutRef.current = setTimeout(async () => {
       // Vérifier les changements au moment de la sauvegarde
       const currentContentString = JSON.stringify(content);
-      const hasChanges = 
+      const hasChanges =
         currentContentString !== lastSavedContentRef.current ||
         title !== lastSavedTitleRef.current ||
         JSON.stringify(tags) !== JSON.stringify(lastSavedTagsRef.current);
@@ -596,7 +598,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
 
         isSavingRef.current = true;
         setSaveStatus('saving');
-        
+
         // Appeler handleSubmit via la ref
         if (handleSubmitRef.current) {
           await handleSubmitRef.current();
@@ -740,7 +742,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
       const baseline = content.text || "";
       setOfflineBaseline(baseline);
       localStorage.setItem(`notus:offline-baseline:${document.id}`, baseline);
-      
+
       // Sauvegarder le document complet dans localStorage
       try {
         const key = `notus:doc:${document.id}`;
@@ -809,7 +811,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
             console.log('📄 Création d\'une copie avec les modifications locales');
 
             const offlineSnapshot = buildContentSnapshot();
-            
+
             // Créer une copie avec "name - copie"
             if (realtimeUserId) {
               try {
@@ -1140,7 +1142,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   }
 
   return (
-      <div className="min-h-screen bg-background py-8">
+    <div className="min-h-screen bg-background py-8">
       <div className="max-w-4xl mx-auto px-4">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -1189,51 +1191,60 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
               >
                 <Icon name="dotsVertical" className="h-6 w-6" />
               </Button>
-                {isMenuOpen && (
+              {isMenuOpen && (
                 <>
                   <div
-                  className="fixed inset-0 z-30"
-                  onMouseDown={() => setIsMenuOpen(false)}
-                  aria-hidden="true"
+                    className="fixed inset-0 z-30"
+                    onMouseDown={() => setIsMenuOpen(false)}
+                    aria-hidden="true"
                   />
                   <div className="absolute right-0 top-full z-40 rounded-lg shadow-lg p-4 min-w-[13rem] bg-background border border-border">
-                  <MenuItem
-                  onClick={() => {
-                    if (hasEditAccess !== false) {
-                    setIsMenuOpen(false);
-                    setShareError(null);
-                    setShareSuccess(null);
-                    setIsShareModalOpen(true);
+                    <MenuItem
+                      onClick={() => {
+                        if (hasEditAccess !== false) {
+                          setIsMenuOpen(false);
+                          setShareError(null);
+                          setShareSuccess(null);
+                          setIsShareModalOpen(true);
 
-                    (async () => {
-                      const ok = await checkConnectivity();
-                      if (!ok) {
-                      setShareError("Connexion requise pour partager la note.");
-                      }
-                    })();
-                    }
-                  }}
-                  disabled={hasEditAccess === false}
-                  icon={<Icon name="share" className={hasEditAccess === false ? "w-4 h-4 text-muted-foreground" : "w-4 h-4 text-primary"} />}
-                  >
-                  {hasEditAccess === false ? "Lecture seule" : "Partager"}
-                  </MenuItem>
+                          (async () => {
+                            const ok = await checkConnectivity();
+                            if (!ok) {
+                              setShareError("Connexion requise pour partager la note.");
+                            }
+                          })();
+                        }
+                      }}
+                      disabled={hasEditAccess === false}
+                      icon={<Icon name="share" className={hasEditAccess === false ? "w-4 h-4 text-muted-foreground" : "w-4 h-4 text-primary"} />}
+                    >
+                      {hasEditAccess === false ? "Lecture seule" : "Partager"}
+                    </MenuItem>
 
-                  <MenuItem
-                  onClick={() => {
-                  if (hasEditAccess !== false) {
-                    handleSubmit();
-                    setIsMenuOpen(false);
-                  }
-                  }}
-                  disabled={hasEditAccess === false || isManualSaving}
-                  icon={<Icon name="document" className={hasEditAccess === false || isManualSaving ? "w-4 h-4 text-muted-foreground" : "w-4 h-4 text-primary"} />}
-                  >
-                  {isManualSaving ? "Sauvegarde..." : hasEditAccess === false ? "Lecture seule" : "Sauvegarder"}
-                  </MenuItem>
+                    <MenuItem
+                      onClick={() => {
+                        if (hasEditAccess !== false) {
+                          handleSubmit();
+                          setIsMenuOpen(false);
+                        }
+                      }}
+                      disabled={hasEditAccess === false || isManualSaving}
+                      icon={<Icon name="document" className={hasEditAccess === false || isManualSaving ? "w-4 h-4 text-muted-foreground" : "w-4 h-4 text-primary"} />}
+                    >
+                      {isManualSaving ? "Sauvegarde..." : hasEditAccess === false ? "Lecture seule" : "Sauvegarder"}
+                    </MenuItem>
+                    <MenuItem
+                      onClick={() => {
+                          setIsMenuOpen(false);
+                          setIsExportOpen(true);
+                        }}
+                      icon={<Icon name="export" className="w-4 h-4 text-primary" />}
+                    >
+                      Exporter
+                    </MenuItem>
                   </div>
                 </>
-                )}
+              )}
             </div>
           </div>
         </div>
@@ -1415,6 +1426,13 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
 
           </form>
         </div>
+
+        {/* Export overlay (client-only) */}
+        <ExportOverlay
+          open={isExportOpen}
+          onClose={() => setIsExportOpen(false)}
+          markdown={content.text || ""}
+        />
 
         {/* Saved notification */}
         {showSavedNotification && (
