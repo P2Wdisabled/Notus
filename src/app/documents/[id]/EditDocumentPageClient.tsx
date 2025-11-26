@@ -24,6 +24,7 @@ import { useGuardedNavigate } from "@/hooks/useGuardedNavigate";
 import { useCollaborativeTitle } from "@/lib/paper.js/useCollaborativeTitle";
 import sanitizeLinks from "@/lib/sanitizeLinks";
 import Icon from "@/components/Icon";
+import { cn } from "@/lib/utils";
 import type { Session } from "next-auth";
 
 interface EditDocumentPageClientProps {
@@ -1154,16 +1155,6 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
             Retour
           </Link>
           <div className="flex flex-row justify-center items-center">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="mr-2"
-              onClick={() => setIsCommentsOpen((open) => !open)}
-              disabled={!document?.id}
-              title="Afficher les commentaires"
-            >
-              <Icon name="inbox" className="h-5 w-5" />
-            </Button>
             <UserListButton users={users} className="self-center" documentId={document.id} onAccessListRefresh={loadAccessList} isOwner={isOwner} currentUserId={userId} />
             {hasEditAccess === false && (
               <div className="ml-4 px-3 py-1 bg-muted text-foreground text-sm font-medium rounded-full border border-border">
@@ -1427,6 +1418,24 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
         isOpen={isCommentsOpen}
         onClose={() => setIsCommentsOpen(false)}
       />
+      {/* Bouton flottant pour les commentaires */}
+      <button
+        onClick={() => setIsCommentsOpen((open) => !open)}
+        disabled={!document?.id}
+        title="Afficher les commentaires"
+        className={cn(
+          "fixed bottom-6 right-6 z-40 rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] shadow-lg flex items-center justify-center",
+          "hover:bg-[var(--primary)]/90 active:scale-95",
+          "disabled:opacity-50 disabled:cursor-not-allowed",
+          "w-14 h-14 md:w-16 md:h-16",
+          "transition-all duration-300 ease-in-out",
+          isCommentsOpen
+            ? "scale-0 opacity-0 pointer-events-none"
+            : "scale-100 opacity-100 pointer-events-auto"
+        )}
+      >
+        <Icon name="comment" className="w-6 h-6 md:w-7 md:h-7" />
+      </button>
     </div>
   );
 }
