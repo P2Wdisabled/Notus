@@ -17,12 +17,14 @@ import { useLocalSession } from "@/hooks/useLocalSession";
 import WysiwygNotepad from "@/components/Paper.js/WysiwygNotepad";
 import { Document, ActionResult } from "@/lib/types";
 import TagsManager from "@/components/documents/TagsManager";
+import CommentsSidebar from "@/components/documents/CommentsSidebar";
 import { addShareAction, deleteDocumentAction, createDocumentAction } from "@/lib/actions/DocumentActions";
 import UserListButton from "@/components/ui/UserList/UserListButton";
 import { useGuardedNavigate } from "@/hooks/useGuardedNavigate";
 import { useCollaborativeTitle } from "@/lib/paper.js/useCollaborativeTitle";
 import sanitizeLinks from "@/lib/sanitizeLinks";
 import Icon from "@/components/Icon";
+import { cn } from "@/lib/utils";
 import type { Session } from "next-auth";
 
 interface EditDocumentPageClientProps {
@@ -112,6 +114,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   const [hasReadAccess, setHasReadAccess] = useState<boolean | null>(null);
   const [users, setUsers] = useState([]);
   const [isOffline, setIsOffline] = useState(false);
+  const [isCommentsOpen, setIsCommentsOpen] = useState(false);
   
   // Load access list for this document and update `users` state
   const loadAccessList = async () => {
@@ -1140,7 +1143,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   }
 
   return (
-      <div className="min-h-screen bg-background py-8">
+    <div className="min-h-screen bg-background py-8">
       <div className="max-w-4xl mx-auto px-4">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -1410,6 +1413,29 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
           </div>
         )}
       </div>
+      <CommentsSidebar
+        documentId={document?.id ?? null}
+        isOpen={isCommentsOpen}
+        onClose={() => setIsCommentsOpen(false)}
+      />
+      {/* Bouton flottant pour les commentaires */}
+      <button
+        onClick={() => setIsCommentsOpen((open) => !open)}
+        disabled={!document?.id}
+        title="Afficher les commentaires"
+        className={cn(
+          "fixed bottom-6 right-6 z-40 rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] shadow-lg flex items-center justify-center",
+          "hover:bg-[var(--primary)]/90 active:scale-95",
+          "disabled:opacity-50 disabled:cursor-not-allowed",
+          "w-14 h-14 md:w-16 md:h-16",
+          "transition-all duration-300 ease-in-out",
+          isCommentsOpen
+            ? "scale-0 opacity-0 pointer-events-none"
+            : "scale-100 opacity-100 pointer-events-auto"
+        )}
+      >
+        <Icon name="comment" className="w-6 h-6 md:w-7 md:h-7" />
+      </button>
     </div>
   );
 }

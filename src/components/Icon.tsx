@@ -310,6 +310,13 @@ const Alert: React.FC<SvgProps> = (props) => (
   </svg>
 );
 
+const User: React.FC<SvgProps> = (props) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+    <circle cx="12" cy="7" r="4" />
+  </svg>
+);
+
 const Users: React.FC<SvgProps> = (props) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
     <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
@@ -464,6 +471,12 @@ const Inbox: React.FC<SvgProps> = (props) => (
   </svg>
 );
 
+const Comment: React.FC<SvgProps> = (props) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+  </svg>
+);
+
 export const ICONS = {
   menu: Menu,
   filter: Filter,
@@ -507,6 +520,7 @@ export const ICONS = {
   outdent: Outdent,
   lock: Lock,
   document: DocumentIcon,
+  user: User,
   users: Users,
   dashboard: Dashboard,
   circleCheck: CircleCheck,
@@ -535,6 +549,7 @@ export const ICONS = {
   userListBadge: UserListBadge,
   chartBar: ChartBar,
   inbox: Inbox,
+  comment: Comment,
 } as const;
 
 export type IconName = keyof typeof ICONS;
