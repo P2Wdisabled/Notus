@@ -49,6 +49,21 @@ export class DocumentRepository extends BaseRepository {
             )
           `);
 
+          // Table d'historique des documents (pour suivre les modifications successives)
+          await this.query(`
+            CREATE TABLE IF NOT EXISTS document_history (
+              id SERIAL PRIMARY KEY,
+              document_id INTEGER REFERENCES documents(id) ON DELETE CASCADE,
+              user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+              user_email VARCHAR(255),
+              snapshot_before TEXT,
+              snapshot_after TEXT NOT NULL,
+              diff_added TEXT,
+              diff_removed TEXT,
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+          `);
+
           // Ajouter la colonne tags si base déjà existante
           await this.addColumnIfNotExists("documents", "tags", "TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[]");
 
@@ -82,6 +97,9 @@ export class DocumentRepository extends BaseRepository {
     // Indexes for shares table (unique constraint for ON CONFLICT)
     indexes.push("CREATE UNIQUE INDEX IF NOT EXISTS uq_shares_id_doc_email ON shares(id_doc, email)");
     indexes.push("CREATE INDEX IF NOT EXISTS idx_shares_email ON shares(email)");
+
+    // Indexes pour l'historique des documents
+    indexes.push("CREATE INDEX IF NOT EXISTS idx_document_history_document_id ON document_history(document_id)");
 
     for (const indexQuery of indexes) {
       await this.query(indexQuery);

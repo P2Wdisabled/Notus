@@ -18,6 +18,7 @@ import WysiwygNotepad from "@/components/Paper.js/WysiwygNotepad";
 import { Document, ActionResult } from "@/lib/types";
 import TagsManager from "@/components/documents/TagsManager";
 import CommentsSidebar from "@/components/documents/CommentsSidebar";
+import HistorySidebar from "@/components/documents/HistorySidebar";
 import { addShareAction, deleteDocumentAction, createDocumentAction } from "@/lib/actions/DocumentActions";
 import UserListButton from "@/components/ui/UserList/UserListButton";
 import { useGuardedNavigate } from "@/hooks/useGuardedNavigate";
@@ -115,6 +116,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   const [users, setUsers] = useState([]);
   const [isOffline, setIsOffline] = useState(false);
   const [isCommentsOpen, setIsCommentsOpen] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   
   // Load access list for this document and update `users` state
   const loadAccessList = async () => {
@@ -1418,9 +1420,17 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
         isOpen={isCommentsOpen}
         onClose={() => setIsCommentsOpen(false)}
       />
+      <HistorySidebar
+        documentId={document?.id ?? null}
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+      />
       {/* Bouton flottant pour les commentaires */}
       <button
-        onClick={() => setIsCommentsOpen((open) => !open)}
+        onClick={() => {
+          setIsCommentsOpen((open) => !open);
+          setIsHistoryOpen(false);
+        }}
         disabled={!document?.id}
         title="Afficher les commentaires"
         className={cn(
@@ -1435,6 +1445,27 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
         )}
       >
         <Icon name="comment" className="w-6 h-6 md:w-7 md:h-7" />
+      </button>
+      {/* Bouton flottant pour l'historique */}
+      <button
+        onClick={() => {
+          setIsHistoryOpen((open) => !open);
+          setIsCommentsOpen(false);
+        }}
+        disabled={!document?.id}
+        title="Afficher l'historique des modifications"
+        className={cn(
+          "fixed bottom-6 right-24 z-40 rounded-full bg-muted text-foreground shadow-lg flex items-center justify-center",
+          "hover:bg-muted/90 active:scale-95",
+          "disabled:opacity-50 disabled:cursor-not-allowed",
+          "w-12 h-12 md:w-14 md:h-14",
+          "transition-all duration-300 ease-in-out",
+          isHistoryOpen
+            ? "scale-0 opacity-0 pointer-events-none"
+            : "scale-100 opacity-100 pointer-events-auto"
+        )}
+      >
+        <Icon name="clock" className="w-5 h-5 md:w-6 md:h-6" />
       </button>
     </div>
   );

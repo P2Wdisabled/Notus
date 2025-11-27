@@ -136,6 +136,27 @@ export interface DocumentRepositoryResult<T = unknown> extends DatabaseResult<T>
   documents?: Document[];
 }
 
+export interface DocumentHistoryEntry {
+  id: number;
+  document_id: number;
+  user_id?: number | null;
+  user_email?: string | null;
+  snapshot_before?: string | null;
+  snapshot_after: string;
+  diff_added?: string | null;
+  diff_removed?: string | null;
+  created_at: Date;
+  // Informations utilisateur jointes (optionnelles)
+  user?: {
+    id: number;
+    username?: string | null;
+    first_name?: string | null;
+    last_name?: string | null;
+    email?: string | null;
+    profile_image?: string | null;
+  } | null;
+}
+
 export interface TrashDocument {
   id: number;
   original_id?: number | null;
