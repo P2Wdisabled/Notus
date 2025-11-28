@@ -2,129 +2,589 @@
 
 import React, { useState } from "react";
 import MarkdownIt from "markdown-it";
-import WysiwygEditor from "./WysiwygEditor";
 import DOMPurify from "dompurify";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
-import { Document as DocxDocument, Packer, Paragraph, TextRun } from "docx";
+import {
+  AlignmentType,
+  Document as DocxDocument,
+  HeadingLevel,
+  ImageRun,
+  Packer,
+  Paragraph,
+  ShadingType,
+  TextRun,
+  UnderlineType,
+  IImageOptions,
+} from "docx";
+import {
+  blobToDataURL,
+  downloadBlob,
+  forceLightTheme,
+  normalizeColor,
+  waitForImages,
+} from "@/lib/export-utils";
+import { copyComputedStyles, normalizeInlineDeclarations } from "@/lib/dom-utils";
 
 const md = new MarkdownIt({ html: true, linkify: true, breaks: true });
 
-function renderMarkdownToHtml(content: string) {
+const renderMarkdownToHtml = (content: string) => {
   const trimmed = content.trim();
   if (trimmed.startsWith("<") && trimmed.endsWith(">")) return trimmed;
   return md.render(content);
-}
+};
 
-function sanitizeHtml(html: string) {
+const sanitizeHtml = (html: string) => {
   try {
     return DOMPurify.sanitize(html);
   } catch (e) {
     return html;
   }
+};
+
+// DOCX-specific types and utilities
+type DocxImageType = "jpg" | "png" | "gif" | "bmp";
+const DOCX_IMAGE_TYPES: DocxImageType[] = ["jpg", "png", "gif", "bmp"];
+
+const isDocxImageType = (value: string): value is DocxImageType =>
+  DOCX_IMAGE_TYPES.includes(value as DocxImageType);
+
+type HeadingValue = (typeof HeadingLevel)[keyof typeof HeadingLevel];
+type AlignmentValue = (typeof AlignmentType)[keyof typeof AlignmentType];
+
+interface DocxTextStyle {
+  bold?: boolean;
+  italics?: boolean;
+  underline?: boolean;
+  strike?: boolean;
+  color?: string;
+  highlight?: string;
+  fontSize?: number;
+  fontFamily?: string;
 }
 
-function downloadBlob(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
-}
+const pxToHalfPoints = (px?: number) => {
+  if (!px || Number.isNaN(px)) return undefined;
+  const points = (px * 72) / 96;
+  return Math.round(points * 2);
+};
 
-async function blobToDataURL(blob: Blob) {
-  return await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error("Failed to read blob"));
-    reader.onload = () => resolve(String(reader.result || ""));
-    reader.readAsDataURL(blob);
-  });
-}
+const colorCanvas = typeof document !== "undefined" ? document.createElement("canvas") : null;
+const colorCtx = colorCanvas ? colorCanvas.getContext("2d") : null;
 
-async function inlineImagesAndCanvases(inputHtml: string) {
-  const tmp = document.createElement("div");
-  tmp.innerHTML = inputHtml;
-
-  const canvases = Array.from(tmp.querySelectorAll("canvas")) as HTMLCanvasElement[];
-  canvases.forEach((c) => {
-    try {
-      const data = c.toDataURL("image/png");
-      const img = document.createElement("img");
-      img.src = data;
-      if (c.width) img.width = c.width;
-      if (c.height) img.height = c.height;
-      c.replaceWith(img);
-    } catch (e) {
-      console.warn("Failed to convert canvas to image for export", e);
+const cssColorToHex = (value?: string | null) => {
+  if (!value || !colorCtx) return null;
+  const normalized = normalizeColor(value);
+  if (!normalized) return null;
+  try {
+    colorCtx.fillStyle = "#000";
+    colorCtx.fillStyle = normalized;
+    const resolved = colorCtx.fillStyle as string;
+    if (resolved.startsWith("#")) {
+      let hex = resolved.slice(1);
+      if (hex.length === 3) {
+        hex = hex
+          .split("")
+          .map((ch) => ch + ch)
+          .join("");
+      }
+      return hex.toUpperCase();
     }
-  });
+    const rgbMatch = resolved.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+    if (rgbMatch) {
+      const toHex = (num: string) => Number(num).toString(16).padStart(2, "0");
+      return `${toHex(rgbMatch[1])}${toHex(rgbMatch[2])}${toHex(rgbMatch[3])}`.toUpperCase();
+    }
+  } catch (err) {
+    return null;
+  }
+  return null;
+};
 
-  const images = Array.from(tmp.querySelectorAll("img")) as HTMLImageElement[];
+const headingMap: Record<string, HeadingValue> = {
+  H1: HeadingLevel.HEADING_1,
+  H2: HeadingLevel.HEADING_2,
+  H3: HeadingLevel.HEADING_3,
+  H4: HeadingLevel.HEADING_4,
+  H5: HeadingLevel.HEADING_5,
+  H6: HeadingLevel.HEADING_6,
+};
 
-  async function captureImageFromLiveDOM(src: string) {
-    try {
-      const selector = `img[src="${src}"]`;
-      const live = document.querySelector(selector) as HTMLImageElement | null;
-      if (!live) return null;
-      await new Promise<void>((resolve) => {
-        if (live.complete) return resolve();
-        const onDone = () => { cleanup(); resolve(); };
-        const cleanup = () => { live.removeEventListener('load', onDone); live.removeEventListener('error', onDone); };
-        live.addEventListener('load', onDone);
-        live.addEventListener('error', onDone);
-      });
-      const w = live.naturalWidth || live.width || 1;
-      const h = live.naturalHeight || live.height || 1;
-      const canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return null;
-      ctx.drawImage(live, 0, 0, w, h);
-      return canvas.toDataURL('image/png');
-    } catch (err) {
-      return null;
+const alignmentMap: Record<string, AlignmentValue> = {
+  left: AlignmentType.LEFT,
+  right: AlignmentType.RIGHT,
+  center: AlignmentType.CENTER,
+  justify: AlignmentType.JUSTIFIED,
+};
+
+const BLOCK_TAGS = new Set([
+  "p", "div", "section", "article", "header", "footer", "h1", "h2", "h3", "h4", "h5", "h6",
+  "blockquote", "pre", "code", "ul", "ol", "li", "table",
+]);
+
+// DOCX conversion functions
+const deriveTextStyle = (element: HTMLElement, base: DocxTextStyle): DocxTextStyle => {
+  const next: DocxTextStyle = { ...base };
+  const tag = element.tagName.toLowerCase();
+  if (tag === "strong" || tag === "b") next.bold = true;
+  if (tag === "em" || tag === "i") next.italics = true;
+  if (tag === "u") next.underline = true;
+  if (tag === "s" || tag === "del" || tag === "strike") next.strike = true;
+  if (tag === "code" || tag === "pre") next.fontFamily = "Consolas";
+  if (tag === "mark") {
+    const bg = cssColorToHex(element.style.backgroundColor || "#fff59d");
+    if (bg) next.highlight = bg;
+  }
+  if (tag === "a") {
+    next.underline = true;
+    next.color = cssColorToHex(element.style.color || "#1d4ed8") || next.color;
+  }
+
+  const style = element.style;
+  if (style) {
+    const weight = style.fontWeight;
+    if (weight && (weight === "bold" || weight === "bolder" || parseInt(weight, 10) >= 600)) next.bold = true;
+    const fontStyle = style.fontStyle;
+    if (fontStyle && fontStyle !== "normal") next.italics = true;
+    const decoration = style.textDecoration || (style as any).textDecorationLine;
+    if (decoration) {
+      if (decoration.includes("underline")) next.underline = true;
+      if (decoration.includes("line-through")) next.strike = true;
+    }
+    const colorHex = cssColorToHex(style.color);
+    if (colorHex) next.color = colorHex;
+    const bgHex = cssColorToHex(style.backgroundColor);
+    if (bgHex && !/^(?:000000|00000000)$/.test(bgHex)) next.highlight = bgHex;
+    const fontSizePx = parseFloat(style.fontSize || "");
+    const size = pxToHalfPoints(fontSizePx);
+    if (size) next.fontSize = size;
+    if (style.fontFamily) {
+      next.fontFamily = style.fontFamily.split(",")[0].replace(/['"]/g, "").trim();
     }
   }
 
-  await Promise.all(
-    images.map(async (img) => {
-      const src = img.getAttribute("src") || img.src || "";
-      if (!src || src.startsWith("data:")) return;
-      try {
-        const res = await fetch(src);
-        if (res.ok) {
-          const blob = await res.blob();
-          const dataUrl = await blobToDataURL(blob);
-          img.src = dataUrl;
-          return;
-        }
-      } catch (e) {
-        // ignore, try capture fallback
-      }
+  return next;
+};
 
-      try {
-        if (src.startsWith('blob:') || src.startsWith('http') || src.startsWith('/')) {
-          const dataUrl = await captureImageFromLiveDOM(src);
-          if (dataUrl) {
-            img.src = dataUrl;
-            return;
-          }
-        }
-      } catch (e) {
-        // ignore
-      }
+type ParagraphChild = TextRun | ImageRun;
 
-      console.warn("Could not inline image for export", src);
-    })
+const createTextRunsFromString = (text: string, style: DocxTextStyle): ParagraphChild[] => {
+  if (!text) return [];
+  const normalized = text.replace(/\u00a0/g, "\u00A0");
+  const segments = normalized.split(/\n/);
+  const runs: ParagraphChild[] = [];
+  segments.forEach((segment, index) => {
+    if (segment) {
+      const runOptions: any = { text: segment };
+      if (style.bold) runOptions.bold = true;
+      if (style.italics) runOptions.italics = true;
+      if (style.underline) runOptions.underline = { type: UnderlineType.SINGLE };
+      if (style.strike) runOptions.strike = true;
+      if (style.color) runOptions.color = style.color;
+      if (style.fontSize) runOptions.size = style.fontSize;
+      if (style.fontFamily) runOptions.font = style.fontFamily;
+      if (style.highlight) {
+        runOptions.shading = {
+          type: ShadingType.CLEAR,
+          color: "auto",
+          fill: style.highlight,
+        };
+      }
+      runs.push(new TextRun(runOptions));
+    }
+    if (index < segments.length - 1) {
+      runs.push(new TextRun({ break: 1 }));
+    }
+  });
+  return runs;
+};
+
+const resolveAbsoluteUrl = (src: string) => {
+  try {
+    return new URL(src, window.location.href).href;
+  } catch (err) {
+    return src;
+  }
+};
+
+const captureImageFromLiveDom = async (src: string) => {
+  try {
+    const target = resolveAbsoluteUrl(src);
+    const images = Array.from(document.querySelectorAll("img")) as HTMLImageElement[];
+    const match = images.find((image) => resolveAbsoluteUrl(image.currentSrc || image.src) === target);
+    if (!match) return null;
+    if (!match.complete || match.naturalWidth === 0) {
+      await new Promise<void>((resolve) => {
+        const done = () => {
+          match.removeEventListener("load", done);
+          match.removeEventListener("error", done);
+          resolve();
+        };
+        match.addEventListener("load", done);
+        match.addEventListener("error", done);
+      });
+    }
+    const width = match.naturalWidth || match.width || 1;
+    const height = match.naturalHeight || match.height || 1;
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.drawImage(match, 0, 0, width, height);
+    return canvas.toDataURL("image/png");
+  } catch (err) {
+    return null;
+  }
+};
+
+const sourceToDataUrl = async (src: string) => {
+  if (!src) return null;
+  if (src.startsWith("data:")) return src;
+  try {
+    const response = await fetch(src);
+    if (response.ok) {
+      const blob = await response.blob();
+      return await blobToDataURL(blob);
+    }
+  } catch (err) {
+    // ignore fetch failures, fallback to DOM capture
+  }
+  return await captureImageFromLiveDom(src);
+};
+
+const dataUrlToUint8Array = (dataUrl: string | null) => {
+  if (!dataUrl) return null;
+  const parts = dataUrl.split(",");
+  if (parts.length < 2) return null;
+  const base64 = parts[1];
+  const binary = atob(base64);
+  const len = binary.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+};
+
+const dataUrlToDocxImageType = (dataUrl: string | null): DocxImageType => {
+  if (!dataUrl) return "png";
+  const match = dataUrl.match(/^data:image\/([\w.+-]+)/i);
+  if (!match) return "png";
+  const subtype = match[1].toLowerCase();
+  if (subtype === "jpeg") return "jpg";
+  return isDocxImageType(subtype) ? subtype : "png";
+};
+
+const createImageRun = async (img: HTMLImageElement): Promise<ImageRun | null> => {
+  const src = img.getAttribute("src") || img.src || "";
+  if (!src) return null;
+  const dataUrl = await sourceToDataUrl(src);
+  if (!dataUrl) return null;
+  const bytes = dataUrlToUint8Array(dataUrl);
+  if (!bytes) return null;
+  const type = dataUrlToDocxImageType(dataUrl);
+  const maxWidth = 600;
+  const width = img.naturalWidth || img.width || maxWidth;
+  const height = img.naturalHeight || img.height || maxWidth;
+  const scale = width > maxWidth ? maxWidth / width : 1;
+  const imageOptions: IImageOptions = {
+    type,
+    data: bytes,
+    transformation: {
+      width: Math.round(width * scale),
+      height: Math.round(height * scale),
+    },
+  };
+
+  return new ImageRun(imageOptions);
+};
+
+const buildRunsFromChildren = async (element: HTMLElement, baseStyle: DocxTextStyle): Promise<ParagraphChild[]> => {
+  const runs: ParagraphChild[] = [];
+  for (const child of Array.from(element.childNodes)) {
+    if (child.nodeType === Node.TEXT_NODE) {
+      runs.push(...createTextRunsFromString(child.textContent || "", baseStyle));
+      continue;
+    }
+
+    if (!(child instanceof HTMLElement)) continue;
+
+    if (child.tagName === "BR") {
+      runs.push(new TextRun({ break: 1 }));
+      continue;
+    }
+
+    if (child.tagName === "IMG") {
+      const imageRun = await createImageRun(child as HTMLImageElement);
+      if (imageRun) runs.push(imageRun);
+      continue;
+    }
+
+    if (BLOCK_TAGS.has(child.tagName.toLowerCase())) {
+      runs.push(new TextRun({ break: 1 }));
+      continue;
+    }
+
+    const nextStyle = deriveTextStyle(child, baseStyle);
+    runs.push(...(await buildRunsFromChildren(child, nextStyle)));
+  }
+  return runs;
+};
+
+const createParagraphFromElement = async (
+  element: HTMLElement,
+  options?: { heading?: HeadingValue; indent?: { left?: number; right?: number; hanging?: number } }
+) => {
+  const baseStyle = deriveTextStyle(element, {});
+  const runs = await buildRunsFromChildren(element, baseStyle);
+  if (!runs.length) return null;
+  const paragraphOptions: any = {
+    children: runs,
+  };
+
+  if (options?.heading) paragraphOptions.heading = options.heading;
+  if (options?.indent) paragraphOptions.indent = options.indent;
+
+  const alignKey = (element.style.textAlign || "").toLowerCase();
+  if (alignKey && alignmentMap[alignKey]) {
+    paragraphOptions.alignment = alignmentMap[alignKey];
+  }
+
+  if (element.tagName === "BLOCKQUOTE") {
+    paragraphOptions.indent = paragraphOptions.indent || { left: 720, right: 720 };
+    paragraphOptions.spacing = { before: 120, after: 120 };
+    paragraphOptions.border = {
+      left: { size: 6, color: "CCCCCC" },
+    };
+  }
+
+  return new Paragraph(paragraphOptions);
+};
+
+const processListElement = async (listEl: HTMLElement, depth = 0): Promise<Paragraph[]> => {
+  const paragraphs: Paragraph[] = [];
+  const isOrdered = listEl.tagName === "OL";
+  const start = parseInt(listEl.getAttribute("start") || "1", 10) || 1;
+  let index = 0;
+  const items = Array.from(listEl.children).filter(
+    (child): child is HTMLElement => child instanceof HTMLElement && child.tagName === "LI"
   );
 
-  return tmp.innerHTML;
-}
+  for (const item of items) {
+    const markerText = isOrdered ? `${start + index}. ` : "• ";
+    index += 1;
 
+    const inlineWrapper = item.cloneNode(true) as HTMLElement;
+    inlineWrapper.querySelectorAll("ul,ol").forEach((nested) => nested.remove());
+
+    const baseStyle = deriveTextStyle(item, {});
+    const runs = await buildRunsFromChildren(inlineWrapper, baseStyle);
+    const bulletRun = new TextRun({ text: markerText });
+    const children = [bulletRun, ...(runs.length ? runs : [new TextRun(" ")])];
+
+    const paragraph = new Paragraph({
+      children,
+      indent: { left: 720 + depth * 360, hanging: 360 },
+    });
+    paragraphs.push(paragraph);
+
+    const nestedLists = Array.from(item.children).filter(
+      (child): child is HTMLElement => child instanceof HTMLElement && (child.tagName === "UL" || child.tagName === "OL")
+    );
+    for (const nested of nestedLists) {
+      paragraphs.push(...(await processListElement(nested, depth + 1)));
+    }
+  }
+
+  return paragraphs;
+};
+
+const convertNodeToParagraphs = async (node: Node): Promise<Paragraph[]> => {
+  if (node.nodeType === Node.TEXT_NODE) {
+    const text = (node.textContent || "").trim();
+    if (!text) return [];
+    return [
+      new Paragraph({
+        children: createTextRunsFromString(text, {}),
+      }),
+    ];
+  }
+
+  if (!(node instanceof HTMLElement)) return [];
+
+  const tag = node.tagName.toLowerCase();
+  if (tag === "ul" || tag === "ol") {
+    return await processListElement(node);
+  }
+
+  if (tag === "img") {
+    const imgRun = await createImageRun(node as HTMLImageElement);
+    if (!imgRun) return [];
+    return [new Paragraph({ children: [imgRun] })];
+  }
+
+  const heading = headingMap[node.tagName];
+  if (heading) {
+    const paragraph = await createParagraphFromElement(node, { heading });
+    return paragraph ? [paragraph] : [];
+  }
+
+  if (tag === "blockquote") {
+    const paragraph = await createParagraphFromElement(node, { indent: { left: 720, right: 720 } });
+    return paragraph ? [paragraph] : [];
+  }
+
+  const hasBlockChild = Array.from(node.childNodes).some(
+    (child) => child instanceof HTMLElement && BLOCK_TAGS.has(child.tagName.toLowerCase())
+  );
+
+  if (hasBlockChild) {
+    const paragraphs: Paragraph[] = [];
+    for (const child of Array.from(node.childNodes)) {
+      paragraphs.push(...(await convertNodeToParagraphs(child)));
+    }
+    return paragraphs;
+  }
+
+  const paragraph = await createParagraphFromElement(node);
+  return paragraph ? [paragraph] : [];
+};
+
+const buildDocxParagraphsFromClone = async (root: HTMLElement) => {
+  const paragraphs: Paragraph[] = [];
+  for (const child of Array.from(root.childNodes)) {
+    paragraphs.push(...(await convertNodeToParagraphs(child)));
+  }
+  if (!paragraphs.length) {
+    paragraphs.push(new Paragraph({ children: [new TextRun(" ")] }));
+  }
+  return paragraphs;
+};
+
+// PDF-specific utilities
+const normalizeStyleTags = (root: HTMLElement) => {
+  const styleNodes = Array.from(root.querySelectorAll("style"));
+  styleNodes.forEach((styleNode) => {
+    const cssText = styleNode.textContent;
+    if (!cssText) return;
+    if (!/lab\(|lch\(/i.test(cssText)) return;
+    const normalized = normalizeColor(cssText);
+    if (normalized && normalized !== cssText) {
+      styleNode.textContent = normalized;
+    }
+  });
+};
+
+const normalizeListStructure = (root: HTMLElement) => {
+  const lists = Array.from(root.querySelectorAll("ul, ol"));
+  lists.forEach((list) => {
+    const isOrdered = list.tagName === "OL";
+    let counter = isOrdered ? parseInt(list.getAttribute("start") || "1", 10) || 1 : 1;
+    Array.from(list.children).forEach((child) => {
+      if (!(child instanceof HTMLElement)) return;
+      if (child.tagName !== "LI") return;
+      if (child.dataset.exportListNormalized === "true") return;
+
+      const marker = child.ownerDocument.createElement("span");
+      marker.textContent = isOrdered ? `${counter}.` : "\u2022";
+      marker.style.display = "inline-block";
+      marker.style.minWidth = isOrdered ? "2rem" : "1.5rem";
+      marker.style.paddingRight = "0.5rem";
+      marker.style.textAlign = isOrdered ? "right" : "center";
+      marker.style.lineHeight = "inherit";
+      marker.style.verticalAlign = "baseline";
+      marker.style.flex = "0 0 auto";
+
+      counter += 1;
+
+      const contentWrapper = child.ownerDocument.createElement("span");
+      contentWrapper.style.display = "inline";
+      contentWrapper.style.lineHeight = "inherit";
+      contentWrapper.style.verticalAlign = "baseline";
+      contentWrapper.style.flex = "1 1 auto";
+
+      while (child.firstChild) {
+        contentWrapper.appendChild(child.firstChild);
+      }
+
+      child.style.display = "flex";
+      child.style.alignItems = "baseline";
+      child.style.listStyleType = "none";
+      child.style.listStylePosition = "outside";
+      child.style.paddingLeft = "0";
+      child.style.marginLeft = "0";
+      child.style.gap = "0";
+      child.dataset.exportListNormalized = "true";
+
+      child.appendChild(marker);
+      child.appendChild(contentWrapper);
+    });
+  });
+};
+
+const shiftHighlightsDown = (root: HTMLElement, offsetPx: number) => {
+  const highlightCandidates = Array.from(root.querySelectorAll<HTMLElement>('mark, [style*="background"], [style*="background-color"]'));
+  highlightCandidates.forEach((el) => {
+    if (el.dataset.exportHighlightShifted === "true") return;
+
+    const inlineStyle = el.getAttribute("style") || "";
+    let colorMatch = inlineStyle.match(/background(?:-color)?:\s*([^;]+)/i);
+    let bgColor = colorMatch ? normalizeColor(colorMatch[1]) : null;
+
+    if ((!bgColor || /transparent|rgba\(0,\s*0,\s*0,\s*0\)/i.test(bgColor)) && typeof window !== "undefined" && el.ownerDocument === document) {
+      try {
+        const computed = window.getComputedStyle(el);
+        if (computed.backgroundColor && !/rgba\(0,\s*0,\s*0,\s*0\)/i.test(computed.backgroundColor)) {
+          bgColor = normalizeColor(computed.backgroundColor);
+        }
+      } catch (err) {
+        // ignore
+      }
+    }
+
+    if (!bgColor || /transparent|rgba\(0,\s*0,\s*0,\s*0\)/i.test(bgColor)) return;
+
+    const doc = el.ownerDocument;
+    const highlightLayer = doc.createElement("span");
+    highlightLayer.style.position = "absolute";
+    highlightLayer.style.left = "-2.5px";
+    highlightLayer.style.right = "-20px";
+    highlightLayer.style.top = `${offsetPx}px`;
+    highlightLayer.style.height = `calc(100% + ${offsetPx}px)`;
+    highlightLayer.style.backgroundColor = bgColor;
+    highlightLayer.style.zIndex = "0";
+    highlightLayer.style.borderRadius = "0.1em";
+    highlightLayer.style.pointerEvents = "none";
+    highlightLayer.style.display = "block";
+    highlightLayer.style.transformOrigin = "top center";
+    highlightLayer.style.transform = "scaleY(0.3333)";
+
+    const textHolder = doc.createElement("span");
+    textHolder.style.position = "relative";
+    textHolder.style.zIndex = "1";
+    textHolder.style.display = "inline";
+    textHolder.style.lineHeight = "inherit";
+
+    while (el.firstChild) {
+      textHolder.appendChild(el.firstChild);
+    }
+
+    el.style.position = "relative";
+    el.style.display = "inline-block";
+    el.style.lineHeight = "inherit";
+    el.style.verticalAlign = "baseline";
+    el.style.backgroundColor = "transparent";
+    el.style.paddingBottom = `${offsetPx}px`;
+    el.style.overflow = "visible";
+
+    el.appendChild(highlightLayer);
+    el.appendChild(textHolder);
+    el.dataset.exportHighlightShifted = "true";
+  });
+};
+
+// Main export functions
 async function exportAsPDF(html: string, filename: string) {
   const liveEditor = document.querySelector('[data-wysiwyg-editor-root="true"]') as HTMLElement | null;
 
@@ -139,387 +599,20 @@ async function exportAsPDF(html: string, filename: string) {
   const clone = sourceElement.cloneNode(true) as HTMLElement;
   clone.setAttribute("data-export-clone", "true");
 
-  const clamp01 = (val: number) => Math.min(1, Math.max(0, val));
-  const degToRad = (deg: number) => (deg * Math.PI) / 180;
-
-  const extractFuncBody = (input: string) => {
-    const start = input.indexOf("(");
-    const end = input.lastIndexOf(")");
-    return start >= 0 && end > start ? input.slice(start + 1, end) : "";
-  };
-
-  const parseAlpha = (value?: string | null) => {
-    if (!value) return 1;
-    const trimmed = value.trim();
-    if (!trimmed) return 1;
-    const percent = trimmed.endsWith("%");
-    const num = parseFloat(trimmed.replace(/%/g, ""));
-    if (Number.isNaN(num)) return 1;
-    return clamp01(percent ? num / 100 : num);
-  };
-
-  const parseLab = (input: string) => {
-    const body = extractFuncBody(input);
-    const [labPart, alphaPart] = body.split("/");
-    const parts = labPart
-      .replace(/,/g, " ")
-      .split(/\s+/)
-      .filter(Boolean);
-    if (parts.length < 3) return null;
-    const L = parseFloat(parts[0]);
-    const a = parseFloat(parts[1]);
-    const b = parseFloat(parts[2]);
-    if ([L, a, b].some((n) => Number.isNaN(n))) return null;
-    const alpha = parseAlpha(alphaPart);
-    return { L, a, b, alpha };
-  };
-
-  const parseLch = (input: string) => {
-    const body = extractFuncBody(input);
-    const [lchPart, alphaPart] = body.split("/");
-    const parts = lchPart
-      .replace(/,/g, " ")
-      .split(/\s+/)
-      .filter(Boolean);
-    if (parts.length < 3) return null;
-    const L = parseFloat(parts[0]);
-    const C = parseFloat(parts[1]);
-    const H = parseFloat(parts[2]);
-    if ([L, C, H].some((n) => Number.isNaN(n))) return null;
-    const alpha = parseAlpha(alphaPart);
-    const rad = degToRad(H % 360);
-    return { L, a: C * Math.cos(rad), b: C * Math.sin(rad), alpha };
-  };
-
-  const labToRgb = (lab: { L: number; a: number; b: number; alpha: number }) => {
-    const { L, a, b, alpha } = lab;
-    const refX = 0.96422;
-    const refY = 1;
-    const refZ = 0.82521;
-    const epsilon = 216 / 24389;
-    const kappa = 24389 / 27;
-
-    const fy = (L + 16) / 116;
-    const fx = fy + a / 500;
-    const fz = fy - b / 200;
-
-    const fx3 = fx ** 3;
-    const fz3 = fz ** 3;
-
-    const xr = fx3 > epsilon ? fx3 : (116 * fx - 16) / kappa;
-    const yr = L > kappa * epsilon ? ((L + 16) / 116) ** 3 : L / kappa;
-    const zr = fz3 > epsilon ? fz3 : (116 * fz - 16) / kappa;
-
-    const Xd50 = xr * refX;
-    const Yd50 = yr * refY;
-    const Zd50 = zr * refZ;
-
-    const M = [
-      [0.9554734527042182, -0.023098536874261423, 0.0632593086610217],
-      [-0.028369706963208136, 1.0099954580058226, 0.021041398966943008],
-      [0.012314001688319899, -0.020507696433477912, 1.3299097632096058],
-    ];
-
-    const X = M[0][0] * Xd50 + M[0][1] * Yd50 + M[0][2] * Zd50;
-    const Y = M[1][0] * Xd50 + M[1][1] * Yd50 + M[1][2] * Zd50;
-    const Z = M[2][0] * Xd50 + M[2][1] * Yd50 + M[2][2] * Zd50;
-
-    const xyzToRgb = [
-      [3.2404542, -1.5371385, -0.4985314],
-      [-0.9692660, 1.8760108, 0.0415560],
-      [0.0556434, -0.2040259, 1.0572252],
-    ];
-
-    const rLin = xyzToRgb[0][0] * X + xyzToRgb[0][1] * Y + xyzToRgb[0][2] * Z;
-    const gLin = xyzToRgb[1][0] * X + xyzToRgb[1][1] * Y + xyzToRgb[1][2] * Z;
-    const bLin = xyzToRgb[2][0] * X + xyzToRgb[2][1] * Y + xyzToRgb[2][2] * Z;
-
-    const linearToSrgb = (c: number) => {
-      if (Number.isNaN(c)) return 0;
-      if (c <= 0.0031308) return 12.92 * c;
-      return 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
-    };
-
-    const r = Math.round(clamp01(linearToSrgb(rLin)) * 255);
-    const g = Math.round(clamp01(linearToSrgb(gLin)) * 255);
-    const bVal = Math.round(clamp01(linearToSrgb(bLin)) * 255);
-
-    return alpha < 1 ? `rgba(${r}, ${g}, ${bVal}, ${alpha})` : `rgb(${r}, ${g}, ${bVal})`;
-  };
-
-  const normalizeColor = (value: string | null): string | null => {
-    if (!value) return null;
-    let output = value;
-    const replaceLab = (match: string) => {
-      const parsed = parseLab(match);
-      return parsed ? labToRgb(parsed) : match;
-    };
-    const replaceLch = (match: string) => {
-      const parsed = parseLch(match);
-      return parsed ? labToRgb(parsed) : match;
-    };
-    if (/lab\(/i.test(output)) {
-      output = output.replace(/lab\([^()]*\)/gi, replaceLab);
+  if (liveEditor) {
+    const restoreTheme = forceLightTheme();
+    try {
+      copyComputedStyles(liveEditor, clone);
+    } finally {
+      restoreTheme();
     }
-    if (/lch\(/i.test(output)) {
-      output = output.replace(/lch\([^()]*\)/gi, replaceLch);
-    }
-    return output;
-  };
+  }
 
-  const propertiesToCopy = [
-    "color",
-    "backgroundColor",
-    "backgroundImage",
-    "fontSize",
-    "fontFamily",
-    "fontWeight",
-    "fontStyle",
-    "lineHeight",
-    "letterSpacing",
-    "wordSpacing",
-    "textAlign",
-    "textTransform",
-    "textDecoration",
-    "textDecorationColor",
-    "textIndent",
-    "marginTop",
-    "marginRight",
-    "marginBottom",
-    "marginLeft",
-    "paddingTop",
-    "paddingRight",
-    "paddingBottom",
-    "paddingLeft",
-    "borderTopWidth",
-    "borderRightWidth",
-    "borderBottomWidth",
-    "borderLeftWidth",
-    "borderTopStyle",
-    "borderRightStyle",
-    "borderBottomStyle",
-    "borderLeftStyle",
-    "borderTopColor",
-    "borderRightColor",
-    "borderBottomColor",
-    "borderLeftColor",
-    "outlineStyle",
-    "outlineWidth",
-    "outlineColor",
-    "listStyleType",
-    "listStylePosition",
-    "listStyleImage",
-    "whiteSpace",
-    "display",
-    "verticalAlign",
-    "backgroundClip",
-  ];
-
-  const copyComputedStyles = (original: HTMLElement, target: HTMLElement) => {
-    const origNodes = [original, ...Array.from(original.querySelectorAll("*"))] as HTMLElement[];
-    const cloneNodes = [target, ...Array.from(target.querySelectorAll("*"))] as HTMLElement[];
-    origNodes.forEach((node, index) => {
-      const cloneNode = cloneNodes[index];
-      if (!cloneNode) return;
-      const styles = window.getComputedStyle(node);
-      propertiesToCopy.forEach((prop) => {
-        const val = (styles as any)[prop];
-        if (!val) return;
-        const needsColor = /color/i.test(prop) || prop.includes("Shadow") || prop.startsWith("background");
-        const normalized = needsColor ? normalizeColor(val) : val;
-        if (normalized) (cloneNode.style as any)[prop] = normalized;
-      });
-      cloneNode.style.boxShadow = "none";
-      cloneNode.style.textShadow = "none";
-      cloneNode.style.filter = "none";
-    });
-  };
-
-  const normalizeInlineDeclarations = (root: HTMLElement) => {
-    const elements = [root, ...Array.from(root.querySelectorAll<HTMLElement>("*"))];
-    elements.forEach((el) => {
-      const style = el.style;
-      if (!style) return;
-      for (let i = 0; i < style.length; i += 1) {
-        const prop = style.item(i);
-        if (!prop) continue;
-        const value = style.getPropertyValue(prop);
-        if (!value) continue;
-        if (/color|background|shadow/i.test(prop) || /lab\(|lch\(/i.test(value)) {
-          const normalized = normalizeColor(value);
-          if (normalized && normalized !== value) {
-            const priority = style.getPropertyPriority(prop) || "";
-            style.setProperty(prop, normalized, priority);
-          }
-        }
-      }
-      el.removeAttribute("class");
-    });
-  };
-
-  const normalizeStyleTags = (root: HTMLElement) => {
-    const styleNodes = Array.from(root.querySelectorAll("style"));
-    styleNodes.forEach((styleNode) => {
-      const cssText = styleNode.textContent;
-      if (!cssText) return;
-      if (!/lab\(|lch\(/i.test(cssText)) return;
-      const normalized = normalizeColor(cssText);
-      if (normalized && normalized !== cssText) {
-        styleNode.textContent = normalized;
-      }
-    });
-  };
-
-  const normalizeListStructure = (root: HTMLElement) => {
-    const lists = Array.from(root.querySelectorAll("ul, ol"));
-    lists.forEach((list) => {
-      const isOrdered = list.tagName === "OL";
-      let counter = isOrdered ? parseInt(list.getAttribute("start") || "1", 10) || 1 : 1;
-      Array.from(list.children).forEach((child) => {
-        if (!(child instanceof HTMLElement)) return;
-        if (child.tagName !== "LI") return;
-        if (child.dataset.exportListNormalized === "true") return;
-
-        const marker = child.ownerDocument.createElement("span");
-        marker.textContent = isOrdered ? `${counter}.` : "\u2022";
-        marker.style.display = "inline-block";
-        marker.style.minWidth = isOrdered ? "2rem" : "1.5rem";
-        marker.style.paddingRight = "0.5rem";
-        marker.style.textAlign = isOrdered ? "right" : "center";
-        marker.style.lineHeight = "inherit";
-        marker.style.verticalAlign = "baseline";
-        marker.style.flex = "0 0 auto";
-
-        counter += 1;
-
-        const contentWrapper = child.ownerDocument.createElement("span");
-        contentWrapper.style.display = "inline";
-        contentWrapper.style.lineHeight = "inherit";
-        contentWrapper.style.verticalAlign = "baseline";
-        contentWrapper.style.flex = "1 1 auto";
-
-        while (child.firstChild) {
-          contentWrapper.appendChild(child.firstChild);
-        }
-
-        child.style.display = "flex";
-        child.style.alignItems = "baseline";
-        child.style.listStyleType = "none";
-        child.style.listStylePosition = "outside";
-        child.style.paddingLeft = "0";
-        child.style.marginLeft = "0";
-        child.style.gap = "0";
-        child.dataset.exportListNormalized = "true";
-
-        child.appendChild(marker);
-        child.appendChild(contentWrapper);
-      });
-    });
-  };
-
-  const shiftHighlightsDown = (root: HTMLElement, offsetPx: number) => {
-    const highlightCandidates = Array.from(root.querySelectorAll<HTMLElement>('mark, [style*="background"], [style*="background-color"]'));
-    highlightCandidates.forEach((el) => {
-      if (el.dataset.exportHighlightShifted === "true") return;
-
-      const inlineStyle = el.getAttribute("style") || "";
-      let colorMatch = inlineStyle.match(/background(?:-color)?:\s*([^;]+)/i);
-      let bgColor = colorMatch ? normalizeColor(colorMatch[1]) : null;
-
-      if ((!bgColor || /transparent|rgba\(0,\s*0,\s*0,\s*0\)/i.test(bgColor)) && typeof window !== "undefined" && el.ownerDocument === document) {
-        try {
-          const computed = window.getComputedStyle(el);
-          if (computed.backgroundColor && !/rgba\(0,\s*0,\s*0,\s*0\)/i.test(computed.backgroundColor)) {
-            bgColor = normalizeColor(computed.backgroundColor);
-          }
-        } catch (err) {
-          // ignore
-        }
-      }
-
-      if (!bgColor || /transparent|rgba\(0,\s*0,\s*0,\s*0\)/i.test(bgColor)) return;
-
-      const doc = el.ownerDocument;
-      const highlightLayer = doc.createElement("span");
-      highlightLayer.style.position = "absolute";
-      highlightLayer.style.left = "-2.5px";
-      highlightLayer.style.right = "-20px";
-      highlightLayer.style.top = `${offsetPx}px`;
-      highlightLayer.style.height = `calc(100% + ${offsetPx}px)`;
-      highlightLayer.style.backgroundColor = bgColor;
-      highlightLayer.style.zIndex = "0";
-      highlightLayer.style.borderRadius = "0.1em";
-      highlightLayer.style.pointerEvents = "none";
-      highlightLayer.style.display = "block";
-      highlightLayer.style.transformOrigin = "top center";
-      highlightLayer.style.transform = "scaleY(0.3333)";
-
-      const textHolder = doc.createElement("span");
-      textHolder.style.position = "relative";
-      textHolder.style.zIndex = "1";
-      textHolder.style.display = "inline";
-      textHolder.style.lineHeight = "inherit";
-
-      while (el.firstChild) {
-        textHolder.appendChild(el.firstChild);
-      }
-
-      el.style.position = "relative";
-      el.style.display = "inline-block";
-      el.style.lineHeight = "inherit";
-      el.style.verticalAlign = "baseline";
-      el.style.backgroundColor = "transparent";
-      el.style.paddingBottom = `${offsetPx}px`;
-      el.style.overflow = "visible";
-
-      el.appendChild(highlightLayer);
-      el.appendChild(textHolder);
-      el.dataset.exportHighlightShifted = "true";
-    });
-  };
-
-  const waitForImages = async (root: HTMLElement) => {
-    const images = Array.from(root.querySelectorAll("img")) as HTMLImageElement[];
-    await Promise.all(
-      images.map(
-        (img) =>
-          new Promise<void>((resolve) => {
-            if (img.complete) return resolve();
-            const done = () => {
-              img.removeEventListener("load", done);
-              img.removeEventListener("error", done);
-              resolve();
-            };
-            img.addEventListener("load", done);
-            img.addEventListener("error", done);
-          })
-      )
-    );
-  };
-
-  const forceLightThemeForExport = () => {
-    const htmlEl = document.documentElement;
-    const bodyEl = document.body;
-    if (!htmlEl || !bodyEl) return () => {};
-
-    const hadDarkClass = htmlEl.classList.contains("dark");
-    if (!hadDarkClass) return () => {};
-
-    const previousVisibility = bodyEl.style.visibility;
-    const previousTransition = bodyEl.style.transition;
-
-    bodyEl.style.transition = "none";
-    bodyEl.style.visibility = "hidden";
-    htmlEl.classList.remove("dark");
-
-    return () => {
-      if (hadDarkClass) {
-        htmlEl.classList.add("dark");
-      }
-      bodyEl.style.visibility = previousVisibility;
-      bodyEl.style.transition = previousTransition;
-    };
-  };
+  normalizeInlineDeclarations(clone);
+  normalizeStyleTags(clone);
+  normalizeListStructure(clone);
+  shiftHighlightsDown(clone, 15);
+  await waitForImages(clone);
 
   const iframe = document.createElement("iframe");
   iframe.style.position = "fixed";
@@ -559,21 +652,6 @@ async function exportAsPDF(html: string, filename: string) {
   iframeDoc.body.appendChild(wrapper);
 
   try {
-    if (liveEditor) {
-      const restoreTheme = forceLightThemeForExport();
-      try {
-        copyComputedStyles(liveEditor, clone);
-      } finally {
-        restoreTheme();
-      }
-    }
-
-    normalizeInlineDeclarations(clone);
-    normalizeStyleTags(clone);
-    normalizeListStructure(clone);
-    shiftHighlightsDown(clone, 15);
-    await waitForImages(clone);
-
     const adoptedClone = iframeDoc.importNode(clone, true) as HTMLElement;
     wrapper.appendChild(adoptedClone);
 
@@ -665,68 +743,43 @@ async function exportAsPDF(html: string, filename: string) {
 }
 
 async function exportAsDocx(html: string, filename: string) {
-  const parser = new DOMParser();
-  const htmlDoc = parser.parseFromString(html, "text/html");
-  const body = htmlDoc.body;
+  const liveEditor = document.querySelector('[data-wysiwyg-editor-root="true"]') as HTMLElement | null;
 
-  const children: any[] = [];
+  const fallbackRoot = () => {
+    const tmp = document.createElement("div");
+    tmp.innerHTML = html;
+    tmp.style.whiteSpace = "normal";
+    return tmp;
+  };
 
-  function walk(node: ChildNode) {
-    if (node.nodeType === Node.TEXT_NODE) {
-      const text = (node.textContent || "").trim();
-      if (text) children.push(new Paragraph({ children: [new TextRun(text)] }));
-      return;
+  const sourceElement = liveEditor instanceof HTMLElement ? liveEditor : fallbackRoot();
+  const clone = sourceElement.cloneNode(true) as HTMLElement;
+  clone.setAttribute("data-export-clone", "true");
+
+  if (liveEditor) {
+    const restoreTheme = forceLightTheme();
+    try {
+      copyComputedStyles(liveEditor, clone);
+    } finally {
+      restoreTheme();
     }
-    if (node.nodeType !== Node.ELEMENT_NODE) return;
-    const el = node as Element;
-    const tag = el.tagName.toLowerCase();
-
-    if (tag === "h1" || tag === "h2" || tag === "h3") {
-      const size = tag === "h1" ? 28 : tag === "h2" ? 24 : 20;
-      children.push(
-        new Paragraph({
-          children: [new TextRun({ text: el.textContent || "", bold: true, size })],
-        })
-      );
-      return;
-    }
-
-    if (tag === "p" || tag === "div") {
-      children.push(new Paragraph({ children: [new TextRun(el.textContent || "")] }));
-      return;
-    }
-
-    if (tag === "pre" || tag === "code") {
-      children.push(
-        new Paragraph({
-          children: [new TextRun({ text: el.textContent || "", font: "Courier New" })],
-        })
-      );
-      return;
-    }
-
-    if (tag === "ul" || tag === "ol") {
-      const items = Array.from(el.querySelectorAll("li"));
-      for (const li of items)
-        children.push(
-          new Paragraph({ children: [new TextRun(li.textContent || "")] } as any)
-        );
-      return;
-    }
-
-    node.childNodes.forEach(walk);
   }
 
-  body.childNodes.forEach(walk);
+  normalizeInlineDeclarations(clone);
+  await waitForImages(clone);
 
-  const docx = new DocxDocument({ sections: [{ children }] });
+  const paragraphs = await buildDocxParagraphsFromClone(clone);
 
-  const buffer = await Packer.toBuffer(docx);
-  const uint8Array =
-    buffer instanceof ArrayBuffer ? new Uint8Array(buffer) : new Uint8Array(buffer as any);
-  const blob = new Blob([uint8Array], {
-    type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  const doc = new DocxDocument({
+    sections: [
+      {
+        properties: {},
+        children: paragraphs,
+      },
+    ],
   });
+
+  const blob = await Packer.toBlob(doc);
   downloadBlob(blob, `${filename}.docx`);
 }
 
@@ -738,6 +791,7 @@ async function exportAsTxt(html: string, filename: string) {
   downloadBlob(blob, `${filename}.txt`);
 }
 
+// Main component
 interface ExportOverlayProps {
   open: boolean;
   onClose?: () => void;
