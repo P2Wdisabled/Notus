@@ -82,7 +82,7 @@ const ModalHeader: React.FC<React.ComponentProps<"div">> = ({ children, classNam
 
 const ModalTitle: React.FC<React.ComponentProps<"h3">> = ({ children, className = "", ...props }) => (
   <h3
-    className={`text-lg font-semibold text-foreground ${className}`}
+    className={`text-lg font-semibold font-title text-foreground ${className}`}
     {...props}
   >
     {children}

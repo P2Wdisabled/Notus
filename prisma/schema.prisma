@@ -44,6 +44,7 @@ model User {
   requests UserRequest[]
   validatedRequests UserRequest[] @relation("ValidatedRequests")
   dossiers Dossier[]
+  comments Comment[]
 
   @@map("users")
 }
@@ -62,6 +63,7 @@ model Document {
   user  User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
   Share Share[]
   dossiers DossierDocument[]
+  comments Comment[]
 
   @@map("documents")
 }
@@ -205,4 +207,21 @@ model DossierDocument {
   @@index([dossier_id], map: "idx_dossier_document_dossier_id")
   @@index([document_id], map: "idx_dossier_document_document_id")
   @@map("dossier_documents")
+}
+
+model Comment {
+  id          Int      @id @default(autoincrement())
+  document_id Int      @map("document_id")
+  user_id     Int      @map("user_id")
+  content     String
+  created_at  DateTime @default(now()) @map("created_at")
+  updated_at  DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  document Document @relation(fields: [document_id], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([document_id], map: "idx_comments_document_id")
+  @@index([user_id], map: "idx_comments_user_id")
+  @@map("comments")
 }

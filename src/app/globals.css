@@ -152,6 +152,28 @@ select:-webkit-autofill {
   transition: background-color 9999s ease-out, color 9999s ease-out; /* neutralise le flash */
 }
 
+/* Style de l'icône calendrier pour les inputs de type date - couleur primary */
+/* Utilisation d'un mask-image avec background-color pour utiliser la variable CSS primary */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+  /* Utiliser mask-image pour appliquer la couleur primary via background-color */
+  background-color: var(--primary);
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2' fill='black'/%3E%3Cline x1='16' y1='2' x2='16' y2='6' stroke='black' stroke-width='2' stroke-linecap='round'/%3E%3Cline x1='8' y1='2' x2='8' y2='6' stroke='black' stroke-width='2' stroke-linecap='round'/%3E%3Cline x1='3' y1='10' x2='21' y2='10' stroke='black' stroke-width='2'/%3E%3C/svg%3E");
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2' fill='black'/%3E%3Cline x1='16' y1='2' x2='16' y2='6' stroke='black' stroke-width='2' stroke-linecap='round'/%3E%3Cline x1='8' y1='2' x2='8' y2='6' stroke='black' stroke-width='2' stroke-linecap='round'/%3E%3Cline x1='3' y1='10' x2='21' y2='10' stroke='black' stroke-width='2'/%3E%3C/svg%3E");
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
 /* Custom scrollbar styles */
 .scrollbar-thin {
   scrollbar-width: thin;
