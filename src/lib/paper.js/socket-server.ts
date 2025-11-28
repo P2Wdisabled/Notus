@@ -3,6 +3,7 @@ import { Server as IOServer } from 'socket.io';
 import type { Server as HTTPServer } from 'http';
 import type { TextUpdateData, SocketAckResponse, TitleUpdateData, DrawingData, CursorPositionData } from './types';
 import { PrismaDocumentService } from '../services/PrismaDocumentService';
+import { recordDocumentHistory } from '../documentHistory';
 
 let io: IOServer | null = null;
 let documentServicePromise: Promise<PrismaDocumentService> | null = null;
@@ -37,12 +38,37 @@ async function persistTextUpdate(data: TextUpdateData) {
 
   try {
     const service = await getDocumentServiceInstance();
+    const documentId = Number(data.documentId);
+
+    // Récupérer le snapshot précédent pour calculer le diff
+    let previousContent: string | null = null;
+    try {
+      const existing = await service.getDocumentById(documentId);
+      if (existing.success && existing.document) {
+        previousContent = existing.document.content;
+      }
+    } catch {
+      // Si on ne trouve pas le document, on considère que c'est une première version
+      previousContent = null;
+    }
+
+    const nextContent = JSON.stringify(data.persistSnapshot);
+
+    // Enregistrer l'historique avant de persister le nouveau contenu
+    await recordDocumentHistory({
+      documentId,
+      userId: data.userId,
+      userEmail: data.userEmail,
+      previousContent,
+      nextContent,
+    });
+
     await service.createOrUpdateDocumentById(
-      Number(data.documentId),
+      documentId,
       data.userId,
       data.userEmail,
       data.title || '',
-      JSON.stringify(data.persistSnapshot),
+      nextContent,
       Array.isArray(data.tags) ? data.tags : []
     );
   } catch (error) {

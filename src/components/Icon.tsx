@@ -527,6 +527,7 @@ export const ICONS = {
   outdent: Outdent,
   lock: Lock,
   document: DocumentIcon,
+  export: ExportIcon,
   user: User,
   users: Users,
   dashboard: Dashboard,

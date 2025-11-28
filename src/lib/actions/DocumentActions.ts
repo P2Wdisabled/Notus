@@ -5,6 +5,8 @@ import { authOptions } from "../../../lib/auth";
 import { DocumentService } from "../services/DocumentService";
 import { DocumentValidator } from "../validators/DocumentValidator";
 import { ActionResult } from "../types";
+import { recordDocumentHistoryImmediate } from "../documentHistory";
+import { recordDocumentHistory } from "../documentHistory";
 
 const documentService = new DocumentService();
 
@@ -345,6 +347,27 @@ export async function updateDocumentAction(prevState: unknown, formDataOrObj: Fo
     if (!userEmail) {
       return { ok: false, error: "Email utilisateur manquant pour la mise à jour." };
     }
+
+    // Récupérer le contenu précédent pour enregistrer un historique lisible
+    let previousContent: string | null = null;
+    try {
+      const existing = await documentService.getDocumentById(idNum);
+      if (existing.success && existing.document) {
+        previousContent = existing.document.content;
+      }
+    } catch {
+      previousContent = null;
+    }
+
+    // Enregistrer l'historique immédiatement pour les sauvegardes HTTP explicites
+    await recordDocumentHistoryImmediate({
+      documentId: idNum,
+      userId: userIdToUse,
+      userEmail,
+      previousContent,
+      nextContent: contentStr,
+    });
+
     const updateResult = await documentService.createOrUpdateDocumentById(
       idNum,
       userIdToUse,

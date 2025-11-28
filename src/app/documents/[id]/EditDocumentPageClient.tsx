@@ -18,6 +18,7 @@ import WysiwygNotepad from "@/components/Paper.js/WysiwygNotepad";
 import { Document, ActionResult } from "@/lib/types";
 import TagsManager from "@/components/documents/TagsManager";
 import CommentsSidebar from "@/components/documents/CommentsSidebar";
+import HistorySidebar from "@/components/documents/HistorySidebar";
 import { addShareAction, deleteDocumentAction, createDocumentAction } from "@/lib/actions/DocumentActions";
 import UserListButton from "@/components/ui/UserList/UserListButton";
 import { useGuardedNavigate } from "@/hooks/useGuardedNavigate";
@@ -117,6 +118,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   const [users, setUsers] = useState([]);
   const [isOffline, setIsOffline] = useState(false);
   const [isCommentsOpen, setIsCommentsOpen] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   
   // Load access list for this document and update `users` state
   const loadAccessList = async () => {
@@ -1209,7 +1211,6 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
                           setShareError(null);
                           setShareSuccess(null);
                           setIsShareModalOpen(true);
-
                           (async () => {
                             const ok = await checkConnectivity();
                             if (!ok) {
@@ -1226,6 +1227,16 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
 
                     <MenuItem
                       onClick={() => {
+                        setIsHistoryOpen(true);
+                        setIsMenuOpen(false);
+                      }}
+                      icon={<Icon name="clock" className="w-4 h-4 text-primary" />}
+                    >
+                      Historique
+                    </MenuItem>
+
+                    <MenuItem
+                      onClick={() => {
                         if (hasEditAccess !== false) {
                           handleSubmit();
                           setIsMenuOpen(false);
@@ -1236,11 +1247,12 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
                     >
                       {isManualSaving ? "Sauvegarde..." : hasEditAccess === false ? "Lecture seule" : "Sauvegarder"}
                     </MenuItem>
+
                     <MenuItem
                       onClick={() => {
-                          setIsMenuOpen(false);
-                          setIsExportOpen(true);
-                        }}
+                        setIsMenuOpen(false);
+                        setIsExportOpen(true);
+                      }}
                       icon={<Icon name="export" className="w-4 h-4 text-primary" />}
                     >
                       Exporter
@@ -1452,9 +1464,17 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
         isOpen={isCommentsOpen}
         onClose={() => setIsCommentsOpen(false)}
       />
+      <HistorySidebar
+        documentId={document?.id ?? null}
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+      />
       {/* Bouton flottant pour les commentaires */}
       <button
-        onClick={() => setIsCommentsOpen((open) => !open)}
+        onClick={() => {
+          setIsCommentsOpen((open) => !open);
+          setIsHistoryOpen(false);
+        }}
         disabled={!document?.id}
         title="Afficher les commentaires"
         className={cn(

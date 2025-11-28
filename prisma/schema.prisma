@@ -45,6 +45,7 @@ model User {
   validatedRequests UserRequest[] @relation("ValidatedRequests")
   dossiers Dossier[]
   comments Comment[]
+  documentHistory DocumentHistory[]
 
   @@map("users")
 }
@@ -60,10 +61,11 @@ model Document {
   updated_at DateTime @updatedAt @map("updated_at")
 
   // Relations
-  user  User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  Share Share[]
-  dossiers DossierDocument[]
-  comments Comment[]
+  user      User              @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  Share     Share[]
+  dossiers  DossierDocument[]
+  comments  Comment[]
+  history   DocumentHistory[]
 
   @@map("documents")
 }
@@ -224,4 +226,23 @@ model Comment {
   @@index([document_id], map: "idx_comments_document_id")
   @@index([user_id], map: "idx_comments_user_id")
   @@map("comments")
+}
+
+model DocumentHistory {
+  id             Int      @id @default(autoincrement())
+  document_id    Int      @map("document_id")
+  user_id        Int?     @map("user_id")
+  user_email     String?  @map("user_email")
+  snapshot_before String? @map("snapshot_before")
+  snapshot_after  String  @map("snapshot_after")
+  diff_added     String?  @map("diff_added")
+  diff_removed   String?  @map("diff_removed")
+  created_at     DateTime @default(now()) @map("created_at")
+
+  // Relations
+  document Document @relation(fields: [document_id], references: [id], onDelete: Cascade)
+  user     User?    @relation(fields: [user_id], references: [id], onDelete: SetNull)
+
+  @@index([document_id], map: "idx_document_history_document_id")
+  @@map("document_history")
 }
