@@ -1165,34 +1165,12 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
                 Mode lecture seule
               </div>
             )}
-            {hasEditAccess !== false && (
-              <div className="ml-4 px-3 py-1 text-sm font-medium rounded-full border flex items-center gap-2">
-                {saveStatus === 'synchronized' && (
-                  <>
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    <span className="text-muted-foreground">Synchronisé</span>
-                  </>
-                )}
-                {saveStatus === 'saving' && (
-                  <>
-                    <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
-                    <span className="text-muted-foreground">Enregistrement...</span>
-                  </>
-                )}
-                {saveStatus === 'unsynchronized' && (
-                  <>
-                    <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                    <span className="text-muted-foreground">Non synchronisé</span>
-                  </>
-                )}
-              </div>
-            )}
             <div className="relative inline-block">
               <Button
-                variant="ghost"
+                variant="ghostPurple"
                 size="icon"
                 onClick={toggleMenu}
-                className="md:mr-0 mr-8"
+                className="md:mr-0 ml-4"
               >
                 <Icon name="dotsVertical" className="h-6 w-6" />
               </Button>
@@ -1403,7 +1381,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
             </div>
 
             {/* Content */}
-            <div>
+            <div className="relative">
               <div className="border border-border rounded-lg overflow-hidden bg-card">
                 <WysiwygNotepad
                   key={`doc-${document.id}`}
@@ -1436,6 +1414,20 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
                   onRealtimeConnectionChange={handleRealtimeConnectionChange}
                 />
               </div>
+              {/* Indicateur de synchronisation - position flottante en bas à droite */}
+              {hasEditAccess !== false && (
+                <div className="absolute bottom-3 right-3 z-10 flex items-center">
+                  {saveStatus === 'synchronized' && (
+                    <div className="w-2 h-2 bg-green-500 rounded-full shadow-sm" aria-label="Synchronisé" title="Synchronisé"></div>
+                  )}
+                  {saveStatus === 'saving' && (
+                    <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse shadow-sm" aria-label="Enregistrement..." title="Enregistrement..."></div>
+                  )}
+                  {saveStatus === 'unsynchronized' && (
+                    <div className="w-2 h-2 bg-orange-500 rounded-full shadow-sm" aria-label="Non synchronisé" title="Non synchronisé"></div>
+                  )}
+                </div>
+              )}
             </div>
 
 
