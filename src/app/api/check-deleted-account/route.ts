@@ -6,7 +6,7 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => ({}));
     const email = String(body?.email || "").trim().toLowerCase();
     if (!email) {
-      return NextResponse.json({ success: false, error: "Email requis" }, { status: 400 });
+      return NextResponse.json({ success: false, error: "Accès refusé" }, { status: 400 });
     }
 
     const record = await prisma.deletedAccount.findFirst({ where: { email } });
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("❌ Erreur API check-deleted-account:", error);
-    return NextResponse.json({ success: false, error: "Erreur interne du serveur" }, { status: 500 });
+    return NextResponse.json({ success: false, error: "Accès refusé" }, { status: 500 });
   }
 }
 

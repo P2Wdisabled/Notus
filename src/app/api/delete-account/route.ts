@@ -1,44 +1,40 @@
 import { NextResponse } from "next/server";
-import { auth } from "../../../../auth";
 import { PrismaUserRepository } from "@/lib/repositories/PrismaUserRepository";
 import { EmailService } from "@/lib/services/EmailService";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { requireAuth } from "@/lib/security/routeGuards";
 
 export async function POST(request: Request) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ success: false, error: "Non authentifié" }, { status: 401 });
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
 
-    // Read and validate body
     let password = "";
     try {
       const body = await request.json();
       password = String(body?.password || "").trim();
     } catch (_) {}
     if (!password) {
-      return NextResponse.json({ success: false, error: "Mot de passe requis" }, { status: 400 });
+      return NextResponse.json({ success: false, error: "Accès refusé" }, { status: 400 });
     }
-
-    const userId = parseInt(session.user.id);
 
     const userRepo = new PrismaUserRepository();
-    const userRes = await userRepo.getUserById(userId);
+    const userRes = await userRepo.getUserById(authResult.userId);
     if (!userRes.success || !userRes.user) {
-      return NextResponse.json({ success: false, error: "Utilisateur introuvable" }, { status: 404 });
+      return NextResponse.json({ success: false, error: "Accès refusé" }, { status: 404 });
     }
 
-    // Verify password against stored hash
     const user = userRes.user;
     if (!user.password_hash) {
-      return NextResponse.json({ success: false, error: "Compte OAuth sans mot de passe" }, { status: 400 });
+      return NextResponse.json({ success: false, error: "Accès refusé" }, { status: 400 });
     }
 
     const ok = await bcrypt.compare(password, user.password_hash);
     if (!ok) {
-      return NextResponse.json({ success: false, error: "Mot de passe invalide" }, { status: 401 });
+      return NextResponse.json({ success: false, error: "Accès refusé" }, { status: 401 });
     }
 
     // Immediate deletion: archive documents, archive user, then delete user
@@ -93,7 +89,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("❌ Erreur API delete-account:", error);
-    return NextResponse.json({ success: false, error: "Erreur interne du serveur" }, { status: 500 });
+    return NextResponse.json({ success: false, error: "Accès refusé" }, { status: 500 });
   }
 }
 
