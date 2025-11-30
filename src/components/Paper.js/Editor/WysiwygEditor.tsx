@@ -11,6 +11,7 @@ import { useEditorEffects } from "./EditorEffects";
 import { useUndoRedoHistory } from "./useUndoRedoHistory";
 import { useCursorTracking } from "@/lib/paper.js/useCursorTracking";
 import CursorOverlay from "./CursorOverlay";
+import { sanitizeHtml, EDITOR_SANITIZE_CONFIG } from "@/lib/sanitizeHtml";
 
 interface WysiwygEditorProps {
   content: string;
@@ -56,6 +57,12 @@ export default function WysiwygEditor({
   
   const markdownConverter = useRef<MarkdownConverter | null>(null);
   const formattingHandler = useRef<FormattingHandler | null>(null);
+
+  const setEditorHtml = (html: string) => {
+    if (!editorRef.current) return;
+    const safeHtml = sanitizeHtml(html, EDITOR_SANITIZE_CONFIG);
+    editorRef.current.innerHTML = safeHtml;
+  };
 
   useEffect(() => {
     if (onEditorReady) {
@@ -128,7 +135,7 @@ export default function WysiwygEditor({
         isUpdatingFromMarkdown.current = false;
         return;
       }
-      editorRef.current.innerHTML = html;
+      setEditorHtml(html);
       setMarkdown(previousMarkdown);
       lastSavedMarkdownRef.current = previousMarkdown;
       handleContentChange(previousMarkdown, true);
@@ -159,7 +166,7 @@ export default function WysiwygEditor({
         isUpdatingFromMarkdown.current = false;
         return;
       }
-      editorRef.current.innerHTML = html;
+      setEditorHtml(html);
       setMarkdown(nextMarkdown);
       lastSavedMarkdownRef.current = nextMarkdown;
       handleContentChange(nextMarkdown, true);

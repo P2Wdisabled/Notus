@@ -1,17 +1,14 @@
 import { NextResponse } from "next/server";
 import { DocumentService } from "@/lib/services/DocumentService";
-import { auth } from "../../../../../auth";
+import { requireAuth, requireEmailMatch } from "@/lib/security/routeGuards";
 
 const documentService = new DocumentService();
 
 export async function GET(request: Request) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { success: false, error: "Non authentifié" },
-        { status: 401 }
-      );
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
 
     const { searchParams } = new URL(request.url);
@@ -19,28 +16,21 @@ export async function GET(request: Request) {
 
     if (!email) {
       return NextResponse.json(
-        { success: false, error: "Email requis" },
+        { success: false, error: "Accès refusé" },
         { status: 400 }
       );
     }
 
-    // Vérifier que l'utilisateur demande ses propres documents partagés
-    const userEmail = session.user.email?.toLowerCase().trim();
-    const requestedEmail = email.toLowerCase().trim();
-
-    if (userEmail !== requestedEmail) {
-      return NextResponse.json(
-        { success: false, error: "Accès refusé - Vous ne pouvez voir que vos propres documents partagés" },
-        { status: 403 }
-      );
+    const emailCheck = await requireEmailMatch(email, authResult.email);
+    if (emailCheck) {
+      return emailCheck;
     }
 
-    // Fetch all documents shared with this email
     await documentService.initializeTables();
     const result = await documentService.fetchSharedWithUser(email);
     if (!result.success) {
       return NextResponse.json(
-        { success: false, error: result.error || "Documents non trouvés" },
+        { success: false, error: "Accès refusé" },
         { status: 404 }
       );
     }
@@ -48,7 +38,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ success: true, documents: result.documents ?? [] });
   } catch (error) {
     return NextResponse.json(
-      { success: false, error: "Erreur interne du serveur" },
+      { success: false, error: "Accès refusé" },
       { status: 500 }
     );
   }

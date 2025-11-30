@@ -9,17 +9,16 @@ export async function POST(request: Request) {
 
     if (!token) {
       return NextResponse.json(
-        { success: false, error: "Token de vérification requis" },
+        { success: false, error: "Accès refusé" },
         { status: 400 }
       );
     }
 
-    // Vérifier l'email
     const result = await userService.verifyUserEmail(token);
 
     if (!result.success) {
       return NextResponse.json(
-        { success: false, error: result.error },
+        { success: false, error: "Accès refusé" },
         { status: 400 }
       );
     }
@@ -31,7 +30,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("❌ Erreur API vérification email:", error);
     return NextResponse.json(
-      { success: false, error: "Erreur interne du serveur" },
+      { success: false, error: "Accès refusé" },
       { status: 500 }
     );
   }

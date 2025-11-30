@@ -204,6 +204,53 @@ export class DocumentService {
     return { isValid: true };
   }
 
+  async userHasAccessToDocument(documentId: number, userId?: number, email?: string): Promise<boolean> {
+    if (!documentId || documentId <= 0) {
+      return false;
+    }
+
+    if (!userId && !email) {
+      return false;
+    }
+
+    try {
+      await this.initializeTables();
+      const documentResult = await this.getDocumentById(documentId);
+      if (!documentResult.success || !documentResult.document) {
+        return false;
+      }
+
+      const docUserIdRaw = documentResult.document.user_id;
+      const docUserId = typeof docUserIdRaw === "number" ? docUserIdRaw : Number(docUserIdRaw);
+      
+      // Vérifier si l'utilisateur est propriétaire (comparaison stricte)
+      if (userId && Number.isFinite(userId) && Number.isFinite(docUserId)) {
+        if (docUserId === userId) {
+          return true;
+        }
+      }
+
+      // Vérifier si l'utilisateur a un partage (lecture seule ou édition)
+      // On vérifie toujours l'email si disponible, même si userId ne correspond pas
+      if (email && typeof email === "string" && email.trim().length > 0) {
+        const normalizedEmail = email.trim().toLowerCase();
+        const shareResult = await this.getSharePermission(documentId, normalizedEmail);
+        // Si un partage existe (même en lecture seule), l'utilisateur a accès
+        // shareResult.success === true signifie qu'un partage a été trouvé dans la base de données
+        // On vérifie explicitement que data existe et n'est pas null
+        if (shareResult.success === true && shareResult.data && shareResult.data !== null) {
+          return true;
+        }
+      }
+
+      // Si on arrive ici, l'utilisateur n'est ni propriétaire ni partagé
+      return false;
+    } catch (error) {
+      console.error("❌ Erreur userHasAccessToDocument:", error);
+      return false;
+    }
+  }
+
   validateDocumentData(data: { title: string; content: string; tags: string[] }): { isValid: boolean; errors: string[] } {
     const errors: string[] = [];
 

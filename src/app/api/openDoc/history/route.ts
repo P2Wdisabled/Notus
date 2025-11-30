@@ -1,72 +1,16 @@
 import { NextResponse } from "next/server";
-import { auth } from "../../../../../auth";
+import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { DocumentService } from "@/lib/services/DocumentService";
+import { requireAuth, requireDocumentAccess } from "@/lib/security/routeGuards";
 
-const documentService = new DocumentService();
-
-async function ensureDocumentAccess(documentId: number, userId: number, userEmail?: string | null) {
-  await documentService.initializeTables();
-  const result = await documentService.getDocumentById(documentId);
-
-  if (!result.success || !result.document) {
-    return {
-      ok: false as const,
-      response: NextResponse.json(
-        { success: false, error: "Document non trouvé" },
-        { status: 404 }
-      ),
-    };
-  }
-
-  const document = result.document;
-  const isOwner = Number(document.user_id) === userId;
-
-  if (isOwner) {
-    return { ok: true as const, document };
-  }
-
-  if (!userEmail) {
-    return {
-      ok: false as const,
-      response: NextResponse.json(
-        { success: false, error: "Accès refusé - Vous n'avez pas accès à ce document" },
-        { status: 403 }
-      ),
-    };
-  }
-
-  // Vérifier si l'utilisateur a accès via partage (lecture ou édition)
-  const sharePermission = await documentService.getSharePermission(documentId, userEmail);
-  if (!sharePermission.success) {
-    return {
-      ok: false as const,
-      response: NextResponse.json(
-        { success: false, error: "Accès refusé - Vous n'avez pas accès à ce document" },
-        { status: 403 }
-      ),
-    };
-  }
-
-  return { ok: true as const, document };
-}
-
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { success: false, error: "Non authentifié" },
-        { status: 401 }
-      );
-    }
-
     const { searchParams } = new URL(request.url);
-    const id = searchParams.get("documentId");
+    const id = searchParams.get("documentId") || searchParams.get("id");
 
     if (!id) {
       return NextResponse.json(
-        { success: false, error: "ID du document requis" },
+        { success: false, error: "Accès refusé" },
         { status: 400 }
       );
     }
@@ -74,16 +18,24 @@ export async function GET(request: Request) {
     const documentId = parseInt(id, 10);
     if (isNaN(documentId) || documentId <= 0) {
       return NextResponse.json(
-        { success: false, error: "ID du document invalide" },
+        { success: false, error: "Accès refusé" },
         { status: 400 }
       );
     }
 
-    const userId = parseInt(session.user.id);
-    const userEmail = session.user.email;
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) {
+      return authResult;
+    }
 
-    const access = await ensureDocumentAccess(documentId, userId, userEmail);
-    if (!access.ok) return access.response;
+    const accessCheck = await requireDocumentAccess(
+      documentId,
+      authResult.userId,
+      authResult.email
+    );
+    if (accessCheck) {
+      return accessCheck;
+    }
 
     const historyEntries = await (prisma as any).documentHistory.findMany({
       where: { document_id: documentId },
@@ -109,7 +61,7 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error("❌ Erreur GET /api/openDoc/history:", error);
     return NextResponse.json(
-      { success: false, error: "Erreur interne du serveur" },
+      { success: false, error: "Accès refusé" },
       { status: 500 }
     );
   }

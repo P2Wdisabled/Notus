@@ -1,22 +1,16 @@
 import { NextResponse } from "next/server";
-import { auth } from "../../../../auth";
 import { prisma } from "@/lib/prisma";
+import { requireAuth } from "@/lib/security/routeGuards";
 
 export async function GET() {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { success: false, error: "Non authentifié", tags: [] },
-        { status: 401 }
-      );
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
 
-    const userId = parseInt(session.user.id);
-
-    // Récupérer tous les tags uniques depuis les documents de l'utilisateur
     const documents = await prisma.document.findMany({
-      where: { user_id: userId },
+      where: { user_id: authResult.userId },
       select: { tags: true },
     });
 
@@ -43,7 +37,7 @@ export async function GET() {
   } catch (error) {
     console.error("❌ Erreur récupération tags:", error);
     return NextResponse.json(
-      { success: false, error: "Erreur interne du serveur", tags: [] },
+      { success: false, error: "Accès refusé", tags: [] },
       { status: 500 }
     );
   }

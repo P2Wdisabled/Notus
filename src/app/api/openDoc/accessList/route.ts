@@ -1,25 +1,17 @@
 import { NextResponse } from "next/server";
 import { DocumentService } from "@/lib/services/DocumentService";
-import { auth } from "../../../../../auth";
+import { requireAuth, requireDocumentOwnership } from "@/lib/security/routeGuards";
 
 const documentService = new DocumentService();
 
 export async function GET(request: Request) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { success: false, error: "Non authentifié" },
-        { status: 401 }
-      );
-    }
-
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
 
     if (!id) {
       return NextResponse.json(
-        { success: false, error: "ID du document requis" },
+        { success: false, error: "Accès refusé" },
         { status: 400 }
       );
     }
@@ -27,55 +19,33 @@ export async function GET(request: Request) {
     const documentId = parseInt(id);
     if (isNaN(documentId) || documentId <= 0) {
       return NextResponse.json(
-        { success: false, error: "ID du document invalide" },
+        { success: false, error: "Accès refusé" },
         { status: 400 }
       );
     }
 
-    // Vérifier que l'utilisateur est propriétaire du document
-    await documentService.initializeTables();
-    const docResult = await documentService.getDocumentById(documentId);
-    
-    if (!docResult.success || !docResult.document) {
-      return NextResponse.json(
-        { success: false, error: "Document non trouvé" },
-        { status: 404 }
-      );
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
 
-    const document = docResult.document;
-    const userId = parseInt(session.user.id);
-    const userEmail = session.user.email;
-    
-    // Vérifier que l'utilisateur est propriétaire OU a accès via partage
-    const isOwner = Number(document.user_id) === userId;
-    let hasAccess = isOwner;
-    
-    if (!isOwner && userEmail) {
-      // Vérifier si l'utilisateur a accès via partage
-      const shareResult = await documentService.getSharePermission(documentId, userEmail);
-      hasAccess = shareResult.success;
-    }
-    
-    if (!hasAccess) {
-      return NextResponse.json(
-        { success: false, error: "Accès refusé - Vous n'avez pas accès à ce document" },
-        { status: 403 }
-      );
+    const ownershipCheck = await requireDocumentOwnership(documentId, authResult.userId);
+    if (ownershipCheck) {
+      return ownershipCheck;
     }
 
     const result = await documentService.fetchDocumentAccessList(documentId);
     if (!result.success) {
       return NextResponse.json(
-        { success: false, error: result.error || "Accès non trouvé" },
+        { success: false, error: "Accès refusé" },
         { status: 404 }
       );
     }
 
-  return NextResponse.json({ success: true, accessList: result.data?.accessList ?? [] });
+    return NextResponse.json({ success: true, accessList: result.data?.accessList ?? [] });
   } catch (error) {
     return NextResponse.json(
-      { success: false, error: "Erreur interne du serveur" },
+      { success: false, error: "Accès refusé" },
       { status: 500 }
     );
   }

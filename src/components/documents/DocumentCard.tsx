@@ -3,7 +3,6 @@ import { useState, useEffect, useRef } from "react";
 import { useActionState, startTransition } from "react";
 import { deleteDocumentAction, updateDocumentAction, toggleFavoriteAction } from "@/lib/actions";
 import Link from "next/link";
-import DOMPurify from "dompurify";
 import { Button, Input } from "@/components/ui";
 import { useGuardedNavigate } from "@/hooks/useGuardedNavigate";
 import Modal from "@/components/ui/modal";
@@ -14,6 +13,7 @@ import { Document, LocalDocument, AnyDocument } from "@/lib/types";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui";
 import FavoriteToggle from "@/components/documents/FavoriteToggle";
 import sanitizeLinks from "@/lib/sanitizeLinks";
+import { sanitizeHtml, PREVIEW_SANITIZE_CONFIG } from "@/lib/sanitizeHtml";
 import Icon from "@/components/Icon";
 
 interface DocumentCardProps {
@@ -166,20 +166,17 @@ export default function DocumentCard({
   const [previewHtml, setPreviewHtml] = useState("");
 
   useEffect(() => {
-    let mounted = true;
-    if (!contentIsHtml) { setPreviewHtml(""); return; }
-    (async () => {
-      try {
-        const DOMPurifyModule = await import("dompurify");
-        const DOMPurify = (DOMPurifyModule as any).default ?? DOMPurifyModule;
-        const safe = DOMPurify.sanitize(normalizedString, { ALLOWED_ATTR: ["style", "color"] });
-        if (mounted) setPreviewHtml(safe);
-      } catch (e) {
-        console.warn("dompurify import/sanitize failed", e);
-        if (mounted) setPreviewHtml(stripHtml((document as any)?.content || ""));
-      }
-    })();
-    return () => { mounted = false; };
+    if (!contentIsHtml) {
+      setPreviewHtml("");
+      return;
+    }
+    try {
+      const safe = sanitizeHtml(normalizedString, PREVIEW_SANITIZE_CONFIG);
+      setPreviewHtml(safe);
+    } catch (e) {
+      console.warn("DOMPurify sanitize failed", e);
+      setPreviewHtml(stripHtml((document as any)?.content || ""));
+    }
   }, [(document as any)?.content, contentIsHtml, normalizedString]);
 
   useEffect(() => {

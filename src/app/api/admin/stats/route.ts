@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { auth } from "../../../../../auth";
 import { UserService } from "@/lib/services/UserService";
 import { BaseRepository } from "@/lib/repositories/BaseRepository";
+import { requireAdmin } from "@/lib/security/routeGuards";
 
 class StatsRepository extends BaseRepository {
   async initializeTables(): Promise<void> {
@@ -248,23 +248,11 @@ const statsRepository = new StatsRepository();
 
 export async function GET(request: Request) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { success: false, error: "Non authentifié" },
-        { status: 401 }
-      );
+    const adminResult = await requireAdmin();
+    if (adminResult instanceof NextResponse) {
+      return adminResult;
     }
 
-    const userService = new UserService();
-    const isAdmin = await userService.isUserAdmin(parseInt(session.user.id));
-
-    if (!isAdmin) {
-      return NextResponse.json(
-        { success: false, error: "Accès refusé" },
-        { status: 403 }
-      );
-    }
 
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type') as 'users' | 'documents' | 'shares' | null;
@@ -347,7 +335,7 @@ export async function GET(request: Request) {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Erreur inconnue",
+        error: "Accès refusé",
       },
       { status: 500 }
     );

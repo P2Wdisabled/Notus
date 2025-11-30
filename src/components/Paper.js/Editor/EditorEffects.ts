@@ -2,6 +2,7 @@ import { useEffect, useCallback, useRef } from "react";
 import { MarkdownConverter } from "./MarkdownConverter";
 import { FormattingHandler } from "./FormattingHandler";
 import { adjustCursorPositionForTextChange } from "../../../lib/paper.js/cursorUtils";
+import { sanitizeHtml, EDITOR_SANITIZE_CONFIG } from "@/lib/sanitizeHtml";
 
 export interface EditorEffectsProps {
   editorRef: React.RefObject<HTMLDivElement | null>;
@@ -181,6 +182,7 @@ export function useEditorEffects({
         console.error('[MarkdownConverter] markdownToHtml failed', error);
         return;
       }
+      const safeHtml = sanitizeHtml(currentHtml, EDITOR_SANITIZE_CONFIG);
 
       if (cancelled) return;
       const activeRoot = editorRef.current;
@@ -196,8 +198,8 @@ export function useEditorEffects({
         temp.innerHTML = html;
         return temp.innerHTML;
       };
-      
-      const normalizedCurrentHtml = normalizeHtml(currentHtml);
+
+      const normalizedCurrentHtml = normalizeHtml(safeHtml);
       const normalizedEditorHtml = normalizeHtml(editorHtml);
       
       if (normalizedCurrentHtml === normalizedEditorHtml) {
@@ -226,7 +228,7 @@ export function useEditorEffects({
       const oldTextContent = activeRoot.textContent || '';
       const newTextContent = (() => {
         const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = currentHtml;
+        tempDiv.innerHTML = safeHtml;
         return tempDiv.textContent || '';
       })();
 
@@ -244,7 +246,7 @@ export function useEditorEffects({
         isUpdatingFromMarkdown.current = true;
       }
       if (!editorRef.current || cancelled) return;
-      editorRef.current.innerHTML = currentHtml;
+      editorRef.current.innerHTML = safeHtml;
 
       // Only restore cursor if:
       // 1. There was an active selection AND

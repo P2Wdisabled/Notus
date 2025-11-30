@@ -10,7 +10,7 @@ export async function GET() {
     const ping = await userService.getAllUsers(1, 0);
     if (!ping.success) {
       return NextResponse.json(
-        { reachable: false, error: ping.error || "database_unreachable" },
+        { success: false, error: "Accès refusé" },
         { status: 503 }
       );
     }
@@ -21,12 +21,12 @@ export async function GET() {
       ? await userService.isUserAdmin(parseInt(session.user.id))
       : false;
 
-    return NextResponse.json({ reachable: true, isAdmin }, { status: 200 });
+    return NextResponse.json({ success: true, reachable: true, isAdmin }, { status: 200 });
   } catch (error) {
     // Erreur globale (ex: serveur/edge indisponible) => 503
     console.error("Erreur vérification statut admin:", error);
     return NextResponse.json(
-      { isAdmin: false, error: "service_unavailable" },
+      { success: false, error: "Accès refusé" },
       { status: 503 }
     );
   }

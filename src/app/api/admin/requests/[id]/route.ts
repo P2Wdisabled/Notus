@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { auth } from "../../../../../../auth";
 import { UserService } from "@/lib/services/UserService";
 import { RequestService } from "@/lib/services/RequestService";
 import { NotificationService } from "@/lib/services/NotificationService";
 import { UpdateRequestData } from "@/lib/repositories/RequestRepository";
+import { requireAdmin } from "@/lib/security/routeGuards";
 
 const requestService = new RequestService();
 const userService = new UserService();
@@ -24,20 +24,9 @@ interface RouteParams {
 
 export async function GET(request: Request, { params }: RouteParams) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { success: false, error: "Non authentifié" },
-        { status: 401 }
-      );
-    }
-
-    const isAdmin = await userService.isUserAdmin(parseInt(session.user.id));
-    if (!isAdmin) {
-      return NextResponse.json(
-        { success: false, error: "Accès refusé" },
-        { status: 403 }
-      );
+    const adminResult = await requireAdmin();
+    if (adminResult instanceof NextResponse) {
+      return adminResult;
     }
 
     const { id } = await params;
@@ -47,7 +36,7 @@ export async function GET(request: Request, { params }: RouteParams) {
 
     if (!result.success) {
       return NextResponse.json(
-        { success: false, error: result.error || "Requête non trouvée" },
+        { success: false, error: "Accès refusé" },
         { status: 404 }
       );
     }
@@ -56,7 +45,7 @@ export async function GET(request: Request, { params }: RouteParams) {
   } catch (error) {
     console.error("❌ Erreur récupération requête:", error);
     return NextResponse.json(
-      { success: false, error: "Erreur interne du serveur" },
+      { success: false, error: "Accès refusé" },
       { status: 500 }
     );
   }
@@ -64,20 +53,9 @@ export async function GET(request: Request, { params }: RouteParams) {
 
 export async function PATCH(request: Request, { params }: RouteParams) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { success: false, error: "Non authentifié" },
-        { status: 401 }
-      );
-    }
-
-    const isAdmin = await userService.isUserAdmin(parseInt(session.user.id));
-    if (!isAdmin) {
-      return NextResponse.json(
-        { success: false, error: "Accès refusé" },
-        { status: 403 }
-      );
+    const adminResult = await requireAdmin();
+    if (adminResult instanceof NextResponse) {
+      return adminResult;
     }
 
     const { id } = await params;
@@ -86,11 +64,10 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     await requestService.initializeTables();
     await notificationService.initializeTables();
 
-    // Récupérer la requête avant mise à jour pour vérifier le changement de statut
     const requestBeforeUpdate = await requestService.getRequestById(parseInt(id));
     if (!requestBeforeUpdate.success || !requestBeforeUpdate.request) {
       return NextResponse.json(
-        { success: false, error: "Requête non trouvée" },
+        { success: false, error: "Accès refusé" },
         { status: 404 }
       );
     }
@@ -106,7 +83,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     if (status !== undefined) {
       if (!isValidRequestStatus(status)) {
         return NextResponse.json(
-          { success: false, error: "Statut invalide" },
+          { success: false, error: "Accès refusé" },
           { status: 400 }
         );
       }
@@ -116,7 +93,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
     if (!result.success) {
       return NextResponse.json(
-        { success: false, error: result.error || "Erreur lors de la mise à jour" },
+        { success: false, error: "Accès refusé" },
         { status: 500 }
       );
     }
@@ -185,7 +162,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       };
 
       const notificationResult = await notificationService.sendNotification(
-        parseInt(session.user.id),
+        adminResult.userId,
         result.request.user_id,
         notificationMessage
       );
@@ -201,7 +178,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
   } catch (error) {
     console.error("❌ Erreur mise à jour requête:", error);
     return NextResponse.json(
-      { success: false, error: "Erreur interne du serveur" },
+      { success: false, error: "Accès refusé" },
       { status: 500 }
     );
   }
@@ -209,20 +186,9 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
 export async function DELETE(request: Request, { params }: RouteParams) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { success: false, error: "Non authentifié" },
-        { status: 401 }
-      );
-    }
-
-    const isAdmin = await userService.isUserAdmin(parseInt(session.user.id));
-    if (!isAdmin) {
-      return NextResponse.json(
-        { success: false, error: "Accès refusé" },
-        { status: 403 }
-      );
+    const adminResult = await requireAdmin();
+    if (adminResult instanceof NextResponse) {
+      return adminResult;
     }
 
     const { id } = await params;
@@ -232,7 +198,7 @@ export async function DELETE(request: Request, { params }: RouteParams) {
 
     if (!result.success) {
       return NextResponse.json(
-        { success: false, error: result.error || "Erreur lors de la suppression" },
+        { success: false, error: "Accès refusé" },
         { status: 500 }
       );
     }
@@ -241,7 +207,7 @@ export async function DELETE(request: Request, { params }: RouteParams) {
   } catch (error) {
     console.error("❌ Erreur suppression requête:", error);
     return NextResponse.json(
-      { success: false, error: "Erreur interne du serveur" },
+      { success: false, error: "Accès refusé" },
       { status: 500 }
     );
   }
