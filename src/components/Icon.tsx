@@ -558,6 +558,13 @@ export const ICONS = {
   chartBar: ChartBar,
   inbox: Inbox,
   comment: Comment,
+  sparkles: (props: SvgProps) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M12 2L13.5 8.5L20 10L13.5 11.5L12 18L10.5 11.5L4 10L10.5 8.5L12 2Z" />
+      <path d="M19 3L20 6L23 7L20 8L19 11L18 8L15 7L18 6L19 3Z" />
+      <path d="M5 16L5.5 17.5L7 18L5.5 18.5L5 20L4.5 18.5L3 18L4.5 17.5L5 16Z" />
+    </svg>
+  ),
 } as const;
 
 export type IconName = keyof typeof ICONS;

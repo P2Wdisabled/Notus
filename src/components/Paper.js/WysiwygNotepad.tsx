@@ -36,6 +36,7 @@ interface WysiwygNotepadProps {
   onPersisted?: (payload: { snapshot?: SnapshotPayload | null; title?: string; tags?: string[] }) => void;
   onRegisterFlush?: (flush: (override?: FlushOverride) => Promise<void>) => void;
   onRealtimeConnectionChange?: (connected: boolean) => void;
+  onOpenSynthesis?: () => void;
 }
 
 export default function WysiwygNotepad({
@@ -57,6 +58,7 @@ export default function WysiwygNotepad({
   onPersisted,
   onRegisterFlush,
   onRealtimeConnectionChange,
+  onOpenSynthesis,
 }: WysiwygNotepadProps) {
   const [markdown, setMarkdown] = useState(initialData.text || "");
   const [debugMode, setDebugMode] = useState(showDebug);
@@ -224,6 +226,7 @@ export default function WysiwygNotepad({
           onFormatChange={handleFormatChange}
           showDebug={debugMode}
           onToggleDebug={handleToggleDebug}
+          onOpenSynthesis={onOpenSynthesis}
         />
       )}
 
