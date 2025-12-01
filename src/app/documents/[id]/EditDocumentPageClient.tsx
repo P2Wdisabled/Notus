@@ -19,6 +19,7 @@ import { Document, ActionResult } from "@/lib/types";
 import TagsManager from "@/components/documents/TagsManager";
 import CommentsSidebar from "@/components/documents/CommentsSidebar";
 import HistorySidebar from "@/components/documents/HistorySidebar";
+import SynthesisSidebar from "@/components/documents/SynthesisSidebar";
 import { addShareAction, deleteDocumentAction, createDocumentAction } from "@/lib/actions/DocumentActions";
 import UserListButton from "@/components/ui/UserList/UserListButton";
 import { useGuardedNavigate } from "@/hooks/useGuardedNavigate";
@@ -119,6 +120,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   const [isOffline, setIsOffline] = useState(false);
   const [isCommentsOpen, setIsCommentsOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isSynthesisOpen, setIsSynthesisOpen] = useState(false);
   
   // Load access list for this document and update `users` state
   const loadAccessList = async () => {
@@ -1461,6 +1463,11 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
                   onPersisted={handleRealtimePersisted}
                   onRegisterFlush={handleRegisterFlush}
                   onRealtimeConnectionChange={handleRealtimeConnectionChange}
+                  onOpenSynthesis={() => {
+                    setIsSynthesisOpen(true);
+                    setIsCommentsOpen(false);
+                    setIsHistoryOpen(false);
+                  }}
                 />
               </div>
               {/* Indicateur de synchronisation - position flottante en bas à droite */}
@@ -1510,11 +1517,18 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
         isOpen={isHistoryOpen}
         onClose={() => setIsHistoryOpen(false)}
       />
+      <SynthesisSidebar
+        documentId={document?.id ?? null}
+        isOpen={isSynthesisOpen}
+        onClose={() => setIsSynthesisOpen(false)}
+        documentContent={content?.text || ""}
+      />
       {/* Bouton flottant pour les commentaires */}
       <button
         onClick={() => {
           setIsCommentsOpen((open) => !open);
           setIsHistoryOpen(false);
+          setIsSynthesisOpen(false);
         }}
         disabled={!document?.id}
         title="Afficher les commentaires"

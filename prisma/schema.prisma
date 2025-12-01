@@ -45,7 +45,9 @@ model User {
   validatedRequests UserRequest[] @relation("ValidatedRequests")
   dossiers Dossier[]
   comments Comment[]
+  syntheses Synthesis[]
   documentHistory DocumentHistory[]
+  tokenUsage UserTokenUsage[]
 
   @@map("users")
 }
@@ -65,6 +67,7 @@ model Document {
   Share     Share[]
   dossiers  DossierDocument[]
   comments  Comment[]
+  syntheses Synthesis[]
   history   DocumentHistory[]
 
   @@map("documents")
@@ -245,4 +248,50 @@ model DocumentHistory {
 
   @@index([document_id], map: "idx_document_history_document_id")
   @@map("document_history")
+}
+
+model Synthesis {
+  id          Int      @id @default(autoincrement())
+  document_id Int      @map("document_id")
+  user_id     Int      @map("user_id")
+  content     String
+  created_at  DateTime @default(now()) @map("created_at")
+  updated_at  DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  document Document @relation(fields: [document_id], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([document_id], map: "idx_syntheses_document_id")
+  @@index([user_id], map: "idx_syntheses_user_id")
+  @@map("syntheses")
+}
+
+model AppSetting {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique
+  value       String
+  description String?
+  created_at  DateTime @default(now()) @map("created_at")
+  updated_at  DateTime @updatedAt @map("updated_at")
+
+  @@index([key], map: "idx_app_settings_key")
+  @@map("app_settings")
+}
+
+model UserTokenUsage {
+  id          Int      @id @default(autoincrement())
+  user_id     Int      @map("user_id")
+  date        DateTime @db.Date
+  tokens_used Int      @default(0) @map("tokens_used")
+  created_at  DateTime @default(now()) @map("created_at")
+  updated_at  DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, date], map: "idx_user_token_usage_user_date")
+  @@index([user_id], map: "idx_user_token_usage_user_id")
+  @@index([date], map: "idx_user_token_usage_date")
+  @@map("user_token_usage")
 }

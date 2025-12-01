@@ -18,9 +18,10 @@ interface WysiwygToolbarProps {
   onFormatChange: (command: string, value?: string) => void;
   showDebug?: boolean;
   onToggleDebug?: () => void;
+  onOpenSynthesis?: () => void;
 }
 
-export default function WysiwygToolbar({ onFormatChange, showDebug = false, onToggleDebug }: WysiwygToolbarProps) {
+export default function WysiwygToolbar({ onFormatChange, showDebug = false, onToggleDebug, onOpenSynthesis }: WysiwygToolbarProps) {
   const [showDrawingModal, setShowDrawingModal] = useState(false);
   const [showImageEditModal, setShowImageEditModal] = useState(false);
   const [isBold, setIsBold] = useState(false);
@@ -240,6 +241,20 @@ export default function WysiwygToolbar({ onFormatChange, showDebug = false, onTo
 
       {/* Quote Buttons */}
       <QuoteButtons onFormatChange={onFormatChange} />
+
+      <ToolbarSeparator />
+
+      {/* AI Synthesis Button */}
+      {onOpenSynthesis && (
+        <button
+          type="button"
+          onClick={onOpenSynthesis}
+          className="p-2 rounded transition-colors bg-muted hover:bg-muted/80 text-foreground"
+          title="Synthèse IA"
+        >
+          <Icon name="sparkles" className="h-5 w-5" />
+        </button>
+      )}
 
       {/* <ToolbarSeparator /> */}
 
