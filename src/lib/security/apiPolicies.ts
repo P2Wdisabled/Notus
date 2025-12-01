@@ -377,7 +377,7 @@ export const apiRoutePolicies: RoutePolicy[] = [
     matcher: /^\/api\/openDoc\/accessList$/,
     methods: ["GET"],
     requireAuth: true,
-    enforce: enforceDocumentOwnershipFromQuery,
+    enforce: enforceOpenDocAccess,
   },
   {
     id: "open-doc-shared",

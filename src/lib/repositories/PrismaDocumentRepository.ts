@@ -650,7 +650,13 @@ export class PrismaDocumentRepository {
       if (!doc) return { success: false, error: 'Document non trouvé' };
       if (doc.user_id !== userId) return { success: false, error: "Vous n'êtes pas autorisé à modifier ce favori" };
 
-      const updated = await prisma.document.update({ where: { id: documentId }, data: ({ favori: value } as any) });
+      // Le trigger PostgreSQL a été modifié pour ne pas mettre à jour updated_at
+      // si seul le champ favori est modifié
+      const updated = await prisma.document.update({ 
+        where: { id: documentId }, 
+        data: { favori: value } as any 
+      });
+      
       return { success: true, data: { id: updated.id, favori: (updated as any).favori ?? null } };
     } catch (e: unknown) {
       return { success: false, error: e instanceof Error ? e.message : 'Erreur inconnue' };
