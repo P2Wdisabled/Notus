@@ -108,12 +108,24 @@ export class DocumentRepository extends BaseRepository {
 
   private async createTriggers(): Promise<void> {
     // Fonction pour mettre à jour updated_at
+    // Ne met pas à jour updated_at si seul le champ favori a été modifié
     // Create function first (this is idempotent with CREATE OR REPLACE)
     await this.query(`
       CREATE OR REPLACE FUNCTION update_updated_at_column()
       RETURNS TRIGGER AS $$
       BEGIN
-        NEW.updated_at = CURRENT_TIMESTAMP;
+        -- Ne pas mettre à jour updated_at si seul le champ favori a changé
+        IF (OLD.favori IS DISTINCT FROM NEW.favori) AND
+           (OLD.title IS NOT DISTINCT FROM NEW.title) AND
+           (OLD.content IS NOT DISTINCT FROM NEW.content) AND
+           (OLD.tags IS NOT DISTINCT FROM NEW.tags) AND
+           (OLD.user_id IS NOT DISTINCT FROM NEW.user_id) THEN
+          -- Seul favori a changé, préserver updated_at
+          NEW.updated_at = OLD.updated_at;
+        ELSE
+          -- D'autres champs ont changé, mettre à jour updated_at
+          NEW.updated_at = CURRENT_TIMESTAMP;
+        END IF;
         RETURN NEW;
       END;
       $$ language 'plpgsql'

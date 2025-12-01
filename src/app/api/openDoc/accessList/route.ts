@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { DocumentService } from "@/lib/services/DocumentService";
-import { requireAuth, requireDocumentOwnership } from "@/lib/security/routeGuards";
+import { requireAuth, requireDocumentAccess } from "@/lib/security/routeGuards";
 
 const documentService = new DocumentService();
 
@@ -29,9 +29,14 @@ export async function GET(request: Request) {
       return authResult;
     }
 
-    const ownershipCheck = await requireDocumentOwnership(documentId, authResult.userId);
-    if (ownershipCheck) {
-      return ownershipCheck;
+    // Vérifier l'accès au document (propriétaire ou utilisateur avec partage)
+    const accessCheck = await requireDocumentAccess(
+      documentId,
+      authResult.userId,
+      authResult.email
+    );
+    if (accessCheck) {
+      return accessCheck;
     }
 
     const result = await documentService.fetchDocumentAccessList(documentId);

@@ -377,7 +377,7 @@ export const apiRoutePolicies: RoutePolicy[] = [
     matcher: /^\/api\/openDoc\/accessList$/,
     methods: ["GET"],
     requireAuth: true,
-    enforce: enforceDocumentOwnershipFromQuery,
+    enforce: enforceOpenDocAccess,
   },
   {
     id: "open-doc-shared",
@@ -611,10 +611,10 @@ async function enforceCommentsAccess(context: PolicyContext) {
   const method = context.request.method.toUpperCase();
   
   if (method === "GET") {
-    // Pour GET, vérifier l'accès via query params
-    return enforceDocumentAccessFromQuery(context);
+    // Pour GET, utiliser la même vérification que pour l'ouverture d'un document
+    return enforceOpenDocAccess(context);
   } else if (method === "POST") {
-    // Pour POST, vérifier l'accès via body
+    // Pour POST, vérifier l'accès via body en utilisant la même logique
     const body = await parseJsonBody<Record<string, unknown>>(context.request);
     const documentId = parseDocumentIdFromBody(body);
 
@@ -632,6 +632,7 @@ async function enforceCommentsAccess(context: PolicyContext) {
       );
     }
 
+    // Utiliser la même vérification d'accès que pour l'ouverture d'un document
     const hasAccess = await documentAccessService.userHasAccessToDocument(
       documentId,
       context.authContext.userId ?? undefined,

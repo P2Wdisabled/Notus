@@ -650,9 +650,38 @@ export class PrismaDocumentRepository {
       if (!doc) return { success: false, error: 'Document non trouvé' };
       if (doc.user_id !== userId) return { success: false, error: "Vous n'êtes pas autorisé à modifier ce favori" };
 
-      const updated = await prisma.document.update({ where: { id: documentId }, data: ({ favori: value } as any) });
+      // Utiliser une requête SQL brute pour mettre à jour uniquement favori
+      // Désactiver temporairement le trigger pour éviter la mise à jour de updated_at
+      // puis réactiver le trigger après la mise à jour
+      await prisma.$executeRaw`SET session_replication_role = replica;`;
+      
+      try {
+        await prisma.$executeRaw`
+          UPDATE documents 
+          SET favori = ${value}
+          WHERE id = ${documentId} AND user_id = ${userId}
+        `;
+      } finally {
+        // Toujours réactiver le trigger, même en cas d'erreur
+        await prisma.$executeRaw`SET session_replication_role = DEFAULT;`;
+      }
+
+      // Récupérer le document mis à jour pour retourner le résultat
+      const updated = await prisma.document.findUnique({ 
+        where: { id: documentId }, 
+        select: { id: true, favori: true } 
+      });
+      
+      if (!updated) {
+        return { success: false, error: 'Erreur lors de la récupération du document mis à jour' };
+      }
+
       return { success: true, data: { id: updated.id, favori: (updated as any).favori ?? null } };
     } catch (e: unknown) {
+      // S'assurer que le trigger est réactivé même en cas d'erreur
+      try {
+        await prisma.$executeRaw`SET session_replication_role = DEFAULT;`;
+      } catch {}
       return { success: false, error: e instanceof Error ? e.message : 'Erreur inconnue' };
     }
   }

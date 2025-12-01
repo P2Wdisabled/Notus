@@ -1,38 +1,21 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getToken } from "next-auth/jwt";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/../lib/auth";
+import { DocumentService } from "@/lib/services/DocumentService";
+
+const documentService = new DocumentService();
 
 export async function GET(request: NextRequest) {
   try {
     // L'authentification et la vérification d'accès au document sont gérées par le middleware
-    // On récupère l'utilisateur depuis le token pour cohérence
-    const secret = process.env.AUTH_SECRET;
-    if (!secret) {
-      return NextResponse.json(
-        { success: false, error: "Accès refusé" },
-        { status: 500 }
-      );
-    }
+    // Mais on vérifie aussi explicitement ici pour garantir la sécurité
+    const session = await getServerSession(authOptions);
+    const userId = session?.user?.id ? Number(session.user.id) : undefined;
+    const userEmail = session?.user?.email as string | undefined;
 
-    const token = await getToken({ req: request, secret });
-    if (!token) {
-      return NextResponse.json(
-        { success: false, error: "Accès refusé" },
-        { status: 401 }
-      );
-    }
-
-    const rawId = (token as Record<string, unknown>).id ?? token.sub ?? null;
-    const parsedId =
-      typeof rawId === "number"
-        ? rawId
-        : typeof rawId === "string"
-        ? Number.parseInt(rawId, 10)
-        : null;
-    const userId = Number.isFinite(parsedId ?? NaN) ? (parsedId as number) : null;
-
-    if (!userId) {
+    if (!userId && !userEmail) {
       return NextResponse.json(
         { success: false, error: "Accès refusé" },
         { status: 401 }
@@ -40,7 +23,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const id = searchParams.get("documentId");
+    const id = searchParams.get("documentId") || searchParams.get("id");
 
     if (!id) {
       return NextResponse.json(
@@ -54,6 +37,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: "Accès refusé" },
         { status: 400 }
+      );
+    }
+
+    // Vérifier explicitement l'accès au document
+    const hasAccess = await documentService.userHasAccessToDocument(
+      documentId,
+      userId,
+      userEmail
+    );
+
+    if (!hasAccess) {
+      return NextResponse.json(
+        { success: false, error: "Accès refusé" },
+        { status: 403 }
       );
     }
 
@@ -90,30 +87,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     // L'authentification et la vérification d'accès au document sont gérées par le middleware
-    const secret = process.env.AUTH_SECRET;
-    if (!secret) {
-      return NextResponse.json(
-        { success: false, error: "Accès refusé" },
-        { status: 500 }
-      );
-    }
-
-    const token = await getToken({ req: request, secret });
-    if (!token) {
-      return NextResponse.json(
-        { success: false, error: "Accès refusé" },
-        { status: 401 }
-      );
-    }
-
-    const rawId = (token as Record<string, unknown>).id ?? token.sub ?? null;
-    const parsedId =
-      typeof rawId === "number"
-        ? rawId
-        : typeof rawId === "string"
-        ? Number.parseInt(rawId, 10)
-        : null;
-    const userId = Number.isFinite(parsedId ?? NaN) ? (parsedId as number) : null;
+    const session = await getServerSession(authOptions);
+    const userId = session?.user?.id ? Number(session.user.id) : null;
 
     if (!userId) {
       return NextResponse.json(

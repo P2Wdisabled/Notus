@@ -123,7 +123,14 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   // Load access list for this document and update `users` state
   const loadAccessList = async () => {
     if (!document?.id) return;
+    // Ne pas charger la liste d'accès en mode offline
+    if (isOffline || !navigator.onLine) {
+      return;
+    }
     try {
+      const onlineOk = await checkConnectivity();
+      if (!onlineOk) return;
+      
       const res = await fetch(`/api/openDoc/accessList?id=${document.id}`);
       const data = await res.json();
       if (data.success && Array.isArray(data.accessList)) {
@@ -488,22 +495,28 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
         setSaveStatus('synchronized');
       }
 
-      fetch(`/api/openDoc/accessList?id=${document.id}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.success && Array.isArray(data.accessList)) {
-            setUsers(
-              data.accessList.map((user: any) => ({
-                ...user,
-                avatarUrl: user.profile_image || "",
-                name: user.username || user.email || "Utilisateur",
-              }))
-            );
-          } else {
-            setUsers([]);
-          }
-        })
-        .catch(() => setUsers([]));
+      // Ne pas charger la liste d'accès en mode offline
+      if (!isOffline && navigator.onLine) {
+        checkConnectivity().then(onlineOk => {
+          if (!onlineOk) return;
+          fetch(`/api/openDoc/accessList?id=${document.id}`)
+            .then(res => res.json())
+            .then(data => {
+              if (data.success && Array.isArray(data.accessList)) {
+                setUsers(
+                  data.accessList.map((user: any) => ({
+                    ...user,
+                    avatarUrl: user.profile_image || "",
+                    name: user.username || user.email || "Utilisateur",
+                  }))
+                );
+              } else {
+                setUsers([]);
+              }
+            })
+            .catch(() => setUsers([]));
+        });
+      }
     }
   }, [document, normalizeContent]);
 
@@ -886,22 +899,26 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
 
   const persistTags = (nextTags: string[]) => {
     if (!userId) return;
+    // Ne pas persister les tags en mode offline
+    if (isOffline || !navigator.onLine) {
+      return;
+    }
+    
     const fd = new FormData();
     fd.append("documentId", String(props.params?.id || ""));
     fd.append("userId", String(userId));
     fd.append("title", title || "Sans titre");
     fd.append("content", JSON.stringify(content || ""));
     fd.append("tags", JSON.stringify(nextTags));
-    if (typeof navigator !== "undefined" && navigator.onLine) {
-      startTransition(() => {
-        (updateDocumentAction as unknown as (prev: unknown, payload: FormData) => Promise<ActionResult>)(undefined, fd);
-      });
-    }
-    if (typeof navigator !== "undefined" && navigator.onLine) {
-      startTransition(() => {
-        (updateDocumentAction as unknown as (prev: unknown, payload: FormData) => Promise<ActionResult>)(undefined, fd);
-      });
-    }
+    
+    // Vérifier la connectivité avant d'appeler l'API
+    checkConnectivity().then(onlineOk => {
+      if (onlineOk) {
+        startTransition(() => {
+          (updateDocumentAction as unknown as (prev: unknown, payload: FormData) => Promise<ActionResult>)(undefined, fd);
+        });
+      }
+    });
   };
 
   const handleTagsChange = (nextTags: string[]) => {
@@ -933,6 +950,24 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
           setError('Accès refusé: document introuvable');
           return;
         }
+        // Ne pas vérifier l'accès en mode offline
+        if (isOffline || !navigator.onLine) {
+          // En offline, on assume l'accès basé sur le document chargé
+          const isOwner = Number(document.user_id) === Number(userId);
+          setHasEditAccess(isOwner);
+          setHasReadAccess(true);
+          return;
+        }
+        
+        const onlineOk = await checkConnectivity();
+        if (!onlineOk) {
+          // En offline, on assume l'accès basé sur le document chargé
+          const isOwner = Number(document.user_id) === Number(userId);
+          setHasEditAccess(isOwner);
+          setHasReadAccess(true);
+          return;
+        }
+        
         const res = await fetch(`/api/openDoc/accessList?id=${document.id}`);
         const result = await res.json();
         if (result.success && Array.isArray(result.accessList)) {
@@ -1007,7 +1042,21 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     setShareError(null);
     setShareSuccess(null);
 
+    // Ne pas partager en mode offline
+    if (isOffline || !navigator.onLine) {
+      setShareError("Connexion requise pour partager la note.");
+      setShareLoading(false);
+      return;
+    }
+
     try {
+      const onlineOk = await checkConnectivity();
+      if (!onlineOk) {
+        setShareError("Connexion requise pour partager la note.");
+        setShareLoading(false);
+        return;
+      }
+
       const res = await fetch("/api/invite-share", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
