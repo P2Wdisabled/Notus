@@ -184,40 +184,59 @@ export default function NavBar() {
               </div>
             </nav>
             <div className="pt-4 space-y-3">
-              <Link
-                href="/assistance"
-                onClick={(e) => handleNavItemClick(e, "/assistance")}
-                className="block text-sm text-muted-foreground hover:text-foreground transition-colors duration-200 ease-in-out"
-              >
-                Besoin d'aide ?
-              </Link>
-              <div className="flex items-center gap-3 border-t border-border pt-3">
-                {mounted && isLoggedIn ? (
-                  <button type="button" onClick={() => guardedNavigate("/profile")} className="flex items-center gap-3 flex-1 bg-transparent cursor-pointer text-left">
-                    <div className="flex items-center justify-center w-10 h-10 rounded-full overflow-hidden bg-muted ring-1 ring-border/20 shadow-sm">
-                      {localProfileImage ? (
-                        <img src={localProfileImage} alt="Photo de profil" className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full bg-secondary text-secondary-foreground font-semibold flex items-center justify-center">{getInitials(userName || username || "Anonyme")}</div>
-                      )}
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-sm font-semibold text-foreground">{username || userName || "Anonyme"}</span>
-                    </div>
+              {mounted && isLoggedIn ? (
+                <>
+                  <Link
+                    href="/assistance"
+                    onClick={(e) => handleNavItemClick(e, "/assistance")}
+                    className="block text-sm text-muted-foreground hover:text-foreground transition-colors duration-200 ease-in-out"
+                  >
+                    Besoin d'aide ?
+                  </Link>
+                  <div className="flex items-center gap-3 border-t border-border pt-3">
+                    <button type="button" onClick={() => guardedNavigate("/profile")} className="flex items-center gap-3 flex-1 bg-transparent cursor-pointer text-left">
+                      <div className="flex items-center justify-center w-10 h-10 rounded-full overflow-hidden bg-muted ring-1 ring-border/20 shadow-sm">
+                        {localProfileImage ? (
+                          <img src={localProfileImage} alt="Photo de profil" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full bg-secondary text-secondary-foreground font-semibold flex items-center justify-center">{getInitials(userName || username || "Anonyme")}</div>
+                        )}
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-semibold text-foreground">{username || userName || "Anonyme"}</span>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => handleNavItemClick(e, "/settings")}
+                      className="p-2 rounded-sm text-muted-foreground hover:text-foreground focus:outline-none transition-all duration-300 ease-in-out hover:scale-110 hover:rotate-90"
+                      aria-label="Paramètres"
+                      title="Paramètres"
+                    >
+                      <Icon name="gear" className="w-6 h-6 cursor-pointer" />
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-center justify-between border-t border-border pt-3">
+                  <Link
+                    href="/assistance"
+                    onClick={(e) => handleNavItemClick(e, "/assistance")}
+                    className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-200 ease-in-out"
+                  >
+                    Besoin d'aide ?
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={(e) => handleNavItemClick(e, "/settings")}
+                    className="p-2 rounded-sm text-muted-foreground hover:text-foreground focus:outline-none transition-all duration-300 ease-in-out hover:scale-110 hover:rotate-90"
+                    aria-label="Paramètres"
+                    title="Paramètres"
+                  >
+                    <Icon name="gear" className="w-6 h-6 cursor-pointer" />
                   </button>
-                ) : (
-                  <div className="flex-1" />
-                )}
-                <button
-                  type="button"
-                  onClick={(e) => handleNavItemClick(e, "/settings")}
-                  className="p-2 rounded-sm text-muted-foreground hover:text-foreground focus:outline-none transition-all duration-300 ease-in-out hover:scale-110 hover:rotate-90"
-                  aria-label="Paramètres"
-                  title="Paramètres"
-                >
-                  <Icon name="gear" className="w-6 h-6 cursor-pointer" />
-                </button>
-              </div>
+                </div>
+              )}
               <Button onClick={handleLogout} className="w-full py-2" variant="primary">{isLoggedIn ? "Se déconnecter" : "Se connecter"}</Button>
             </div>
           </div>
@@ -273,40 +292,59 @@ export default function NavBar() {
           </div>
         </nav>
         <div className="p-4 space-y-3">
-          <Link
-            href="/assistance"
-            onClick={(e) => handleNavItemClick(e, "/assistance")}
-            className="block text-sm text-muted-foreground hover:text-foreground transition-colors duration-200 ease-in-out"
-          >
-            Besoin d'aide ?
-          </Link>
-          <div className="flex items-center gap-3 border-t border-border pt-3">
-            {mounted && isLoggedIn ? (
-              <button type="button" onClick={() => guardedNavigate("/profile")} className="flex items-center gap-3 flex-1 bg-transparent cursor-pointer text-left">
-                <div className="flex items-center justify-center w-10 h-10 rounded-full overflow-hidden bg-muted ring-1 ring-border/20 shadow-sm">
-                  {localProfileImage ? (
-                    <img src={localProfileImage} alt="Photo de profil" className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full bg-secondary text-secondary-foreground font-semibold flex items-center justify-center">{getInitials(userName || username || "Anonyme")}</div>
-                  )}
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-sm font-semibold text-foreground">{username || userName || "Anonyme"}</span>
-                </div>
+          {mounted && isLoggedIn ? (
+            <>
+              <Link
+                href="/assistance"
+                onClick={(e) => handleNavItemClick(e, "/assistance")}
+                className="block text-sm text-muted-foreground hover:text-foreground transition-colors duration-200 ease-in-out"
+              >
+                Besoin d'aide ?
+              </Link>
+              <div className="flex items-center gap-3 border-t border-border pt-3">
+                <button type="button" onClick={() => guardedNavigate("/profile")} className="flex items-center gap-3 flex-1 bg-transparent cursor-pointer text-left">
+                  <div className="flex items-center justify-center w-10 h-10 rounded-full overflow-hidden bg-muted ring-1 ring-border/20 shadow-sm">
+                    {localProfileImage ? (
+                      <img src={localProfileImage} alt="Photo de profil" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full bg-secondary text-secondary-foreground font-semibold flex items-center justify-center">{getInitials(userName || username || "Anonyme")}</div>
+                    )}
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-semibold text-foreground">{username || userName || "Anonyme"}</span>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => handleNavItemClick(e, "/settings")}
+                  className="p-2 rounded-sm text-muted-foreground hover:text-foreground focus:outline-none transition-all hover:scale-110 hover:rotate-90"
+                  aria-label="Paramètres"
+                  title="Paramètres"
+                >
+                  <Icon name="gear" className="w-6 h-6 cursor-pointer" />
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="flex items-center justify-between border-t border-border pt-3">
+              <Link
+                href="/assistance"
+                onClick={(e) => handleNavItemClick(e, "/assistance")}
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-200 ease-in-out"
+              >
+                Besoin d'aide ?
+              </Link>
+              <button
+                type="button"
+                onClick={(e) => handleNavItemClick(e, "/settings")}
+                className="p-2 rounded-sm text-muted-foreground hover:text-foreground focus:outline-none transition-all hover:scale-110 hover:rotate-90"
+                aria-label="Paramètres"
+                title="Paramètres"
+              >
+                <Icon name="gear" className="w-6 h-6 cursor-pointer" />
               </button>
-            ) : (
-              <div className="flex-1" />
-            )}
-            <button
-              type="button"
-              onClick={(e) => handleNavItemClick(e, "/settings")}
-              className="p-2 rounded-sm text-muted-foreground hover:text-foreground focus:outline-none transition-all hover:scale-110 hover:rotate-90"
-              aria-label="Paramètres"
-              title="Paramètres"
-            >
-              <Icon name="gear" className="w-6 h-6 cursor-pointer" />
-            </button>
-          </div>
+            </div>
+          )}
           <Button onClick={handleLogout} variant="primary" className="w-full">{isLoggedIn ? "Se déconnecter" : "Se connecter"}</Button>
         </div>
       </aside>

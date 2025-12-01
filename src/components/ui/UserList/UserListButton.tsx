@@ -67,6 +67,7 @@ export default function UserListButton({ users, className, documentId, onAccessL
         className={cn(
           "relative inline-flex items-center justify-center rounded-full border-2 border-[var(--card)] bg-[var(--card)]",
           sizeValue,
+          index === 0 ? "z-10" : "z-0",
           index > 0 && "ring-2 ring-[var(--card)]",
           index === 0 && !hasMultipleUsers && "ring-2 ring-[var(--border)]"
         )}
