@@ -78,12 +78,12 @@ export default function SelectionBar({
                 <Icon name="x" className="w-6 h-6" />
               </Button>
               <span className="text-sm text-foreground font-medium hidden md:inline">
-                {selectedCount} note{selectedCount > 1 ? 's' : ''} sélectionnée{selectedCount > 1 ? 's' : ''}
+                {selectedCount} note{selectedCount > 1 ? 's' : ''}
               </span>
               <span className="text-sm text-foreground font-medium md:hidden">{selectedCount}</span>
             </div>
             <div className="flex items-center gap-2">
-              <Button onClick={onToggleAll} variant="ghost" size="sm" className="flex items-center gap-2 p-3 md:py-1.5 rounded-full font-title text-lg" aria-label={isAllSelected ? "Tout désélectionner" : "Tout sélectionner"}>
+              <Button onClick={onToggleAll} variant="ghost" size="sm" className="flex items-center gap-2 p-3 py-1.5 rounded-full font-title text-lg" aria-label={isAllSelected ? "Tout désélectionner" : "Tout sélectionner"}>
                 {isAllSelected ? "Tout désélectionner" : "Tout sélectionner"}
               </Button>
               {onRemoveFromDossier ? (
@@ -95,28 +95,28 @@ export default function SelectionBar({
                   }}
                   disabled={isPending || selectedCount === 0} 
                   variant="default" 
-                  className="flex items-center gap-2 p-3 md:py-1.5 rounded-full font-medium" 
+                  className="flex items-center gap-2 p-3 lg:py-1.5 rounded-full font-medium" 
                   aria-label="Retirer du dossier"
                 >
                   <Icon name="folder" className="w-5 h-5" />
-                  <span className="hidden md:inline">{isPending ? "Retrait..." : "Retirer du dossier"}</span>
+                  <span className="hidden lg:inline">{isPending ? "Retrait..." : "Retirer du dossier"}</span>
                 </Button>
               ) : onAddToDossier && currentUserId ? (
                 <Button 
                   onClick={handleAddToDossierClick} 
                   disabled={isLoadingDossiers || selectedCount === 0} 
                   variant="default" 
-                  className="flex items-center gap-2 p-3 md:py-1.5 rounded-full font-medium" 
+                  className="flex items-center gap-2 p-3 lg:py-1.5 rounded-full font-medium" 
                   aria-label="Ajouter au dossier"
                 >
                   <Icon name="folder" className="w-5 h-5" />
-                  <span className="hidden md:inline">{isLoadingDossiers ? "Chargement..." : "Ajouter au dossier"}</span>
+                  <span className="hidden lg:inline">{isLoadingDossiers ? "Chargement..." : "Ajouter au dossier"}</span>
                 </Button>
               ) : null}
               <form action={onBulkDelete} className="flex items-center">
-                <Button type="submit" disabled={isPending || selectedCount === 0} variant="destructive" className="flex items-center gap-2 p-3 md:py-1.5 rounded-full font-medium" aria-label="Supprimer les notes sélectionnées">
+                <Button type="submit" disabled={isPending || selectedCount === 0} variant="destructive" className="flex items-center gap-2 p-3 lg:py-1.5 rounded-full font-medium" aria-label="Supprimer les notes sélectionnées">
                   <Icon name="trash" className="w-5 h-5" />
-                  <span className="hidden md:inline">{isPending ? "Suppression..." : "Supprimer"}</span>
+                  <span className="hidden lg:inline">{isPending ? "Suppression..." : "Supprimer"}</span>
                 </Button>
               </form>
             </div>
