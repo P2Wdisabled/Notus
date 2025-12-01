@@ -64,6 +64,7 @@ export default function NavBar() {
   const { unreadCount, refresh } = useNotification();
 
   const items: NavItem[] = [
+    { name: "Mes notes", href: "/", icon: "note" },
     { name: "Favoris", href: "/favorites", icon: "star" },
     { name: "Dossiers", href: "/dossiers", icon: "folder" },
     { name: "Assistance", href: "/assistance", icon: "alert" },
@@ -367,6 +368,7 @@ function getPageTitle(pathname: string | null, items: NavItem[]): string {
   if (pathname === "/settings") return "Paramètres";
   if (pathname === "/favorites") return "Favoris";
   if (pathname === "/dossiers") return "Dossiers";
+  if (pathname.startsWith("/dossiers/")) return "Dossier";
   if (pathname === "/assistance") return "Assistance";
   if (pathname === "/trash") return "Corbeille";
   if (pathname.startsWith("/profile/edit")) return "Modifier le profil";

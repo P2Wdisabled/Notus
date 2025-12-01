@@ -350,7 +350,15 @@ export default function DocumentCard({
     >
       <header className="relative flex items-start justify-between mb-3 min-h-[2.5rem]">
         <div className="absolute inset-0 left-0 right-12 flex items-center gap-2 pointer-events-none">
-          <div className="flex-1 min-w-0 max-w-full pointer-events-auto" onClick={(e) => { if (selectMode) { return; } e.preventDefault(); e.stopPropagation(); handleTagsClick(); }}>
+          <div 
+            className="flex-1 min-w-0 max-w-full pointer-events-auto" 
+            onClick={(e) => { if (selectMode) { return; } e.preventDefault(); e.stopPropagation(); handleTagsClick(); }}
+            onMouseDown={(e) => { e.stopPropagation(); }}
+            onMouseUp={(e) => { e.stopPropagation(); }}
+            onTouchStart={(e) => { e.stopPropagation(); }}
+            onTouchEnd={(e) => { e.stopPropagation(); }}
+            onWheel={(e) => { e.stopPropagation(); }}
+          >
             <TagsManager tags={tags} onTagsChange={handleTagsChange} placeholder="Nouveau tag..." maxTags={10} disabled={!currentUserId || selectMode} />
           </div>
         </div>

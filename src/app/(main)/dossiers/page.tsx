@@ -5,9 +5,16 @@ import { useRouter } from "next/navigation";
 import NavBar from "@/components/navigation/NavBar";
 import ContentWrapper from "@/components/common/ContentWrapper";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui";
+import { Card, Modal, Input } from "@/components/ui";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui";
 import Icon from "@/components/Icon";
 import { useSession } from "next-auth/react";
+import { cn } from "@/lib/utils";
 
 interface Dossier {
   id: number;
@@ -110,115 +117,204 @@ export default function DossiersPage() {
       <NavBar />
       <ContentWrapper maxWidth="lg">
         <section className="space-y-6">
-          <header className="flex items-center justify-between">
-            <h1 className="font-title text-4xl font-regular text-foreground hidden md:block">
-              Dossiers
-            </h1>
+          <header className="flex items-center md:justify-between justify-start mb-4">
+            <div>
+              <h1 className="font-title text-4xl font-regular text-[var(--foreground)] hidden md:block mb-2">
+                Dossiers
+              </h1>
+              <p className="text-sm text-[var(--muted-foreground)] hidden md:block">
+                Organisez vos documents en dossiers
+              </p>
+            </div>
             <Button
               onClick={() => setShowCreateModal(true)}
+              variant="primary"
               className="flex items-center gap-2"
             >
               <Icon name="plus" className="w-5 h-5" />
-              <span className="hidden md:inline">Créer un dossier</span>
+              <span className="">Créer un dossier</span>
             </Button>
           </header>
 
           {isLoading ? (
-            <div className="text-center py-12">
-              <Icon name="spinner" className="w-8 h-8 mx-auto animate-spin" />
-              <p className="mt-4 text-muted-foreground">Chargement...</p>
+            <div className="text-center py-16">
+              <Icon name="spinner" className="w-10 h-10 mx-auto animate-spin text-[var(--primary)]" />
+              <p className="mt-4 text-[var(--muted-foreground)]">Chargement des dossiers...</p>
             </div>
           ) : dossiers.length === 0 ? (
-            <Card className="text-center py-12">
+            <Card className="text-center py-16">
               <Card.Content>
-                <div className="text-muted-foreground mb-4">
-                  <Icon name="folder" className="w-16 h-16 mx-auto" />
+                <div className="text-[var(--muted-foreground)] mb-6">
+                  <Icon name="folder" className="w-20 h-20 mx-auto opacity-50" />
                 </div>
-                <Card.Title className="text-lg mb-2">Aucun dossier</Card.Title>
-                <Card.Description>
+                <Card.Title className="text-xl mb-3 font-semibold">Aucun dossier</Card.Title>
+                <Card.Description className="mb-6">
                   Créez votre premier dossier pour organiser vos documents
                 </Card.Description>
+                <Button
+                  onClick={() => setShowCreateModal(true)}
+                  className="flex items-center gap-2 mx-auto"
+                >
+                  <Icon name="plus" className="w-5 h-5" />
+                  <span>Créer un dossier</span>
+                </Button>
               </Card.Content>
             </Card>
           ) : (
-            <div className="grid gap-4 grid-cols-[repeat(auto-fill,minmax(250px,1fr))]">
-              {dossiers.map((dossier) => (
-                <Card
-                  key={dossier.id}
-                  className="cursor-pointer hover:bg-accent/50 transition-colors"
-                  onClick={() => router.push(`/dossiers/${dossier.id}`)}
-                >
-                  <Card.Content className="p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <Icon name="folder" className="w-6 h-6 shrink-0" />
-                        <h3 className="font-semibold text-foreground truncate">
-                          {dossier.nom}
-                        </h3>
+            <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+              {dossiers.map((dossier) => {
+                const formatDate = (dateString: string) => {
+                  const date = new Date(dateString);
+                  const day = String(date.getDate()).padStart(2, "0");
+                  const month = String(date.getMonth() + 1).padStart(2, "0");
+                  const year = date.getFullYear();
+                  return `${day}/${month}/${year}`;
+                };
+
+                return (
+                  <Card
+                    key={dossier.id}
+                    className={cn(
+                      "group cursor-pointer overflow-hidden",
+                      "bg-[var(--card)] border border-[var(--border)]",
+                      "hover:shadow-lg",
+                      "transition-all duration-200 ease-in-out"
+                    )}
+                    onClick={() => router.push(`/dossiers/${dossier.id}`)}
+                  >
+                    <Card.Content className="">
+                      {/* Header avec icône et menu */}
+                      <div className="flex items-start justify-between mb-6">
+                        {/* Icône de dossier en haut à gauche */}
+                        <div className={cn(
+                          "flex items-center justify-center",
+                          "w-14 h-14 rounded-xl",
+                          "bg-[var(--primary)]/10 text-[var(--primary)]",
+                          "shrink-0"
+                        )}>
+                          <Icon name="folder" className="w-8 h-8 block" />
+                        </div>
+                        {/* Menu trois points en haut à droite */}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              onClick={(e) => e.stopPropagation()}
+                              className={cn(
+                                "p-2 rounded-md shrink-0",
+                                "text-[var(--muted-foreground)]",
+                                "hover:bg-[var(--muted)]",
+                                "transition-colors duration-200",
+                              )}
+                              aria-label="Options du dossier"
+                            >
+                              <Icon name="dotsVertical" className="w-5 h-5" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                            <DropdownMenuItem
+                              variant="destructive"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteDossier(dossier.id);
+                              }}
+                              disabled={deletingId === dossier.id}
+                            >
+                              {deletingId === dossier.id ? (
+                                <>
+                                  <Icon name="spinner" className="w-4 h-4 animate-spin" />
+                                  Suppression...
+                                </>
+                              ) : (
+                                <>
+                                  <Icon name="trash" className="w-4 h-4" />
+                                  Supprimer
+                                </>
+                              )}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteDossier(dossier.id);
-                        }}
-                        disabled={deletingId === dossier.id}
-                        className="p-1 hover:bg-destructive/10 rounded shrink-0"
-                        aria-label="Supprimer le dossier"
-                      >
-                        <Icon
-                          name={deletingId === dossier.id ? "spinner" : "trash"}
-                          className={`w-4 h-4 ${deletingId === dossier.id ? "animate-spin" : ""}`}
-                        />
-                      </button>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {dossier.documentCount} document{dossier.documentCount > 1 ? "s" : ""}
-                    </p>
-                  </Card.Content>
-                </Card>
-              ))}
+
+                      {/* Nom du dossier au centre */}
+                      <h3 className="font-bold text-[var(--foreground)] text-xl mb-6 line-clamp-2">
+                        {dossier.nom}
+                      </h3>
+
+                      {/* Footer avec nombre de notes et date */}
+                      <div className="flex items-center justify-between text-sm text-[var(--muted-foreground)]">
+                        <span>
+                          {dossier.documentCount} note{dossier.documentCount > 1 ? "s" : ""}
+                        </span>
+                        <span>
+                          {formatDate(dossier.updated_at)}
+                        </span>
+                      </div>
+                    </Card.Content>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </section>
       </ContentWrapper>
 
-      {showCreateModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-          onClick={() => setShowCreateModal(false)}
-        >
-          <div
-            className="bg-background border border-border rounded-lg p-6 max-w-md w-full mx-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-lg font-semibold mb-4">Créer un dossier</h3>
-            <input
+      <Modal
+        isOpen={showCreateModal}
+        onClose={() => {
+          setShowCreateModal(false);
+          setNewDossierName("");
+        }}
+        title="Créer un dossier"
+        size="md"
+      >
+        <Modal.Content>
+          <div className="space-y-4">
+            <Input
+              label="Nom du dossier"
               type="text"
               value={newDossierName}
               onChange={(e) => setNewDossierName(e.target.value)}
-              placeholder="Nom du dossier"
-              className="w-full p-2 border border-border rounded-md mb-4 bg-background"
+              placeholder="Ex: Projets, Notes personnelles..."
               onKeyDown={(e) => {
-                if (e.key === "Enter") {
+                if (e.key === "Enter" && newDossierName.trim() && !isCreating) {
                   handleCreateDossier();
                 }
               }}
               autoFocus
             />
-            <div className="flex gap-2 justify-end">
-              <Button variant="ghost" onClick={() => setShowCreateModal(false)}>
-                Annuler
-              </Button>
-              <Button
-                onClick={handleCreateDossier}
-                disabled={!newDossierName.trim() || isCreating}
-              >
-                {isCreating ? "Création..." : "Créer"}
-              </Button>
-            </div>
           </div>
-        </div>
-      )}
+        </Modal.Content>
+        <Modal.Footer>
+          <div className="flex gap-2 justify-end w-full">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setShowCreateModal(false);
+                setNewDossierName("");
+              }}
+            >
+              Annuler
+            </Button>
+            <Button
+              onClick={handleCreateDossier}
+              disabled={!newDossierName.trim() || isCreating}
+              variant="primary"
+            >
+              {isCreating ? (
+                <>
+                  <Icon name="spinner" className="w-4 h-4 animate-spin" />
+                  Création...
+                </>
+              ) : (
+                <>
+                  <Icon name="plus" className="w-4 h-4" />
+                  Créer
+                </>
+              )}
+            </Button>
+          </div>
+        </Modal.Footer>
+      </Modal>
     </main>
   );
 }

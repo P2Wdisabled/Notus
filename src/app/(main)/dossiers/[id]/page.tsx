@@ -5,7 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import NavBar from "@/components/navigation/NavBar";
 import ContentWrapper from "@/components/common/ContentWrapper";
 import { Button } from "@/components/ui/button";
-import { Card, Alert } from "@/components/ui";
+import { Card, Alert, BackHeader } from "@/components/ui";
 import Icon from "@/components/Icon";
 import { useSession } from "next-auth/react";
 import { SearchableDocumentsList } from "@/components/documents/SearchableDocumentsList";
@@ -146,23 +146,22 @@ export default function DossierDetailPage() {
       <NavBar />
       <ContentWrapper maxWidth="lg">
         <section className="space-y-6">
-          <header className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Link href="/dossiers">
-                <Button variant="ghost" size="icon">
-                  <Icon name="arrowLeft" className="w-5 h-5" />
-                </Button>
-              </Link>
-              <div>
-                <h1 className="font-title text-4xl font-regular text-foreground hidden md:block">
-                  {dossier.nom}
-                </h1>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {dossier.documents.length} document{dossier.documents.length > 1 ? "s" : ""}
-                </p>
-              </div>
+          <div className="hidden md:block mb-4">
+            <BackHeader href="/dossiers" title={dossier.nom} />
+          </div>
+          <header className="md:hidden flex items-center gap-3 mb-4">
+            <Link href="/dossiers" className="text-foreground font-semibold flex items-center" aria-label="Retour">
+              <Icon name="arrowLeft" className="h-6 w-6 mr-2" />
+            </Link>
+            <div>
+              <h1 className="font-title text-2xl font-regular text-foreground">
+                {dossier.nom}
+              </h1>
             </div>
           </header>
+          <p className="text-sm text-muted-foreground -mt-2 md:mt-0">
+            {dossier.documents.length} note{dossier.documents.length > 1 ? "s" : ""} dans ce dossier
+          </p>
 
           {dossier.documents.length === 0 ? (
             <Card className="text-center py-12">
