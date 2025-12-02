@@ -300,17 +300,8 @@ export default function DossiersPage() {
               disabled={!newDossierName.trim() || isCreating}
               variant="primary"
             >
-              {isCreating ? (
-                <>
-                  <Icon name="spinner" className="w-4 h-4 animate-spin" />
-                  Création...
-                </>
-              ) : (
-                <>
-                  <Icon name="plus" className="w-4 h-4" />
-                  Créer
-                </>
-              )}
+              <Icon name="plus" className="w-4 h-4" />
+              Créer
             </Button>
           </div>
         </Modal.Footer>

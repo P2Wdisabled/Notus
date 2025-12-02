@@ -1324,7 +1324,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
                         }
                       }}
                       disabled={hasEditAccess === false || isManualSaving}
-                      icon={<Icon name="document" className={hasEditAccess === false || isManualSaving ? "w-4 h-4 text-muted-foreground" : "w-4 h-4 text-primary"} />}
+                      icon={<Icon name="save" className={hasEditAccess === false || isManualSaving ? "w-4 h-4 text-muted-foreground" : "w-4 h-4 text-primary"} />}
                     >
                       {isManualSaving ? "Sauvegarde..." : hasEditAccess === false ? "Lecture seule" : "Sauvegarder"}
                     </MenuItem>
