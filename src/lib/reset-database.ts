@@ -14,8 +14,10 @@ async function resetDatabase(): Promise<boolean> {
     await pool.query("DROP TABLE IF EXISTS documents CASCADE");
     await pool.query("DROP TABLE IF EXISTS users CASCADE");
 
-    // Supprimer la fonction si elle existe
+    // Supprimer les fonctions si elles existent
     await pool.query("DROP FUNCTION IF EXISTS update_updated_at_column() CASCADE");
+    await pool.query("DROP FUNCTION IF EXISTS update_users_updated_at_column() CASCADE");
+    await pool.query("DROP FUNCTION IF EXISTS update_documents_updated_at_column() CASCADE");
 
     // Recréer les tables
     await pool.query(`
@@ -58,10 +60,21 @@ async function resetDatabase(): Promise<boolean> {
       "CREATE INDEX IF NOT EXISTS idx_documents_created_at ON documents(created_at DESC)"
     );
 
-    // Créer la fonction de mise à jour automatique
+    // Créer la fonction de mise à jour automatique pour les users
+    await pool.query(`
+      CREATE OR REPLACE FUNCTION update_users_updated_at_column()
+      RETURNS TRIGGER AS $$
+      BEGIN
+        NEW.updated_at = CURRENT_TIMESTAMP;
+        RETURN NEW;
+      END;
+      $$ language 'plpgsql'
+    `);
+
+    // Créer la fonction de mise à jour automatique pour les documents
     // Ne met pas à jour updated_at si seul le champ favori a été modifié
     await pool.query(`
-      CREATE OR REPLACE FUNCTION update_updated_at_column()
+      CREATE OR REPLACE FUNCTION update_documents_updated_at_column()
       RETURNS TRIGGER AS $$
       BEGIN
         -- Ne pas mettre à jour updated_at si seul le champ favori a changé
@@ -87,7 +100,7 @@ async function resetDatabase(): Promise<boolean> {
       CREATE TRIGGER update_users_updated_at
         BEFORE UPDATE ON users
         FOR EACH ROW
-        EXECUTE FUNCTION update_updated_at_column()
+        EXECUTE FUNCTION update_users_updated_at_column()
     `);
 
     await pool.query(`
@@ -95,7 +108,7 @@ async function resetDatabase(): Promise<boolean> {
       CREATE TRIGGER update_documents_updated_at
         BEFORE UPDATE ON documents
         FOR EACH ROW
-        EXECUTE FUNCTION update_updated_at_column()
+        EXECUTE FUNCTION update_documents_updated_at_column()
     `);
 
     return true;
@@ -105,4 +118,67 @@ async function resetDatabase(): Promise<boolean> {
   }
 }
 
-export { resetDatabase };
+// Fonction pour mettre à jour les triggers sans réinitialiser la base de données
+async function updateTriggers(): Promise<boolean> {
+  try {
+    // Créer la fonction de mise à jour automatique pour les users
+    await pool.query(`
+      CREATE OR REPLACE FUNCTION update_users_updated_at_column()
+      RETURNS TRIGGER AS $$
+      BEGIN
+        NEW.updated_at = CURRENT_TIMESTAMP;
+        RETURN NEW;
+      END;
+      $$ language 'plpgsql'
+    `);
+
+    // Créer la fonction de mise à jour automatique pour les documents
+    // Ne met pas à jour updated_at si seul le champ favori a été modifié
+    await pool.query(`
+      CREATE OR REPLACE FUNCTION update_documents_updated_at_column()
+      RETURNS TRIGGER AS $$
+      BEGIN
+        -- Ne pas mettre à jour updated_at si seul le champ favori a changé
+        IF (OLD.favori IS DISTINCT FROM NEW.favori) AND
+           (OLD.title IS NOT DISTINCT FROM NEW.title) AND
+           (OLD.content IS NOT DISTINCT FROM NEW.content) AND
+           (OLD.tags IS NOT DISTINCT FROM NEW.tags) AND
+           (OLD.user_id IS NOT DISTINCT FROM NEW.user_id) THEN
+          -- Seul favori a changé, préserver updated_at
+          NEW.updated_at = OLD.updated_at;
+        ELSE
+          -- D'autres champs ont changé, mettre à jour updated_at
+          NEW.updated_at = CURRENT_TIMESTAMP;
+        END IF;
+        RETURN NEW;
+      END;
+      $$ language 'plpgsql'
+    `);
+
+    // Mettre à jour le trigger pour users
+    await pool.query(`
+      DROP TRIGGER IF EXISTS update_users_updated_at ON users;
+      CREATE TRIGGER update_users_updated_at
+        BEFORE UPDATE ON users
+        FOR EACH ROW
+        EXECUTE FUNCTION update_users_updated_at_column()
+    `);
+
+    // Mettre à jour le trigger pour documents
+    await pool.query(`
+      DROP TRIGGER IF EXISTS update_documents_updated_at ON documents;
+      CREATE TRIGGER update_documents_updated_at
+        BEFORE UPDATE ON documents
+        FOR EACH ROW
+        EXECUTE FUNCTION update_documents_updated_at_column()
+    `);
+
+    console.log("✅ Triggers mis à jour avec succès");
+    return true;
+  } catch (error) {
+    console.error("❌ Erreur lors de la mise à jour des triggers:", error);
+    return false;
+  }
+}
+
+export { resetDatabase, updateTriggers };
