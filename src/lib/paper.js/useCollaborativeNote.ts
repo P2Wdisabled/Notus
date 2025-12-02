@@ -640,6 +640,8 @@ export function useCollaborativeNote({
 
   useEffect(() => {
     // Don't listen to socket events if sync is disabled, no socket, or offline
+    // Also check navigator.onLine directly
+    if (typeof navigator !== 'undefined' && !navigator.onLine) return;
     if (!socket || !roomId || syncDisabled || isOffline || checkOfflineMode()) {
       return;
     }
@@ -739,6 +741,8 @@ export function useCollaborativeNote({
   }, [socket, isOffline, checkOfflineMode]);
 
   useEffect(() => {
+    // Never join room if offline
+    if (typeof navigator !== 'undefined' && !navigator.onLine) return;
     if (!socket || !roomId) return;
     
     // NEVER join room if offline mode is active

@@ -55,7 +55,18 @@ async function ensureServerReady(): Promise<boolean> {
 }
 
 async function getSharedSocketInstance(): Promise<Socket<ServerToClientEvents, ClientToServerEvents>> {
+  // NEVER create socket if offline
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    throw new Error('Cannot create socket: offline');
+  }
+
   if (sharedSocketState.socket) {
+    // If socket exists but we're offline, disconnect it
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      sharedSocketState.socket.disconnect();
+      sharedSocketState.socket = null;
+      throw new Error('Cannot use socket: offline');
+    }
     return sharedSocketState.socket;
   }
   if (sharedSocketState.initPromise) {
@@ -63,9 +74,19 @@ async function getSharedSocketInstance(): Promise<Socket<ServerToClientEvents, C
   }
 
   sharedSocketState.initPromise = (async () => {
+    // Double check we're still online
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      throw new Error('Cannot create socket: offline');
+    }
+
     const ready = await ensureServerReady();
     if (!ready) {
       throw new Error('Socket server not ready');
+    }
+
+    // Triple check we're still online before creating socket
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      throw new Error('Cannot create socket: offline');
     }
 
     const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL;
@@ -130,6 +151,16 @@ export function useSocket(roomId?: string, _options?: UseSocketOptions): UseSock
         }
         setIsConnected(false);
       }
+      // Also disconnect the shared socket instance
+      if (sharedSocketState.socket) {
+        if (sharedSocketState.socket.io && sharedSocketState.socket.io.opts) {
+          sharedSocketState.socket.io.opts.reconnection = false;
+          sharedSocketState.socket.io.opts.autoConnect = false;
+        }
+        if (sharedSocketState.socket.connected) {
+          sharedSocketState.socket.disconnect();
+        }
+      }
     };
 
     const handleOnline = async () => {
@@ -171,19 +202,42 @@ export function useSocket(roomId?: string, _options?: UseSocketOptions): UseSock
 
     const connect = async () => {
       try {
-        // Don't connect if offline
+        // Don't connect if offline - completely skip socket creation
         if (typeof navigator !== 'undefined' && !navigator.onLine) {
+          setSocket(null);
+          setIsConnected(false);
           return;
         }
 
         const instance = await getSharedSocketInstance();
         if (cancelled) return;
+        
+        // Double check we're still online after getting instance
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+          if (instance.connected) {
+            instance.disconnect();
+          }
+          setSocket(null);
+          setIsConnected(false);
+          return;
+        }
+
         socketInstance = instance;
         sharedSocketState.refCount += 1;
         setSocket(instance);
         setIsConnected(instance.connected);
 
-        const handleConnect = () => !cancelled && setIsConnected(true);
+        const handleConnect = () => {
+          // Only set connected if we're still online
+          if (typeof navigator !== 'undefined' && !navigator.onLine) {
+            if (instance.connected) {
+              instance.disconnect();
+            }
+            setIsConnected(false);
+            return;
+          }
+          if (!cancelled) setIsConnected(true);
+        };
         const handleDisconnect = () => !cancelled && setIsConnected(false);
         const handleConnectError = (err: unknown) => {
           setIsConnected(false);
@@ -204,7 +258,11 @@ export function useSocket(roomId?: string, _options?: UseSocketOptions): UseSock
           instance.off('connect_error', handleConnectError);
         };
       } catch (error) {
-        // Silent fail
+        // Silent fail - set socket to null if offline
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+          setSocket(null);
+          setIsConnected(false);
+        }
       }
     };
 
