@@ -146,7 +146,7 @@ export default function UserListButton({ users, className, documentId, onAccessL
               "absolute mt-2 z-50 min-w-56 max-w-sm",
               "bg-[var(--card)] text-[var(--card-foreground)]",
               "rounded-xl shadow-lg border border-[var(--border)]",
-              "p-2 left-4 right-4 md:left-auto md:right-0 w-auto"
+              "p-2 left-auto right-0 w-auto"
             )}
           >
             <UserList

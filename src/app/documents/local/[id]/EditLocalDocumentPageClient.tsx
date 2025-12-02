@@ -264,7 +264,7 @@ export default function EditLocalDocumentPageClient({ params }: EditLocalDocumen
     : "";
 
   return (
-    <div className="h-screen overflow-hidden bg-background py-8">
+    <div className="h-screen bg-background py-8">
       <div className="max-w-4xl mx-auto px-4">
         {/* En-tête */}
         <div className="flex items-center justify-between mb-6">

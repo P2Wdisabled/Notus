@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useRef, useState, startTransition } from "react";
-import { Button, Card, Form, Input, Modal, ImageUpload } from "@/components/ui";
+import { Button, Card, Form, Input, ImageUpload } from "@/components/ui";
 import Icon from "@/components/Icon";
 import { updateUserProfileAction } from "@/lib/actions";
 import { useRouter } from "next/navigation";
@@ -10,7 +10,6 @@ import { useSession } from "next-auth/react";
 import { saveUserSession } from "@/lib/session-utils";
 import { useImageValidation } from "@/hooks/useImageValidation";
 import Link from "next/link";
-import Image  from "next/image";
 
 interface User {
   id?: string;
@@ -61,7 +60,6 @@ export default function EditProfilePageClient({ user }: EditProfilePageClientPro
   const [email, setEmail] = useState(initial.email);
   const [profileImage, setProfileImage] = useState<string | null>(initial.profileImage);
   const [bannerImage, setBannerImage] = useState<string | null>(initial.bannerImage);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const hasSyncedRef = useRef(false);
 
   const { errors, validateImage, validateProfileImages, clearError } =
@@ -107,7 +105,7 @@ export default function EditProfilePageClient({ user }: EditProfilePageClientPro
         );
       }
 
-      setShowSuccessModal(true);
+      guardedNavigate("/profile");
     };
 
     const t = setTimeout(() => doUpdate(), 200);
@@ -304,38 +302,6 @@ export default function EditProfilePageClient({ user }: EditProfilePageClientPro
           </Button>
         </div>
       </div>
-
-      {/* Success Modal */}
-      <Modal
-        isOpen={showSuccessModal}
-        onClose={() => setShowSuccessModal(false)}
-        size="sm"
-        className="!bg-card text-foreground border-2 border-primary"
-      >
-        <div className="flex flex-col items-center text-center gap-5 bg-card">
-          <h3 className="font-title text-3xl">Profil mis à jour</h3>
-          <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center shadow-md">
-            <Icon name="check" className="w-[22px] h-[22px] text-foreground" />
-          </div>
-
-          <div className="flex items-center gap-4 mt-2">
-            <Button
-              variant="primary"
-              className="px-6 py-2 bg-primary hover:bg-primary/90"
-              onClick={() => guardedNavigate("/profile")}
-            >
-              Continuer
-            </Button>
-            <Button
-              variant="secondary"
-              className="px-6 py-2 border-primary text-primary"
-              onClick={() => setShowSuccessModal(false)}
-            >
-              Éditer
-            </Button>
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 }
