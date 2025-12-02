@@ -22,6 +22,8 @@ export function useCollaborativeTitle({ roomId, onRemoteTitle }: UseCollaborativ
   const { socket, isConnected, joinRoom, leaveRoom } = useSocket(roomId);
 
   useEffect(() => {
+    // Never listen to socket events if offline
+    if (typeof navigator !== 'undefined' && !navigator.onLine) return;
     if (!socket || !roomId) return;
 
       const handleTitleUpdate: ServerToClientEvents['title-update'] = (data) => {
@@ -49,6 +51,8 @@ export function useCollaborativeTitle({ roomId, onRemoteTitle }: UseCollaborativ
 
   const emitTitleChange = useMemo(() => {
     return (title: string) => {
+      // Never emit if offline
+      if (typeof navigator !== 'undefined' && !navigator.onLine) return;
       if (!socket || !roomId) return;
       socket.emit('title-update', roomId, { title, clientId: clientIdRef.current, ts: Date.now() });
     };

@@ -79,6 +79,8 @@ export function useCursorTracking({
 
   // Fonction pour envoyer la position du curseur
   const sendCursorPosition = useCallback(() => {
+    // Never send cursor position if offline
+    if (typeof navigator !== 'undefined' && !navigator.onLine) return;
     if (!socket || !roomId || !isConnected) return;
 
     const position = getCursorPosition();
@@ -134,6 +136,8 @@ export function useCursorTracking({
 
   // Écouter les positions de curseur des autres utilisateurs
   useEffect(() => {
+    // Never listen to socket events if offline
+    if (typeof navigator !== 'undefined' && !navigator.onLine) return;
     if (!socket || !roomId) return;
 
     const handleCursorPosition: ServerToClientEvents['cursor-position'] = (data) => {
