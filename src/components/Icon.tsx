@@ -347,6 +347,14 @@ const CircleCheck: React.FC<SvgProps> = (props) => (
   </svg>
 );
 
+const CircleX: React.FC<SvgProps> = (props) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M15 9L9 15" />
+    <path d="M9 9l6 6" />
+  </svg>
+);
+
 const ShieldCheck: React.FC<SvgProps> = (props) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
     <path d="M9 12l2 2 4-4" />
@@ -532,6 +540,7 @@ export const ICONS = {
   users: Users,
   dashboard: Dashboard,
   circleCheck: CircleCheck,
+  circleX: CircleX,
   shieldCheck: ShieldCheck,
   bold: Bold,
   italic: Italic,
