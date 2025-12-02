@@ -1,19 +1,32 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { resetPasswordAction } from "@/lib/actions";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Button, Input, Card, Alert } from "@/components/ui";
 
 export default function ResetPasswordPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const token = searchParams?.get("token");
 
   const [message, formAction, isPending] = useActionState(
     resetPasswordAction,
     undefined
   );
+
+  useEffect(() => {
+    if (
+      message &&
+      (message.includes("réussi") || message.includes("modifié"))
+    ) {
+      const timer = setTimeout(() => {
+        router.push("/login");
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [message, router]);
 
   if (!token) {
     return (
