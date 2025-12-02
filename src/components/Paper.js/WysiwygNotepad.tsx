@@ -113,13 +113,16 @@ export default function WysiwygNotepad({
     isConnected,
     clientId,
     flushPendingChanges,
+    isOffline,
   } = useCollaborativeNote({
     roomId,
     onRemoteContent: (remote: string) => {
-      console.log('📝 WysiwygNotepad received remote content:', {
-        remoteLength: remote.length,
-        currentLength: markdown.length,
-      });
+      // NEVER apply remote content in offline mode - this prevents rollbacks
+      // This should never be called in offline mode, but double-check for safety
+      if (isOffline || (typeof navigator !== 'undefined' && !navigator.onLine)) {
+        return;
+      }
+      
       setMarkdown(remote);
 
       if (onRemoteContentChange) {
@@ -173,27 +176,37 @@ export default function WysiwygNotepad({
 
   // Handle markdown content change
   const handleMarkdownChange = useCallback((newMarkdown: string) => {
-    console.log('📝 WysiwygNotepad local change:', { 
-      newLength: newMarkdown.length, 
-      isConnected, 
-      hasRoomId: !!roomId 
-    });
+    // NEVER emit or apply changes if offline - this prevents rollbacks
+    if (isOffline) {
+      // Just update local state and notify parent - no sync attempts
+      setMarkdown(newMarkdown);
+      if (onContentChange) {
+        onContentChange({
+          text: newMarkdown,
+          timestamp: Date.now(),
+        });
+      }
+      return;
+    }
     
     // Emit to other clients if connected and has roomId
     if (roomId && emitChange && isConnected) {
-      console.log('📝 Emitting to other clients');
       emitChange(newMarkdown);
     }
     
     // Also apply the change locally after a delay to normalize the markdown
     // This ensures the sender sees the same normalized markdown as receivers
     // The delay allows the markdown to be processed and normalized through the same path as remote updates
-    if (roomId && isConnected) {
+    // ONLY do this if connected - in offline mode, we apply immediately to prevent rollbacks
+    if (roomId && isConnected && !isOffline) {
       setTimeout(() => {
         // Apply the markdown locally to ensure it's normalized the same way
         // This will trigger the same normalization process as remote updates
         setMarkdown(newMarkdown);
       }, 100);
+    } else {
+      // In offline mode, apply immediately to prevent rollbacks
+      setMarkdown(newMarkdown);
     }
     
     // Notify parent with the expected format
@@ -203,7 +216,7 @@ export default function WysiwygNotepad({
         timestamp: Date.now(),
       });
     }
-  }, [onContentChange, emitChange, isConnected, roomId]);
+  }, [onContentChange, emitChange, isConnected, roomId, isOffline]);
 
   // Handle formatting change
   const handleFormatChange = useCallback((command: string, value?: string) => {
