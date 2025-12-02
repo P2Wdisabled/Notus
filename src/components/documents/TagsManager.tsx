@@ -98,7 +98,7 @@ export default function TagsManager({
         )}
         {!isAdding && (
           <Button variant="secondary" size="icon-sm" onClick={startAdding} className="flex-shrink-0 bg-primary/10 hover:bg-primary/20 text-primary border-primary/20" aria-label="Ajouter un tag">
-            <Icon name="plus" className="h-4 w-4" />
+            <Icon name="tagPlus" className="h-4 w-4" />
           </Button>
         )}
         {tags.map((tag) => (
