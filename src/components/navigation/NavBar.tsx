@@ -45,6 +45,8 @@ export default function NavBar() {
   const profileImage = (session?.user as any)?.profileImage || null;
   const [localProfileImage, setLocalProfileImage] = useState<string | null>(profileImage);
   const [showFiltersModal, setShowFiltersModal] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [adminLoading, setAdminLoading] = useState(true);
   useEffect(() => { setLocalProfileImage(profileImage); }, [profileImage]);
   useEffect(() => {
     const fetchProfileImage = async () => {
@@ -60,6 +62,28 @@ export default function NavBar() {
     };
     fetchProfileImage();
   }, [isLoggedIn, profileImage]);
+
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      if (!isLoggedIn) {
+        setAdminLoading(false);
+        return;
+      }
+      try {
+        const response = await fetch("/api/admin/check-status");
+        if (response.ok) {
+          const data = await response.json();
+          setIsAdmin(data.isAdmin);
+        }
+      } catch (error) {
+        console.error("Erreur lors de la vérification du statut admin:", error);
+      } finally {
+        setAdminLoading(false);
+      }
+    };
+
+    checkAdminStatus();
+  }, [isLoggedIn]);
 
   const { unreadCount, refresh } = useNotification();
 
@@ -194,29 +218,40 @@ export default function NavBar() {
                   >
                     Besoin d'aide ?
                   </Link>
-                  <div className="flex items-center gap-3 border-t border-border pt-3">
-                    <button type="button" onClick={() => guardedNavigate("/profile")} className="flex items-center gap-3 flex-1 bg-transparent cursor-pointer text-left">
-                      <div className="flex items-center justify-center w-10 h-10 rounded-full overflow-hidden bg-muted ring-1 ring-border/20 shadow-sm">
-                        {localProfileImage ? (
-                          <img src={localProfileImage} alt="Photo de profil" className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full bg-secondary text-secondary-foreground font-semibold flex items-center justify-center">{getInitials(userName || username || "Anonyme")}</div>
-                        )}
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-sm font-semibold text-foreground">{username || userName || "Anonyme"}</span>
-                      </div>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => handleNavItemClick(e, "/settings")}
-                      className="p-2 rounded-sm text-muted-foreground hover:text-foreground focus:outline-none transition-all duration-300 ease-in-out hover:scale-110 hover:rotate-90"
-                      aria-label="Paramètres"
-                      title="Paramètres"
-                    >
-                      <Icon name="gear" className="w-6 h-6 cursor-pointer" />
-                    </button>
+              <div className="flex items-center gap-3 border-t border-border pt-3">
+                <button type="button" onClick={() => guardedNavigate("/profile")} className="flex items-center gap-3 flex-1 bg-transparent cursor-pointer text-left">
+                  <div className="flex items-center justify-center w-10 h-10 rounded-full overflow-hidden bg-muted ring-1 ring-border/20 shadow-sm">
+                    {localProfileImage ? (
+                      <img src={localProfileImage} alt="Photo de profil" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full bg-secondary text-secondary-foreground font-semibold flex items-center justify-center">{getInitials(userName || username || "Anonyme")}</div>
+                    )}
                   </div>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-semibold text-foreground">{username || userName || "Anonyme"}</span>
+                  </div>
+                </button>
+                {!adminLoading && isAdmin && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.preventDefault(); guardedNavigate("/admin"); }}
+                    className="p-2 rounded-sm text-muted-foreground hover:text-foreground focus:outline-none transition-all duration-200 ease-in-out"
+                    aria-label="Backoffice"
+                    title="Backoffice"
+                  >
+                    <Icon name="shieldCheck" className="w-6 h-6 cursor-pointer" />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={(e) => handleNavItemClick(e, "/settings")}
+                  className="p-2 rounded-sm text-muted-foreground hover:text-foreground focus:outline-none transition-all duration-300 ease-in-out hover:scale-110 hover:rotate-90"
+                  aria-label="Paramètres"
+                  title="Paramètres"
+                >
+                  <Icon name="gear" className="w-6 h-6 cursor-pointer" />
+                </button>
+              </div>
                 </>
               ) : (
                 <div className="flex items-center justify-between border-t border-border pt-3">
@@ -315,6 +350,17 @@ export default function NavBar() {
                     <span className="text-sm font-semibold text-foreground">{username || userName || "Anonyme"}</span>
                   </div>
                 </button>
+                {!adminLoading && isAdmin && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.preventDefault(); guardedNavigate("/admin"); }}
+                    className="p-2 rounded-sm text-muted-foreground hover:text-foreground focus:outline-none transition-all duration-200 ease-in-out"
+                    aria-label="Backoffice"
+                    title="Backoffice"
+                  >
+                    <Icon name="shieldCheck" className="w-6 h-6 cursor-pointer" />
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={(e) => handleNavItemClick(e, "/settings")}

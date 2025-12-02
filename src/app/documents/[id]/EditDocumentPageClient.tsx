@@ -40,6 +40,20 @@ interface NotepadContent {
   timestamp?: number;
 }
 
+type SaveStatus = "synchronized" | "saving" | "unsynchronized";
+
+const getSaveStatusLabel = (status: SaveStatus): string => {
+  switch (status) {
+    case "synchronized":
+      return "Note synchronisée";
+    case "saving":
+      return "Enregistrement...";
+    case "unsynchronized":
+    default:
+      return "Non synchronisé";
+  }
+};
+
 type FlushOverride = {
   markdown?: string;
   content?: NotepadContent;
@@ -153,7 +167,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   const [offlineBaseline, setOfflineBaseline] = useState<string>("");
 
   // État de sauvegarde : 'synchronized' | 'saving' | 'unsynchronized'
-  const [saveStatus, setSaveStatus] = useState<'synchronized' | 'saving' | 'unsynchronized'>('synchronized');
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("synchronized");
   const lastSavedContentRef = useRef<string>("");
   const lastSavedTitleRef = useRef<string>("");
   const lastSavedTagsRef = useRef<string[]>([]);
@@ -189,7 +203,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
   }, []);
 
   const handleSyncStatusChange = useCallback(
-    (status: 'synchronized' | 'saving' | 'unsynchronized') => {
+    (status: SaveStatus) => {
       setSaveStatus(status);
       if (status === 'saving') {
         isSavingRef.current = true;
@@ -1216,6 +1230,35 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     );
   }
 
+  const renderSaveStatusMarker = () => {
+    if (saveStatus === "saving") {
+      return (
+        <span
+          className="inline-flex h-6 w-6 items-center justify-center"
+          aria-hidden="true"
+        >
+          <span className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--primary)] border-t-[var(--card)]" />
+        </span>
+      );
+    }
+
+    if (saveStatus === "unsynchronized") {
+      return (
+        <span className="inline-flex h-6 w-6 items-center justify-center" aria-hidden="true">
+          <Icon name="circleX" className="h-5 w-5 text-[var(--destructive)]" />
+        </span>
+      );
+    }
+
+    return (
+      <span className="inline-flex h-6 w-6 items-center justify-center" aria-hidden="true">
+        <Icon name="check" className="h-4 w-4 text-[var(--success)]" />
+      </span>
+    );
+  };
+
+  const saveStatusLabel = getSaveStatusLabel(saveStatus);
+
   return (
     <div className="min-h-screen bg-background py-8">
       <div className="max-w-4xl mx-auto px-4">
@@ -1228,10 +1271,19 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
             <Icon name="arrowLeft" className="h-5 w-5 mr-2" />
             Retour
           </Link>
-          <div className="flex flex-row justify-center items-center">
+          <div className="flex flex-row items-center gap-4">
+            {hasEditAccess !== false && (
+              <div
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--card)]"
+                aria-live="polite"
+                title={saveStatusLabel}
+              >
+                {renderSaveStatusMarker()}
+              </div>
+            )}
             <UserListButton users={users} className="self-center" documentId={document.id} onAccessListRefresh={loadAccessList} isOwner={isOwner} currentUserId={userId} />
             {hasEditAccess === false && (
-              <div className="ml-4 px-3 py-1 bg-muted text-foreground text-sm font-medium rounded-full border border-border">
+              <div className="px-3 py-1 bg-[var(--muted)] text-foreground text-sm font-medium rounded-full border border-[var(--border)]">
                 Mode lecture seule
               </div>
             )}
@@ -1240,7 +1292,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
                 variant="ghostPurple"
                 size="icon"
                 onClick={toggleMenu}
-                className="md:mr-0 ml-4"
+                className="md:mr-0"
               >
                 <Icon name="dotsVertical" className="h-6 w-6" />
               </Button>
@@ -1291,7 +1343,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
                         }
                       }}
                       disabled={hasEditAccess === false || isManualSaving}
-                      icon={<Icon name="document" className={hasEditAccess === false || isManualSaving ? "w-4 h-4 text-muted-foreground" : "w-4 h-4 text-primary"} />}
+                      icon={<Icon name="save" className={hasEditAccess === false || isManualSaving ? "w-4 h-4 text-muted-foreground" : "w-4 h-4 text-primary"} />}
                     >
                       {isManualSaving ? "Sauvegarde..." : hasEditAccess === false ? "Lecture seule" : "Sauvegarder"}
                     </MenuItem>
@@ -1451,7 +1503,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
             </div>
 
             {/* Content */}
-            <div className="relative">
+            <div>
               <div className="border border-border rounded-lg overflow-hidden bg-card">
                 <WysiwygNotepad
                   key={`doc-${document.id}`}
@@ -1489,20 +1541,6 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
                   }}
                 />
               </div>
-              {/* Indicateur de synchronisation - position flottante en bas à droite */}
-              {hasEditAccess !== false && (
-                <div className="absolute bottom-3 right-3 z-10 flex items-center">
-                  {saveStatus === 'synchronized' && (
-                    <div className="w-2 h-2 bg-green-500 rounded-full shadow-sm" aria-label="Synchronisé" title="Synchronisé"></div>
-                  )}
-                  {saveStatus === 'saving' && (
-                    <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse shadow-sm" aria-label="Enregistrement..." title="Enregistrement..."></div>
-                  )}
-                  {saveStatus === 'unsynchronized' && (
-                    <div className="w-2 h-2 bg-orange-500 rounded-full shadow-sm" aria-label="Non synchronisé" title="Non synchronisé"></div>
-                  )}
-                </div>
-              )}
             </div>
 
 

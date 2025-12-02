@@ -7,7 +7,6 @@ import DocumentCard from "@/components/documents/DocumentCard";
 import { getUserDocumentsAction, getUserProfileAction } from "@/lib/actions";
 import Link from "next/link";
 import ProfileEditButton from "./ProfileEditButton";
-import BackofficeEditButton from "./BackofficeEditButton";
 import Icon from "@/components/Icon";
 
 export default async function ProfilePage() {
@@ -87,7 +86,6 @@ export default async function ProfilePage() {
             <div className="flex-1" />
             <div className="flex items-center gap-3 justify-center md:justify-start w-full md:w-auto">
               <ProfileEditButton />
-              <BackofficeEditButton />
             </div>
           </div>
 

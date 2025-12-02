@@ -50,8 +50,16 @@ const Home: React.FC<SvgProps> = (props) => (
 
 const Clock: React.FC<SvgProps> = (props) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
-    <circle cx="12" cy="12" r="9" />
-    <path d="M12 7v5l3 3" />
+    <circle cx="12" cy="12" r="10" />
+    <path d="M12 6v6l4 2" />
+  </svg>
+);
+
+const Save: React.FC<SvgProps> = (props) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" />
+    <path d="M17 21v-8H7v8" />
+    <path d="M7 3v5h8" />
   </svg>
 );
 
@@ -69,8 +77,8 @@ const Share: React.FC<SvgProps> = (props) => (
     <circle cx="18" cy="5" r="3" />
     <circle cx="6" cy="12" r="3" />
     <circle cx="18" cy="19" r="3" />
-    <path d="M8.59 13.51l6.83 3.98" />
-    <path d="M15.41 6.51L8.59 10.49" />
+    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
   </svg>
 );
 
@@ -303,7 +311,7 @@ const DocumentIcon: React.FC<SvgProps> = (props) => (
 );
 
 const ExportIcon: React.FC<SvgProps> = (props) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18" fill="currentColor" {...props}>
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18" fill="currentColor" {...props} style={{ transform: 'scale(0.85)' }}>
     <path d="M2.50533 17.9395C2.16018 17.9298 1.82049 17.8508 1.50645 17.7073C1.1924 17.5637 0.91041 17.3586 0.677214 17.1039C0.444018 16.8493 0.264376 16.5503 0.148957 16.2249C0.0335379 15.8995 -0.0153034 15.5542 0.00533333 15.2095C-0.00666667 13.0565 0.00533333 10.9035 0.00533333 8.75049C0.00533333 8.61788 0.0580116 8.4907 0.15178 8.39693C0.245548 8.30317 0.372725 8.25049 0.505333 8.25049C0.637942 8.25049 0.765118 8.30317 0.858887 8.39693C0.952655 8.4907 1.00533 8.61788 1.00533 8.75049C1.00533 10.9505 0.973333 13.1505 1.00533 15.3505C1.02133 16.4575 1.85333 16.9395 2.84333 16.9395H15.3063C15.621 16.9466 15.9303 16.8579 16.1932 16.685C16.4562 16.512 16.6603 16.2632 16.7783 15.9715C16.8747 15.6266 16.9086 15.2673 16.8783 14.9105V8.75049C16.8783 8.61788 16.931 8.4907 17.0248 8.39693C17.1185 8.30317 17.2457 8.25049 17.3783 8.25049C17.5109 8.25049 17.6381 8.30317 17.7319 8.39693C17.8257 8.4907 17.8783 8.61788 17.8783 8.75049C17.8783 10.9745 17.9633 13.2155 17.8783 15.4375C17.8697 15.7778 17.7935 16.1129 17.6542 16.4235C17.5148 16.734 17.3151 17.0138 17.0667 17.2464C16.8182 17.479 16.5259 17.66 16.2069 17.7786C15.8879 17.8972 15.5484 17.9513 15.2083 17.9375L2.50533 17.9395Z" />
     <path d="M9.28979 0.147366C9.20757 0.0633087 9.09629 0.0139274 8.97879 0.00936606C8.96479 0.0106994 8.95046 0.00869935 8.93579 0.00336602C8.91379 -0.00463398 8.90879 0.00336606 8.89479 0.00936606C8.77695 0.0136745 8.66526 0.0630753 8.58279 0.147366L4.91379 3.81637C4.82271 3.91067 4.77232 4.03697 4.77346 4.16807C4.7746 4.29916 4.82718 4.42457 4.91988 4.51728C5.01259 4.60998 5.13799 4.66256 5.26909 4.6637C5.40019 4.66484 5.52649 4.61445 5.62079 4.52337L8.43679 1.70837V12.4504C8.43679 12.583 8.48947 12.7102 8.58324 12.8039C8.67701 12.8977 8.80419 12.9504 8.93679 12.9504C9.0694 12.9504 9.19658 12.8977 9.29035 12.8039C9.38411 12.7102 9.43679 12.583 9.43679 12.4504V1.70837L12.2528 4.52337C12.3471 4.61445 12.4734 4.66484 12.6045 4.6637C12.7356 4.66256 12.861 4.60998 12.9537 4.51728C13.0464 4.42457 13.099 4.29916 13.1001 4.16807C13.1013 4.03697 13.0509 3.91067 12.9598 3.81637L9.28979 0.147366Z" />
   </svg>
@@ -344,6 +352,14 @@ const CircleCheck: React.FC<SvgProps> = (props) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
     <path d="M9 12l2 2 4-4" />
     <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+);
+
+const CircleX: React.FC<SvgProps> = (props) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M15 9L9 15" />
+    <path d="M9 9l6 6" />
   </svg>
 );
 
@@ -484,6 +500,12 @@ const Comment: React.FC<SvgProps> = (props) => (
   </svg>
 );
 
+const TagPlus: React.FC<SvgProps> = (props) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+    <path fill="currentColor" d="M19.75 2A2.25 2.25 0 0 1 22 4.25v5.462a3.25 3.25 0 0 1-.952 2.298l-.026.026a6.5 6.5 0 0 0-1.43-.692l.395-.395a1.75 1.75 0 0 0 .513-1.237V4.25a.75.75 0 0 0-.75-.75h-5.466c-.464 0-.91.185-1.238.513l-8.512 8.523a1.75 1.75 0 0 0 .015 2.462l4.461 4.454a1.755 1.755 0 0 0 2.33.13c.165.487.386.947.654 1.374a3.256 3.256 0 0 1-4.043-.442L3.489 16.06a3.25 3.25 0 0 1-.004-4.596l8.5-8.51a3.25 3.25 0 0 1 2.3-.953zM17 5.502a1.5 1.5 0 1 1 0 3a1.5 1.5 0 0 1 0-3M23 17.5a5.5 5.5 0 1 0-11 0a5.5 5.5 0 0 0 11 0m-5 .5l.001 2.503a.5.5 0 1 1-1 0V18h-2.505a.5.5 0 0 1 0-1H17v-2.5a.5.5 0 1 1 1 0V17h2.497a.5.5 0 0 1 0 1z"/>
+    </svg>
+);
+
 export const ICONS = {
   menu: Menu,
   filter: Filter,
@@ -527,11 +549,13 @@ export const ICONS = {
   outdent: Outdent,
   lock: Lock,
   document: DocumentIcon,
+  save: Save,
   export: ExportIcon,
   user: User,
   users: Users,
   dashboard: Dashboard,
   circleCheck: CircleCheck,
+  circleX: CircleX,
   shieldCheck: ShieldCheck,
   bold: Bold,
   italic: Italic,
@@ -558,6 +582,7 @@ export const ICONS = {
   chartBar: ChartBar,
   inbox: Inbox,
   comment: Comment,
+  tagPlus: TagPlus,
   sparkles: (props: SvgProps) => (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
       <path d="M12 2L13.5 8.5L20 10L13.5 11.5L12 18L10.5 11.5L4 10L10.5 8.5L12 2Z" />
