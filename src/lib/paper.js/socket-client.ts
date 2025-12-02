@@ -49,7 +49,7 @@ async function ensureServerReady(): Promise<boolean> {
     window.__notus_socket_server_ready = true;
     return true;
   } catch (error) {
-    console.error('[Socket] Failed to initialize server route', error);
+    // Silent fail
     return false;
   }
 }
@@ -73,6 +73,10 @@ async function getSharedSocketInstance(): Promise<Socket<ServerToClientEvents, C
       transports: ['websocket'],
       upgrade: false,
       autoConnect: true,
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      reconnectionAttempts: 5,
       path: '/api/socket',
       timeout: 20000,
       forceNew: false,
@@ -112,9 +116,66 @@ export function useSocket(roomId?: string, _options?: UseSocketOptions): UseSock
 
     let cancelled = false;
     let socketInstance: Socket<ServerToClientEvents, ClientToServerEvents> | null = null;
+    let cleanup: (() => void) | undefined;
+
+    const handleOffline = () => {
+      if (socketInstance) {
+        // Disable reconnection completely
+        if (socketInstance.io && socketInstance.io.opts) {
+          socketInstance.io.opts.reconnection = false;
+          socketInstance.io.opts.autoConnect = false;
+        }
+        if (socketInstance.connected) {
+          socketInstance.disconnect();
+        }
+        setIsConnected(false);
+      }
+    };
+
+    const handleOnline = async () => {
+      if (cancelled) return;
+      
+      // Reset server ready flag to force reconnection
+      if (typeof window !== 'undefined') {
+        window.__notus_socket_server_ready = false;
+      }
+      
+      // Reconnect using the shared socket instance
+      try {
+        const instance = sharedSocketState.socket || await getSharedSocketInstance();
+        if (cancelled) return;
+        
+        // Re-enable reconnection when coming back online
+        if (instance.io && instance.io.opts) {
+          instance.io.opts.reconnection = true;
+          instance.io.opts.autoConnect = true;
+        }
+        
+        if (!instance.connected) {
+          instance.connect();
+        }
+        
+        // Update local state if needed
+        if (socketInstance !== instance) {
+          socketInstance = instance;
+          sharedSocketState.refCount += 1;
+          setSocket(instance);
+          setIsConnected(instance.connected);
+        } else {
+          setIsConnected(instance.connected);
+        }
+      } catch (error) {
+        // Silent fail
+      }
+    };
 
     const connect = async () => {
       try {
+        // Don't connect if offline
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+          return;
+        }
+
         const instance = await getSharedSocketInstance();
         if (cancelled) return;
         socketInstance = instance;
@@ -125,28 +186,39 @@ export function useSocket(roomId?: string, _options?: UseSocketOptions): UseSock
         const handleConnect = () => !cancelled && setIsConnected(true);
         const handleDisconnect = () => !cancelled && setIsConnected(false);
         const handleConnectError = (err: unknown) => {
-          console.error('[Socket] Connection error (shared)', err);
+          setIsConnected(false);
+          // Disable reconnection on error
+          if (instance.io && instance.io.opts) {
+            instance.io.opts.reconnection = false;
+            instance.io.opts.autoConnect = false;
+          }
         };
 
         instance.on('connect', handleConnect);
         instance.on('disconnect', handleDisconnect);
         instance.on('connect_error', handleConnectError);
 
-        return () => {
+        cleanup = () => {
           instance.off('connect', handleConnect);
           instance.off('disconnect', handleDisconnect);
           instance.off('connect_error', handleConnectError);
         };
       } catch (error) {
-        console.error('[Socket] Failed to connect', error);
+        // Silent fail
       }
     };
+
+    // Listen to online/offline events
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('online', handleOnline);
 
     const cleanupPromise = connect();
 
     return () => {
       cancelled = true;
-      cleanupPromise.then((cleanup) => {
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('online', handleOnline);
+      cleanupPromise.then(() => {
         cleanup?.();
         if (socketInstance) {
           releaseSharedSocketInstance();

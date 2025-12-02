@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import { useSocket } from "./socket-client";
 import type {
   PersistedContentSnapshot,
@@ -56,6 +56,99 @@ export function useCollaborativeNote({
   const pendingCharsRef = useRef<number>(0);
   const flushTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const statusRef = useRef<SyncStatus>('synchronized');
+  const apiFailureCountRef = useRef<number>(0);
+  const [syncDisabled, setSyncDisabled] = useState<boolean>(false);
+  const syncDisabledRef = useRef<boolean>(false);
+  const [isOffline, setIsOffline] = useState<boolean>(false);
+  
+  // Keep ref in sync with state for use in callbacks
+  useEffect(() => {
+    syncDisabledRef.current = syncDisabled;
+  }, [syncDisabled]);
+
+  // Track socket connection failures
+  const socketFailureCountRef = useRef<number>(0);
+
+  // Check if we're in offline mode (internet loss OR API loss OR socket connection failure)
+  const checkOfflineMode = useCallback((): boolean => {
+    // Condition 1: Loss of internet connection
+    const internetOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+    
+    // Condition 2: Loss of API connection (3+ consecutive failures)
+    const apiOffline = apiFailureCountRef.current >= 3;
+    
+    // Condition 3: Socket connection failures (1+ failure means we can't connect)
+    const socketOffline = socketFailureCountRef.current >= 1;
+    
+    return internetOffline || apiOffline || socketOffline;
+  }, []);
+
+  // Initialize offline state immediately on mount
+  useEffect(() => {
+    const initialOffline = checkOfflineMode();
+    if (initialOffline) {
+      setIsOffline(true);
+      setSyncDisabled(true);
+    }
+  }, [checkOfflineMode]); // Only on mount, checkOfflineMode is stable
+
+  // Update offline state when conditions change
+  useEffect(() => {
+    const updateOfflineState = () => {
+      const shouldBeOffline = checkOfflineMode();
+      // Also check if socket is not connected after a delay (connection failed)
+      const socketNotConnected = Boolean(socket && !isConnected && !syncDisabled);
+      
+      if (shouldBeOffline !== isOffline || (socketNotConnected && !isOffline)) {
+        const newOfflineState = shouldBeOffline || socketNotConnected;
+        if (newOfflineState !== isOffline) {
+          setIsOffline(newOfflineState);
+          if (newOfflineState) {
+            setSyncDisabled(true);
+          }
+        }
+      }
+    };
+
+    // Check on mount and when dependencies change
+    updateOfflineState();
+
+    // Check immediately and periodically if socket connection failed
+    // Check after 1 second first, then every 2 seconds
+    const immediateCheck = setTimeout(() => {
+      if (socket && !isConnected && !isOffline && !syncDisabled) {
+        // Socket exists but not connected after 1 second - likely connection failure
+        socketFailureCountRef.current += 1;
+        updateOfflineState();
+      }
+    }, 1000);
+    
+    const checkInterval = setInterval(() => {
+      if (socket && !isConnected && !isOffline && !syncDisabled) {
+        // Socket exists but not connected after delay - likely connection failure
+        socketFailureCountRef.current += 1;
+        updateOfflineState();
+      }
+    }, 2000);
+
+    // Listen to online/offline events
+    if (typeof window !== 'undefined') {
+      window.addEventListener('online', updateOfflineState);
+      window.addEventListener('offline', updateOfflineState);
+      
+      return () => {
+        clearTimeout(immediateCheck);
+        clearInterval(checkInterval);
+        window.removeEventListener('online', updateOfflineState);
+        window.removeEventListener('offline', updateOfflineState);
+      };
+    }
+    
+    return () => {
+      clearTimeout(immediateCheck);
+      clearInterval(checkInterval);
+    };
+  }, [checkOfflineMode, isOffline, socket, isConnected, syncDisabled]);
 
   const updateStatus = useCallback((status: SyncStatus) => {
     if (statusRef.current === status) return;
@@ -77,14 +170,156 @@ export function useCollaborativeNote({
     [metadata]
   );
 
-  const flushPendingChanges = useCallback(
+      const flushPendingChanges = useCallback(
     async (override?: {
       markdown?: string;
       contentSnapshot?: PersistedContentSnapshot | null;
       title?: string;
       tags?: string[];
     }) => {
-      if (!socket || !roomId) return;
+      // NEVER try to sync if offline - save locally only
+      if (isOffline || checkOfflineMode()) {
+        updateStatus('unsynchronized');
+        if (metadata?.documentId && typeof window !== 'undefined') {
+          try {
+            const candidateMarkdown =
+              typeof override?.markdown === "string" ? override.markdown : pendingMarkdownRef.current;
+            const snapshot = buildContentSnapshot(override?.contentSnapshot);
+            const contentString =
+              typeof candidateMarkdown === "string" && candidateMarkdown.length > 0
+                ? candidateMarkdown
+                : snapshot?.text ?? '';
+            const key = `notus:offline-doc:${metadata.documentId}`;
+            const existing = localStorage.getItem(key);
+            const existingData = existing ? JSON.parse(existing) : {};
+            const payload = {
+              ...existingData,
+              id: Number(metadata.documentId),
+              title: override?.title ?? metadata?.title ?? existingData.title,
+              content: contentString,
+              contentSnapshot: snapshot,
+              tags: override?.tags ?? metadata?.tags ?? existingData.tags,
+              updated_at: new Date().toISOString(),
+              user_id: metadata?.userId ?? existingData.user_id,
+              cachedAt: Date.now(),
+              offline: true,
+              apiFailed: true,
+            };
+            localStorage.setItem(key, JSON.stringify(payload));
+          } catch (err) {
+            // Silent fail - localStorage error
+          }
+        }
+        return;
+      }
+      
+      if (!socket || !roomId) {
+        // If no socket, save locally
+        if (metadata?.documentId && typeof window !== 'undefined') {
+          try {
+            const candidateMarkdown =
+              typeof override?.markdown === "string" ? override.markdown : pendingMarkdownRef.current;
+            const snapshot = buildContentSnapshot(override?.contentSnapshot);
+            const contentString =
+              typeof candidateMarkdown === "string" && candidateMarkdown.length > 0
+                ? candidateMarkdown
+                : snapshot?.text ?? '';
+            const key = `notus:offline-doc:${metadata.documentId}`;
+            const existing = localStorage.getItem(key);
+            const existingData = existing ? JSON.parse(existing) : {};
+            const payload = {
+              ...existingData,
+              id: Number(metadata.documentId),
+              title: override?.title ?? metadata?.title ?? existingData.title,
+              content: contentString,
+              contentSnapshot: snapshot,
+              tags: override?.tags ?? metadata?.tags ?? existingData.tags,
+              updated_at: new Date().toISOString(),
+              user_id: metadata?.userId ?? existingData.user_id,
+              cachedAt: Date.now(),
+              offline: true,
+              apiFailed: true,
+            };
+            localStorage.setItem(key, JSON.stringify(payload));
+          } catch (err) {
+            // Silent fail - localStorage error
+          }
+        }
+        return;
+      }
+      
+      // NEVER try to sync if sync is disabled - save locally only
+      if (syncDisabled) {
+        if (metadata?.documentId && typeof window !== 'undefined') {
+          try {
+            const candidateMarkdown =
+              typeof override?.markdown === "string" ? override.markdown : pendingMarkdownRef.current;
+            const snapshot = buildContentSnapshot(override?.contentSnapshot);
+            const contentString =
+              typeof candidateMarkdown === "string" && candidateMarkdown.length > 0
+                ? candidateMarkdown
+                : snapshot?.text ?? '';
+            const key = `notus:offline-doc:${metadata.documentId}`;
+            const existing = localStorage.getItem(key);
+            const existingData = existing ? JSON.parse(existing) : {};
+            const payload = {
+              ...existingData,
+              id: Number(metadata.documentId),
+              title: override?.title ?? metadata?.title ?? existingData.title,
+              content: contentString,
+              contentSnapshot: snapshot,
+              tags: override?.tags ?? metadata?.tags ?? existingData.tags,
+              updated_at: new Date().toISOString(),
+              user_id: metadata?.userId ?? existingData.user_id,
+              cachedAt: Date.now(),
+              offline: true,
+              apiFailed: true,
+            };
+            localStorage.setItem(key, JSON.stringify(payload));
+            updateStatus('unsynchronized');
+            } catch (err) {
+              // Silent fail
+            }
+        }
+        return;
+      }
+      
+      // Check if socket is connected
+      if (!socket.connected) {
+        // Socket not connected, save locally
+        if (metadata?.documentId && typeof window !== 'undefined') {
+          try {
+            const candidateMarkdown =
+              typeof override?.markdown === "string" ? override.markdown : pendingMarkdownRef.current;
+            const snapshot = buildContentSnapshot(override?.contentSnapshot);
+            const contentString =
+              typeof candidateMarkdown === "string" && candidateMarkdown.length > 0
+                ? candidateMarkdown
+                : snapshot?.text ?? '';
+            const key = `notus:offline-doc:${metadata.documentId}`;
+            const existing = localStorage.getItem(key);
+            const existingData = existing ? JSON.parse(existing) : {};
+            const payload = {
+              ...existingData,
+              id: Number(metadata.documentId),
+              title: override?.title ?? metadata?.title ?? existingData.title,
+              content: contentString,
+              contentSnapshot: snapshot,
+              tags: override?.tags ?? metadata?.tags ?? existingData.tags,
+              updated_at: new Date().toISOString(),
+              user_id: metadata?.userId ?? existingData.user_id,
+              cachedAt: Date.now(),
+              offline: true,
+              apiFailed: true,
+            };
+            localStorage.setItem(key, JSON.stringify(payload));
+            updateStatus('unsynchronized');
+            } catch (err) {
+              // Silent fail
+            }
+        }
+        return;
+      }
       const candidateMarkdown =
         typeof override?.markdown === "string" ? override.markdown : pendingMarkdownRef.current;
 
@@ -102,9 +337,89 @@ export function useCollaborativeNote({
         return;
       }
 
-      if (typeof navigator !== "undefined" && !navigator.onLine) {
+      if (isOffline || checkOfflineMode()) {
         updateStatus('unsynchronized');
+        // Sauvegarder localement quand offline
+        if (metadata?.documentId && typeof window !== 'undefined') {
+          try {
+            const key = `notus:offline-doc:${metadata.documentId}`;
+            const existing = localStorage.getItem(key);
+            const existingData = existing ? JSON.parse(existing) : {};
+            const payload = {
+              ...existingData,
+              id: Number(metadata.documentId),
+              title: override?.title ?? metadata?.title ?? existingData.title,
+              content: contentString,
+              contentSnapshot: snapshot,
+              tags: override?.tags ?? metadata?.tags ?? existingData.tags,
+              updated_at: new Date().toISOString(),
+              user_id: metadata?.userId ?? existingData.user_id,
+              cachedAt: Date.now(),
+              offline: true,
+            };
+            localStorage.setItem(key, JSON.stringify(payload));
+          } catch (err) {
+            // Silent fail - localStorage error
+          }
+        }
         return;
+      }
+
+      // Double check we're not offline before creating payload
+      if (isOffline || checkOfflineMode() || syncDisabled) {
+        if (metadata?.documentId && typeof window !== 'undefined') {
+          try {
+            const key = `notus:offline-doc:${metadata.documentId}`;
+            const existing = localStorage.getItem(key);
+            const existingData = existing ? JSON.parse(existing) : {};
+            const payload = {
+              ...existingData,
+              id: Number(metadata.documentId),
+              title: override?.title ?? metadata?.title ?? existingData.title,
+              content: contentString,
+              contentSnapshot: snapshot,
+              tags: override?.tags ?? metadata?.tags ?? existingData.tags,
+              updated_at: new Date().toISOString(),
+              user_id: metadata?.userId ?? existingData.user_id,
+              cachedAt: Date.now(),
+              offline: true,
+              apiFailed: true,
+            };
+            localStorage.setItem(key, JSON.stringify(payload));
+          } catch (err) {
+            // Silent fail
+          }
+        }
+        return;
+      }
+
+      // Final check before creating payload - NEVER proceed if offline
+      if (isOffline || checkOfflineMode() || syncDisabled || !socket || !socket.connected || !isConnected) {
+        if (metadata?.documentId && typeof window !== 'undefined') {
+          try {
+            const key = `notus:offline-doc:${metadata.documentId}`;
+            const existing = localStorage.getItem(key);
+            const existingData = existing ? JSON.parse(existing) : {};
+            const payload = {
+              ...existingData,
+              id: Number(metadata.documentId),
+              title: override?.title ?? metadata?.title ?? existingData.title,
+              content: contentString,
+              contentSnapshot: snapshot,
+              tags: override?.tags ?? metadata?.tags ?? existingData.tags,
+              updated_at: new Date().toISOString(),
+              user_id: metadata?.userId ?? existingData.user_id,
+              cachedAt: Date.now(),
+              offline: true,
+              apiFailed: true,
+            };
+            localStorage.setItem(key, JSON.stringify(payload));
+          } catch (err) {
+            // Silent fail
+          }
+        }
+        updateStatus('unsynchronized');
+        return Promise.resolve();
       }
 
       const cursor = getCursorSnapshot?.();
@@ -136,6 +451,14 @@ export function useCollaborativeNote({
       return new Promise<void>((resolve) => {
         const ackCallback = (ack?: SocketAckResponse) => {
           if (!ack || ack.ok) {
+            // Reset failure count on success - exit offline mode if API is back
+            apiFailureCountRef.current = 0;
+            socketFailureCountRef.current = 0;
+            const wasOffline = isOffline;
+            setIsOffline(false);
+            setSyncDisabled(false);
+            if (wasOffline) {
+            }
             pendingCharsRef.current = 0;
             updateStatus('synchronized');
             if (snapshot) {
@@ -146,50 +469,379 @@ export function useCollaborativeNote({
               });
             }
           } else {
+            // Increment failure count
+            apiFailureCountRef.current += 1;
             updateStatus('unsynchronized');
+            
+            // After 3 consecutive failures, activate offline mode
+            if (apiFailureCountRef.current >= 3) {
+              setIsOffline(true);
+              setSyncDisabled(true);
+              // Disconnect socket to stop all communication attempts
+              if (socket && socket.connected) {
+                socket.disconnect();
+              }
+            }
+            
+            // Always save locally when API fails
+            if (metadata?.documentId && typeof window !== 'undefined') {
+              try {
+                const key = `notus:offline-doc:${metadata.documentId}`;
+                const existing = localStorage.getItem(key);
+                const existingData = existing ? JSON.parse(existing) : {};
+                const localPayload = {
+                  ...existingData,
+                  id: Number(metadata.documentId),
+                  title: override?.title ?? metadata?.title ?? existingData.title,
+                  content: contentString,
+                  contentSnapshot: snapshot,
+                  tags: override?.tags ?? metadata?.tags ?? existingData.tags,
+                  updated_at: new Date().toISOString(),
+                  user_id: metadata?.userId ?? existingData.user_id,
+                  cachedAt: Date.now(),
+                  offline: true,
+                  apiFailed: true,
+                };
+                localStorage.setItem(key, JSON.stringify(localPayload));
+              } catch (err) {
+                // Silent fail
+              }
+            }
           }
           resolve();
         };
 
-        if (payload.cursor) {
-          socket.emit('text-update-with-cursor', roomId, payload, ackCallback);
-        } else {
-          socket.emit('text-update', roomId, payload, ackCallback);
+      // Add timeout for socket emit (10 seconds)
+        const timeoutId = setTimeout(() => {
+          // Timeout - treat as failure
+          apiFailureCountRef.current += 1;
+          if (apiFailureCountRef.current >= 3) {
+            setIsOffline(true);
+            setSyncDisabled(true);
+            // Disconnect socket to stop all communication attempts
+            if (socket && socket.connected) {
+              socket.disconnect();
+            }
+          }
+          updateStatus('unsynchronized');
+          // Save locally
+          if (metadata?.documentId && typeof window !== 'undefined') {
+            try {
+              const key = `notus:offline-doc:${metadata.documentId}`;
+              const existing = localStorage.getItem(key);
+              const existingData = existing ? JSON.parse(existing) : {};
+              const localPayload = {
+                ...existingData,
+                id: Number(metadata.documentId),
+                title: override?.title ?? metadata?.title ?? existingData.title,
+                content: contentString,
+                contentSnapshot: snapshot,
+                tags: override?.tags ?? metadata?.tags ?? existingData.tags,
+                updated_at: new Date().toISOString(),
+                user_id: metadata?.userId ?? existingData.user_id,
+                cachedAt: Date.now(),
+                offline: true,
+                apiFailed: true,
+              };
+              localStorage.setItem(key, JSON.stringify(localPayload));
+            } catch (err) {
+              // Silent fail
+            }
+          }
+          resolve();
+        }, 10000);
+
+        const wrappedAckCallback = (ack?: SocketAckResponse) => {
+          clearTimeout(timeoutId);
+          ackCallback(ack);
+        };
+
+        // Final check before emitting - NEVER emit if offline or socket not connected
+        if (isOffline || checkOfflineMode() || syncDisabled || !socket || !socket.connected || !isConnected) {
+          clearTimeout(timeoutId);
+          updateStatus('unsynchronized');
+          // Save locally
+          if (metadata?.documentId && typeof window !== 'undefined') {
+            try {
+              const key = `notus:offline-doc:${metadata.documentId}`;
+              const existing = localStorage.getItem(key);
+              const existingData = existing ? JSON.parse(existing) : {};
+              const localPayload = {
+                ...existingData,
+                id: Number(metadata.documentId),
+                title: override?.title ?? metadata?.title ?? existingData.title,
+                content: contentString,
+                contentSnapshot: snapshot,
+                tags: override?.tags ?? metadata?.tags ?? existingData.tags,
+                updated_at: new Date().toISOString(),
+                user_id: metadata?.userId ?? existingData.user_id,
+                cachedAt: Date.now(),
+                offline: true,
+                apiFailed: true,
+              };
+              localStorage.setItem(key, JSON.stringify(localPayload));
+            } catch (err) {
+              // Silent fail
+            }
+          }
+          resolve();
+          return;
+        }
+        
+        try {
+          if (payload.cursor) {
+            socket.emit('text-update-with-cursor', roomId, payload, wrappedAckCallback);
+          } else {
+            socket.emit('text-update', roomId, payload, wrappedAckCallback);
+          }
+        } catch (error) {
+          clearTimeout(timeoutId);
+          // Emit failed, treat as failure
+          apiFailureCountRef.current += 1;
+          if (apiFailureCountRef.current >= 3) {
+            setIsOffline(true);
+            setSyncDisabled(true);
+            // Disconnect socket to stop all communication attempts
+            if (socket && socket.connected) {
+              socket.disconnect();
+            }
+          }
+          updateStatus('unsynchronized');
+          // Save locally
+          if (metadata?.documentId && typeof window !== 'undefined') {
+            try {
+              const key = `notus:offline-doc:${metadata.documentId}`;
+              const existing = localStorage.getItem(key);
+              const existingData = existing ? JSON.parse(existing) : {};
+              const localPayload = {
+                ...existingData,
+                id: Number(metadata.documentId),
+                title: override?.title ?? metadata?.title ?? existingData.title,
+                content: contentString,
+                contentSnapshot: snapshot,
+                tags: override?.tags ?? metadata?.tags ?? existingData.tags,
+                updated_at: new Date().toISOString(),
+                user_id: metadata?.userId ?? existingData.user_id,
+                cachedAt: Date.now(),
+                offline: true,
+                apiFailed: true,
+              };
+              localStorage.setItem(key, JSON.stringify(localPayload));
+            } catch (err) {
+              // Silent fail
+            }
+          }
+          resolve();
         }
       });
     },
-    [socket, roomId, buildContentSnapshot, getCursorSnapshot, metadata, onPersisted, updateStatus]
+    [socket, roomId, buildContentSnapshot, getCursorSnapshot, metadata, onPersisted, updateStatus, syncDisabled, isOffline, checkOfflineMode, isConnected]
   );
 
   useEffect(() => {
-    if (!socket || !roomId) return;
+    // Don't listen to socket events if sync is disabled, no socket, or offline
+    if (!socket || !roomId || syncDisabled || isOffline || checkOfflineMode()) {
+      return;
+    }
 
-      const handleTextUpdate: ServerToClientEvents['text-update'] = (data) => {
-        // Ignore own updates using clientId
-        if (data.clientId && data.clientId === clientIdRef.current) {
-          return;
-        }
-        if (typeof data.content === 'string') {
-          onRemoteContent(data.content);
-        }
-      };
+    const handleTextUpdate: ServerToClientEvents['text-update'] = (data) => {
+      // Ignore own updates using clientId
+      if (data.clientId && data.clientId === clientIdRef.current) {
+        return;
+      }
+      
+      // Double check offline mode is not active (may have changed)
+      if (isOffline || checkOfflineMode() || syncDisabled) {
+        return;
+      }
+      
+      // NEVER apply remote content if sync is disabled or offline
+      // This prevents rollbacks
+      if (typeof data.content === 'string') {
+        onRemoteContent(data.content);
+      }
+    };
 
     socket.on('text-update', handleTextUpdate);
 
     return () => {
       socket.off('text-update', handleTextUpdate);
     };
-  }, [socket, roomId, onRemoteContent]);
+  }, [socket, roomId, onRemoteContent, syncDisabled, isOffline, checkOfflineMode]);
+
+  // Listen to socket connection errors directly on the socket instance
+  // This catches errors immediately, even before joinRoom
+  useEffect(() => {
+    if (!socket) return;
+    
+    const handleSocketError = (error: unknown) => {
+      socketFailureCountRef.current += 1;
+      setIsOffline(true);
+      setSyncDisabled(true);
+      updateStatus('unsynchronized');
+      
+      // Disable socket reconnection completely
+      if (socket.io && socket.io.opts) {
+        socket.io.opts.reconnection = false;
+        socket.io.opts.autoConnect = false;
+      }
+      // Disconnect and prevent reconnection
+      if (socket.connected) {
+        socket.disconnect();
+      }
+    };
+    
+    const handleSocketDisconnect = () => {
+      // Disconnect also means we're offline
+      if (!isOffline) {
+        socketFailureCountRef.current += 1;
+        setIsOffline(true);
+        setSyncDisabled(true);
+        updateStatus('unsynchronized');
+      }
+      
+      // Disable socket reconnection completely
+      if (socket.io && socket.io.opts) {
+        socket.io.opts.reconnection = false;
+        socket.io.opts.autoConnect = false;
+      }
+    };
+    
+    socket.on('connect_error', handleSocketError);
+    socket.on('disconnect', handleSocketDisconnect);
+    
+    return () => {
+      socket.off('connect_error', handleSocketError);
+      socket.off('disconnect', handleSocketDisconnect);
+    };
+  }, [socket, isOffline, updateStatus]);
+  
+  // Disable socket reconnection when offline mode is active
+  useEffect(() => {
+    if (!socket) return;
+    
+    if (isOffline || checkOfflineMode()) {
+      // Disable all reconnection attempts
+      if (socket.io && socket.io.opts) {
+        socket.io.opts.reconnection = false;
+        socket.io.opts.autoConnect = false;
+      }
+      // Disconnect if connected
+      if (socket.connected) {
+        socket.disconnect();
+      }
+      // Remove all reconnection listeners
+      socket.io?.removeAllListeners('reconnect');
+      socket.io?.removeAllListeners('reconnect_attempt');
+      socket.io?.removeAllListeners('reconnect_error');
+      socket.io?.removeAllListeners('reconnect_failed');
+    }
+  }, [socket, isOffline, checkOfflineMode]);
 
   useEffect(() => {
     if (!socket || !roomId) return;
+    
+    // NEVER join room if offline mode is active
+    if (isOffline || checkOfflineMode() || syncDisabled) {
+      return;
+    }
+    
+    const handleDisconnect = () => {
+      socketFailureCountRef.current += 1;
+      setIsOffline(true);
+      setSyncDisabled(true);
+      updateStatus('unsynchronized');
+      
+      // Disable socket reconnection completely
+      if (socket.io && socket.io.opts) {
+        socket.io.opts.reconnection = false;
+        socket.io.opts.autoConnect = false;
+      }
+      // Sauvegarder immédiatement le contenu actuel en local
+      if (metadata?.documentId && typeof window !== 'undefined') {
+        try {
+          const key = `notus:offline-doc:${metadata.documentId}`;
+          const existing = localStorage.getItem(key);
+          const existingData = existing ? JSON.parse(existing) : {};
+          const snapshot = buildContentSnapshot();
+          const payload = {
+            ...existingData,
+            id: Number(metadata.documentId),
+            title: metadata?.title ?? existingData.title,
+            content: pendingMarkdownRef.current || existingData.content || '',
+            contentSnapshot: snapshot,
+            tags: metadata?.tags ?? existingData.tags,
+            updated_at: new Date().toISOString(),
+            user_id: metadata?.userId ?? existingData.user_id,
+            cachedAt: Date.now(),
+            offline: true,
+            apiFailed: true,
+          };
+          localStorage.setItem(key, JSON.stringify(payload));
+        } catch (err) {
+          // Silent fail
+        }
+      }
+    };
+    
+    const handleConnectError = (error?: unknown) => {
+      socketFailureCountRef.current += 1;
+      setIsOffline(true);
+      setSyncDisabled(true);
+      updateStatus('unsynchronized');
+      
+      // Disable socket reconnection completely
+      if (socket.io && socket.io.opts) {
+        socket.io.opts.reconnection = false;
+        socket.io.opts.autoConnect = false;
+      }
+      // Disconnect if connected
+      if (socket.connected) {
+        socket.disconnect();
+      }
+      // Sauvegarder immédiatement le contenu actuel en local
+      if (metadata?.documentId && typeof window !== 'undefined') {
+        try {
+          const key = `notus:offline-doc:${metadata.documentId}`;
+          const existing = localStorage.getItem(key);
+          const existingData = existing ? JSON.parse(existing) : {};
+          const snapshot = buildContentSnapshot();
+          const payload = {
+            ...existingData,
+            id: Number(metadata.documentId),
+            title: metadata?.title ?? existingData.title,
+            content: pendingMarkdownRef.current || existingData.content || '',
+            contentSnapshot: snapshot,
+            tags: metadata?.tags ?? existingData.tags,
+            updated_at: new Date().toISOString(),
+            user_id: metadata?.userId ?? existingData.user_id,
+            cachedAt: Date.now(),
+            offline: true,
+            apiFailed: true,
+          };
+          localStorage.setItem(key, JSON.stringify(payload));
+        } catch (err) {
+          // Silent fail
+        }
+      }
+    };
+    
+    socket.on('disconnect', handleDisconnect);
+    socket.on('connect_error', handleConnectError);
+    
     joinRoom(roomId);
-    return () => leaveRoom(roomId);
-  }, [socket, roomId, joinRoom, leaveRoom]);
+    
+      return () => {
+      socket.off('disconnect', handleDisconnect);
+      socket.off('connect_error', handleConnectError);
+      leaveRoom(roomId);
+    };
+  }, [socket, roomId, joinRoom, leaveRoom, metadata, buildContentSnapshot, updateStatus, syncDisabled, isOffline, checkOfflineMode]);
 
   const emitLocalChange = useCallback(
     (markdown: string) => {
-      if (!roomId || !socket) return;
+      if (!roomId) return;
+      
       pendingMarkdownRef.current = markdown;
       const previous = lastObservedMarkdownRef.current || "";
       const positiveDiff = Math.max(0, markdown.length - previous.length);
@@ -197,7 +849,67 @@ export function useCollaborativeNote({
       lastObservedMarkdownRef.current = markdown;
       updateStatus('unsynchronized');
 
-      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      // Save locally function
+      const saveLocally = () => {
+        if (metadata?.documentId && typeof window !== 'undefined') {
+          try {
+            const key = `notus:offline-doc:${metadata.documentId}`;
+            const existing = localStorage.getItem(key);
+            const existingData = existing ? JSON.parse(existing) : {};
+            const snapshot = buildContentSnapshot();
+            const payload = {
+              ...existingData,
+              id: Number(metadata.documentId),
+              title: metadata?.title ?? existingData.title,
+              content: markdown,
+              contentSnapshot: snapshot,
+              tags: metadata?.tags ?? existingData.tags,
+              updated_at: new Date().toISOString(),
+              user_id: metadata?.userId ?? existingData.user_id,
+              cachedAt: Date.now(),
+              offline: true,
+              apiFailed: syncDisabled,
+            };
+            localStorage.setItem(key, JSON.stringify(payload));
+            } catch (err) {
+              // Silent fail
+            }
+        }
+      };
+
+      // NEVER try to sync if offline mode is active - save locally only
+      if (isOffline || checkOfflineMode()) {
+        saveLocally();
+        if (flushTimeoutRef.current) {
+          clearTimeout(flushTimeoutRef.current);
+        }
+        return;
+      }
+
+      // If sync is disabled, only save locally
+      if (syncDisabled) {
+        saveLocally();
+        if (flushTimeoutRef.current) {
+          clearTimeout(flushTimeoutRef.current);
+        }
+        return;
+      }
+
+      // If no socket, save locally and return (don't block editing)
+      if (!socket) {
+        saveLocally();
+        if (flushTimeoutRef.current) {
+          clearTimeout(flushTimeoutRef.current);
+        }
+        return;
+      }
+      
+      // NEVER try to sync if socket is not connected
+      if (!socket.connected || !isConnected) {
+        socketFailureCountRef.current += 1;
+        setIsOffline(true);
+        setSyncDisabled(true);
+        saveLocally();
         if (flushTimeoutRef.current) {
           clearTimeout(flushTimeoutRef.current);
         }
@@ -219,7 +931,7 @@ export function useCollaborativeNote({
         }, 500);
       }
     },
-    [flushPendingChanges, socket, roomId, updateStatus]
+    [flushPendingChanges, socket, roomId, updateStatus, buildContentSnapshot, metadata, syncDisabled, isOffline, checkOfflineMode, isConnected]
   );
 
   useEffect(() => {
@@ -230,7 +942,7 @@ export function useCollaborativeNote({
     };
   }, []);
 
-  return { isConnected, emitLocalChange, clientId: clientIdRef.current, flushPendingChanges };
+  return { isConnected, emitLocalChange, clientId: clientIdRef.current, flushPendingChanges, isOffline };
 }
 
 

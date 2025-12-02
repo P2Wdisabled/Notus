@@ -581,6 +581,13 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
       return;
     }
 
+    // NEVER try to save if offline - save locally only
+    if (isOffline || (typeof navigator !== 'undefined' && !navigator.onLine)) {
+      // Just mark as unsynchronized, but don't try to save via API
+      setSaveStatus('unsynchronized');
+      return;
+    }
+
     // Annuler le timeout précédent s'il existe
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
@@ -609,6 +616,12 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
         return;
       }
 
+      // Double check we're not offline before attempting to save
+      if (isOffline || (typeof navigator !== 'undefined' && !navigator.onLine)) {
+        setSaveStatus('unsynchronized');
+        return;
+      }
+
       try {
         const onlineOk = await checkConnectivity();
         if (!onlineOk) {
@@ -629,7 +642,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
         setSaveStatus('unsynchronized');
       }
     }, 2000); // 2 secondes d'inactivité avant sauvegarde
-  }, [document?.id, hasEditAccess, content, title, tags, checkConnectivity, shouldUseRealtime]);
+  }, [document?.id, hasEditAccess, content, title, tags, checkConnectivity, shouldUseRealtime, isOffline]);
 
   const handleContentChange = useCallback((newContent: unknown) => {
     const normalized = normalizeContent(newContent);
@@ -763,25 +776,31 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
       setOfflineBaseline(baseline);
       localStorage.setItem(`notus:offline-baseline:${document.id}`, baseline);
 
-      // Sauvegarder le document complet dans localStorage
+      // Sauvegarder le document complet dans localStorage avec l'état complet
       try {
         const key = `notus:doc:${document.id}`;
+        const snapshot = buildContentSnapshot();
         const payload = {
           id: Number(document.id),
           title: title || "",
           content: content,
+          contentSnapshot: snapshot, // Inclure le snapshot complet
           tags: tags,
           updated_at: new Date().toISOString(),
           user_id: Number(document.user_id ?? userId ?? 0),
           cachedAt: Date.now(),
+          offline: true, // Marquer comme sauvegarde offline
         };
         if (typeof window !== "undefined") {
           localStorage.setItem(key, JSON.stringify(payload));
+          // Sauvegarder aussi dans une clé spécifique pour les documents offline
+          localStorage.setItem(`notus:offline-doc:${document.id}`, JSON.stringify(payload));
         }
         console.log('📴 Mode hors ligne activé - Document sauvegardé dans localStorage:', {
           documentId: document.id,
           title: title,
           contentLength: content.text?.length || 0,
+          snapshotTimestamp: snapshot?.timestamp,
         });
       } catch (err) {
         console.error("Erreur lors de la sauvegarde offline:", err);
