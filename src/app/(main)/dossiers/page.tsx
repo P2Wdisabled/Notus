@@ -117,7 +117,7 @@ export default function DossiersPage() {
       <NavBar />
       <ContentWrapper maxWidth="lg">
         <section className="space-y-6">
-          <header className="flex items-center md:justify-between justify-start mb-4">
+          <header className="flex items-center md:justify-between justify-start mb-4 gap-2 flex-wrap">
             <div>
               <h1 className="font-title text-4xl font-regular text-[var(--foreground)] hidden md:block mb-2">
                 Dossiers
@@ -306,6 +306,7 @@ export default function DossiersPage() {
           </div>
         </Modal.Footer>
       </Modal>
+
     </main>
   );
 }
