@@ -252,13 +252,14 @@ export default function WysiwygToolbar({ onFormatChange, showDebug = false, onTo
           className="p-2 rounded transition-colors bg-muted hover:bg-muted/80 text-foreground"
           title="Synthèse IA"
         >
-          <Icon name="sparkles" className="h-5 w-5" />
+          <Icon name="sparkles" className="h-5 w-5" /> IA
         </button>
       )}
 
-      <ToolbarSeparator />
+      {/* <ToolbarSeparator />
 
       {/* Debug Button */}
+      {/*
       {onToggleDebug && (
         <button
           type="button"
@@ -273,7 +274,7 @@ export default function WysiwygToolbar({ onFormatChange, showDebug = false, onTo
           <Icon name="gear" className="h-5 w-5" />
         </button>
       )}
-
+*/}
       {/* Modals */}
       <DrawingModal 
         isOpen={showDrawingModal}

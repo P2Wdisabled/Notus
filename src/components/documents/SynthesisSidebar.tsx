@@ -399,71 +399,14 @@ export default function SynthesisSidebar({ documentId, isOpen, onClose, document
           <Icon name="sparkles" className="w-5 h-5" />
           <h2 className="text-xl font-title">Synthèses IA</h2>
         </div>
-        <div className="flex items-center gap-2">
-          {aiSynthesisEnabled && (
-            <>
-              {tokenUsage !== null && (
-                <>
-                  {estimatedTokens > 0 && (
-                    <div className="flex flex-col items-end px-2 py-1 rounded-md bg-muted/30">
-                      <span className="text-[10px] text-muted-foreground">Estimation</span>
-                      <span className="text-xs font-medium text-foreground">
-                        ~{estimatedTokens.toLocaleString()} tokens
-                      </span>
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted/50">
-                    <span className={cn(
-                      "text-xs font-medium",
-                      tokenUsage.remaining < tokenUsage.limit * 0.1
-                        ? "text-red-500"
-                        : tokenUsage.remaining < tokenUsage.limit * 0.3
-                        ? "text-yellow-500"
-                        : "text-muted-foreground"
-                    )}>
-                      {tokenUsage.used.toLocaleString()}/{tokenUsage.limit.toLocaleString()}
-                    </span>
-                    <span className="text-xs text-muted-foreground">tokens</span>
-                  </div>
-                </>
-              )}
-              <Button
-                variant="default"
-                size="sm"
-                onClick={handleGenerateSynthesis}
-                disabled={generating || !documentContent || !documentId || (tokenUsage !== null && tokenUsage.remaining <= 0) || (tokenUsage !== null && estimatedTokens > tokenUsage.remaining)}
-                className="h-8 px-3"
-                title={
-                  tokenUsage !== null && tokenUsage.remaining <= 0 
-                    ? "Limite de tokens atteinte pour aujourd'hui" 
-                    : tokenUsage !== null && estimatedTokens > tokenUsage.remaining
-                    ? `Pas assez de tokens disponibles (${estimatedTokens.toLocaleString()} nécessaires, ${tokenUsage.remaining.toLocaleString()} disponibles)`
-                    : undefined
-                }
-              >
-                {generating ? (
-                  <>
-                    <Icon name="spinner" className="w-4 h-4 mr-2 animate-spin" />
-                    Génération...
-                  </>
-                ) : (
-                  <>
-                    <Icon name="sparkles" className="w-4 h-4 mr-2" />
-                    Générer
-                  </>
-                )}
-              </Button>
-            </>
-          )}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onClose}
-            className="h-8 w-8"
-          >
-            <Icon name="x" className="w-4 h-4" />
-          </Button>
-        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onClose}
+          className="h-8 w-8"
+        >
+          <Icon name="x" className="w-4 h-4" />
+        </Button>
       </div>
 
       <div className="flex-1 min-h-0 flex flex-col">
@@ -652,6 +595,65 @@ export default function SynthesisSidebar({ documentId, isOpen, onClose, document
           </div>
         </ScrollArea>
       </div>
+      
+      {/* Section estimation tokens et génération en bas */}
+      {aiSynthesisEnabled && (
+        <div className="border-t border-border px-4 py-3 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            {tokenUsage !== null && (
+              <>
+                {estimatedTokens > 0 && (
+                  <div className="flex flex-col items-start px-2 py-1 rounded-md bg-muted/30">
+                    <span className="text-[10px] text-muted-foreground">Estimation</span>
+                    <span className="text-xs font-medium text-foreground">
+                      ~{estimatedTokens.toLocaleString()} tokens
+                    </span>
+                  </div>
+                )}
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted/50">
+                  <span className={cn(
+                    "text-xs font-medium",
+                    tokenUsage.remaining < tokenUsage.limit * 0.1
+                      ? "text-red-500"
+                      : tokenUsage.remaining < tokenUsage.limit * 0.3
+                      ? "text-yellow-500"
+                      : "text-muted-foreground"
+                  )}>
+                    {tokenUsage.used.toLocaleString()}/{tokenUsage.limit.toLocaleString()}
+                  </span>
+                  <span className="text-xs text-muted-foreground">tokens</span>
+                </div>
+              </>
+            )}
+          </div>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={handleGenerateSynthesis}
+            disabled={generating || !documentContent || !documentId || (tokenUsage !== null && tokenUsage.remaining <= 0) || (tokenUsage !== null && estimatedTokens > tokenUsage.remaining)}
+            className="w-full h-9 rounded-sm"
+            title={
+              tokenUsage !== null && tokenUsage.remaining <= 0 
+                ? "Limite de tokens atteinte pour aujourd'hui" 
+                : tokenUsage !== null && estimatedTokens > tokenUsage.remaining
+                ? `Pas assez de tokens disponibles (${estimatedTokens.toLocaleString()} nécessaires, ${tokenUsage.remaining.toLocaleString()} disponibles)`
+                : undefined
+            }
+          >
+            {generating ? (
+              <>
+                <Icon name="spinner" className="w-4 h-4 mr-2 animate-spin" />
+                Génération...
+              </>
+            ) : (
+              <>
+                <Icon name="sparkles" className="w-4 h-4 mr-2" />
+                Générer
+              </>
+            )}
+          </Button>
+        </div>
+      )}
       </div>
     </React.Fragment>
   );
