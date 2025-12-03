@@ -25,15 +25,19 @@ async function getDocumentServiceInstance() {
   return documentServicePromise;
 }
 
-async function persistTextUpdate(data: TextUpdateData) {
+async function persistTextUpdate(data: TextUpdateData): Promise<boolean> {
+  // Si pas de snapshot, on ne peut pas persister - mais ce n'est pas une erreur si c'est juste une mise à jour de diffusion
+  if (!data.persistSnapshot) {
+    return true; // Pas d'erreur, juste pas de persistance nécessaire
+  }
+  
   if (
     !process.env.DATABASE_URL ||
     !data.documentId ||
     typeof data.userId !== 'number' ||
-    !data.userEmail ||
-    !data.persistSnapshot
+    !data.userEmail
   ) {
-    return;
+    return true; // Pas d'erreur si les conditions ne sont pas remplies (pas de DB configurée)
   }
 
   try {
@@ -71,6 +75,8 @@ async function persistTextUpdate(data: TextUpdateData) {
       nextContent,
       Array.isArray(data.tags) ? data.tags : []
     );
+    
+    return true; // Persistance réussie
   } catch (error) {
     console.error("❌ Erreur lors de l'enregistrement websocket du document:", error);
     throw error;
@@ -91,20 +97,44 @@ export function initializeSocketServer(httpServer: HTTPServer) {
     });
 
   io.on('connection', (socket) => {
-    socket.on('join-room', (roomId: string) => {
+    // Stocker le clientId associé à ce socket pour chaque room
+    const clientIdByRoom = new Map<string, string>();
+
+    socket.on('join-room', (roomId: string, clientId?: string) => {
       socket.join(roomId);
-      socket.to(roomId).emit('user-joined', socket.id);
+      if (clientId) {
+        clientIdByRoom.set(roomId, clientId);
+      }
+      socket.to(roomId).emit('user-joined', clientId || socket.id);
     });
 
-    socket.on('leave-room', (roomId: string) => {
+    socket.on('leave-room', (roomId: string, clientId?: string) => {
       socket.leave(roomId);
-      socket.to(roomId).emit('user-left', socket.id);
+      // Utiliser le clientId si fourni, sinon utiliser celui stocké, sinon socket.id
+      const idToEmit = clientId || clientIdByRoom.get(roomId) || socket.id;
+      socket.to(roomId).emit('user-left', idToEmit);
+      clientIdByRoom.delete(roomId);
+    });
+
+    // Quand le socket se déconnecte, notifier toutes les rooms qu'il a quittées
+    socket.on('disconnect', () => {
+      for (const [roomId, clientId] of clientIdByRoom.entries()) {
+        socket.to(roomId).emit('user-left', clientId);
+      }
+      clientIdByRoom.clear();
     });
 
     socket.on('text-update', async (roomId: string, data: TextUpdateData, ack?: (response: SocketAckResponse) => void) => {
       try {
+        // 1. Diffuser immédiatement aux autres clients
         socket.to(roomId).emit('text-update', data);
-        await persistTextUpdate(data);
+        
+        // 2. Lancer la persistance en arrière-plan (ne bloque pas la diffusion)
+        persistTextUpdate(data).catch((error) => {
+          console.error("❌ Erreur lors de la persistance (non-bloquante):", error);
+        });
+        
+        // 3. Répondre immédiatement avec succès
         ack?.({ ok: true });
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Erreur inconnue';
@@ -114,11 +144,18 @@ export function initializeSocketServer(httpServer: HTTPServer) {
 
     socket.on('text-update-with-cursor', async (roomId: string, data: TextUpdateData, ack?: (response: SocketAckResponse) => void) => {
       try {
+        // 1. Diffuser immédiatement aux autres clients
         socket.to(roomId).emit('text-update', data);
         if (data.cursor) {
           socket.to(roomId).emit('cursor-position', data.cursor);
         }
-        await persistTextUpdate(data);
+        
+        // 2. Lancer la persistance en arrière-plan (ne bloque pas la diffusion)
+        persistTextUpdate(data).catch((error) => {
+          console.error("❌ Erreur lors de la persistance (non-bloquante):", error);
+        });
+        
+        // 3. Répondre immédiatement avec succès
         ack?.({ ok: true });
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Erreur inconnue';

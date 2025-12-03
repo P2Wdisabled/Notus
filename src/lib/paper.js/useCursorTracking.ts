@@ -213,6 +213,34 @@ export function useCursorTracking({
     };
   }, [socket, roomId]);
 
+  // Nettoyer les curseurs qui n'ont pas été mis à jour depuis un certain temps (timeout)
+  useEffect(() => {
+    if (!socket || !roomId) return;
+
+    const cleanupInterval = setInterval(() => {
+      const now = Date.now();
+      const TIMEOUT_MS = 60000; // 60 secondes sans mise à jour = considérer comme déconnecté
+
+      setRemoteCursors((prev) => {
+        const newMap = new Map(prev);
+        let hasChanges = false;
+
+        for (const [cursorId, cursor] of newMap.entries()) {
+          if (now - cursor.lastUpdate > TIMEOUT_MS) {
+            newMap.delete(cursorId);
+            hasChanges = true;
+          }
+        }
+
+        return hasChanges ? newMap : prev;
+      });
+    }, 1000); // Vérifier toutes les secondes
+
+    return () => {
+      clearInterval(cleanupInterval);
+    };
+  }, [socket, roomId]);
+
   return { remoteCursors };
 }
 

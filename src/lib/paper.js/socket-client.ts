@@ -285,15 +285,15 @@ export function useSocket(roomId?: string, _options?: UseSocketOptions): UseSock
     };
   }, []);
 
-  const joinRoom = useCallback((roomId: string): void => {
+  const joinRoom = useCallback((roomId: string, clientId?: string): void => {
     if (socket) {
-      socket.emit('join-room', roomId);
+      socket.emit('join-room', roomId, clientId);
     }
   }, [socket]);
 
-  const leaveRoom = useCallback((roomId: string): void => {
+  const leaveRoom = useCallback((roomId: string, clientId?: string): void => {
     if (socket) {
-      socket.emit('leave-room', roomId);
+      socket.emit('leave-room', roomId, clientId);
     }
   }, [socket]);
 
