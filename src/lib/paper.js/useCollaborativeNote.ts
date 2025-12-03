@@ -92,6 +92,17 @@ export function useCollaborativeNote({
     }
   }, [checkOfflineMode]); // Only on mount, checkOfflineMode is stable
 
+  // Reset offline state when connection succeeds
+  useEffect(() => {
+    if (isConnected && socket && socket.connected) {
+      // Connection successful - reset all failure counts and enable sync
+      socketFailureCountRef.current = 0;
+      apiFailureCountRef.current = 0;
+      setIsOffline(false);
+      setSyncDisabled(false);
+    }
+  }, [isConnected, socket]);
+
   // Update offline state when conditions change
   useEffect(() => {
     const updateOfflineState = () => {
@@ -393,7 +404,17 @@ export function useCollaborativeNote({
         return;
       }
 
-      // Final check before creating payload - NEVER proceed if offline
+      // Final check before creating payload - reset states if connected
+      if (socket && socket.connected && isConnected && (syncDisabled || isOffline)) {
+        // Connection is active, reset states to enable sync
+        socketFailureCountRef.current = 0;
+        apiFailureCountRef.current = 0;
+        setIsOffline(false);
+        setSyncDisabled(false);
+        // Continue to sync below
+      }
+      
+      // If still offline or sync disabled after reset attempt, save locally only
       if (isOffline || checkOfflineMode() || syncDisabled || !socket || !socket.connected || !isConnected) {
         if (metadata?.documentId && typeof window !== 'undefined') {
           try {
@@ -556,7 +577,17 @@ export function useCollaborativeNote({
           ackCallback(ack);
         };
 
-        // Final check before emitting - NEVER emit if offline or socket not connected
+        // Final check before emitting - reset states if connected
+        if (socket && socket.connected && isConnected && (syncDisabled || isOffline)) {
+          // Connection is active, reset states to enable sync
+          socketFailureCountRef.current = 0;
+          apiFailureCountRef.current = 0;
+          setIsOffline(false);
+          setSyncDisabled(false);
+          // Continue to emit below
+        }
+        
+        // If still offline or sync disabled after reset attempt, save locally only
         if (isOffline || checkOfflineMode() || syncDisabled || !socket || !socket.connected || !isConnected) {
           clearTimeout(timeoutId);
           updateStatus('unsynchronized');
@@ -671,10 +702,18 @@ export function useCollaborativeNote({
     };
   }, [socket, roomId, onRemoteContent, syncDisabled, isOffline, checkOfflineMode]);
 
-  // Listen to socket connection errors directly on the socket instance
-  // This catches errors immediately, even before joinRoom
+  // Listen to socket connection events to reset offline state when connection succeeds
   useEffect(() => {
     if (!socket) return;
+    
+    const handleSocketConnect = () => {
+      // Reset failure counts and offline state when connection succeeds
+      socketFailureCountRef.current = 0;
+      apiFailureCountRef.current = 0;
+      setIsOffline(false);
+      setSyncDisabled(false);
+      updateStatus('synchronized');
+    };
     
     const handleSocketError = (error: unknown) => {
       socketFailureCountRef.current += 1;
@@ -709,14 +748,21 @@ export function useCollaborativeNote({
       }
     };
     
+    // If already connected, reset states immediately
+    if (socket.connected && isConnected) {
+      handleSocketConnect();
+    }
+    
+    socket.on('connect', handleSocketConnect);
     socket.on('connect_error', handleSocketError);
     socket.on('disconnect', handleSocketDisconnect);
     
     return () => {
+      socket.off('connect', handleSocketConnect);
       socket.off('connect_error', handleSocketError);
       socket.off('disconnect', handleSocketDisconnect);
     };
-  }, [socket, isOffline, updateStatus]);
+  }, [socket, isOffline, isConnected, updateStatus]);
   
   // Disable socket reconnection when offline mode is active
   useEffect(() => {
@@ -881,38 +927,30 @@ export function useCollaborativeNote({
         }
       };
 
-      // NEVER try to sync if offline mode is active - save locally only
-      if (isOffline || checkOfflineMode()) {
-        saveLocally();
-        if (flushTimeoutRef.current) {
-          clearTimeout(flushTimeoutRef.current);
+      // If socket is connected and collaboration is available, allow sync
+      const canSync = socket && socket.connected && isConnected && !syncDisabled && !isOffline && !checkOfflineMode();
+      
+      if (!canSync) {
+        // If we're connected but sync is disabled, try to re-enable it
+        if (socket && socket.connected && isConnected && (syncDisabled || isOffline)) {
+          // Connection is active, reset states
+          socketFailureCountRef.current = 0;
+          apiFailureCountRef.current = 0;
+          setIsOffline(false);
+          setSyncDisabled(false);
+          // Continue to sync below
+        } else {
+          // Not connected or offline - save locally only
+          saveLocally();
+          if (flushTimeoutRef.current) {
+            clearTimeout(flushTimeoutRef.current);
+          }
+          return;
         }
-        return;
-      }
-
-      // If sync is disabled, only save locally
-      if (syncDisabled) {
-        saveLocally();
-        if (flushTimeoutRef.current) {
-          clearTimeout(flushTimeoutRef.current);
-        }
-        return;
-      }
-
-      // If no socket, save locally and return (don't block editing)
-      if (!socket) {
-        saveLocally();
-        if (flushTimeoutRef.current) {
-          clearTimeout(flushTimeoutRef.current);
-        }
-        return;
       }
       
-      // NEVER try to sync if socket is not connected
-      if (!socket.connected || !isConnected) {
-        socketFailureCountRef.current += 1;
-        setIsOffline(true);
-        setSyncDisabled(true);
+      // Final check: if still no socket or not connected, save locally
+      if (!socket || !socket.connected || !isConnected) {
         saveLocally();
         if (flushTimeoutRef.current) {
           clearTimeout(flushTimeoutRef.current);
