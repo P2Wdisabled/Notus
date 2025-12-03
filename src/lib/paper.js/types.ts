@@ -134,8 +134,8 @@ export interface ExportOptions {
 export interface UseSocketReturn {
   socket: Socket | null;
   isConnected: boolean;
-  joinRoom: (roomId: string) => void;
-  leaveRoom: (roomId: string) => void;
+  joinRoom: (roomId: string, clientId?: string) => void;
+  leaveRoom: (roomId: string, clientId?: string) => void;
 }
 
 // Client-to-server events
@@ -145,8 +145,8 @@ export interface SocketAckResponse {
 }
 
 export interface ClientToServerEvents {
-  'join-room': (roomId: string) => void;
-  'leave-room': (roomId: string) => void;
+  'join-room': (roomId: string, clientId?: string) => void;
+  'leave-room': (roomId: string, clientId?: string) => void;
   'drawing-data': (data: DrawingData) => void;
   'text-update': (roomId: string, data: TextUpdateData, ack?: (response: SocketAckResponse) => void) => void;
   'text-update-with-cursor': (roomId: string, data: TextUpdateData, ack?: (response: SocketAckResponse) => void) => void;

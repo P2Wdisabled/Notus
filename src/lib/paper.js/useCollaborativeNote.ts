@@ -60,6 +60,8 @@ export function useCollaborativeNote({
   const [syncDisabled, setSyncDisabled] = useState<boolean>(false);
   const syncDisabledRef = useRef<boolean>(false);
   const [isOffline, setIsOffline] = useState<boolean>(false);
+  const lastFlushedContentRef = useRef<string>("");
+  const isFlushingRef = useRef<boolean>(false);
   
   // Keep ref in sync with state for use in callbacks
   useEffect(() => {
@@ -188,13 +190,24 @@ export function useCollaborativeNote({
       title?: string;
       tags?: string[];
     }) => {
+      // Éviter les appels multiples simultanés
+      if (isFlushingRef.current) {
+        return Promise.resolve();
+      }
+      
+      const candidateMarkdown = typeof override?.markdown === "string" ? override.markdown : pendingMarkdownRef.current;
+      
+      // Ne rien faire si le contenu n'a pas changé depuis le dernier flush
+      if (candidateMarkdown === lastFlushedContentRef.current) {
+        return Promise.resolve();
+      }
+      
+      isFlushingRef.current = true;
       // NEVER try to sync if offline - save locally only
       if (isOffline || checkOfflineMode()) {
         updateStatus('unsynchronized');
         if (metadata?.documentId && typeof window !== 'undefined') {
           try {
-            const candidateMarkdown =
-              typeof override?.markdown === "string" ? override.markdown : pendingMarkdownRef.current;
             const snapshot = buildContentSnapshot(override?.contentSnapshot);
             const contentString =
               typeof candidateMarkdown === "string" && candidateMarkdown.length > 0
@@ -221,6 +234,8 @@ export function useCollaborativeNote({
             // Silent fail - localStorage error
           }
         }
+        lastFlushedContentRef.current = candidateMarkdown;
+        isFlushingRef.current = false;
         return;
       }
       
@@ -228,8 +243,6 @@ export function useCollaborativeNote({
         // If no socket, save locally
         if (metadata?.documentId && typeof window !== 'undefined') {
           try {
-            const candidateMarkdown =
-              typeof override?.markdown === "string" ? override.markdown : pendingMarkdownRef.current;
             const snapshot = buildContentSnapshot(override?.contentSnapshot);
             const contentString =
               typeof candidateMarkdown === "string" && candidateMarkdown.length > 0
@@ -256,6 +269,8 @@ export function useCollaborativeNote({
             // Silent fail - localStorage error
           }
         }
+        lastFlushedContentRef.current = candidateMarkdown;
+        isFlushingRef.current = false;
         return;
       }
       
@@ -263,8 +278,6 @@ export function useCollaborativeNote({
       if (syncDisabled) {
         if (metadata?.documentId && typeof window !== 'undefined') {
           try {
-            const candidateMarkdown =
-              typeof override?.markdown === "string" ? override.markdown : pendingMarkdownRef.current;
             const snapshot = buildContentSnapshot(override?.contentSnapshot);
             const contentString =
               typeof candidateMarkdown === "string" && candidateMarkdown.length > 0
@@ -292,6 +305,8 @@ export function useCollaborativeNote({
               // Silent fail
             }
         }
+        lastFlushedContentRef.current = candidateMarkdown;
+        isFlushingRef.current = false;
         return;
       }
       
@@ -300,8 +315,6 @@ export function useCollaborativeNote({
         // Socket not connected, save locally
         if (metadata?.documentId && typeof window !== 'undefined') {
           try {
-            const candidateMarkdown =
-              typeof override?.markdown === "string" ? override.markdown : pendingMarkdownRef.current;
             const snapshot = buildContentSnapshot(override?.contentSnapshot);
             const contentString =
               typeof candidateMarkdown === "string" && candidateMarkdown.length > 0
@@ -329,27 +342,51 @@ export function useCollaborativeNote({
               // Silent fail
             }
         }
+        lastFlushedContentRef.current = candidateMarkdown;
+        isFlushingRef.current = false;
         return;
       }
-      const candidateMarkdown =
-        typeof override?.markdown === "string" ? override.markdown : pendingMarkdownRef.current;
-
-      const snapshot = buildContentSnapshot(override?.contentSnapshot);
+      // Créer le snapshot en utilisant le candidateMarkdown si pas de snapshot fourni
+      let snapshot = override?.contentSnapshot;
+      if (!snapshot && candidateMarkdown) {
+        // Utiliser getContentSnapshot si disponible, sinon créer un snapshot avec le candidateMarkdown
+        if (metadata?.getContentSnapshot) {
+          snapshot = metadata.getContentSnapshot();
+          // S'assurer que le snapshot contient bien le dernier contenu
+          if (snapshot && snapshot.text !== candidateMarkdown) {
+            snapshot = { text: candidateMarkdown, timestamp: Date.now() };
+          }
+        } else {
+          snapshot = { text: candidateMarkdown, timestamp: Date.now() };
+        }
+      } else if (!snapshot) {
+        snapshot = buildContentSnapshot();
+      }
+      
       const contentString =
         typeof candidateMarkdown === "string" && candidateMarkdown.length > 0
           ? candidateMarkdown
           : snapshot?.text ?? '';
 
       if (typeof contentString !== "string") {
+        isFlushingRef.current = false;
         return;
       }
 
       if (contentString.length === 0 && !snapshot) {
+        isFlushingRef.current = false;
         return;
+      }
+      
+      // S'assurer que le snapshot contient bien le contenu actuel
+      if (snapshot && snapshot.text !== contentString) {
+        snapshot = { text: contentString, timestamp: Date.now() };
       }
 
       if (isOffline || checkOfflineMode()) {
         updateStatus('unsynchronized');
+        lastFlushedContentRef.current = contentString;
+        isFlushingRef.current = false;
         // Sauvegarder localement quand offline
         if (metadata?.documentId && typeof window !== 'undefined') {
           try {
@@ -373,6 +410,8 @@ export function useCollaborativeNote({
             // Silent fail - localStorage error
           }
         }
+        lastFlushedContentRef.current = contentString;
+        isFlushingRef.current = false;
         return;
       }
 
@@ -401,6 +440,8 @@ export function useCollaborativeNote({
             // Silent fail
           }
         }
+        lastFlushedContentRef.current = contentString;
+        isFlushingRef.current = false;
         return;
       }
 
@@ -440,10 +481,20 @@ export function useCollaborativeNote({
           }
         }
         updateStatus('unsynchronized');
+        lastFlushedContentRef.current = contentString;
+        isFlushingRef.current = false;
         return Promise.resolve();
       }
 
       const cursor = getCursorSnapshot?.();
+
+      // S'assurer qu'on a toujours un snapshot valide si on a du contenu et qu'on veut persister
+      const finalSnapshot = snapshot || (contentString.length > 0 && metadata?.documentId && metadata?.userId && metadata?.userEmail
+        ? {
+            text: contentString,
+            timestamp: Date.now(),
+          }
+        : undefined);
 
       const payload: TextUpdateData = {
         content: contentString,
@@ -454,7 +505,7 @@ export function useCollaborativeNote({
         userEmail: metadata?.userEmail,
         title: override?.title ?? metadata?.title,
         tags: override?.tags ?? metadata?.tags,
-        persistSnapshot: snapshot || undefined,
+        persistSnapshot: finalSnapshot,
         cursor: cursor
           ? {
               clientId: clientIdRef.current,
@@ -475,20 +526,23 @@ export function useCollaborativeNote({
             // Reset failure count on success - exit offline mode if API is back
             apiFailureCountRef.current = 0;
             socketFailureCountRef.current = 0;
-            const wasOffline = isOffline;
             setIsOffline(false);
             setSyncDisabled(false);
-            if (wasOffline) {
-            }
             pendingCharsRef.current = 0;
+            
+            // Tout est OK - synchronisé
             updateStatus('synchronized');
-            if (snapshot) {
+            // Marquer le contenu comme flushé
+            lastFlushedContentRef.current = contentString;
+            // Appeler onPersisted si on a un snapshot
+            if (payload.persistSnapshot) {
               onPersisted?.({
-                snapshot,
+                snapshot: payload.persistSnapshot,
                 title: payload.title,
                 tags: payload.tags,
               });
             }
+            isFlushingRef.current = false;
           } else {
             // Increment failure count
             apiFailureCountRef.current += 1;
@@ -528,6 +582,7 @@ export function useCollaborativeNote({
                 // Silent fail
               }
             }
+            isFlushingRef.current = false;
           }
           resolve();
         };
@@ -569,6 +624,7 @@ export function useCollaborativeNote({
               // Silent fail
             }
           }
+          isFlushingRef.current = false;
           resolve();
         }, 10000);
 
@@ -615,6 +671,7 @@ export function useCollaborativeNote({
               // Silent fail
             }
           }
+          isFlushingRef.current = false;
           resolve();
           return;
         }
@@ -662,6 +719,7 @@ export function useCollaborativeNote({
               // Silent fail
             }
           }
+          isFlushingRef.current = false;
           resolve();
         }
       });
@@ -879,12 +937,13 @@ export function useCollaborativeNote({
     socket.on('disconnect', handleDisconnect);
     socket.on('connect_error', handleConnectError);
     
-    joinRoom(roomId);
+    const currentClientId = clientIdRef.current;
+    joinRoom(roomId, currentClientId);
     
       return () => {
       socket.off('disconnect', handleDisconnect);
       socket.off('connect_error', handleConnectError);
-      leaveRoom(roomId);
+      leaveRoom(roomId, currentClientId);
     };
   }, [socket, roomId, joinRoom, leaveRoom, metadata, buildContentSnapshot, updateStatus, syncDisabled, isOffline, checkOfflineMode]);
 
@@ -892,12 +951,21 @@ export function useCollaborativeNote({
     (markdown: string) => {
       if (!roomId) return;
       
+      // Ne rien faire si le contenu n'a pas changé depuis le dernier flush
+      if (markdown === lastFlushedContentRef.current && isFlushingRef.current) {
+        return;
+      }
+      
       pendingMarkdownRef.current = markdown;
       const previous = lastObservedMarkdownRef.current || "";
       const positiveDiff = Math.max(0, markdown.length - previous.length);
       pendingCharsRef.current += positiveDiff;
       lastObservedMarkdownRef.current = markdown;
-      updateStatus('unsynchronized');
+      
+      // Ne mettre à jour le statut que si on n'est pas déjà en train de flusher
+      if (!isFlushingRef.current) {
+        updateStatus('unsynchronized');
+      }
 
       // Save locally function
       const saveLocally = () => {
@@ -944,6 +1012,7 @@ export function useCollaborativeNote({
           saveLocally();
           if (flushTimeoutRef.current) {
             clearTimeout(flushTimeoutRef.current);
+            flushTimeoutRef.current = null;
           }
           return;
         }
@@ -954,35 +1023,90 @@ export function useCollaborativeNote({
         saveLocally();
         if (flushTimeoutRef.current) {
           clearTimeout(flushTimeoutRef.current);
+          flushTimeoutRef.current = null;
         }
         return;
       }
 
       const endsWithWordBoundary = /[A-Za-zÀ-ÖØ-öø-ÿ]+\s$/u.test(markdown);
+      
+      // Annuler le timeout précédent
+      if (flushTimeoutRef.current) {
+        clearTimeout(flushTimeoutRef.current);
+        flushTimeoutRef.current = null;
+      }
+      
+      // Flush immédiat si on a assez de caractères ou si on termine un mot
       if (pendingCharsRef.current >= 10 || endsWithWordBoundary) {
-        if (flushTimeoutRef.current) {
-          clearTimeout(flushTimeoutRef.current);
-        }
         flushPendingChanges({ markdown }).catch(() => {});
       } else {
-        if (flushTimeoutRef.current) {
-          clearTimeout(flushTimeoutRef.current);
-        }
+        // Sinon, flush après un délai
         flushTimeoutRef.current = setTimeout(() => {
           flushPendingChanges({ markdown }).catch(() => {});
+          flushTimeoutRef.current = null;
         }, 500);
       }
     },
     [flushPendingChanges, socket, roomId, updateStatus, buildContentSnapshot, metadata, syncDisabled, isOffline, checkOfflineMode, isConnected]
   );
 
+  // Flush final au démontage et sur beforeunload/blur pour s'assurer que le dernier contenu est enregistré
   useEffect(() => {
-    return () => {
+    if (typeof window === 'undefined') return;
+    
+    const currentClientId = clientIdRef.current;
+    
+    const flushPending = () => {
+      // Annuler le timeout en cours
       if (flushTimeoutRef.current) {
         clearTimeout(flushTimeoutRef.current);
+        flushTimeoutRef.current = null;
+      }
+      
+      // Flusher le dernier contenu si on a du contenu en attente
+      if (pendingMarkdownRef.current && socket && socket.connected && isConnected && !syncDisabled && !isOffline) {
+        flushPendingChanges({ markdown: pendingMarkdownRef.current }).catch(() => {
+          // Silent fail
+        });
       }
     };
-  }, []);
+    
+    const handleBeforeUnload = () => {
+      // Quitter la room avant de quitter la page
+      if (socket && roomId && socket.connected) {
+        leaveRoom(roomId, currentClientId);
+      }
+      flushPending();
+    };
+    
+    // Flusher quand l'utilisateur quitte la page
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    // Flusher quand la fenêtre perd le focus (utilisateur change d'onglet)
+    window.addEventListener('blur', flushPending);
+    
+    return () => {
+      // Nettoyer les listeners
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('blur', flushPending);
+      
+      // Quitter la room au démontage
+      if (socket && roomId && socket.connected) {
+        leaveRoom(roomId, currentClientId);
+      }
+      
+      // Flusher le dernier contenu au démontage
+      if (flushTimeoutRef.current) {
+        clearTimeout(flushTimeoutRef.current);
+        flushTimeoutRef.current = null;
+      }
+      
+      if (pendingMarkdownRef.current && socket && socket.connected && isConnected && !syncDisabled && !isOffline) {
+        flushPendingChanges({ markdown: pendingMarkdownRef.current }).catch(() => {
+          // Silent fail - on ne peut pas attendre en démontage
+        });
+      }
+    };
+  }, [socket, roomId, isConnected, syncDisabled, isOffline, flushPendingChanges, leaveRoom]);
 
   return { isConnected, emitLocalChange, clientId: clientIdRef.current, flushPendingChanges, isOffline };
 }
