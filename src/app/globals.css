@@ -154,17 +154,18 @@ select:-webkit-autofill {
 
 /* Style de l'icône calendrier pour les inputs de type date - couleur primary */
 /* Utilisation d'un mask-image avec background-color pour utiliser la variable CSS primary */
+/* L'icône correspond à l'icône Calendar du composant Icon.tsx */
 input[type="date"]::-webkit-calendar-picker-indicator {
   cursor: pointer;
   opacity: 0.8;
   transition: opacity 0.2s;
   /* Utiliser mask-image pour appliquer la couleur primary via background-color */
   background-color: var(--primary);
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2' fill='black'/%3E%3Cline x1='16' y1='2' x2='16' y2='6' stroke='black' stroke-width='2' stroke-linecap='round'/%3E%3Cline x1='8' y1='2' x2='8' y2='6' stroke='black' stroke-width='2' stroke-linecap='round'/%3E%3Cline x1='3' y1='10' x2='21' y2='10' stroke='black' stroke-width='2'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2' stroke='black' stroke-width='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6' stroke='black' stroke-width='2' stroke-linecap='round'/%3E%3Cline x1='8' y1='2' x2='8' y2='6' stroke='black' stroke-width='2' stroke-linecap='round'/%3E%3Cline x1='3' y1='10' x2='21' y2='10' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   -webkit-mask-size: contain;
   -webkit-mask-repeat: no-repeat;
   -webkit-mask-position: center;
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2' fill='black'/%3E%3Cline x1='16' y1='2' x2='16' y2='6' stroke='black' stroke-width='2' stroke-linecap='round'/%3E%3Cline x1='8' y1='2' x2='8' y2='6' stroke='black' stroke-width='2' stroke-linecap='round'/%3E%3Cline x1='3' y1='10' x2='21' y2='10' stroke='black' stroke-width='2'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2' stroke='black' stroke-width='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6' stroke='black' stroke-width='2' stroke-linecap='round'/%3E%3Cline x1='8' y1='2' x2='8' y2='6' stroke='black' stroke-width='2' stroke-linecap='round'/%3E%3Cline x1='3' y1='10' x2='21' y2='10' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   mask-size: contain;
   mask-repeat: no-repeat;
   mask-position: center;

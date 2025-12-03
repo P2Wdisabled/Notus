@@ -306,7 +306,6 @@ export default function DossiersPage() {
           </div>
         </Modal.Footer>
       </Modal>
-
     </main>
   );
 }
