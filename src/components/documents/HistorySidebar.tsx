@@ -269,44 +269,35 @@ export default function HistorySidebar({ documentId, isOpen, onClose }: HistoryS
                     </div>
                   )}
                   <div className="flex items-start gap-2 px-1">
-                    <div className="flex flex-col items-center gap-1 min-w-[60px]">
-                      <span
-                        className={cn(
-                          "text-[9px] text-muted-foreground",
-                          isCurrentUser ? "text-right" : "text-left"
-                        )}
-                      >
-                        {formatTime(entryDate)}
-                      </span>
-                    </div>
-                    <div
-                      className={cn(
-                        "flex items-start gap-3 rounded-lg px-3 py-2 w-fit max-w-[85%] overflow-hidden bg-muted/40"
-                      )}
-                    >
-                      <Avatar className="h-8 w-8 flex-shrink-0">
-                        {user?.profile_image ? (
-                          <AvatarImage
-                            src={user.profile_image}
-                            alt={getUserDisplayName(user)}
-                          />
-                        ) : (
-                          <AvatarFallback className="bg-muted text-xs">
-                            {getUserInitials(user)}
-                          </AvatarFallback>
-                        )}
-                      </Avatar>
-                      <div className="min-w-0 max-w-full overflow-hidden">
-                        <div className="flex items-center gap-2 justify-start">
-                          <span className="text-xs font-semibold break-words text-foreground">
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center justify-between gap-2 rounded-lg px-3 py-2 bg-muted/40 w-fit">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <Avatar className="h-8 w-8 flex-shrink-0">
+                            {user?.profile_image ? (
+                              <AvatarImage
+                                src={user.profile_image}
+                                alt={getUserDisplayName(user)}
+                              />
+                            ) : (
+                              <AvatarFallback className="bg-muted text-xs">
+                                {getUserInitials(user)}
+                              </AvatarFallback>
+                            )}
+                          </Avatar>
+                          <span className="text-xs font-semibold break-words text-foreground min-w-0">
                             {getUserDisplayName(user)}
                           </span>
+                          <span className="text-[9px] text-muted-foreground flex-shrink-0 whitespace-nowrap">
+                          {formatTime(entryDate)}
+                        </span>
                         </div>
-                        <div className="mt-1 space-y-1 text-xs">
+                      </div>
+                      {(hasAdded || hasRemoved) && (
+                        <div className="space-y-1 text-xs">
                           {hasAdded && (
-                            <div className="border-l-2 border-emerald-500 pl-2">
+                            <div className="border-l-2 border-emerald-500 pl-2 w-full">
                               <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 mb-0.5">
-                                <Icon name="plus" className="w-3 h-3" />
+                                <Icon name="plus" className="w-3 h-3 flex-shrink-0" />
                                 <span className="font-medium">Ajouts</span>
                               </div>
                               <p className="whitespace-pre-wrap break-words text-foreground/90">
@@ -315,9 +306,9 @@ export default function HistorySidebar({ documentId, isOpen, onClose }: HistoryS
                             </div>
                           )}
                           {hasRemoved && (
-                            <div className="border-l-2 border-rose-500 pl-2">
+                            <div className="border-l-2 border-rose-500 pl-2 w-full">
                               <div className="flex items-center gap-1 text-rose-600 dark:text-rose-400 mb-0.5">
-                                <Icon name="minus" className="w-3 h-3" />
+                                <Icon name="minus" className="w-3 h-3 flex-shrink-0" />
                                 <span className="font-medium">Suppressions</span>
                               </div>
                               <p className="whitespace-pre-wrap break-words text-foreground/90 line-through decoration-rose-500/60">
@@ -325,13 +316,15 @@ export default function HistorySidebar({ documentId, isOpen, onClose }: HistoryS
                               </p>
                             </div>
                           )}
-                          {!hasAdded && !hasRemoved && (
-                            <p className="text-muted-foreground text-[11px]">
-                              Aucune différence textuelle détectée pour cet envoi.
-                            </p>
-                          )}
                         </div>
-                      </div>
+                      )}
+                      {!hasAdded && !hasRemoved && (
+                        <div className="px-3">
+                          <p className="text-muted-foreground text-[11px]">
+                            Aucune différence textuelle détectée pour cet envoi.
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
