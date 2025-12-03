@@ -36,12 +36,12 @@ export default function FloatingCreateButton({ serverSession }: FloatingCreateBu
     }
   }, [createState, router]);
 
-  if (loading || pathname !== "/") {
+  if (loading || pathname !== "/app") {
     return null;
   }
 
   const getBottomClass = () => {
-    const isHomePage = pathname === "/";
+    const isHomePage = pathname === "/app";
     const hasConnectionWarning = !isLoggedIn && isHomePage;
     if (isSelectModeActive && hasConnectionWarning) { return "bottom-32"; }
     else { return "bottom-20"; }

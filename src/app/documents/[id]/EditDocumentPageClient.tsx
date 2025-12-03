@@ -106,7 +106,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
     startTransition(() => {
       deleteAction(fd);
     });
-    router.push("/");
+    router.push("/app");
   }
   const [tags, setTags] = useState<string[]>([]);
   const [showTagInput, setShowTagInput] = useState(false);

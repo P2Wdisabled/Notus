@@ -78,9 +78,9 @@ export default function UserStatusGuard({ children }: UserStatusGuardProps) {
       return;
     }
 
-    // Si l'utilisateur n'est pas banni mais essaie d'accéder à /banned, rediriger vers l'accueil
+    // Si l'utilisateur n'est pas banni mais essaie d'accéder à /banned, rediriger vers l'application
     if (pathname === "/banned" && session?.user && !session.user.isBanned) {
-      router.push("/");
+      router.push("/app");
       return;
     }
   }, [session, status, pathname, router, hasShownModal]);
@@ -92,7 +92,7 @@ export default function UserStatusGuard({ children }: UserStatusGuardProps) {
         isOpen={showBannedModal}
         onClose={() => {
           setShowBannedModal(false);
-          // Rediriger vers l'accueil après fermeture du modal
+          // Rediriger vers la landing page après fermeture du modal
           router.push("/");
         }}
         reason={banReason}

@@ -76,7 +76,7 @@ function RegisterPageClient({ serverSession }: RegisterPageClientProps) {
   // Redirection si déjà connecté
   useEffect(() => {
     if (!loading && isLoggedIn) {
-      router.push("/");
+      router.push("/app");
     }
   }, [isLoggedIn, loading, router]);
 

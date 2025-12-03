@@ -88,7 +88,7 @@ export default function AdminNavigation() {
 
           <div className="hidden min-[1200px]:ml-6 min-[1200px]:flex min-[1200px]:items-center">
             <Link
-              href="/"
+              href="/app"
               className={cn(
                 "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
                 "px-3 py-2 rounded-md text-sm font-medium",
@@ -152,7 +152,7 @@ export default function AdminNavigation() {
               );
             })}
             <Link
-              href="/"
+              href="/app"
               className={cn(
                 "block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium",
                 "text-[var(--muted-foreground)] hover:bg-[var(--muted)]",

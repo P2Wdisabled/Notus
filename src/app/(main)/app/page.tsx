@@ -9,7 +9,7 @@ import ContentWrapper from "@/components/common/ContentWrapper";
 import { Button, Card, Alert, LoadingSpinner, Logo } from "@/components/ui";
 import { SearchableDocumentsList } from "@/components/documents/SearchableDocumentsList";
 
-export default async function Home() {
+export default async function AppHome() {
   const session = await getServerSession(authOptions);
 
   // Récupérer les documents seulement si l'utilisateur est connecté

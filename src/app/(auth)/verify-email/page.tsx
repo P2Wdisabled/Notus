@@ -77,7 +77,7 @@ export default function VerifyEmailPage() {
                 <Link href="/login">Se connecter</Link>
               </Button>
               <Button variant="outline" asChild className="w-full">
-                <Link href="/">Retour à l'accueil</Link>
+                <Link href="/app">Retour à l'accueil</Link>
               </Button>
             </div>
           </Card.Content>

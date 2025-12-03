@@ -88,7 +88,7 @@ export default function NavBar() {
   const { unreadCount, refresh } = useNotification();
 
   const items: NavItem[] = [
-    { name: "Mes notes", href: "/", icon: "note" },
+    { name: "Mes notes", href: "/app", icon: "note" },
     { name: "Favoris", href: "/favorites", icon: "star" },
     { name: "Dossiers", href: "/dossiers", icon: "folder" },
     { name: "Assistance", href: "/assistance", icon: "alert" },
@@ -133,7 +133,7 @@ export default function NavBar() {
               <Icon name="menu" className="w-6 h-6" />
             </button>
             <span className="font-title text-2xl sm:text-3xl font-regular text-foreground leading-tight">{pageTitle}</span>
-            <button type="button" className="items-center hidden md:flex cursor-pointer" onClick={() => guardedNavigate("/")} aria-label="Accueil">
+            <button type="button" className="items-center hidden md:flex cursor-pointer" onClick={() => guardedNavigate("/app")} aria-label="Accueil">
               <Logo width={160} height={46} />
             </button>
           </div>
@@ -167,7 +167,7 @@ export default function NavBar() {
             </div>
             <nav className="space-y-1 flex-1 overflow-y-auto">
               <div className="flex justify-center mb-3 p-3">
-                <button type="button" onClick={() => { setIsOpen(false); guardedNavigate("/"); }} className="inline-flex items-center cursor-pointer" aria-label="Accueil">
+                <button type="button" onClick={() => { setIsOpen(false); guardedNavigate("/app"); }} className="inline-flex items-center cursor-pointer" aria-label="Accueil">
                   <Logo width={160} height={46} />
                 </button>
               </div>
@@ -287,7 +287,7 @@ export default function NavBar() {
 
       <aside className="hidden md:flex md:flex-col md:fixed md:inset-y-0 md:left-0 md:w-64 bg-background border-r-2 border-border/50 z-30">
         <div className="px-4 py-3 pt-10 flex justify-center">
-          <button type="button" onClick={() => guardedNavigate("/")} className="inline-flex items-center cursor-pointer" aria-label="Accueil">
+          <button type="button" onClick={() => guardedNavigate("/app")} className="inline-flex items-center cursor-pointer" aria-label="Accueil">
             <Logo width={160} height={40} />
           </button>
         </div>

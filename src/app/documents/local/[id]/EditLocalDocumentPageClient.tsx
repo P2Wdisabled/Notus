@@ -119,13 +119,13 @@ export default function EditLocalDocumentPageClient({ params }: EditLocalDocumen
 
   function handleCancelCreation() {
     if (!docId) {
-      router.push("/");
+      router.push("/app");
       return;
     }
     const docs = loadLocalDocuments();
     const updated = docs.filter((d) => d.id !== docId);
     saveLocalDocuments(updated);
-    router.push("/");
+    router.push("/app");
   }
 
   const loadLocalDocuments = (): LocalDocument[] => {

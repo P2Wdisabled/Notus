@@ -42,7 +42,7 @@ function LoginPageClient({ serverSession }: { serverSession: any }) {
   // Redirection si déjà connecté
   useEffect(() => {
     if (!loading && isLoggedIn) {
-      router.push("/");
+      router.push("/app");
     }
   }, [isLoggedIn, loading, router]);
 
@@ -132,7 +132,7 @@ function LoginPageClient({ serverSession }: { serverSession: any }) {
                 });
 
                 if (result?.ok && !result.error) {
-                  router.push("/");
+                  router.push("/app");
                 } else {
                   setErrorMessage(
                     "Email ou mot de passe incorrect, ou email non vérifié."
@@ -257,13 +257,13 @@ function LoginPageClient({ serverSession }: { serverSession: any }) {
                   // After restore, sign-in directly
                   const result = await signIn("credentials", {
                     redirect: false,
-                    callbackUrl: "/",
+                    callbackUrl: "/app",
                     email: reactivateEmail,
                     password,
                   });
                   if (result?.ok && !result.error) {
                     setReactivateOpen(false);
-                    router.push("/");
+                    router.push("/app");
                   } else {
                     setReactivateError("La réactivation a réussi, mais la connexion a échoué.");
                   }

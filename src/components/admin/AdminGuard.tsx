@@ -34,8 +34,8 @@ export default function AdminGuard({ children }: AdminGuardProps) {
 
     // Vérifier si l'utilisateur est admin
     if (!session.user.isAdmin) {
-      // Utilisateur connecté mais pas admin, rediriger vers l'accueil
-      router.push("/");
+      // Utilisateur connecté mais pas admin, rediriger vers l'application
+      router.push("/app");
       return;
     }
   }, [session, status, router]);

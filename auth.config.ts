@@ -21,7 +21,7 @@ export const authConfig = {
         if (isLoggedIn) return true; // L'autorisation admin sera vérifiée dans le layout
         return false; // Redirect unauthenticated users to login page
       } else if (isLoggedIn && (isOnLogin || isOnRegister)) {
-        return Response.redirect(new URL("/", nextUrl));
+        return Response.redirect(new URL("/app", nextUrl));
       } else if (isOnAuth) {
         return true; // Autoriser l'accès aux pages d'authentification
       }
