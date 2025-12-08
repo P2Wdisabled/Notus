@@ -9,14 +9,14 @@ const testimonials = [
       "Notus a réduit de moitié le temps de consolidation des notes internes. L’éditeur et les synthèses IA sont devenus indispensables.",
   },
   {
-    name: "Imad Khelifi",
-    role: "COO, WeScale",
+    name: "Gastien Bitard",
+    role: "CEO, DotTxt",
     quote:
       "Nous avons enfin un référentiel unique pour les équipes produit et support. Les dossiers partagés nous évitent de multiples réunions.",
   },
   {
-    name: "Lucie Marchal",
-    role: "Cheffe de projet, NovaTech",
+    name: "Methane Manchot",
+    role: "Chef de projet, Yanotela",
     quote:
       "Le suivi des versions et les commentaires contextualisés ont fluidifié nos validations. L’adoption a été immédiate.",
   },

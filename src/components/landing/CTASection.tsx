@@ -16,16 +16,16 @@ export default function CTASection({ isLoggedIn }: CTASectionProps) {
           Notus se connecte en quelques minutes à votre organisation. Aucun déploiement complexe requis.
         </p>
         {isLoggedIn ? (
-          <Button asChild size="lg" className="text-lg px-8 py-6">
+          <Button asChild size="lg" className="text-lg px-4 py-2">
             <Link href="/app">Accéder à l&apos;application</Link>
           </Button>
         ) : (
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button asChild size="lg" className="text-lg px-8 py-6">
+            <Button asChild size="lg" className="text-lg px-4 py-2">
               <Link href="/register">Créer un compte gratuit</Link>
             </Button>
-            <Button asChild size="lg" variant="outline" className="text-lg px-8 py-6">
-              <Link href="/login">Parler à un expert</Link>
+            <Button asChild size="lg" variant="outline" className="text-lg px-4 py-2">
+              <Link href="/login">Se connecter</Link>
             </Button>
           </div>
         )}

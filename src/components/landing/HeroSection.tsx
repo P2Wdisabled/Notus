@@ -30,15 +30,15 @@ export default function HeroSection({ isLoggedIn }: HeroSectionProps) {
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
               {isLoggedIn ? (
-                <Button asChild size="lg" className="text-base px-8 py-6">
+                <Button asChild size="lg" className="text-base px-4 py-2">
                   <Link href="/app">Accéder à mes documents</Link>
                 </Button>
               ) : (
                 <>
-                  <Button asChild size="lg" className="text-base px-8 py-6">
+                  <Button asChild size="lg" className="text-base px-4 py-2">
                     <Link href="/register">Commencer gratuitement</Link>
                   </Button>
-                  <Button asChild size="lg" variant="outline" className="text-base px-8 py-6">
+                  <Button asChild size="lg" variant="outline" className="text-base px-4 py-2">
                     <Link href="/login">Voir une démonstration</Link>
                   </Button>
                 </>

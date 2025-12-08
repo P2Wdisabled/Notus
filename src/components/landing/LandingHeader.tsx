@@ -19,7 +19,7 @@ export default function LandingHeader({ isLoggedIn }: LandingHeaderProps) {
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" aria-label="Navigation principale">
         <div className="flex items-center justify-between h-16 gap-6">
           <Link href="/" className="flex items-center" aria-label="Accueil Notus">
-            <Logo className="h-8" />
+            <Logo width={140} height={40} />
           </Link>
 
           <ul className="hidden md:flex items-center gap-6">
@@ -37,15 +37,15 @@ export default function LandingHeader({ isLoggedIn }: LandingHeaderProps) {
 
           <div className="flex items-center gap-3">
             {isLoggedIn ? (
-              <Button asChild size="sm">
+              <Button asChild size="sm" className="text-base px-4 py-2">
                 <Link href="/app">Accéder à l&apos;application</Link>
               </Button>
             ) : (
               <>
-                <Button asChild size="sm" variant="ghost">
+                <Button asChild size="sm" variant="ghost" className="text-base px-4 py-2">
                   <Link href="/login">Connexion</Link>
                 </Button>
-                <Button asChild size="sm">
+                <Button asChild size="sm" className="text-base px-4 py-2">
                   <Link href="/register">Commencer</Link>
                 </Button>
               </>
