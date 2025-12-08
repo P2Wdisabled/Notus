@@ -6,6 +6,8 @@ import { Button, ScrollArea } from "@/components/ui";
 import Icon from "@/components/Icon";
 import { useLocalSession } from "@/hooks/useLocalSession";
 import { cn } from "@/lib/utils";
+import { MarkdownConverter } from "@/components/Paper.js/Editor/MarkdownConverter";
+import { sanitizeHtml, EDITOR_SANITIZE_CONFIG } from "@/lib/sanitizeHtml";
 
 interface HistoryUser {
   id: number;
@@ -143,6 +145,72 @@ function groupHistoryEntries(entries: HistoryItem[]): GroupedHistoryItem[] {
   }
 
   return grouped;
+}
+
+// Composant pour afficher le contenu en preview HTML + MD
+function HistoryContentPreview({ content, isRemoved }: { content: string; isRemoved?: boolean }) {
+  const [htmlContent, setHtmlContent] = useState<string>("");
+  const [isLoading, setIsLoading] = useState(true);
+  const markdownConverterRef = useRef<MarkdownConverter | null>(null);
+
+  useEffect(() => {
+    if (!markdownConverterRef.current) {
+      markdownConverterRef.current = new MarkdownConverter();
+    }
+
+    const convertContent = async () => {
+      if (!content || !content.trim()) {
+        setHtmlContent("");
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        // Vérifier si le contenu est déjà du HTML (simple détection)
+        const trimmed = content.trim();
+        const isHtml = trimmed.startsWith("<") && (trimmed.includes("</") || trimmed.endsWith("/>") || trimmed.endsWith(">"));
+        
+        let html: string;
+        if (isHtml) {
+          // Si c'est déjà du HTML, on le sanitize directement
+          html = sanitizeHtml(trimmed, EDITOR_SANITIZE_CONFIG);
+        } else {
+          // Sinon, on convertit le markdown en HTML
+          // Le markdownToHtml retourne déjà du HTML sanitized
+          html = await markdownConverterRef.current.markdownToHtml(content);
+        }
+        
+        setHtmlContent(html);
+      } catch (error) {
+        console.error("Erreur lors de la conversion du contenu:", error);
+        // En cas d'erreur, afficher le contenu brut (sanitized)
+        setHtmlContent(sanitizeHtml(content, EDITOR_SANITIZE_CONFIG));
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    void convertContent();
+  }, [content]);
+
+  if (isLoading) {
+    return <span className="text-muted-foreground text-xs">Chargement...</span>;
+  }
+
+  if (!htmlContent) {
+    return null;
+  }
+
+  return (
+    <div
+      className={cn(
+        "prose prose-sm max-w-none break-words text-foreground/90",
+        isRemoved && "[&_*]:line-through [&_*]:decoration-rose-500/60"
+      )}
+      style={isRemoved ? { textDecoration: "line-through", textDecorationColor: "rgb(244 63 94 / 0.6)" } : undefined}
+      dangerouslySetInnerHTML={{ __html: htmlContent }}
+    />
+  );
 }
 
 export default function HistorySidebar({ documentId, isOpen, onClose }: HistorySidebarProps) {
@@ -300,9 +368,7 @@ export default function HistorySidebar({ documentId, isOpen, onClose }: HistoryS
                                 <Icon name="plus" className="w-3 h-3 flex-shrink-0" />
                                 <span className="font-medium">Ajouts</span>
                               </div>
-                              <p className="whitespace-pre-wrap break-words text-foreground/90">
-                                {entry.diff_added}
-                              </p>
+                              <HistoryContentPreview content={entry.diff_added || ""} />
                             </div>
                           )}
                           {hasRemoved && (
@@ -311,9 +377,7 @@ export default function HistorySidebar({ documentId, isOpen, onClose }: HistoryS
                                 <Icon name="minus" className="w-3 h-3 flex-shrink-0" />
                                 <span className="font-medium">Suppressions</span>
                               </div>
-                              <p className="whitespace-pre-wrap break-words text-foreground/90 line-through decoration-rose-500/60">
-                                {entry.diff_removed}
-                              </p>
+                              <HistoryContentPreview content={entry.diff_removed || ""} isRemoved />
                             </div>
                           )}
                         </div>
