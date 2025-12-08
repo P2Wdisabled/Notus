@@ -62,6 +62,22 @@ export function useEditorEventHandlers({
     }, 150);
   }, [onContentChange, markdown, editorRef, markdownConverter, isUpdatingFromMarkdown, debounceTimeout]);
 
+  const sanitizeHref = useCallback((href: string | null | undefined) => {
+    if (!href) return "";
+    // First replace encoded patterns
+    let cleaned = href.replace(/%3C\/?em%3E/gi, "_");
+    // Then replace literal tags
+    cleaned = cleaned.replace(/<\/?em>/gi, "_");
+    // Try decoding and clean again
+    try {
+      const decoded = decodeURIComponent(cleaned);
+      cleaned = decoded.replace(/<\/?em>/gi, "_");
+    } catch (_e) {
+      // ignore decode errors
+    }
+    return cleaned;
+  }, []);
+
   // Handle link hover to show popup
   const handleLinkHover = useCallback((e: React.MouseEvent) => {
     // Ne pas afficher le popup pour les fichiers joints
@@ -90,10 +106,10 @@ export function useEditorEventHandlers({
         visible: true,
         x: x,
         y: y,
-        url: link.getAttribute('href') || ''
+        url: sanitizeHref(link.getAttribute('href'))
       });
     }
-  }, [editorRef, setLinkPopup]);
+  }, [editorRef, setLinkPopup, sanitizeHref]);
 
   // Handle link mouse leave to hide popup
   const handleLinkLeave = useCallback((e: React.MouseEvent) => {
