@@ -209,7 +209,7 @@ function LoginPageClient({ serverSession }: { serverSession: any }) {
           </form>
         </Card.Content>
         <Card.Footer className="text-center p-2">
-          <Link href="/" className="text-muted-foreground">
+          <Link href="/app" className="text-muted-foreground">
             Continuer en tant que personne anonyme
           </Link>
         </Card.Footer>

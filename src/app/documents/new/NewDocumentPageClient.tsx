@@ -197,7 +197,7 @@ export default function NewDocumentPageClient(props: NewDocumentPageClientProps)
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <Link
-            href="/"
+            href="/app"
             className="text-foreground font-semibold flex items-center"
           >
             <Icon name="arrowLeft" className="h-5 w-5 mr-2" />

@@ -244,7 +244,7 @@ export default function EditLocalDocumentPageClient({ params }: EditLocalDocumen
           </h1>
           <p className="text-muted-foreground mb-6">{error}</p>
           <Link
-            href="/"
+            href="/app"
             className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-3 px-6 rounded-lg transition-colors"
           >
             Retour à l'accueil
@@ -269,7 +269,7 @@ export default function EditLocalDocumentPageClient({ params }: EditLocalDocumen
         {/* En-tête */}
         <div className="flex items-center justify-between mb-6">
           <Link
-            href="/"
+            href="/app"
             className="text-foreground font-semibold flex items-center"
           >
             <Icon name="arrowLeft" className="h-5 w-5 mr-2" />
@@ -380,7 +380,7 @@ export default function EditLocalDocumentPageClient({ params }: EditLocalDocumen
                 </button>
               ) : (
                 <Link
-                  href="/"
+                  href="/app"
                   className="px-6 py-3 rounded-lg text-foreground hover:shadow-md hover:border-primary hover:bg-foreground/5 border border-primary cursor-pointer"
                 >
                   Annuler
