@@ -256,10 +256,10 @@ export default function WysiwygToolbar({ onFormatChange, showDebug = false, onTo
         </button>
       )}
 
-      {/* <ToolbarSeparator />
+      <ToolbarSeparator />
 
       {/* Debug Button */}
-      {/*
+      
       {onToggleDebug && (
         <button
           type="button"
@@ -274,7 +274,7 @@ export default function WysiwygToolbar({ onFormatChange, showDebug = false, onTo
           <Icon name="gear" className="h-5 w-5" />
         </button>
       )}
-*/}
+
       {/* Modals */}
       <DrawingModal 
         isOpen={showDrawingModal}
