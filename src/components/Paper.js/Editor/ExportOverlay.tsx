@@ -609,47 +609,12 @@ const shiftHighlightsDown = (root: HTMLElement, offsetPx: number) => {
 
     if (!bgColor || /transparent|rgba\(0,\s*0,\s*0,\s*0\)/i.test(bgColor)) return;
 
-    const doc = el.ownerDocument;
-    const highlightLayer = doc.createElement("span");
-    highlightLayer.style.position = "absolute";
-    highlightLayer.style.left = "-2.5px";
-    highlightLayer.style.right = "-20px";
-    highlightLayer.style.top = `${offsetPx}px`;
-    try {
-      const elRect = el.getBoundingClientRect();
-      const safeHeight = Math.max(0, Math.round(elRect.height - offsetPx));
-      highlightLayer.style.height = `${safeHeight}px`;
-    } catch {
-      highlightLayer.style.height = `calc(100% - ${offsetPx}px)`;
-    }
-    highlightLayer.style.backgroundColor = bgColor;
-    highlightLayer.style.zIndex = "0";
-    highlightLayer.style.borderRadius = "0.1em";
-    highlightLayer.style.pointerEvents = "none";
-    highlightLayer.style.display = "block";
-    highlightLayer.style.transformOrigin = "top center";
-    highlightLayer.style.transform = "scaleY(0.3333)";
-
-    const textHolder = doc.createElement("span");
-    textHolder.style.position = "relative";
-    textHolder.style.zIndex = "1";
-    textHolder.style.display = "inline";
-    textHolder.style.lineHeight = "inherit";
-
-    while (el.firstChild) {
-      textHolder.appendChild(el.firstChild);
-    }
-
-    el.style.position = "relative";
-    el.style.display = "inline-block";
-    el.style.lineHeight = "inherit";
-    el.style.verticalAlign = "baseline";
-    el.style.backgroundColor = "transparent";
-    el.style.paddingBottom = `${offsetPx}px`;
-    el.style.overflow = "visible";
-
-    el.appendChild(highlightLayer);
-    el.appendChild(textHolder);
+    // For PDF export, apply background directly - html2canvas can render this properly
+    el.style.backgroundColor = bgColor;
+    el.style.paddingLeft = "2px";
+    el.style.paddingRight = "2px";
+    el.style.paddingTop = "0px";
+    el.style.paddingBottom = "6px";
     el.dataset.exportHighlightShifted = "true";
   });
 };
@@ -707,10 +672,18 @@ async function exportAsPDF(html: string, filename: string) {
   iframeDoc.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><style>
   * { box-sizing: border-box; }
   body { margin: 0; padding: 32px; background: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; line-height: 1.5; }
+  [data-export-clone] > * { margin-bottom: 0.5rem; }
+  [data-export-clone] > * + ul,
+  [data-export-clone] > * + ol { margin-top: 2rem !important; margin-bottom: 0.5rem !important; }
+  [data-export-clone] p { margin: 0.5rem 0 1rem 0; }
+  [data-export-clone] div[style*="margin-left"],
+  [data-export-clone] div[style*="padding-left"] { margin-top: 2rem !important; }
+  [data-export-clone] blockquote { margin-top: 2rem !important; }
   [data-export-clone] img { max-width: 100%; height: auto; }
   [data-export-clone] ul,
-  [data-export-clone] ol { margin: 0.5rem 0; padding-left: 1.5rem; list-style-position: outside; }
-  [data-export-clone] li { margin: 0.25rem 0; display: list-item; list-style-position: outside; line-height: inherit; }
+  [data-export-clone] ol { margin: 2rem 0 0.5rem 0 !important; padding-left: 1.5rem; list-style-position: outside; }
+  [data-export-clone] li { margin: 1rem 0 0.5rem 0 !important; display: list-item; list-style-position: outside; line-height: inherit; }
+  [data-export-clone] li:first-child { margin-top: 1.5rem !important; }
   [data-export-clone] li::marker { font-size: 1em; }
   [data-export-clone] span[style*="background"],
   [data-export-clone] mark { display: inline; vertical-align: baseline; line-height: inherit; padding: 0; margin: 0; }
@@ -791,7 +764,7 @@ async function exportAsPDF(html: string, filename: string) {
 
   /* Blockquote styling: keep the border in place, don't move the whole box */
   [data-export-clone] blockquote {
-    margin: 0 0 0.5rem 0 !important;
+    margin: 2rem 0 0.5rem 0 !important;
     padding: 0 0 0 1rem !important;
     border-left: 3px solid #ccc;
   }
