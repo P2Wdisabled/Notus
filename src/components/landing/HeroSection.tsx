@@ -6,8 +6,8 @@ interface HeroSectionProps {
 }
 
 const highlights = [
-  { label: "Documents créés", value: "150k+" },
-  { label: "Equipes actives", value: "2 800+" },
+  { label: "Documents créés", value: "48+" },
+  { label: "Equipes actives", value: "5+" },
   { label: "Satisfaction", value: "4.9/5" },
 ];
 

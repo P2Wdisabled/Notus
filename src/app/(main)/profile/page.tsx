@@ -43,7 +43,7 @@ export default async function ProfilePage() {
 
       {/* Back link */}
       <div className="md:ml-64 md:pl-4 pt-6">
-        <BackHeader href="/" title="Mon compte" className="max-w-4xl mx-auto px-4 md:px-6 lg:px-8 pb-4 hidden md:flex gap-4" />
+        <BackHeader href="/app" title="Mon compte" className="max-w-4xl mx-auto px-4 md:px-6 lg:px-8 pb-4 hidden md:flex gap-4" />
       </div>
 
       {/* Cover */}

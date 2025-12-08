@@ -1177,7 +1177,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
           </h1>
           <p className="text-foreground mb-6">{error}</p>
           <Link
-            href="/"
+            href="/app"
             className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-3 px-6 rounded-lg transition-colors"
           >
             Retour à l'accueil
@@ -1198,7 +1198,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
             Ce document n'existe pas ou a été supprimé.
           </p>
           <Link
-            href="/"
+            href="/app"
             className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-3 px-6 rounded-lg transition-colors"
           >
             Retour à l'accueil
@@ -1220,7 +1220,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
             Vous n'êtes pas autorisé à accéder à ce document.
           </p>
           <Link
-            href="/"
+            href="/app"
             className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-3 px-6 rounded-lg transition-colors"
           >
             Retour à l'accueil
@@ -1265,7 +1265,7 @@ export default function EditDocumentPageClient(props: EditDocumentPageClientProp
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <Link
-            href="/"
+            href="/app"
             className="text-foreground font-semibold flex items-center"
           >
             <Icon name="arrowLeft" className="h-5 w-5 mr-2" />

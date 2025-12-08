@@ -49,7 +49,7 @@ export default function AuthErrorPage() {
           </Button>
 
           <Button variant="outline" asChild className="w-full">
-            <Link href="/">
+            <Link href="/app">
               Retour à l'accueil
             </Link>
           </Button>

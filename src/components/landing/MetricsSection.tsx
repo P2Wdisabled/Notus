@@ -1,9 +1,9 @@
 import SectionHeading from "./SectionHeading";
 
 const metrics = [
-  { label: "Temps gagné par semaine", value: "6h", detail: "sur la préparation et le partage de documents" },
-  { label: "Documents collaboratifs/mois", value: "1 200+", detail: "créés par nos utilisateurs actifs" },
-  { label: "Réduction des erreurs", value: "-38%", detail: "grâce à l’historique et la validation intégrée" },
+  { label: "Temps gagné par semaine", value: "2 min", detail: "sur la préparation et le partage de documents" },
+  { label: "Documents collaboratifs/mois", value: "8+", detail: "créés par nos utilisateurs actifs" },
+  { label: "Réduction des erreurs", value: "-10%", detail: "grâce à l’historique et la validation intégrée" },
 ];
 
 export default function MetricsSection() {
