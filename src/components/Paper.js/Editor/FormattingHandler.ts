@@ -483,66 +483,168 @@ export class FormattingHandler {
           
           const startContainer = range.startContainer;
           const endContainer = range.endContainer;
-          const commonAncestor = range.commonAncestorContainer;
           
-          if (commonAncestor.nodeType === Node.ELEMENT_NODE) {
-            // Use TreeWalker to get all block elements and list items in document order
-            const walker = document.createTreeWalker(
-              commonAncestor,
-              NodeFilter.SHOW_ELEMENT,
-              {
-                acceptNode: (node) => {
-                  const tagName = (node as Element).tagName.toLowerCase();
-                  return blockTags.includes(tagName) 
-                    ? NodeFilter.FILTER_ACCEPT 
-                    : NodeFilter.FILTER_SKIP;
+          // Use the editor root instead of commonAncestor to ensure we find all elements
+          const editorRoot = this.editorRef.current;
+          if (!editorRoot) {
+            document.execCommand(command, false);
+            restoreSelection();
+            return;
+          }
+          
+          // Helper to find the containing top-level block element for a node
+          const getContainingTopLevelBlock = (node: Node): HTMLElement | null => {
+            let current: Node | null = node;
+            let foundBlock: HTMLElement | null = null;
+            
+            // First, find any block element containing this node
+            while (current && current !== editorRoot) {
+              if (current.nodeType === Node.ELEMENT_NODE) {
+                const el = current as HTMLElement;
+                const tagName = el.tagName.toLowerCase();
+                if (blockTags.includes(tagName)) {
+                  foundBlock = el;
+                  break;
                 }
               }
-            );
+              current = current.parentNode;
+            }
             
-            let node: Node | null;
-            while (node = walker.nextNode()) {
-              const el = node as HTMLElement;
-              
-              // Check if this element intersects with the selection
-              try {
-                const elRange = document.createRange();
-                elRange.selectNodeContents(el);
-                
-                const intersects = range.compareBoundaryPoints(Range.START_TO_END, elRange) < 0 &&
-                                  range.compareBoundaryPoints(Range.END_TO_START, elRange) > 0;
-                
-                if (intersects) {
-                  elementsToConvert.push(el);
-                } else {
-                  // Also check if selection boundaries are within this element
-                  if (el.contains(startContainer) || el.contains(endContainer)) {
-                    elementsToConvert.push(el);
-                  }
+            if (!foundBlock) return null;
+            
+            // Now check if this block is top-level (not nested in another block)
+            let parent: HTMLElement | null = foundBlock.parentElement;
+            while (parent && parent !== editorRoot) {
+              const parentTag = parent.tagName.toLowerCase();
+              if (blockTags.includes(parentTag) && parentTag !== 'li') {
+                // Found a parent block, so this is nested - find the top-level one
+                return getContainingTopLevelBlock(parent);
+              }
+              parent = parent.parentElement;
+            }
+            
+            return foundBlock;
+          };
+          
+          // Find the top-level block elements that contain the selection start and end
+          const startBlock = getContainingTopLevelBlock(startContainer);
+          const endBlock = getContainingTopLevelBlock(endContainer);
+          
+          if (!startBlock || !endBlock) {
+            // Fallback to native command if we can't find block elements
+            document.execCommand(command, false);
+            restoreSelection();
+            return;
+          }
+          
+          // If selection is contained within the same block, delegate to native command.
+          // This avoids losing partial text selections when converting a single line/paragraph.
+          if (startBlock === endBlock) {
+            document.execCommand(command, false);
+            // Sync markdown on next frame to ensure DOM updates are applied
+            requestAnimationFrame(() => this.syncMarkdown());
+            restoreSelection();
+            return;
+          }
+
+          // Get all top-level block elements in document order
+          const allBlockElements: HTMLElement[] = [];
+          
+          const walker = document.createTreeWalker(
+            editorRoot,
+            NodeFilter.SHOW_ELEMENT,
+            {
+              acceptNode: (node) => {
+                const tagName = (node as Element).tagName.toLowerCase();
+                if (blockTags.includes(tagName)) {
+                  return NodeFilter.FILTER_ACCEPT;
                 }
-              } catch (e) {
-                // Fallback: check if element contains selection boundaries
-                if (el.contains(startContainer) || el.contains(endContainer)) {
-                  elementsToConvert.push(el);
-                }
+                return NodeFilter.FILTER_SKIP;
               }
             }
+          );
+          
+          // Helper to check if an element is a top-level block
+          const isTopLevelBlock = (el: HTMLElement): boolean => {
+            let current: HTMLElement | null = el.parentElement;
+            while (current && current !== editorRoot) {
+              const tagName = current.tagName.toLowerCase();
+              if (blockTags.includes(tagName) && tagName !== 'li') {
+                return false; // Nested in another block element
+              }
+              current = current.parentElement;
+            }
+            return true;
+          };
+          
+          let node: Node | null;
+          while (node = walker.nextNode()) {
+            const el = node as HTMLElement;
+            if (isTopLevelBlock(el)) {
+              allBlockElements.push(el);
+            }
+          }
+          
+          // Find the indices of startBlock and endBlock in allBlockElements
+          const startIndex = allBlockElements.indexOf(startBlock);
+          const endIndex = allBlockElements.indexOf(endBlock);
+          
+          // If both blocks are found, add all elements between them (inclusive)
+          if (startIndex !== -1 && endIndex !== -1) {
+            const minIndex = Math.min(startIndex, endIndex);
+            const maxIndex = Math.max(startIndex, endIndex);
+            for (let i = minIndex; i <= maxIndex; i++) {
+              elementsToConvert.push(allBlockElements[i]);
+            }
+          } else if (startIndex !== -1) {
+            // Only start block found
+            elementsToConvert.push(startBlock);
+          } else if (endIndex !== -1) {
+            // Only end block found
+            elementsToConvert.push(endBlock);
+          } else {
+            // Neither found in list, but we have the blocks - add them
+            elementsToConvert.push(startBlock);
+            if (endBlock !== startBlock) {
+              elementsToConvert.push(endBlock);
+            }
+          }
+          
+          // If multiple blocks are selected, rely on native behavior to avoid content loss
+          if (elementsToConvert.length > 1) {
+            document.execCommand(command, false);
+            // Sync markdown after DOM updates
+            requestAnimationFrame(() => this.syncMarkdown());
+            restoreSelection();
+            return;
+          }
+
+          // Debug: log if no elements found
+          if (elementsToConvert.length === 0) {
+            console.warn('[FormattingHandler] No elements found in selection. Start block:', startBlock, 'End block:', endBlock, 'Total blocks:', allBlockElements.length);
+            // Fallback to native command
+            document.execCommand(command, false);
+            restoreSelection();
+            return;
           }
           
           // If we found multiple elements, create a separate list for each one
           if (elementsToConvert.length > 0) {
-            // Find the parent and insertion point
+            // Find the parent - use the editor root if elements have different parents
             const firstEl = elementsToConvert[0];
             let parent = firstEl.parentElement;
-            let insertBefore: Node | null = firstEl;
             
-            // If first element is a list item, use the list's parent and insert before the list
+            // If first element is a list item, use the list's parent
             if (firstEl.tagName.toLowerCase() === 'li') {
               const listParent = firstEl.closest('ul, ol');
               if (listParent) {
                 parent = listParent.parentElement;
-                insertBefore = listParent;
               }
+            }
+            
+            // Fallback to editor root if parent is not found
+            if (!parent || parent === document.body) {
+              parent = editorRoot;
             }
             
             if (parent) {
@@ -562,6 +664,10 @@ export class FormattingHandler {
                 // Create a list item
                 let li: HTMLElement;
                 
+                // Store original content before moving
+                const originalContent = el.innerHTML;
+                const originalText = el.textContent || '';
+                
                 // If it's already a list item, extract its content
                 if (el.tagName.toLowerCase() === 'li') {
                   li = document.createElement('li');
@@ -578,8 +684,14 @@ export class FormattingHandler {
                   }
                 }
                 
-                // If li is empty, add a zero-width space to preserve it
-                if (li.textContent?.trim() === '') {
+                // If li is empty after moving children, restore from original content
+                if (li.textContent?.trim() === '' && originalText.trim()) {
+                  // If we lost content during move, restore it
+                  li.innerHTML = originalContent;
+                }
+                
+                // If still empty, add zero-width space to preserve it
+                if (li.textContent?.trim() === '' && li.children.length === 0) {
                   li.appendChild(document.createTextNode('\u200B'));
                 }
                 
@@ -597,9 +709,11 @@ export class FormattingHandler {
                 newLists.unshift(listElement); // Add to beginning since we're processing in reverse
               }
               
-              // Remove all converted elements
+              // Remove all converted elements AFTER all lists are inserted
+              // This ensures the DOM structure is correct before removal
               elementsToConvert.forEach((el) => {
-                if (el.parentElement) {
+                // Only remove if element still exists and hasn't been moved
+                if (el.parentElement && el.parentElement.contains(el)) {
                   el.parentElement.removeChild(el);
                 }
               });
@@ -614,6 +728,9 @@ export class FormattingHandler {
                 }
               });
               
+              // Force a reflow to ensure DOM is updated before syncing
+              void editorRoot.offsetHeight;
+              
               // Restore selection at the end of the last list
               if (newLists.length > 0) {
                 const lastList = newLists[newLists.length - 1];
@@ -627,10 +744,22 @@ export class FormattingHandler {
                 }
               }
               
-              // Sync markdown
-              setTimeout(() => {
-                this.syncMarkdown();
-              }, 10);
+              // Sync markdown - use multiple frames to ensure DOM is fully updated
+              // First frame: ensure DOM mutations are complete
+              requestAnimationFrame(() => {
+                // Second frame: ensure browser has rendered
+                requestAnimationFrame(() => {
+                  // Small delay to ensure all DOM operations are complete
+                  setTimeout(() => {
+                    // Verify editor still has content before syncing
+                    if (this.editorRef.current && this.editorRef.current.innerHTML.trim()) {
+                      this.syncMarkdown();
+                    } else {
+                      console.warn('[FormattingHandler] syncMarkdown skipped: editor HTML is empty after list conversion');
+                    }
+                  }, 100);
+                });
+              });
             }
           } else {
             // Fallback to native command if no elements found
@@ -1356,8 +1485,18 @@ export class FormattingHandler {
   private syncMarkdown() {
     if (this.editorRef.current) {
       const newHtml = this.editorRef.current.innerHTML;
+      // Debug: log if HTML is empty
+      if (!newHtml || newHtml.trim() === '') {
+        console.warn('[FormattingHandler] syncMarkdown: Editor HTML is empty');
+      }
       const newMarkdown = this.htmlToMarkdown(newHtml);
+      // Debug: log if markdown is empty
+      if (!newMarkdown || newMarkdown.trim() === '') {
+        console.warn('[FormattingHandler] syncMarkdown: Converted markdown is empty. HTML was:', newHtml.substring(0, 200));
+      }
       this.onContentChange(newMarkdown);
+    } else {
+      console.warn('[FormattingHandler] syncMarkdown: editorRef.current is null');
     }
   }
 }
