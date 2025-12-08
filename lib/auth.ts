@@ -156,8 +156,24 @@ export const authOptions: NextAuthOptions = {
                 await tx.deletedAccount.delete({ where: { id: deleted.id } });
               });
             } else {
-              // Créer un nouvel utilisateur
-              const username = user.email?.split("@")[0] || "user";
+              // Créer un nouvel utilisateur OAuth
+              const emailBase = user.email?.split("@")[0] || "user";
+              let username = emailBase;
+              
+              // Vérifier si le username existe déjà et générer un nom unique si nécessaire
+              let usernameExists = true;
+              let attempts = 0;
+              while (usernameExists && attempts < 10) {
+                const checkUsername = await prisma.user.findFirst({ where: { username } });
+                if (!checkUsername) {
+                  usernameExists = false;
+                } else {
+                  // Générer un nom unique avec timestamp et random
+                  username = `${emailBase}_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+                  attempts++;
+                }
+              }
+
               const firstName =
                 String((profile as Record<string, unknown>)?.given_name || user.name?.split(" ")[0] || "");
               const lastName =
@@ -165,13 +181,27 @@ export const authOptions: NextAuthOptions = {
                 user.name?.split(" ").slice(1).join(" ") ||
                 "");
 
-              await userService.createUser({
+              const createResult = await userService.createOAuthUser({
                 email: user.email!,
                 username,
-                password: "", // Pas de mot de passe pour OAuth
                 firstName: firstName || "Utilisateur",
                 lastName: lastName || "OAuth",
+                provider: "google",
+                providerId: account?.providerAccountId || "",
               });
+
+              // Si la création échoue à cause d'un username en double, réessayer avec un nouveau nom
+              if (!createResult.success && createResult.error?.includes("nom d'utilisateur")) {
+                username = `${emailBase}_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+                await userService.createOAuthUser({
+                  email: user.email!,
+                  username,
+                  firstName: firstName || "Utilisateur",
+                  lastName: lastName || "OAuth",
+                  provider: "google",
+                  providerId: account?.providerAccountId || "",
+                });
+              }
             }
           }
         } catch (error) {

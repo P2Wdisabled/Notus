@@ -129,12 +129,12 @@ function RegisterPageClient({ serverSession }: RegisterPageClientProps) {
         </Card.Header>
 
         {/* Bouton Google */}
-        {/* <div className="mb-6">
+        <div className="mb-6">
           <GoogleSignInButton text="S'inscrire avec Google" />
-        </div> */}
+        </div>
 
         {/* Séparateur */}
-        {/* <div className="relative mb-6">
+        <div className="relative mb-6">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-border" />
           </div>
@@ -143,7 +143,7 @@ function RegisterPageClient({ serverSession }: RegisterPageClientProps) {
               ou
             </span>
           </div>
-        </div> */}
+        </div>
 
         <Card.Content>
           <form action={formAction} className="space-y-6">

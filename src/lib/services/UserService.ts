@@ -54,6 +54,35 @@ export class UserService {
     }
   }
 
+  async createOAuthUser(userData: {
+    email: string;
+    username: string;
+    firstName: string;
+    lastName: string;
+    provider: string;
+    providerId: string;
+  }): Promise<UserRepositoryResult<User>> {
+    try {
+      // Créer l'utilisateur OAuth sans mot de passe, avec email déjà vérifié
+      const result = await this.userRepository.createUser({
+        email: userData.email,
+        username: userData.username,
+        password: "", // Pas de mot de passe pour OAuth
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        verificationToken: "", // Pas de token nécessaire
+        emailVerified: true, // Email déjà vérifié par Google
+        provider: userData.provider,
+        providerId: userData.providerId,
+      });
+
+      return result;
+    } catch (error) {
+      console.error("❌ Erreur création utilisateur OAuth:", error);
+      return { success: false, error: error instanceof Error ? error.message : "Erreur inconnue" };
+    }
+  }
+
   async verifyUserEmail(token: string): Promise<UserRepositoryResult<{ id: number; email: string; first_name: string }>> {
     try {
       const result = await this.userRepository.verifyUserEmail(token);

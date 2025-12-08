@@ -120,9 +120,9 @@ export class UserRepository extends BaseRepository {
     `);
   }
 
-  async createUser(userData: CreateUserData): Promise<UserRepositoryResult<User>> {
+  async createUser(userData: CreateUserData & { emailVerified?: boolean; provider?: string; providerId?: string }): Promise<UserRepositoryResult<User>> {
     try {
-      const { email, username, password, firstName, lastName, verificationToken } = userData;
+      const { email, username, password, firstName, lastName, verificationToken, emailVerified = false, provider, providerId } = userData;
 
       // Vérifier si l'email existe déjà
       const existingEmail = await this.query<{ id: number }>("SELECT id FROM users WHERE email = $1", [email]);
@@ -136,15 +136,15 @@ export class UserRepository extends BaseRepository {
         return { success: false, error: "Ce nom d'utilisateur est déjà utilisé" };
       }
 
-      // Hacher le mot de passe
-      const passwordHash = await bcrypt.hash(password, 12);
+      // Hacher le mot de passe seulement s'il est fourni (pas pour OAuth)
+      const passwordHash = password && password.trim() !== "" ? await bcrypt.hash(password, 12) : null;
 
       // Insérer l'utilisateur
       const result = await this.query<User>(
-        `INSERT INTO users (email, username, password_hash, first_name, last_name, email_verified, email_verification_token, terms_accepted_at)
-         VALUES ($1, $2, $3, $4, $5, FALSE, $6, CURRENT_TIMESTAMP)
-         RETURNING id, email, username, first_name, last_name, email_verified, email_verification_token, created_at, terms_accepted_at`,
-        [email, username, passwordHash, firstName, lastName, verificationToken]
+        `INSERT INTO users (email, username, password_hash, first_name, last_name, email_verified, email_verification_token, terms_accepted_at, provider, provider_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, $8, $9)
+         RETURNING id, email, username, first_name, last_name, email_verified, email_verification_token, created_at, terms_accepted_at, provider, provider_id`,
+        [email, username, passwordHash, firstName, lastName, emailVerified, verificationToken || null, provider || null, providerId || null]
       );
 
       return { success: true, user: result.rows[0] };
