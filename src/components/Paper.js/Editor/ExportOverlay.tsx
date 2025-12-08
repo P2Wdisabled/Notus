@@ -773,10 +773,9 @@ async function exportAsPDF(html: string, filename: string) {
     height: 1px;
     background-color: currentColor;
     transform: translateY(-50%);
-    display: none; /* Disabled - using background gradient instead */
+    display: none;
   }
   
-  /* Text decoration styles */
   [data-export-clone] *[style*="underline"] {
     text-decoration: underline !important;
     text-decoration-thickness: 1px !important;
@@ -789,6 +788,38 @@ async function exportAsPDF(html: string, filename: string) {
   [data-export-clone] b { font-weight: bold; }
   [data-export-clone] em,
   [data-export-clone] i { font-style: italic; }
+
+  /* Blockquote styling: keep the border in place, don't move the whole box */
+  [data-export-clone] blockquote {
+    margin: 0 0 0.5rem 0 !important;
+    padding: 0 0 0 1rem !important;
+    border-left: 3px solid #ccc;
+  }
+  [data-export-clone] blockquote > :not(blockquote) {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+    transform: translateY(-4px) !important;
+  }
+    
+  /* For nested blockquotes, move their non-blockquote children the same amount */
+  [data-export-clone] blockquote blockquote > :not(blockquote) {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+    transform: translateY(-4px) !important;
+  }
+  /* Images inside blockquotes can sit higher than text due to baseline differences.
+     Apply a slightly smaller upward shift and ensure they are inline-block so
+     they visually align with the text and the quote bar. */
+  [data-export-clone] blockquote img,
+  [data-export-clone] blockquote > img,
+  [data-export-clone] blockquote figure,
+  [data-export-clone] blockquote blockquote img {
+    transform: translateY(-2px) !important;
+    vertical-align: middle !important;
+    display: inline-block !important;
+    max-width: 100% !important;
+    height: auto !important;
+  }
 </style></head><body></body></html>`);
   iframeDoc.close();
 
