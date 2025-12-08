@@ -165,7 +165,12 @@ export class MarkdownConverter {
         const name = node.nodeName;
         return name === 'S' || name === 'DEL' || name === 'STRIKE';
       },
-      replacement: (content) => `~~${content}~~`
+      replacement: (content) => {
+        // Avoid emitting stray markers when the strike node only holds line breaks/whitespace
+        const meaningful = content.replace(/\u200B/g, '').trim();
+        if (!meaningful) return content;
+        return `~~${content}~~`;
+      }
     });
 
     // Handle strikethrough via CSS
@@ -175,7 +180,11 @@ export class MarkdownConverter {
           node.style &&
           node.style.textDecoration?.includes('line-through');
       },
-      replacement: (content) => `~~${content}~~`
+      replacement: (content) => {
+        const meaningful = content.replace(/\u200B/g, '').trim();
+        if (!meaningful) return content;
+        return `~~${content}~~`;
+      }
     });
 
     // Preserve list items in single-item lists BEFORE they get converted to Markdown
