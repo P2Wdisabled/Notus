@@ -11,7 +11,7 @@ interface Feature {
 
 const features: Feature[] = [
   {
-    title: "Éditeur WYSIWYG",
+    title: "Éditeur",
     description: "Mise en forme avancée, composants collaboratifs, mentions et intégrations médias.",
     icon: "note",
     highlight: "Temps réel",
@@ -45,7 +45,7 @@ const features: Feature[] = [
   },
   {
     title: "Recherche intelligente",
-    description: "Filtres, tags, opérateurs booléens... retrouvez en quelques secondes la bonne note.",
+    description: "Filtres, tags... retrouvez en quelques secondes la bonne note.",
     icon: "search",
   },
   {
