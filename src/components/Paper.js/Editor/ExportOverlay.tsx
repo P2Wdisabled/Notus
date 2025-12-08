@@ -119,7 +119,7 @@ const alignmentMap: Record<string, AlignmentValue> = {
 
 const BLOCK_TAGS = new Set([
   "p", "div", "section", "article", "header", "footer", "h1", "h2", "h3", "h4", "h5", "h6",
-  "blockquote", "pre", "code", "ul", "ol", "li", "table",
+  "blockquote", "pre", "code", "ul", "ol", "li", "table", "hr",
 ]);
 
 // DOCX conversion functions
@@ -304,7 +304,11 @@ const buildRunsFromChildren = async (element: HTMLElement, baseStyle: DocxTextSt
   const runs: ParagraphChild[] = [];
   for (const child of Array.from(element.childNodes)) {
     if (child.nodeType === Node.TEXT_NODE) {
-      runs.push(...createTextRunsFromString(child.textContent || "", baseStyle));
+      // Filter out whitespace-only text nodes between block elements
+      const text = child.textContent || "";
+      if (text.trim()) {
+        runs.push(...createTextRunsFromString(text, baseStyle));
+      }
       continue;
     }
 
@@ -321,8 +325,10 @@ const buildRunsFromChildren = async (element: HTMLElement, baseStyle: DocxTextSt
       continue;
     }
 
-    if (BLOCK_TAGS.has(child.tagName.toLowerCase())) {
-      runs.push(new TextRun({ break: 1 }));
+    // For block tags like div, p, etc., recursively extract their content
+    if (BLOCK_TAGS.has(child.tagName.toLowerCase()) && child.tagName.toLowerCase() !== "hr") {
+      const nextStyle = deriveTextStyle(child, baseStyle);
+      runs.push(...(await buildRunsFromChildren(child, nextStyle)));
       continue;
     }
 
@@ -351,12 +357,39 @@ const createParagraphFromElement = async (
     paragraphOptions.alignment = alignmentMap[alignKey];
   }
 
+  // Extract border-left styling for indentation lines
+  const borderLeft = element.style.borderLeft || window.getComputedStyle(element).borderLeft;
+  const hasBorderLeft = borderLeft && borderLeft !== "none" && borderLeft !== "";
+  
+  // Extract left margin/padding for indentation
+  const marginLeft = parseInt(element.style.marginLeft || window.getComputedStyle(element).marginLeft || "0", 10);
+  const paddingLeft = parseInt(element.style.paddingLeft || window.getComputedStyle(element).paddingLeft || "0", 10);
+
   if (element.tagName === "BLOCKQUOTE") {
     paragraphOptions.indent = paragraphOptions.indent || { left: 720, right: 720 };
     paragraphOptions.spacing = { before: 120, after: 120 };
     paragraphOptions.border = {
       left: { size: 6, color: "CCCCCC" },
     };
+  } else if (hasBorderLeft) {
+    // Apply border-left for any element with border-left styling
+    const borderMatch = borderLeft.match(/(\d+)px.*#([a-f0-9]{6}|[a-f0-9]{3})/i);
+    if (borderMatch) {
+      const borderSize = Math.max(1, Math.round(parseInt(borderMatch[1], 10) / 2));
+      const borderColor = borderMatch[2].padEnd(6, "0").substring(0, 6);
+      paragraphOptions.border = {
+        left: { size: borderSize, color: borderColor },
+      };
+    }
+  }
+
+  // Apply left indentation if margin/padding exists
+  if (marginLeft > 0 || paddingLeft > 0) {
+    const leftIndent = Math.round((marginLeft + paddingLeft) / 15);
+    paragraphOptions.indent = paragraphOptions.indent || {};
+    if (!paragraphOptions.indent.left) {
+      paragraphOptions.indent.left = leftIndent;
+    }
   }
 
   return new Paragraph(paragraphOptions);
@@ -424,6 +457,22 @@ const convertNodeToParagraphs = async (node: Node): Promise<Paragraph[]> => {
     return [new Paragraph({ children: [imgRun] })];
   }
 
+  if (tag === "hr") {
+    return [
+      new Paragraph({
+        children: [new TextRun("")],
+        border: {
+          bottom: {
+            color: "000000",
+            space: 1,
+            style: "single",
+            size: 12,
+          },
+        },
+      }),
+    ];
+  }
+
   const heading = headingMap[node.tagName];
   if (heading) {
     const paragraph = await createParagraphFromElement(node, { heading });
@@ -433,6 +482,31 @@ const convertNodeToParagraphs = async (node: Node): Promise<Paragraph[]> => {
   if (tag === "blockquote") {
     const paragraph = await createParagraphFromElement(node, { indent: { left: 720, right: 720 } });
     return paragraph ? [paragraph] : [];
+  }
+
+  // Check if this is a DIV with indentation styling that should be handled specially
+  if (tag === "div") {
+    const hasMarginLeft = node.style.marginLeft || node.style.paddingLeft;
+    const marginLeftVal = parseInt(node.style.marginLeft || "0", 10);
+    const paddingLeftVal = parseInt(node.style.paddingLeft || "0", 10);
+    
+    // Only treat as indentation wrapper if it has actual margin/padding
+    if (hasMarginLeft && (marginLeftVal > 0 || paddingLeftVal > 0)) {
+      // Check if this div contains block children
+      const hasBlockChild = Array.from(node.childNodes).some(
+        (child) => child instanceof HTMLElement && BLOCK_TAGS.has(child.tagName.toLowerCase())
+      );
+      
+      // If it only contains text/inline content, treat as regular indented paragraph
+      if (!hasBlockChild) {
+        const leftIndent = Math.round((marginLeftVal + paddingLeftVal) / 15);
+        const paragraph = await createParagraphFromElement(node, { indent: { left: leftIndent } });
+        return paragraph ? [paragraph] : [];
+      }
+      
+      // If it contains block children, just process children without wrapping
+      // The children will handle their own structure
+    }
   }
 
   const hasBlockChild = Array.from(node.childNodes).some(
@@ -453,12 +527,27 @@ const convertNodeToParagraphs = async (node: Node): Promise<Paragraph[]> => {
 
 const buildDocxParagraphsFromClone = async (root: HTMLElement) => {
   const paragraphs: Paragraph[] = [];
+  
+  // Process all child nodes of the root
   for (const child of Array.from(root.childNodes)) {
-    paragraphs.push(...(await convertNodeToParagraphs(child)));
+    const childParagraphs = await convertNodeToParagraphs(child);
+    paragraphs.push(...childParagraphs);
   }
+  
+  // If no paragraphs were generated but root has content, try processing root as a container
+  if (!paragraphs.length && root.textContent && root.textContent.trim().length > 0) {
+    // Fallback: treat the root itself as having block children
+    const paragraph = await createParagraphFromElement(root);
+    if (paragraph) {
+      paragraphs.push(paragraph);
+    }
+  }
+  
+  // If still no paragraphs, add an empty one
   if (!paragraphs.length) {
     paragraphs.push(new Paragraph({ children: [new TextRun(" ")] }));
   }
+  
   return paragraphs;
 };
 
@@ -672,18 +761,16 @@ async function exportAsPDF(html: string, filename: string) {
   iframeDoc.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><style>
   * { box-sizing: border-box; }
   body { margin: 0; padding: 32px; background: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; line-height: 1.5; }
-  [data-export-clone] > * { margin-bottom: 0.5rem; }
-  [data-export-clone] > * + ul,
-  [data-export-clone] > * + ol { margin-top: 2rem !important; margin-bottom: 0.5rem !important; }
-  [data-export-clone] p { margin: 0.5rem 0 1rem 0; }
+  [data-export-clone] > * { margin-bottom: 0; }
+  [data-export-clone] > * + * { margin-top: 0; }
+  [data-export-clone] p { margin: 0; }
   [data-export-clone] div[style*="margin-left"],
-  [data-export-clone] div[style*="padding-left"] { margin-top: 2rem !important; }
-  [data-export-clone] blockquote { margin-top: 2rem !important; }
+  [data-export-clone] div[style*="padding-left"] { margin: 0; }
+  [data-export-clone] blockquote { margin: 0; }
   [data-export-clone] img { max-width: 100%; height: auto; }
   [data-export-clone] ul,
-  [data-export-clone] ol { margin: 2rem 0 0.5rem 0 !important; padding-left: 1.5rem; list-style-position: outside; }
-  [data-export-clone] li { margin: 1rem 0 0.5rem 0 !important; display: list-item; list-style-position: outside; line-height: inherit; }
-  [data-export-clone] li:first-child { margin-top: 1.5rem !important; }
+  [data-export-clone] ol { margin: 0; padding-left: 1.5rem; list-style-position: outside; }
+  [data-export-clone] li { margin: 0; display: list-item; list-style-position: outside; line-height: inherit; }
   [data-export-clone] li::marker { font-size: 1em; }
   [data-export-clone] span[style*="background"],
   [data-export-clone] mark { display: inline; vertical-align: baseline; line-height: inherit; padding: 0; margin: 0; }
