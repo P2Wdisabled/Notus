@@ -42,7 +42,120 @@ const sanitizeHtml = (html: string) => {
   }
 };
 
-// DOCX-specific types and utilities
+const htmlToPlainText = (html: string) => {
+  const tmp = document.createElement("div");
+  tmp.innerHTML = html;
+
+  const parts: string[] = [];
+
+  const appendNode = (node: Node) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = node.textContent || "";
+      if (text.trim() === "") {
+        if (parts.length > 0 && !parts[parts.length - 1].endsWith("\n")) {
+          const lastChar = parts[parts.length - 1].slice(-1);
+          if (lastChar !== " " && lastChar !== "\n") {
+            parts.push(" ");
+          }
+        }
+      } else {
+        parts.push(text);
+      }
+      return;
+    }
+
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      const el = node as HTMLElement;
+      const tag = el.tagName.toLowerCase();
+
+      if (tag === "BR") {
+        parts.push("\n");
+        return;
+      }
+
+      const isBlock = BLOCK_TAGS.has(tag);
+
+      if (isBlock && parts.length > 0) {
+        const lastPart = parts[parts.length - 1];
+        if (lastPart !== "" && !lastPart.endsWith("\n")) {
+          parts.push("\n");
+        }
+      }
+
+      node.childNodes.forEach((child) => appendNode(child));
+
+      if (isBlock) {
+        parts.push("\n");
+      }
+    }
+  };
+
+  tmp.childNodes.forEach((child) => appendNode(child));
+
+  let raw = parts.join("")
+    .replace(/\r\n/g, "\n")
+    .replace(/\u00a0/g, " ")
+    .replace(/[ \t]+/g, " ") 
+    .replace(/\n[ \t]+/g, "\n")
+    .replace(/[ \t]+\n/g, "\n");
+
+  const lines = raw.split("\n").map((line) => line.trimEnd());
+  
+  let result = "";
+  let emptyLineCount = 0;
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line === "") {
+      emptyLineCount++;
+      if (emptyLineCount <= 2) {
+        if (result && !result.endsWith("\n\n")) {
+          result += "\n";
+        }
+      }
+    } else {
+      emptyLineCount = 0;
+      if (result && !result.endsWith("\n")) {
+        result += "\n";
+      }
+      result += line;
+    }
+  }
+
+  return result.trim();
+};
+
+const stripMarkdownArtifacts = (text: string) => {
+  if (!text) return "";
+
+  let result = text
+    .replace(/~~(.*?)~~/g, "$1") 
+    .replace(/~~/g, "") 
+    .replace(/^[\s\u00a0]*(>\s*)+/gm, "")
+    .replace(/[\u00a0\t]+/g, " ") 
+    .replace(/[ ]{2,}/g, " ") 
+    .replace(/\r\n/g, "\n");
+
+  const lines = result.split("\n");
+  const cleanedLines: string[] = [];
+  let consecutiveEmpty = 0;
+
+  for (const line of lines) {
+    const trimmed = line.trimEnd();
+    if (trimmed === "") {
+      consecutiveEmpty++;
+      if (consecutiveEmpty <= 1) {
+        cleanedLines.push("");
+      }
+    } else {
+      consecutiveEmpty = 0;
+      cleanedLines.push(trimmed);
+    }
+  }
+
+  return cleanedLines.join("\n").trim();
+};
+
 type DocxImageType = "jpg" | "png" | "gif" | "bmp";
 const DOCX_IMAGE_TYPES: DocxImageType[] = ["jpg", "png", "gif", "bmp"];
 
@@ -122,7 +235,6 @@ const BLOCK_TAGS = new Set([
   "blockquote", "pre", "code", "ul", "ol", "li", "table", "hr",
 ]);
 
-// DOCX conversion functions
 const deriveTextStyle = (element: HTMLElement, base: DocxTextStyle): DocxTextStyle => {
   const next: DocxTextStyle = { ...base };
   const tag = element.tagName.toLowerCase();
@@ -248,7 +360,7 @@ const sourceToDataUrl = async (src: string) => {
       return await blobToDataURL(blob);
     }
   } catch (err) {
-    // ignore fetch failures, fallback to DOM capture
+    // ignore 
   }
   return await captureImageFromLiveDom(src);
 };
@@ -304,7 +416,6 @@ const buildRunsFromChildren = async (element: HTMLElement, baseStyle: DocxTextSt
   const runs: ParagraphChild[] = [];
   for (const child of Array.from(element.childNodes)) {
     if (child.nodeType === Node.TEXT_NODE) {
-      // Filter out whitespace-only text nodes between block elements
       const text = child.textContent || "";
       if (text.trim()) {
         runs.push(...createTextRunsFromString(text, baseStyle));
@@ -325,7 +436,6 @@ const buildRunsFromChildren = async (element: HTMLElement, baseStyle: DocxTextSt
       continue;
     }
 
-    // For block tags like div, p, etc., recursively extract their content
     if (BLOCK_TAGS.has(child.tagName.toLowerCase()) && child.tagName.toLowerCase() !== "hr") {
       const nextStyle = deriveTextStyle(child, baseStyle);
       runs.push(...(await buildRunsFromChildren(child, nextStyle)));
@@ -357,11 +467,9 @@ const createParagraphFromElement = async (
     paragraphOptions.alignment = alignmentMap[alignKey];
   }
 
-  // Extract border-left styling for indentation lines
   const borderLeft = element.style.borderLeft || window.getComputedStyle(element).borderLeft;
   const hasBorderLeft = borderLeft && borderLeft !== "none" && borderLeft !== "";
   
-  // Extract left margin/padding for indentation
   const marginLeft = parseInt(element.style.marginLeft || window.getComputedStyle(element).marginLeft || "0", 10);
   const paddingLeft = parseInt(element.style.paddingLeft || window.getComputedStyle(element).paddingLeft || "0", 10);
 
@@ -372,7 +480,6 @@ const createParagraphFromElement = async (
       left: { size: 6, color: "CCCCCC" },
     };
   } else if (hasBorderLeft) {
-    // Apply border-left for any element with border-left styling
     const borderMatch = borderLeft.match(/(\d+)px.*#([a-f0-9]{6}|[a-f0-9]{3})/i);
     if (borderMatch) {
       const borderSize = Math.max(1, Math.round(parseInt(borderMatch[1], 10) / 2));
@@ -383,7 +490,6 @@ const createParagraphFromElement = async (
     }
   }
 
-  // Apply left indentation if margin/padding exists
   if (marginLeft > 0 || paddingLeft > 0) {
     const leftIndent = Math.round((marginLeft + paddingLeft) / 15);
     paragraphOptions.indent = paragraphOptions.indent || {};
@@ -484,28 +590,21 @@ const convertNodeToParagraphs = async (node: Node): Promise<Paragraph[]> => {
     return paragraph ? [paragraph] : [];
   }
 
-  // Check if this is a DIV with indentation styling that should be handled specially
   if (tag === "div") {
     const hasMarginLeft = node.style.marginLeft || node.style.paddingLeft;
     const marginLeftVal = parseInt(node.style.marginLeft || "0", 10);
     const paddingLeftVal = parseInt(node.style.paddingLeft || "0", 10);
-    
-    // Only treat as indentation wrapper if it has actual margin/padding
+
     if (hasMarginLeft && (marginLeftVal > 0 || paddingLeftVal > 0)) {
-      // Check if this div contains block children
       const hasBlockChild = Array.from(node.childNodes).some(
         (child) => child instanceof HTMLElement && BLOCK_TAGS.has(child.tagName.toLowerCase())
       );
       
-      // If it only contains text/inline content, treat as regular indented paragraph
       if (!hasBlockChild) {
         const leftIndent = Math.round((marginLeftVal + paddingLeftVal) / 15);
         const paragraph = await createParagraphFromElement(node, { indent: { left: leftIndent } });
         return paragraph ? [paragraph] : [];
       }
-      
-      // If it contains block children, just process children without wrapping
-      // The children will handle their own structure
     }
   }
 
@@ -528,22 +627,19 @@ const convertNodeToParagraphs = async (node: Node): Promise<Paragraph[]> => {
 const buildDocxParagraphsFromClone = async (root: HTMLElement) => {
   const paragraphs: Paragraph[] = [];
   
-  // Process all child nodes of the root
   for (const child of Array.from(root.childNodes)) {
     const childParagraphs = await convertNodeToParagraphs(child);
     paragraphs.push(...childParagraphs);
   }
   
-  // If no paragraphs were generated but root has content, try processing root as a container
   if (!paragraphs.length && root.textContent && root.textContent.trim().length > 0) {
-    // Fallback: treat the root itself as having block children
+
     const paragraph = await createParagraphFromElement(root);
     if (paragraph) {
       paragraphs.push(paragraph);
     }
   }
   
-  // If still no paragraphs, add an empty one
   if (!paragraphs.length) {
     paragraphs.push(new Paragraph({ children: [new TextRun(" ")] }));
   }
@@ -551,7 +647,6 @@ const buildDocxParagraphsFromClone = async (root: HTMLElement) => {
   return paragraphs;
 };
 
-// PDF-specific utilities
 const normalizeStyleTags = (root: HTMLElement) => {
   const styleNodes = Array.from(root.querySelectorAll("style"));
   styleNodes.forEach((styleNode) => {
@@ -614,15 +709,12 @@ const normalizeTextDecorations = (root: HTMLElement) => {
     const decoration = el.style.textDecoration;
     if (!decoration) return;
     
-    // Skip if strikethrough was already processed (we're using background gradient instead)
     if (el.dataset.strikethroughProcessed === "true") return;
     
-    // Normalize multiple text-decoration values to ensure both show
     const hasUnderline = decoration.includes("underline");
     const hasLineThrough = decoration.includes("line-through");
     
     if (hasUnderline && hasLineThrough) {
-      // Ensure both are explicitly set
       el.style.textDecoration = "underline line-through";
       el.style.textDecorationLine = "underline line-through";
     }
@@ -698,7 +790,6 @@ const shiftHighlightsDown = (root: HTMLElement, offsetPx: number) => {
 
     if (!bgColor || /transparent|rgba\(0,\s*0,\s*0,\s*0\)/i.test(bgColor)) return;
 
-    // For PDF export, apply background directly - html2canvas can render this properly
     el.style.backgroundColor = bgColor;
     el.style.paddingLeft = "2px";
     el.style.paddingRight = "2px";
@@ -708,7 +799,6 @@ const shiftHighlightsDown = (root: HTMLElement, offsetPx: number) => {
   });
 };
 
-// Main export functions
 async function exportAsPDF(html: string, filename: string) {
   const liveEditor = document.querySelector('[data-wysiwyg-editor-root="true"]') as HTMLElement | null;
 
@@ -775,14 +865,13 @@ async function exportAsPDF(html: string, filename: string) {
   [data-export-clone] span[style*="background"],
   [data-export-clone] mark { display: inline; vertical-align: baseline; line-height: inherit; padding: 0; margin: 0; }
   
-  /* Standard strikethrough elements */
   [data-export-clone] s,
   [data-export-clone] del,
   [data-export-clone] strike { 
     position: relative;
     display: inline-block;
     line-height: inherit;
-    text-decoration: none !important; /* Disable native text-decoration */
+    text-decoration: none !important; 
   }
   [data-export-clone] s::before,
   [data-export-clone] del::before,
@@ -795,10 +884,9 @@ async function exportAsPDF(html: string, filename: string) {
     height: 1px;
     background-color: currentColor;
     transform: translateY(-50%);
-    display: none; /* Disabled - using background gradient in JS */
+    display: none; 
   }
   
-  /* Underline styling */
   [data-export-clone] u {
     text-decoration: underline !important;
     text-decoration-thickness: 1px !important;
@@ -807,7 +895,6 @@ async function exportAsPDF(html: string, filename: string) {
     text-decoration-skip-ink: none !important;
   }
   
-  /* Elements with both underline and strikethrough */
   [data-export-clone] u s,
   [data-export-clone] u strike,
   [data-export-clone] u del,
@@ -849,7 +936,6 @@ async function exportAsPDF(html: string, filename: string) {
   [data-export-clone] em,
   [data-export-clone] i { font-style: italic; }
 
-  /* Blockquote styling: keep the border in place, don't move the whole box */
   [data-export-clone] blockquote {
     margin: 2rem 0 0.5rem 0 !important;
     padding: 0 0 0 1rem !important;
@@ -861,15 +947,12 @@ async function exportAsPDF(html: string, filename: string) {
     transform: translateY(-4px) !important;
   }
     
-  /* For nested blockquotes, move their non-blockquote children the same amount */
   [data-export-clone] blockquote blockquote > :not(blockquote) {
     margin-top: 0 !important;
     padding-top: 0 !important;
     transform: translateY(-4px) !important;
   }
-  /* Images inside blockquotes can sit higher than text due to baseline differences.
-     Apply a slightly smaller upward shift and ensure they are inline-block so
-     they visually align with the text and the quote bar. */
+
   [data-export-clone] blockquote img,
   [data-export-clone] blockquote > img,
   [data-export-clone] blockquote figure,
@@ -1022,14 +1105,12 @@ async function exportAsDocx(html: string, filename: string) {
 }
 
 async function exportAsTxt(html: string, filename: string) {
-  const tmp = document.createElement("div");
-  tmp.innerHTML = html;
-  const text = tmp.innerText || tmp.textContent || "";
+  const raw = htmlToPlainText(html);
+  const text = stripMarkdownArtifacts(raw);
   const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
   downloadBlob(blob, `${filename}.txt`);
 }
 
-// Main component
 interface ExportOverlayProps {
   open: boolean;
   onClose?: () => void;
