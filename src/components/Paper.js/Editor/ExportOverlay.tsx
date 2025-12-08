@@ -476,6 +476,70 @@ const normalizeStyleTags = (root: HTMLElement) => {
   });
 };
 
+const ensureStrikethroughVisible = (root: HTMLElement) => {
+  const elements = [root, ...Array.from(root.querySelectorAll("*"))] as HTMLElement[];
+  elements.forEach((el) => {
+    const decoration = el.style.textDecoration || "";
+    const hasLineThrough = decoration.includes("line-through");
+    
+    if (!hasLineThrough) return;
+    if (el.dataset.strikethroughProcessed === "true") return;
+    
+    const hasUnderline = decoration.includes("underline");
+    
+    let textColor = el.style.color;
+    if (!textColor || textColor === "" || textColor === "currentColor") {
+      textColor = window.getComputedStyle(el).color || "currentColor";
+    }
+    
+    if (hasUnderline) {
+      el.style.textDecoration = "underline";
+      el.style.textDecorationLine = "underline";
+      el.style.textDecorationColor = textColor;
+      el.style.textDecorationThickness = "1px";
+      el.style.textUnderlineOffset = "2px";
+    } else {
+      el.style.textDecoration = "none";
+    }
+    
+    const fontSize = parseFloat(window.getComputedStyle(el).fontSize) || 16;
+    const lineHeight = parseFloat(window.getComputedStyle(el).lineHeight) || fontSize * 1.5;
+    
+    const strikethroughOffset = fontSize * 1.4;
+    
+    el.style.backgroundImage = `linear-gradient(to right, ${textColor}, ${textColor})`;
+    el.style.backgroundPosition = `center ${strikethroughOffset}px`;
+    el.style.backgroundSize = "100% 1px";
+    el.style.backgroundRepeat = "no-repeat";
+    el.style.padding = "0.1em 0";
+    el.style.display = "inline-block";
+    el.style.lineHeight = `${lineHeight}px`;
+    
+    el.dataset.strikethroughProcessed = "true";
+  });
+};
+
+const normalizeTextDecorations = (root: HTMLElement) => {
+  const elements = [root, ...Array.from(root.querySelectorAll("*"))] as HTMLElement[];
+  elements.forEach((el) => {
+    const decoration = el.style.textDecoration;
+    if (!decoration) return;
+    
+    // Skip if strikethrough was already processed (we're using background gradient instead)
+    if (el.dataset.strikethroughProcessed === "true") return;
+    
+    // Normalize multiple text-decoration values to ensure both show
+    const hasUnderline = decoration.includes("underline");
+    const hasLineThrough = decoration.includes("line-through");
+    
+    if (hasUnderline && hasLineThrough) {
+      // Ensure both are explicitly set
+      el.style.textDecoration = "underline line-through";
+      el.style.textDecorationLine = "underline line-through";
+    }
+  });
+};
+
 const normalizeListStructure = (root: HTMLElement) => {
   const lists = Array.from(root.querySelectorAll("ul, ol"));
   lists.forEach((list) => {
@@ -551,7 +615,13 @@ const shiftHighlightsDown = (root: HTMLElement, offsetPx: number) => {
     highlightLayer.style.left = "-2.5px";
     highlightLayer.style.right = "-20px";
     highlightLayer.style.top = `${offsetPx}px`;
-    highlightLayer.style.height = `calc(100% + ${offsetPx}px)`;
+    try {
+      const elRect = el.getBoundingClientRect();
+      const safeHeight = Math.max(0, Math.round(elRect.height - offsetPx));
+      highlightLayer.style.height = `${safeHeight}px`;
+    } catch {
+      highlightLayer.style.height = `calc(100% - ${offsetPx}px)`;
+    }
     highlightLayer.style.backgroundColor = bgColor;
     highlightLayer.style.zIndex = "0";
     highlightLayer.style.borderRadius = "0.1em";
@@ -609,6 +679,8 @@ async function exportAsPDF(html: string, filename: string) {
   }
 
   normalizeInlineDeclarations(clone);
+  normalizeTextDecorations(clone);
+  ensureStrikethroughVisible(clone);
   normalizeStyleTags(clone);
   normalizeListStructure(clone);
   shiftHighlightsDown(clone, 15);
@@ -633,16 +705,91 @@ async function exportAsPDF(html: string, filename: string) {
   const iframeDoc = ensureIframeDoc();
   iframeDoc.open();
   iframeDoc.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-    * { box-sizing: border-box; }
-    body { margin: 0; padding: 32px; background: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; line-height: 1.5; }
-    [data-export-clone] img { max-width: 100%; height: auto; }
-    [data-export-clone] ul,
-    [data-export-clone] ol { margin: 0.5rem 0; padding-left: 1.5rem; list-style-position: outside; }
-    [data-export-clone] li { margin: 0.25rem 0; display: list-item; list-style-position: outside; line-height: inherit; }
-    [data-export-clone] li::marker { font-size: 1em; }
-    [data-export-clone] span[style*="background"],
-    [data-export-clone] mark { display: inline; vertical-align: baseline; line-height: inherit; padding: 0; margin: 0; }
-  </style></head><body></body></html>`);
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 32px; background: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; line-height: 1.5; }
+  [data-export-clone] img { max-width: 100%; height: auto; }
+  [data-export-clone] ul,
+  [data-export-clone] ol { margin: 0.5rem 0; padding-left: 1.5rem; list-style-position: outside; }
+  [data-export-clone] li { margin: 0.25rem 0; display: list-item; list-style-position: outside; line-height: inherit; }
+  [data-export-clone] li::marker { font-size: 1em; }
+  [data-export-clone] span[style*="background"],
+  [data-export-clone] mark { display: inline; vertical-align: baseline; line-height: inherit; padding: 0; margin: 0; }
+  
+  /* Standard strikethrough elements */
+  [data-export-clone] s,
+  [data-export-clone] del,
+  [data-export-clone] strike { 
+    position: relative;
+    display: inline-block;
+    line-height: inherit;
+    text-decoration: none !important; /* Disable native text-decoration */
+  }
+  [data-export-clone] s::before,
+  [data-export-clone] del::before,
+  [data-export-clone] strike::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 1px;
+    background-color: currentColor;
+    transform: translateY(-50%);
+    display: none; /* Disabled - using background gradient in JS */
+  }
+  
+  /* Underline styling */
+  [data-export-clone] u {
+    text-decoration: underline !important;
+    text-decoration-thickness: 1px !important;
+    text-decoration-color: currentColor !important;
+    text-underline-offset: 2px !important;
+    text-decoration-skip-ink: none !important;
+  }
+  
+  /* Elements with both underline and strikethrough */
+  [data-export-clone] u s,
+  [data-export-clone] u strike,
+  [data-export-clone] u del,
+  [data-export-clone] *[style*="underline"][style*="line-through"] {
+    position: relative;
+    display: inline-block;
+    line-height: inherit;
+    text-decoration: underline !important;
+    text-decoration-thickness: 1px !important;
+    text-decoration-color: currentColor !important;
+    text-underline-offset: 2px !important;
+    text-decoration-skip-ink: none !important;
+  }
+  [data-export-clone] u s::before,
+  [data-export-clone] u strike::before,
+  [data-export-clone] u del::before,
+  [data-export-clone] *[style*="underline"][style*="line-through"]::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 1px;
+    background-color: currentColor;
+    transform: translateY(-50%);
+    display: none; /* Disabled - using background gradient instead */
+  }
+  
+  /* Text decoration styles */
+  [data-export-clone] *[style*="underline"] {
+    text-decoration: underline !important;
+    text-decoration-thickness: 1px !important;
+    text-decoration-color: currentColor !important;
+    text-underline-offset: 2px !important;
+    text-decoration-skip-ink: none !important;
+  }
+  
+  [data-export-clone] strong,
+  [data-export-clone] b { font-weight: bold; }
+  [data-export-clone] em,
+  [data-export-clone] i { font-style: italic; }
+</style></head><body></body></html>`);
   iframeDoc.close();
 
   const wrapper = iframeDoc.createElement("div");
