@@ -21,7 +21,7 @@ export default function GoogleSignInButton({
 
     try {
       await signIn("google", {
-        callbackUrl: "/",
+        callbackUrl: "/app",
         redirect: true,
       });
     } catch (error) {

@@ -51,9 +51,15 @@ Pour activer l'authentification Google OAuth :
 2. **Ajoutez les variables** à votre fichier `.env` :
 
 ```env
+# URL de base (OBLIGATOIRE pour NextAuth.js)
+NEXTAUTH_URL=http://localhost:3000
+
+# Clés Google OAuth
 AUTH_GOOGLE_ID=votre_client_id_google
 AUTH_GOOGLE_SECRET=votre_client_secret_google
 ```
+
+⚠️ **Important** : `NEXTAUTH_URL` est **obligatoire** pour que Google OAuth fonctionne correctement.
 
 ### 5. Démarrer l'application
 
