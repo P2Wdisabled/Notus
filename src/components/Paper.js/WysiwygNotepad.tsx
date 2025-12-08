@@ -108,6 +108,15 @@ export default function WysiwygNotepad({
     };
   }, [getContentSnapshot, markdown]);
 
+  // Normalize markdown to limit consecutive empty lines (max 2)
+  const normalizeMarkdown = useCallback((markdown: string): string => {
+    if (!markdown) return markdown;
+    
+    // Replace 3+ consecutive empty lines with max 2 empty lines
+    // This preserves intentional spacing (1-2 empty lines) while removing excessive ones
+    return markdown.replace(/\n{3,}/g, '\n\n');
+  }, []);
+
   const {
     emitLocalChange: emitChange,
     isConnected,
@@ -123,11 +132,13 @@ export default function WysiwygNotepad({
         return;
       }
       
-      setMarkdown(remote);
+      // Normalize remote markdown to limit consecutive empty lines
+      const normalizedRemote = normalizeMarkdown(remote);
+      setMarkdown(normalizedRemote);
 
       if (onRemoteContentChange) {
         const remoteContent = {
-          text: remote,
+          text: normalizedRemote,
           timestamp: Date.now(),
         };
         onRemoteContentChange(remoteContent);
@@ -176,22 +187,25 @@ export default function WysiwygNotepad({
 
   // Handle markdown content change
   const handleMarkdownChange = useCallback((newMarkdown: string) => {
+    // Normalize markdown to limit consecutive empty lines before syncing
+    const normalizedMarkdown = normalizeMarkdown(newMarkdown);
+    
     // NEVER emit or apply changes if offline - this prevents rollbacks
     if (isOffline) {
       // Just update local state and notify parent - no sync attempts
-      setMarkdown(newMarkdown);
+      setMarkdown(normalizedMarkdown);
       if (onContentChange) {
         onContentChange({
-          text: newMarkdown,
+          text: normalizedMarkdown,
           timestamp: Date.now(),
         });
       }
       return;
     }
     
-    // Emit to other clients if connected and has roomId
+    // Emit to other clients if connected and has roomId (use normalized markdown)
     if (roomId && emitChange && isConnected) {
-      emitChange(newMarkdown);
+      emitChange(normalizedMarkdown);
     }
     
     // Also apply the change locally after a delay to normalize the markdown
@@ -200,23 +214,23 @@ export default function WysiwygNotepad({
     // ONLY do this if connected - in offline mode, we apply immediately to prevent rollbacks
     if (roomId && isConnected && !isOffline) {
       setTimeout(() => {
-        // Apply the markdown locally to ensure it's normalized the same way
+        // Apply the normalized markdown locally to ensure it's normalized the same way
         // This will trigger the same normalization process as remote updates
-        setMarkdown(newMarkdown);
+        setMarkdown(normalizedMarkdown);
       }, 100);
     } else {
       // In offline mode, apply immediately to prevent rollbacks
-      setMarkdown(newMarkdown);
+      setMarkdown(normalizedMarkdown);
     }
     
-    // Notify parent with the expected format
+    // Notify parent with the expected format (use normalized markdown)
     if (onContentChange) {
       onContentChange({
-        text: newMarkdown,
+        text: normalizedMarkdown,
         timestamp: Date.now(),
       });
     }
-  }, [onContentChange, emitChange, isConnected, roomId, isOffline]);
+  }, [onContentChange, emitChange, isConnected, roomId, isOffline, normalizeMarkdown]);
 
   // Handle formatting change
   const handleFormatChange = useCallback((command: string, value?: string) => {
