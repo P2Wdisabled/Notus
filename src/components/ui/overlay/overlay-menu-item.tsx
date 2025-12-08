@@ -8,8 +8,8 @@ export default function MenuItem({ onClick, children, icon, className, disabled 
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
     >
-      {icon && <span className="mr-2">{icon}</span>}
-      <span className="align-middle">{children}</span>
+      {icon && <span className="mr-3 flex items-center justify-center">{icon}</span>}
+      <span className="flex items-center">{children}</span>
     </button>
   );
 }

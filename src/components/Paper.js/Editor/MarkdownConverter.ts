@@ -403,12 +403,33 @@ export class MarkdownConverter {
             return `<span style="${styles.join('; ')}">${content}</span>`;
           }
 
-          // build nested tags but put styles on the outermost formatting tag
-          const outer = tagNames[0];
-          let opening = `<${outer} style="${styles.join('; ')}">`;
-          for (let i = 1; i < tagNames.length; i++) opening += `<${tagNames[i]}>`;
+          // For strikethrough/underline, apply color directly to those elements so it persists
+          let opening = '';
           let closing = '';
-          for (let i = tagNames.length - 1; i >= 0; i--) closing += `</${tagNames[i]}>`;
+          let colorStyle = styles.find(s => s.startsWith('color:')) || '';
+          let otherStyles = styles.filter(s => !s.startsWith('color:'));
+          
+          if (isBold) {
+            opening += `<strong${otherStyles.length > 0 && !isUnderline && !isStrike ? ` style="${otherStyles.join('; ')}"` : ''}>`;
+            closing = '</strong>' + closing;
+          }
+          if (isItalic) {
+            opening += `<em${otherStyles.length > 0 && !isUnderline && !isStrike ? ` style="${otherStyles.join('; ')}"` : ''}>`;
+            closing = '</em>' + closing;
+          }
+          if (isUnderline) {
+            opening += `<u${colorStyle ? ` style="${colorStyle}"` : ''}>`;
+            closing = '</u>' + closing;
+          }
+          if (isStrike) {
+            opening += `<s${colorStyle ? ` style="${colorStyle}"` : ''}>`;
+            closing = '</s>' + closing;
+          }
+          
+          // If we only have bold/italic (no decoration), put all styles on the first tag
+          if (!isUnderline && !isStrike && otherStyles.length > 0) {
+            opening = opening.replace(/<strong>/, `<strong style="${otherStyles.join('; ')}">`);
+          }
 
           return `${opening}${content}${closing}`;
         }
@@ -417,7 +438,7 @@ export class MarkdownConverter {
         if (isBold) content = `**${content}**`;
         if (isItalic) content = `*${content}*`;
         if (isUnderline) content = `<u>${content}</u>`;
-        if (isStrike) content = `~~${content}~~`;
+        if (isStrike) content = `<s>${content}</s>`;
         return content;
       }
     });
@@ -762,25 +783,20 @@ export class MarkdownConverter {
     });
   }
 
-  // Convert markdown to HTML
   async markdownToHtml(md: string): Promise<string> {
-    // First, clean up any markdown bold/italic that might not be parsed
+    
     let processedMd = md
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
       .replace(/__(.*?)__/g, '<strong>$1</strong>')
       .replace(/_(.*?)_/g, '<em>$1</em>');
 
-    // Defensive: replace any legacy placeholder tokens saved in markdown with explicit blank lines
     const PLACEHOLDER = '[[__EMPTY_PARAGRAPH__]]';
     let cleanedMd = processedMd.split(PLACEHOLDER).join('\n\n');
 
-    // Before passing to marked, extract and preserve lists wrapped in divs
-    // Replace them with HTML comments that marked will preserve, then restore them
     const listPlaceholders: { placeholder: string; content: string }[] = [];
     let placeholderIndex = 0;
     
-    // Find all lists wrapped in divs with data-list-wrapper
     cleanedMd = cleanedMd.replace(/<div[^>]*data-list-wrapper="true"[^>]*>([\s\S]*?)<\/div>/g, (match, listContent) => {
       const placeholder = `<!-- LIST_PLACEHOLDER_${placeholderIndex} -->`;
       listPlaceholders.push({
@@ -797,12 +813,9 @@ export class MarkdownConverter {
       async: true
     };
 
-    // Preserve video elements before passing to marked (to avoid stack overflow with long base64 data)
     const videoPlaceholders: { placeholder: string; content: string }[] = [];
     let videoPlaceholderIndex = 0;
-    
-    // Match both self-closing <video ... /> and <video ...></video> tags
-    // Use non-greedy matching with [\s\S] to handle very long attributes (base64)
+
     cleanedMd = cleanedMd.replace(/<video[\s\S]*?(?:\/>|>[\s\S]*?<\/video>)/gi, (match) => {
       const placeholder = `<!-- VIDEO_PLACEHOLDER_${videoPlaceholderIndex} -->`;
       videoPlaceholders.push({
@@ -815,22 +828,19 @@ export class MarkdownConverter {
 
     const html = await this.parseMarkdownWithFallback(cleanedMd, markedOptions);
 
-    // Restore lists from placeholders
-    let unwrappedHtml = html;
+    let htmlWithStrike = html.replace(/~~([^~]+)~~/g, '<s>$1</s>');
+
+    let unwrappedHtml = htmlWithStrike;
     listPlaceholders.forEach(({ placeholder, content }) => {
-      // Replace both comment format and any escaped version
       unwrappedHtml = unwrappedHtml.replace(new RegExp(`<!--\\s*${placeholder}\\s*-->`, 'g'), content);
       unwrappedHtml = unwrappedHtml.replace(new RegExp(placeholder, 'g'), content);
     });
 
-    // Restore video elements from placeholders
     videoPlaceholders.forEach(({ placeholder, content }) => {
-      // Replace both comment format and any escaped version
       unwrappedHtml = unwrappedHtml.replace(new RegExp(`<!--\\s*${placeholder}\\s*-->`, 'g'), content);
       unwrappedHtml = unwrappedHtml.replace(new RegExp(placeholder, 'g'), content);
     });
 
-    // Add custom styles for headings and other elements
     const styledHtml = unwrappedHtml
       .replace(/<h1>/g, '<h1 style="font-size: 1.875rem; font-weight: bold; margin: 1rem 0;">')
       .replace(/<h2>/g, '<h2 style="font-size: 1.5rem; font-weight: bold; margin: 0.875rem 0;">')
@@ -840,31 +850,21 @@ export class MarkdownConverter {
       .replace(/<h6>/g, '<h6 style="font-size: 0.875rem; font-weight: bold; margin: 0.5rem 0;">')
       .replace(/<blockquote>/g, '<blockquote style="border-left: 4px solid #e5e7eb; padding-left: 1rem; margin: 1rem 0; color: #6b7280; font-style: italic;">')
       .replace(/<hr>/g, '<hr style="border: none; border-top: 1px solid #e5e7eb; margin: 2rem 0;">')
-      // Prevent adjacent lists from being combined by adding a separator
-      // This ensures each list remains separate
-      // Use a more robust separator that won't be removed
-      // Also handle lists with data-single-item-list attribute
       .replace(/<\/ul([^>]*data-single-item-list[^>]*)>\s*(?=<ul)/g, '</ul$1>\n<p style="margin: 0; padding: 0; height: 0; line-height: 0; visibility: hidden;">&nbsp;</p>\n')
       .replace(/<\/ol([^>]*data-single-item-list[^>]*)>\s*(?=<ol)/g, '</ol$1>\n<p style="margin: 0; padding: 0; height: 0; line-height: 0; visibility: hidden;">&nbsp;</p>\n')
       .replace(/<\/ul([^>]*data-single-item-list[^>]*)>\s*(?=<ol)/g, '</ul$1>\n<p style="margin: 0; padding: 0; height: 0; line-height: 0; visibility: hidden;">&nbsp;</p>\n')
       .replace(/<\/ol([^>]*data-single-item-list[^>]*)>\s*(?=<ul)/g, '</ol$1>\n<p style="margin: 0; padding: 0; height: 0; line-height: 0; visibility: hidden;">&nbsp;</p>\n')
-      // Also handle regular lists
+
       .replace(/<\/ul>\s*(?=<ul)/g, '</ul>\n<p style="margin: 0; padding: 0; height: 0; line-height: 0; visibility: hidden;">&nbsp;</p>\n')
       .replace(/<\/ol>\s*(?=<ol)/g, '</ol>\n<p style="margin: 0; padding: 0; height: 0; line-height: 0; visibility: hidden;">&nbsp;</p>\n')
       .replace(/<\/ul>\s*(?=<ol)/g, '</ul>\n<p style="margin: 0; padding: 0; height: 0; line-height: 0; visibility: hidden;">&nbsp;</p>\n')
       .replace(/<\/ol>\s*(?=<ul)/g, '</ol>\n<p style="margin: 0; padding: 0; height: 0; line-height: 0; visibility: hidden;">&nbsp;</p>\n')
-      // FIXED: Better list styling with proper indentation and line handling
-      // Handle lists with existing styles (preserve alignment and other styles)
       .replace(/<ul(\s+[^>]*)?>/g, (match, attrs = '') => {
-        // Check if style attribute already exists
         if (attrs && attrs.includes('style=')) {
-          // Extract existing style
           const styleMatch = attrs.match(/style=["']([^"']*)["']/);
           if (styleMatch) {
             const existingStyle = styleMatch[1];
-            // Merge with our default styles, but preserve text-align
             const defaultStyles = 'margin: 1rem 0; padding-left: 2rem; list-style-type: disc; list-style-position: outside;';
-            // If text-align is in existing style, preserve it
             if (existingStyle.includes('text-align:')) {
               return `<ul${attrs}>`;
             }
