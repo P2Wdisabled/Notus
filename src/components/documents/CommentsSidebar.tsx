@@ -280,7 +280,7 @@ export default function CommentsSidebar({ documentId, isOpen, onClose }: Comment
                           </span>
                         </div>
                         <p className={cn(
-                          "mt-1 text-xs whitespace-pre-wrap break-words break-all",
+                          "mt-1 text-xs whitespace-pre-wrap break-words",
                           isCurrentUser
                             ? "text-[var(--primary-foreground)]"
                             : "text-foreground"
