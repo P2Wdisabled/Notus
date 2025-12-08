@@ -2,6 +2,8 @@ export class FormattingHandler {
   private editorRef: React.RefObject<HTMLDivElement | null>;
   private onContentChange: (content: string) => void;
   private htmlToMarkdown: (html: string) => string;
+  private lastSelectionRange: Range | null = null;
+  private selectionChangeHandler: (() => void) | null = null;
 
   constructor(
     editorRef: React.RefObject<HTMLDivElement | null>,
@@ -11,6 +13,20 @@ export class FormattingHandler {
     this.editorRef = editorRef;
     this.onContentChange = onContentChange;
     this.htmlToMarkdown = htmlToMarkdown;
+
+    // Track the last valid selection inside the editor so we can restore it after opening modals/toolbars
+    if (typeof document !== 'undefined') {
+      this.selectionChangeHandler = () => {
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0) {
+          const currentRange = sel.getRangeAt(0);
+          if (this.isRangeInsideEditor(currentRange)) {
+            this.lastSelectionRange = currentRange.cloneRange();
+          }
+        }
+      };
+      document.addEventListener('selectionchange', this.selectionChangeHandler);
+    }
   }
 
   // Function to save current selection
@@ -27,6 +43,20 @@ export class FormattingHandler {
       endContainer: range.endContainer,
       endOffset: range.endOffset
     };
+  }
+
+  // Check if a range stays inside the editor content
+  private isRangeInsideEditor(range: Range) {
+    const editor = this.editorRef.current;
+    if (!editor) return false;
+
+    const isNodeInside = (node: Node | null) => {
+      if (!node) return false;
+      const elementNode = node.nodeType === Node.TEXT_NODE ? node.parentNode : node;
+      return elementNode ? editor.contains(elementNode) : false;
+    };
+
+    return isNodeInside(range.startContainer) && isNodeInside(range.endContainer);
   }
 
   // Apply inline formatting to selection only (not entire lines)
@@ -233,6 +263,23 @@ export class FormattingHandler {
     }
     
     this.editorRef.current.focus();
+
+    // If selection got lost (e.g., after opening the drawing modal), restore the last known range
+    const restoreLastSelectionIfNeeded = () => {
+      let sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0 || !this.isRangeInsideEditor(sel.getRangeAt(0))) {
+        if (this.lastSelectionRange) {
+          const clone = this.lastSelectionRange.cloneRange();
+          sel = window.getSelection();
+          if (sel) {
+            sel.removeAllRanges();
+            sel.addRange(clone);
+          }
+        }
+      }
+    };
+
+    restoreLastSelectionIfNeeded();
     
     // Ensure we have a selection; if none, place caret at the end of editor
     let selection = window.getSelection();
@@ -250,6 +297,10 @@ export class FormattingHandler {
     if (!selection || selection.rangeCount === 0) return;
 
     const range = selection.getRangeAt(0);
+    // Persist the last selection inside the editor for future restores
+    if (this.isRangeInsideEditor(range)) {
+      this.lastSelectionRange = range.cloneRange();
+    }
     const selectedText = range.toString();
     
     // Save selection details
