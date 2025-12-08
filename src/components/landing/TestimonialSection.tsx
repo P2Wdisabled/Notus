@@ -3,10 +3,10 @@ import { Card } from "@/components/ui";
 
 const testimonials = [
   {
-    name: "Claire Dumont",
-    role: "Directrice juridique, Civitas",
+    name: "Moïse Aérien",
+    role: "Développeuse, indépendante",
     quote:
-      "Notus a réduit de moitié le temps de consolidation des notes internes. L’éditeur et les synthèses IA sont devenus indispensables.",
+      "Notus a réduit de moitié le temps de consolidation des notes internes. L’éditeur et les synthèses IA sont devenus indispensables pour rédiger des messages pour mes clients.",
   },
   {
     name: "Gastien Bitard",
