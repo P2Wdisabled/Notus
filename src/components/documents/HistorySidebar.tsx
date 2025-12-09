@@ -177,7 +177,11 @@ function HistoryContentPreview({ content, isRemoved }: { content: string; isRemo
         } else {
           // Sinon, on convertit le markdown en HTML
           // Le markdownToHtml retourne déjà du HTML sanitized
-          html = await markdownConverterRef.current.markdownToHtml(content);
+          if (markdownConverterRef.current) {
+            html = await markdownConverterRef.current.markdownToHtml(content);
+          } else {
+            html = sanitizeHtml(content, EDITOR_SANITIZE_CONFIG);
+          }
         }
         
         setHtmlContent(html);
