@@ -100,23 +100,6 @@ export default function DrawingCanvas({
     drawingStateRef.current = drawingState;
   }, [drawingState]);
 
-  // When controls (color/size/opacity) change while drawing, apply to the current path immediately
-  useEffect(() => {
-    if (!paperScope) return;
-    const current = currentPathRef.current;
-    if (current) {
-      try {
-        const ds = drawingStateRef.current;
-        current.strokeColor = new paperScope.Color(ds.color);
-        current.strokeWidth = ds.size;
-        current.opacity = ds.opacity;
-        paperScope.view.update();
-      } catch (e) {
-        // no-op
-      }
-    }
-  }, [drawingState.color, drawingState.size, drawingState.opacity, paperScope]);
-
   // Canvas dimensions state
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
 
@@ -132,23 +115,6 @@ export default function DrawingCanvas({
   useEffect(() => {
     modeRef.current = mode;
   }, [mode]);
-
-  // Handle canvas resize
-  useEffect(() => {
-    const updateCanvasSize = () => {
-      if (canvasRef.current) {
-        const rect = canvasRef.current.getBoundingClientRect();
-        setCanvasSize({ width: rect.width, height: rect.height });
-      }
-    };
-
-    updateCanvasSize();
-    window.addEventListener("resize", updateCanvasSize);
-
-    return () => {
-      window.removeEventListener("resize", updateCanvasSize);
-    };
-  }, []);
 
   // Sync drawings from canvas to state when they change
   const syncDrawingsToState = useCallback(() => {
@@ -180,11 +146,171 @@ export default function DrawingCanvas({
     setDrawings(allPaths);
   }, [paperScope, setDrawings]);
 
+  // Reset drawing state when modal reopens (mode changes to "draw")
+  useEffect(() => {
+    if (mode === "draw" && paperScope) {
+      // Reset drawing flags
+      setIsDrawing(false);
+      isDrawingRef.current = false;
+      setCurrentPath(null);
+      currentPathRef.current = null;
+      lastPointRef.current = null;
+      
+      // Ensure tool handlers are properly set up with current drawing state
+      if (paperScope.tool) {
+        const tool = paperScope.tool;
+        
+        // Update onMouseDown to use current drawing state
+        tool.onMouseDown = (event: any) => {
+          if (modeRef.current !== "draw") {
+            return;
+          }
+          setIsDrawing(true);
+          isDrawingRef.current = true;
+
+          const path = new paperScope.Path();
+          const ds = drawingStateRef.current;
+          path.strokeColor = new paperScope.Color(ds.color);
+          path.strokeWidth = ds.size;
+          path.strokeCap = "round";
+          path.strokeJoin = "round";
+          path.opacity = ds.opacity;
+
+          path.add(event.point);
+          lastPointRef.current = { x: event.point.x, y: event.point.y };
+          setCurrentPath(path);
+          currentPathRef.current = path;
+
+          // Store in paths map
+          const pathId = `path-${Date.now()}-${Math.random()}`;
+          pathsRef.current.set(pathId, path);
+        };
+
+        // Update onMouseDrag to use current drawing state
+        tool.onMouseDrag = (event: any) => {
+          if (
+            !isDrawingRef.current ||
+            !currentPathRef.current ||
+            modeRef.current !== "draw"
+          ) {
+            return;
+          }
+
+          // Sample points to avoid many tiny segments which later simplify to corners
+          const last = lastPointRef.current;
+          const px = event.point.x;
+          const py = event.point.y;
+          if (!last) {
+            currentPathRef.current.add(event.point);
+            lastPointRef.current = { x: px, y: py };
+          } else {
+            const dx = px - last.x;
+            const dy = py - last.y;
+            const dist2 = dx * dx + dy * dy;
+            if (dist2 >= MIN_POINT_DISTANCE * MIN_POINT_DISTANCE) {
+              currentPathRef.current.add(event.point);
+              lastPointRef.current = { x: px, y: py };
+            }
+          }
+          // Always update with current drawing state
+          const ds = drawingStateRef.current;
+          currentPathRef.current.strokeColor = new paperScope.Color(ds.color);
+          currentPathRef.current.strokeWidth = ds.size;
+          currentPathRef.current.opacity = ds.opacity;
+          paperScope.view.update();
+        };
+
+        // Update onMouseUp
+        tool.onMouseUp = (event: any) => {
+          if (
+            !isDrawingRef.current ||
+            !currentPathRef.current ||
+            modeRef.current !== "draw"
+          ) {
+            return;
+          }
+
+          setIsDrawing(false);
+          isDrawingRef.current = false;
+
+          // Finalize path: apply a curvier smoothing algorithm (Catmull-Rom)
+          try {
+            currentPathRef.current.smooth({ type: 'catmull-rom', factor: 0.6 });
+          } catch (_e) {
+            try {
+              currentPathRef.current.smooth({ type: 'continuous' });
+            } catch (_e) {
+              // If smoothing fails entirely, keep the raw path as-is
+            }
+          }
+          // reset last point
+          lastPointRef.current = null;
+
+          // Convert to serializable format
+          const dsFinal = drawingStateRef.current;
+          const serializedPath: Drawing = {
+            segments: currentPathRef.current.segments.map((segment: any) => ({
+              point: [segment.point.x, segment.point.y] as [number, number],
+              handleIn: segment.handleIn
+                ? ([segment.handleIn.x, segment.handleIn.y] as [number, number])
+                : null,
+              handleOut: segment.handleOut
+                ? ([segment.handleOut.x, segment.handleOut.y] as [number, number])
+                : null,
+            })),
+            color: dsFinal.color,
+            size: dsFinal.size,
+            opacity: dsFinal.opacity,
+            closed: currentPathRef.current.closed,
+          };
+
+          // Add to drawings
+          setDrawings((prev) => {
+            const newDrawings = [...prev, serializedPath];
+
+            // Notify parent
+            if (onDrawingData) {
+              onDrawingData(serializedPath);
+            }
+
+            return newDrawings;
+          });
+
+          setCurrentPath(null);
+          currentPathRef.current = null;
+          paperScope.view.update();
+
+          // Sync drawings to state
+          setTimeout(() => {
+            syncDrawingsToState();
+          }, 100);
+        };
+      }
+    }
+  }, [mode, paperScope, onDrawingData, setDrawings, syncDrawingsToState]);
+
+  // Handle canvas resize
+  useEffect(() => {
+    const updateCanvasSize = () => {
+      if (canvasRef.current) {
+        const rect = canvasRef.current.getBoundingClientRect();
+        setCanvasSize({ width: rect.width, height: rect.height });
+      }
+    };
+
+    updateCanvasSize();
+    window.addEventListener("resize", updateCanvasSize);
+
+    return () => {
+      window.removeEventListener("resize", updateCanvasSize);
+    };
+  }, []);
+
   // Mode is now passed as prop
 
   // -------- Paper.js setup --------
   const initializePaper = useCallback(async () => {
-    if (!canvasRef.current || isInitialized || typeof window === "undefined")
+    if (!canvasRef.current || isInitialized || typeof window === "undefined" || paperScope)
       return;
     try {
       const paper = (await import("paper")).default;
@@ -263,20 +389,6 @@ export default function DrawingCanvas({
         paper.view.update();
       };
 
-      // Also update style if drawingState changes mid-stroke (external prop/local)
-      const observer = new MutationObserver(() => {
-        if (currentPathRef.current) {
-          const ds = drawingStateRef.current;
-          currentPathRef.current.strokeColor = new paper.Color(ds.color);
-          currentPathRef.current.strokeWidth = ds.size;
-          currentPathRef.current.opacity = ds.opacity;
-        }
-      });
-      // Observe attribute changes on canvas element as a simple hook to trigger updates
-      if (canvasRef.current) {
-        observer.observe(canvasRef.current, { attributes: true });
-      }
-
       tool.onMouseUp = (event: any) => {
         if (
           !isDrawingRef.current ||
@@ -291,11 +403,8 @@ export default function DrawingCanvas({
 
         // Finalize path: apply a curvier smoothing algorithm (Catmull-Rom)
         try {
-          // Catmull-Rom produces nice rounded curves through the points.
-          // Factor controls tension; higher => tighter curves. 0.6 is a good starting point.
           currentPathRef.current.smooth({ type: 'catmull-rom', factor: 0.6 });
         } catch (_e) {
-          // Fallback to continuous smoothing if catmull-rom isn't available
           try {
             currentPathRef.current.smooth({ type: 'continuous' });
           } catch (_e) {
@@ -443,6 +552,7 @@ export default function DrawingCanvas({
     setDrawings,
     syncDrawingsToState,
     setDrawingState,
+    paperScope
   ]);
 
   // -------- Load initial drawings --------
@@ -457,7 +567,7 @@ export default function DrawingCanvas({
       pathsRef.current.clear();
       setDrawings([]);
       // Ensure we don't immediately reload the old `drawings` value
-      return; // <-- ajouté : sortir pour éviter de recharger les anciens dessins
+      return;
     }
 
     // Clear existing paths
@@ -707,6 +817,13 @@ export default function DrawingCanvas({
   // -------- Cleanup --------
   useEffect(() => {
     return () => {
+      // Reset all refs and state when component unmounts (modal closes)
+      setIsDrawing(false);
+      isDrawingRef.current = false;
+      setCurrentPath(null);
+      currentPathRef.current = null;
+      lastPointRef.current = null;
+      
       if (paperScope) {
         paperScope.project.clear();
       }
@@ -733,4 +850,3 @@ export default function DrawingCanvas({
     </div>
   );
 }
-
