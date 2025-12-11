@@ -31,8 +31,8 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: false, error: "Accès refusé" }, { status: 500 });
     }
 
-    // Optionally, redirect to a success page or return JSON
-    return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/`);
+    // Rediriger vers le document partagé
+    return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/documents/${id_doc}`);
   } catch (error) {
     return NextResponse.json({ success: false, error: "Accès refusé" }, { status: 500 });
   }

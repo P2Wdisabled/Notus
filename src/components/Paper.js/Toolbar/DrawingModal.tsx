@@ -17,26 +17,10 @@ export default function DrawingModal({ isOpen, onClose, onFormatChange }: Drawin
   const [drawings, setDrawings] = useState<any[]>([]);
   const [drawingState, setDrawingState] = useState({ color: "#000000", size: 3, opacity: 1 });
 
-  // Ensure canvas is cleared every time the modal opens
-  useEffect(() => {
-    if (isOpen) {
-      // reset parent drawings state
-      setDrawings([]);
-      // If controller already available, clear canvas immediately
-      const ctrl = canvasCtrlRef.current;
-      if (ctrl) {
-        // prefer atomic clearAndSync if available
-        if (typeof ctrl.clearAndSync === 'function') {
-          ctrl.clearAndSync();
-        } else if (typeof ctrl.clearCanvas === 'function') {
-          ctrl.clearCanvas();
-        }
-      }
-    }
-  }, [isOpen]);
+  // Mount once on page load; do not clear on open/close. Users can clear manually.
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Dessiner" size="full" className="sm:max-w-4xl">
+    <Modal keepMounted isOpen={isOpen} onClose={onClose} title="Dessiner" size="full" className="sm:max-w-4xl">
       <Modal.Content>
         <div ref={drawingModalContentRef} className="w-full max-h-[80vh] relative bg-card border border-border rounded overflow-hidden">
           <div className="relative w-full h-[50vh] sm:h-[60vh] md:h-[65vh]">
@@ -49,15 +33,6 @@ export default function DrawingModal({ isOpen, onClose, onFormatChange }: Drawin
               setDrawingState={setDrawingState}
               onCanvasReady={(ctrl: any) => {
                 canvasCtrlRef.current = ctrl;
-                // If modal is already open when canvas mounts, ensure it's cleared
-                if (isOpen) {
-                  try {
-                    if (typeof ctrl.clearAndSync === 'function') ctrl.clearAndSync();
-                    else if (typeof ctrl.clearCanvas === 'function') ctrl.clearCanvas();
-                  } catch (_e) {
-                    // ignore
-                  }
-                }
               }}
             />
           </div>

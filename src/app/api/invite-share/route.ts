@@ -39,12 +39,34 @@ export async function POST(request: Request) {
       return ownershipCheck;
     }
 
-    const token = jwt.sign({ id_doc: docId, email, permission }, secret, { expiresIn: "2d" });
+    // Normaliser l'email fourni pour la comparaison
+    const normalizedEmail = email.toLowerCase().trim();
+    const normalizedAuthEmail = authResult.email.toLowerCase().trim();
+
+    // Empêcher l'auto-invitation
+    if (normalizedEmail === normalizedAuthEmail) {
+      return NextResponse.json(
+        { success: false, error: "Vous ne pouvez pas vous inviter vous-même." },
+        { status: 400 }
+      );
+    }
+
+    // Vérifier si l'utilisateur avec cet email existe avant d'envoyer le mail
+    const userRepo = new PrismaUserRepository();
+    const userResult = await userRepo.getUserByEmail(normalizedEmail);
+    if (!userResult.success || !userResult.user) {
+      return NextResponse.json(
+        { success: false, error: "Vous ne pouvez pas envoyer de mail à cet utilisateur." },
+        { status: 404 }
+      );
+    }
+
+    const token = jwt.sign({ id_doc: docId, email: normalizedEmail, permission }, secret, { expiresIn: "2d" });
     const confirmUrl = `${process.env.NEXTAUTH_URL}/api/confirm-share?token=${token}`;
 
     const emailService = new EmailService();
     const emailResult = await emailService.sendShareInviteEmail(
-      email,
+      normalizedEmail,
       confirmUrl,
       inviterName || "Un utilisateur",
       docTitle
@@ -55,21 +77,17 @@ export async function POST(request: Request) {
     }
 
     try {
-      const userRepo = new PrismaUserRepository();
-      const userResult = await userRepo.getUserByEmail(email);
-      if (userResult.success && userResult.user) {
-        const notifSvc = new NotificationService();
-        const senderId = authResult.userId;
+      const notifSvc = new NotificationService();
+      const senderId = authResult.userId;
 
-        // message can be structured; NotificationRepository stringifies it
-        await notifSvc.sendNotification(senderId, userResult.user.id, {
-          type: "share-invite",
-          from: inviterName || "Un utilisateur",
-          documentId: docId,
-          documentTitle: docTitle,
-          url: confirmUrl,
-        });
-      }
+      // message can be structured; NotificationRepository stringifies it
+      await notifSvc.sendNotification(senderId, userResult.user.id, {
+        type: "share-invite",
+        from: inviterName || "Un utilisateur",
+        documentId: docId,
+        documentTitle: docTitle,
+        url: confirmUrl,
+      });
     } catch (e) {
       console.warn("Could not create in-app notification for invite:", e);
     }

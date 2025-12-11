@@ -18,6 +18,7 @@ export interface ModalProps {
   title?: string;
   size?: "sm" | "md" | "lg" | "xl" | "full";
   className?: string;
+  keepMounted?: boolean;
 }
 
 const Modal: React.FC<ModalProps> & {
@@ -26,7 +27,7 @@ const Modal: React.FC<ModalProps> & {
   Description: typeof ModalDescription;
   Content: typeof ModalContent;
   Footer: typeof ModalFooter;
-} = ({ isOpen, onClose, children, title, size = "md", className = "" }) => {
+} = ({ isOpen, onClose, children, title, size = "md", className = "", keepMounted = false }) => {
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -55,7 +56,7 @@ const Modal: React.FC<ModalProps> & {
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className={`${sizes[size]} ${className}`}>
+      <DialogContent keepMounted={keepMounted} isOpen={isOpen} className={`${sizes[size]} ${className}`}>
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="sr-only">
             {title || "Modal"}

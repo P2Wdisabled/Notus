@@ -343,6 +343,7 @@ export default function AdminSettingsPage() {
                   onClick={handleSaveTokenLimit}
                   disabled={savingTokenLimit}
                   size="sm"
+                  className="px-4 py-2"
                 >
                   {savingTokenLimit ? (
                     <>
@@ -435,6 +436,7 @@ export default function AdminSettingsPage() {
                 onClick={handleSaveOllamaConfig}
                 disabled={savingOllama}
                 size="sm"
+                className="px-4 py-2"
               >
                 {savingOllama ? (
                   <>
