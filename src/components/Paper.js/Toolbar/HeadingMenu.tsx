@@ -10,6 +10,23 @@ export default function HeadingMenu({ onFormatChange }: HeadingMenuProps) {
   const [showHeadingMenu, setShowHeadingMenu] = useState(false);
   const MENU_ID = 'headingMenu';
 
+  // Trigger the fontSize command twice to mimic a double click:
+  // 1st pass can restore selection/focus, 2nd pass applies reliably.
+  const applyFontSizeDouble = (size: string) => {
+    try {
+      onFormatChange('fontSize', size);
+      // Use rAF to schedule after layout/selection restore
+      if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+        window.requestAnimationFrame(() => onFormatChange('fontSize', size));
+      } else {
+        setTimeout(() => onFormatChange('fontSize', size), 0);
+      }
+    } catch {
+      // Fallback single apply if anything goes wrong
+      onFormatChange('fontSize', size);
+    }
+  };
+
   useEffect(() => {
     const handler = (e: Event) => {
       const ce = e as CustomEvent<string>;
@@ -55,7 +72,7 @@ export default function HeadingMenu({ onFormatChange }: HeadingMenuProps) {
             <button
               type="button"
               onClick={() => {
-                onFormatChange('fontSize', '16px');
+                applyFontSizeDouble('16px');
                 setShowHeadingMenu(false);
               }}
               className="w-full px-4 py-2 text-sm hover:bg-muted flex items-center justify-between whitespace-nowrap"
@@ -85,7 +102,7 @@ export default function HeadingMenu({ onFormatChange }: HeadingMenuProps) {
                   key={level}
                   type="button"
                   onClick={() => {
-                    onFormatChange('fontSize', fontSize);
+                    applyFontSizeDouble(fontSize);
                     setShowHeadingMenu(false);
                   }}
                   className="w-full px-4 py-2 text-sm hover:bg-muted flex items-center justify-between whitespace-nowrap"

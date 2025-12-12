@@ -1311,21 +1311,28 @@ export class FormattingHandler {
           if (value) {
             const fontSizeValue = value.includes('px') ? value : `${value}px`;
             const isDefaultSize = fontSizeValue === '16px' || fontSizeValue === '16';
+            const isCollapsed = range.collapsed;
             
-            // If default size (16px), remove fontSize spans instead of applying
-            if (isDefaultSize) {
-              // Find all span elements with fontSize in the selection and unwrap them
-              const spansToUnwrap: HTMLElement[] = [];
+            // Helper: collect all font-size spans intersecting the selection, including ancestors
+            const collectFontSizeSpans = (editorRoot: HTMLElement, selectionRange: Range) => {
+              const result: HTMLElement[] = [];
+
+              // 1) Walk the entire editor to catch any intersecting font-size spans
               const walker = document.createTreeWalker(
-                range.commonAncestorContainer,
+                editorRoot,
                 NodeFilter.SHOW_ELEMENT,
                 {
                   acceptNode: (node: Node) => {
                     if (node.nodeType === Node.ELEMENT_NODE) {
                       const el = node as HTMLElement;
-                      if (el.tagName === 'SPAN' && el.style.fontSize) {
-                        if (range.intersectsNode(el)) {
-                          return NodeFilter.FILTER_ACCEPT;
+                      const hasFontSize = !!el.style.fontSize || !!el.style.getPropertyValue('font-size');
+                      if (el.tagName === 'SPAN' && hasFontSize) {
+                        try {
+                          if (selectionRange.intersectsNode(el)) {
+                            return NodeFilter.FILTER_ACCEPT;
+                          }
+                        } catch {
+                          // intersectsNode may throw if node is detached; skip
                         }
                       }
                     }
@@ -1333,31 +1340,128 @@ export class FormattingHandler {
                   }
                 }
               );
-              
-              let span: Node | null;
-              while (span = walker.nextNode()) {
-                spansToUnwrap.push(span as HTMLElement);
+
+              let n: Node | null;
+              while (n = walker.nextNode()) {
+                result.push(n as HTMLElement);
               }
-              
-              // Unwrap spans in reverse order to avoid offset issues
-              for (let i = spansToUnwrap.length - 1; i >= 0; i--) {
-                const span = spansToUnwrap[i];
-                const parent = span.parentNode;
-                if (parent) {
-                  while (span.firstChild) {
-                    parent.insertBefore(span.firstChild, span);
+
+              // 2) Also include any ancestor font-size spans of start/end containers
+              const addAncestorSpans = (node: Node | null) => {
+                while (node && node !== editorRoot) {
+                  const el = (node.nodeType === Node.ELEMENT_NODE ? (node as HTMLElement) : node.parentElement) as HTMLElement | null;
+                  if (!el) break;
+                  const hasFontSize = el.tagName === 'SPAN' && (!!el.style.fontSize || !!el.style.getPropertyValue('font-size'));
+                  if (hasFontSize && !result.includes(el)) {
+                    result.push(el);
                   }
-                  parent.removeChild(span);
+                  node = el.parentElement as Node | null;
+                }
+              };
+
+              addAncestorSpans(selectionRange.startContainer);
+              addAncestorSpans(selectionRange.endContainer);
+
+              return result;
+            };
+
+            // Helper: unwrap elements in reverse order
+            const unwrapElements = (elements: HTMLElement[]) => {
+              for (let i = elements.length - 1; i >= 0; i--) {
+                const el = elements[i];
+                const parent = el.parentNode;
+                if (!parent) continue;
+                while (el.firstChild) parent.insertBefore(el.firstChild, el);
+                parent.removeChild(el);
+              }
+            };
+
+            const editorRoot = this.editorRef.current as HTMLElement | null;
+            if (!editorRoot) {
+              break;
+            }
+
+            if (isCollapsed) {
+              // Caret-only change: update existing ancestor span if present, otherwise create a span placeholder
+              let node: Node | null = range.startContainer;
+              let ancestorSpan: HTMLElement | null = null;
+              while (node && node !== editorRoot) {
+                const el = (node.nodeType === Node.ELEMENT_NODE ? (node as HTMLElement) : node.parentElement) as HTMLElement | null;
+                if (el && el.tagName === 'SPAN' && (el.style.fontSize || el.style.getPropertyValue('font-size'))) {
+                  ancestorSpan = el;
+                  break;
+                }
+                node = el ? el.parentElement : null;
+              }
+
+              if (isDefaultSize) {
+                if (ancestorSpan) {
+                  // Remove font-size on the current span; if it becomes style-empty, unwrap it
+                  ancestorSpan.style.fontSize = '';
+                  if (!(ancestorSpan.getAttribute('style') || '').trim()) {
+                    const parent = ancestorSpan.parentNode;
+                    if (parent) {
+                      // Move caret to correct position before unwrapping
+                      const caretRange = document.createRange();
+                      caretRange.setStart(range.startContainer, range.startOffset);
+                      caretRange.collapse(true);
+                      while (ancestorSpan.firstChild) parent.insertBefore(ancestorSpan.firstChild, ancestorSpan);
+                      parent.removeChild(ancestorSpan);
+                      const sel = window.getSelection();
+                      if (sel) {
+                        sel.removeAllRanges();
+                        sel.addRange(caretRange);
+                      }
+                    }
+                  } else {
+                    restoreSelection();
+                  }
+                } else {
+                  restoreSelection();
+                }
+                this.syncMarkdown();
+                break;
+              } else {
+                if (ancestorSpan) {
+                  ancestorSpan.style.fontSize = fontSizeValue;
+                  restoreSelection();
+                  this.syncMarkdown();
+                  break;
+                } else {
+                  // Create a placeholder span at caret so that next typing uses this size
+                  const span = document.createElement('span');
+                  span.style.fontSize = fontSizeValue;
+                  const zwsp = document.createTextNode('\u200b');
+                  span.appendChild(zwsp);
+                  const caretRange = range.cloneRange();
+                  caretRange.insertNode(span);
+                  // Place caret inside the new span (after the zero-width char)
+                  const newRange = document.createRange();
+                  newRange.setStart(zwsp, 1);
+                  newRange.collapse(true);
+                  const sel = window.getSelection();
+                  if (sel) {
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
+                  }
+                  this.syncMarkdown();
+                  break;
                 }
               }
-              
+            }
+
+            // Non-collapsed selection: Always remove existing font-size wrappers in selection first
+            const spansToUnwrap = collectFontSizeSpans(editorRoot, range);
+            if (spansToUnwrap.length) unwrapElements(spansToUnwrap);
+
+            if (isDefaultSize) {
+              // Returning to default: nothing more to apply
               restoreSelection();
               this.syncMarkdown();
               break;
             }
-            
-            // For non-default sizes, use applyInlineFormatting like bold/italic
-            // Disable toggle so we always apply the new size even if already applied
+
+            // Apply new size once over the selection
             const savedRange = range.cloneRange();
             this.applyInlineFormatting(savedRange, 'span', { fontSize: fontSizeValue }, true);
             restoreSelection();
