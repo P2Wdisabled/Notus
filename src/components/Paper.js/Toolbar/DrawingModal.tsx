@@ -2,6 +2,7 @@
 import { useState, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
 import Modal from "@/components/ui/modal";
+import { useDrawings } from "@/contexts/DrawingContext";
 
 const ClientOnlyDrawingCanvas = dynamic(() => import("./ClientOnlyDrawingCanvas"), { ssr: false });
 
@@ -14,13 +15,12 @@ interface DrawingModalProps {
 export default function DrawingModal({ isOpen, onClose, onFormatChange }: DrawingModalProps) {
   const canvasCtrlRef = useRef<any>(null);
   const drawingModalContentRef = useRef<HTMLDivElement>(null);
-  const [drawings, setDrawings] = useState<any[]>([]);
-  const [drawingState, setDrawingState] = useState({ color: "#000000", size: 3, opacity: 1 });
+  const { drawings, setDrawings, drawingState, setDrawingState, resetDrawings } = useDrawings();
 
   // Mount once on page load; do not clear on open/close. Users can clear manually.
 
   return (
-    <Modal keepMounted isOpen={isOpen} onClose={onClose} title="Dessiner" size="full" className="sm:max-w-4xl">
+    <Modal isOpen={isOpen} onClose={onClose} title="Dessiner" size="full" className="sm:max-w-4xl">
       <Modal.Content>
         <div ref={drawingModalContentRef} className="w-full max-h-[80vh] relative bg-card border border-border rounded overflow-hidden">
           <div className="relative w-full h-[50vh] sm:h-[60vh] md:h-[65vh]">
@@ -45,7 +45,7 @@ export default function DrawingModal({ isOpen, onClose, onFormatChange }: Drawin
               value={drawingState.color}
               onChange={(e) => {
                 const color = e.target.value;
-                setDrawingState((s) => ({ ...s, color }));
+                setDrawingState({ color });
                 canvasCtrlRef.current?.setDrawingState?.({ color });
               }}
               className="h-9 w-12 p-1 rounded border border-border bg-transparent"
@@ -60,7 +60,7 @@ export default function DrawingModal({ isOpen, onClose, onFormatChange }: Drawin
               value={drawingState.size}
               onChange={(e) => {
                 const size = Number(e.target.value);
-                setDrawingState((s) => ({ ...s, size }));
+                setDrawingState({ size });
                 canvasCtrlRef.current?.setDrawingState?.({ size });
               }}
               className="flex-1"
@@ -77,7 +77,7 @@ export default function DrawingModal({ isOpen, onClose, onFormatChange }: Drawin
               value={drawingState.opacity}
               onChange={(e) => {
                 const opacity = Number(e.target.value);
-                setDrawingState((s) => ({ ...s, opacity }));
+                setDrawingState({ opacity });
                 canvasCtrlRef.current?.setDrawingState?.({ opacity });
               }}
               className="flex-1"
@@ -92,7 +92,7 @@ export default function DrawingModal({ isOpen, onClose, onFormatChange }: Drawin
           className="px-3 py-2 rounded bg-muted hover:bg-muted/80"
           onClick={() => {
             // Reset
-            setDrawings([]);
+            resetDrawings();
             canvasCtrlRef.current?.clearCanvas?.();
           }}
         >
@@ -107,7 +107,7 @@ export default function DrawingModal({ isOpen, onClose, onFormatChange }: Drawin
               if (dataUrl) {
                 onFormatChange('insertImage', dataUrl);
                 // clear canvas state so reopening shows empty canvas
-                setDrawings([]);
+                resetDrawings();
                 try {
                   const ctrl = canvasCtrlRef.current;
                   if (ctrl) {

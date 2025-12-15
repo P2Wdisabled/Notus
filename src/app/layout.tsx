@@ -13,6 +13,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../lib/auth";
 import Link from "next/link";
 import { Metadata } from "next";
+import { DrawingsProvider } from "@/contexts/DrawingContext";
 
 export const metadata: Metadata = {
   title: "Notus",
@@ -48,20 +49,22 @@ export default async function RootLayout({
         <ThemeProvider>
           <DynamicFavicon />
           <AuthSessionProvider session={session}>
-            <NotificationProvider>
-              <UserStatusGuard>
-                <SearchProvider>
-                  <SelectionProvider>
-                    <main id="main-content">
-                      {children}
-                    </main>
-                    <FloatingCreateButton serverSession={session} />
-                    <ThemeToggle />
-                    <OfflinePopin />
-                  </SelectionProvider>
-                </SearchProvider>
-              </UserStatusGuard>
-            </NotificationProvider>
+            <DrawingsProvider>
+              <NotificationProvider>
+                <UserStatusGuard>
+                  <SearchProvider>
+                    <SelectionProvider>
+                      <main id="main-content">
+                        {children}
+                      </main>
+                      <FloatingCreateButton serverSession={session} />
+                      <ThemeToggle />
+                      <OfflinePopin />
+                    </SelectionProvider>
+                  </SearchProvider>
+                </UserStatusGuard>
+              </NotificationProvider>
+            </DrawingsProvider>
           </AuthSessionProvider>
         </ThemeProvider>
 

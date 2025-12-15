@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useLayoutEffect } from "react";
 import { useSocket } from "@/lib/paper.js/socket-client";
 import { useLocalSession } from "@/hooks/useLocalSession";
 
@@ -20,6 +20,9 @@ interface DrawingState {
   size: number;
   opacity: number;
 }
+
+// Global variable to hold current drawing state for Paper.js event handlers
+let globalDrawingState: DrawingState = { color: "#000000", size: 3, opacity: 1 };
 
 interface CanvasController {
   saveDrawings: () => Promise<Drawing[]>;
@@ -93,11 +96,13 @@ export default function DrawingCanvas({
   // Use prop drawing state if available, otherwise use local state
   const drawingState = propDrawingState || localDrawingState;
   const setDrawingState = propSetDrawingState || setLocalDrawingState;
-  const drawingStateRef = useRef<DrawingState>(drawingState);
 
-  // Keep a live ref of the current drawing state for event handlers
-  useEffect(() => {
-    drawingStateRef.current = drawingState;
+  console.log("DrawingCanvas - drawingState:", drawingState, "propDrawingState:", propDrawingState);
+
+  // Update global drawing state for event handlers
+  useLayoutEffect(() => {
+    globalDrawingState = drawingState;
+    console.log("useLayoutEffect - updated globalDrawingState to:", drawingState);
   }, [drawingState]);
 
   // When controls (color/size/opacity) change while drawing, apply to the current path immediately
@@ -106,8 +111,10 @@ export default function DrawingCanvas({
     const current = currentPathRef.current;
     if (current) {
       try {
-        const ds = drawingStateRef.current;
+        const ds = globalDrawingState;
+        console.log("useEffect - updating current path with:", ds);
         current.strokeColor = new paperScope.Color(ds.color);
+        console.log("useEffect - setting strokeColor to:", ds.color);
         current.strokeWidth = ds.size;
         current.opacity = ds.opacity;
         paperScope.view.update();
@@ -213,8 +220,10 @@ export default function DrawingCanvas({
         isDrawingRef.current = true;
 
         const path = new paper.Path();
-        const ds = drawingStateRef.current;
+        const ds = globalDrawingState;
+        console.log("onMouseDown - globalDrawingState:", ds);
         path.strokeColor = new paper.Color(ds.color);
+        console.log("onMouseDown - setting strokeColor to:", ds.color);
         path.strokeWidth = ds.size;
         path.strokeCap = "round";
         path.strokeJoin = "round";
@@ -256,8 +265,10 @@ export default function DrawingCanvas({
           }
         }
         // Live update current path style in case controls changed mid-stroke
-        const ds = drawingStateRef.current;
+        const ds = globalDrawingState;
+        console.log("onMouseDrag - updating path style with:", ds);
         currentPathRef.current.strokeColor = new paper.Color(ds.color);
+        console.log("onMouseDrag - setting strokeColor to:", ds.color);
         currentPathRef.current.strokeWidth = ds.size;
         currentPathRef.current.opacity = ds.opacity;
         paper.view.update();
@@ -266,8 +277,10 @@ export default function DrawingCanvas({
       // Also update style if drawingState changes mid-stroke (external prop/local)
       const observer = new MutationObserver(() => {
         if (currentPathRef.current) {
-          const ds = drawingStateRef.current;
+          const ds = globalDrawingState;
+          console.log("MutationObserver - updating path style with:", ds);
           currentPathRef.current.strokeColor = new paper.Color(ds.color);
+          console.log("MutationObserver - setting strokeColor to:", ds.color);
           currentPathRef.current.strokeWidth = ds.size;
           currentPathRef.current.opacity = ds.opacity;
         }
@@ -306,7 +319,7 @@ export default function DrawingCanvas({
         lastPointRef.current = null;
 
         // Convert to serializable format
-        const dsFinal = drawingStateRef.current;
+        const dsFinal = globalDrawingState;
         const serializedPath: Drawing = {
           segments: currentPathRef.current.segments.map((segment: any) => ({
             point: [segment.point.x, segment.point.y] as [number, number],
@@ -471,9 +484,9 @@ export default function DrawingCanvas({
 
         try {
           const path = new paperScope.Path();
-          const color = drawing.color || drawingStateRef.current.color || "#000000";
-          const size = drawing.size || drawingStateRef.current.size || 3;
-          const opacity = drawing.opacity ?? drawingStateRef.current.opacity ?? 1;
+          const color = drawing.color || globalDrawingState.color || "#000000";
+          const size = drawing.size || globalDrawingState.size || 3;
+          const opacity = drawing.opacity ?? globalDrawingState.opacity ?? 1;
           path.strokeColor = new paperScope.Color(color);
           path.strokeWidth = size;
           path.strokeCap = "round";
