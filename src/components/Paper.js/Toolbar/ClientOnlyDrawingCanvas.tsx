@@ -29,7 +29,7 @@ interface ClientOnlyDrawingCanvasProps {
   onCanvasReady?: (canvasCtrl: any) => void;
   hasLoadedInitialDrawingsRef?: React.MutableRefObject<boolean>;
   drawingState?: DrawingState;
-  setDrawingState?: (state: DrawingState | ((prev: DrawingState) => DrawingState)) => void;
+  setDrawingState?: (state: DrawingState | ((prev: DrawingState) => DrawingState) | Partial<DrawingState>) => void;
   [key: string]: any;
 }
 

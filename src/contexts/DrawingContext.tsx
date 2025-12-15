@@ -9,9 +9,9 @@ interface DrawingState {
 
 interface DrawingsContextType {
   drawings: any[];
-  setDrawings: (drawings: any[]) => void;
+  setDrawings: (drawings: any[] | ((prev: any[]) => any[])) => void;
   drawingState: DrawingState;
-  setDrawingState: (state: Partial<DrawingState>) => void;
+  setDrawingState: (state: DrawingState | ((prev: DrawingState) => DrawingState) | Partial<DrawingState>) => void;
   resetDrawings: () => void;
 }
 
@@ -25,8 +25,12 @@ export function DrawingsProvider({ children }: { children: ReactNode }) {
     opacity: 1,
   });
 
-  const setDrawingState = (state: Partial<DrawingState>) => {
-    setDrawingStateInternal((prev) => ({ ...prev, ...state }));
+  const setDrawingState = (state: DrawingState | ((prev: DrawingState) => DrawingState) | Partial<DrawingState>) => {
+    if (typeof state === 'function') {
+      setDrawingStateInternal(state);
+    } else {
+      setDrawingStateInternal((prev) => ({ ...prev, ...state }));
+    }
   };
 
   const resetDrawings = () => {

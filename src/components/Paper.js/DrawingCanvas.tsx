@@ -42,7 +42,7 @@ interface DrawingCanvasProps {
   hasLoadedInitialDrawingsRef?: React.MutableRefObject<boolean>;
   mode?: string;
   drawingState?: DrawingState;
-  setDrawingState?: (state: DrawingState | ((prev: DrawingState) => DrawingState)) => void;
+  setDrawingState?: (state: DrawingState | ((prev: DrawingState) => DrawingState) | Partial<DrawingState>) => void;
   startFresh?: boolean;
   [key: string]: any;
 }
